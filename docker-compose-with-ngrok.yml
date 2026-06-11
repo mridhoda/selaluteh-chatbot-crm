@@ -1,0 +1,24 @@
+name: eskala-bot
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    ports:
+      - "4040:4040"  # Ngrok Web Interface
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-YOUR_NGROK_AUTHTOKEN_HERE}
+    command: http host.docker.internal:5000
+    network_mode: bridge
+    depends_on:
+      - mongo
+
+volumes:
+  mongo_data: {}

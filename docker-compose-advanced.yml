@@ -1,0 +1,55 @@
+name: eskala-bot
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  # Untuk menjalankan ngrok ketika backend berjalan di luar Docker (localhost)
+  ngrok-standalone:
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    ports:
+      - "4040:4040"  # Ngrok Web Interface
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-YOUR_NGROK_AUTHTOKEN_HERE}
+    command: http host.docker.internal:5000
+    profiles:
+      - external-server
+
+  # Untuk menjalankan ngrok ketika backend berjalan di dalam Docker
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.example  # Anda perlu membuat Dockerfile ini
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/chatbot_crm
+      - JWT_SECRET=please_change_me
+      - CORS_ORIGIN=http://host.docker.internal:5173
+      - PORT=5000
+    depends_on:
+      - mongo
+    profiles:
+      - internal-server
+
+  ngrok-with-server:
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    ports:
+      - "4040:4040"  # Ngrok Web Interface
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-YOUR_NGROK_AUTHTOKEN_HERE}
+    command: http server:5000
+    depends_on:
+      - server
+    profiles:
+      - internal-server
+
+volumes:
+  mongo_data: {}

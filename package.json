@@ -1,0 +1,14 @@
+{
+  "name": "eskala-bot",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "dev:web": "npm --prefix web run dev",
+    "dev:server": "npm --prefix server run dev",
+    "build": "npm --prefix web run build",
+    "start": "npm --prefix server run start",
+    "seed": "npm --prefix server run seed",
+    "cleanup": "npm --prefix server run cleanup"
+  }
+}
+

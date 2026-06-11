@@ -1,0 +1,15 @@
+﻿/* INBOX MODERN UI - Chat Bubbles */
+.chat-message-wrapper.user { justify-content: flex-start; }
+.chat-message-wrapper.agent { justify-content: flex-end; }
+.chat-message-wrapper.user .chat-message-bubble {
+  background: white;
+  color: #334155;
+  border: 1px solid #F1F5F9;
+  border-radius: 20px 20px 20px 4px;
+}
+.chat-message-wrapper.agent .chat-message-bubble {
+  background: linear-gradient(135deg, #F97316 0%, #EC4899 100%);
+  color: white;
+  border-radius: 20px 20px 4px 20px;
+  border: none;
+}
