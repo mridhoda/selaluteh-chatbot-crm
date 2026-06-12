@@ -1,0 +1,27 @@
+{
+  "package": "backend-overview-docs-v2",
+  "project": "SelaluTeh Chatbot CRM \u2014 Telegram Marketplace MVP",
+  "folder": "docs/backend/00-overview",
+  "generated_at": "2026-06-12T03:03:52.824566+00:00",
+  "total_files": 18,
+  "files": [
+    "ALL_OVERVIEW_DOCS_COMBINED.md",
+    "README.md",
+    "assumptions-constraints.md",
+    "current-state.md",
+    "decision-summary.md",
+    "glossary.md",
+    "goals-kpi.md",
+    "manifest.json",
+    "mvp-principles.md",
+    "non-goals.md",
+    "overview-map.md",
+    "product-vision.md",
+    "project-summary.md",
+    "risks-overview.md",
+    "scope.md",
+    "stakeholders.md",
+    "success-metrics.md",
+    "target-state.md"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "name": "backend-business-rules-v2",
+  "description": "Business rules documentation for Chatbot CRM + Telegram-first Marketplace MVP backend.",
+  "generated_files_count": 21,
+  "files": [
+    "README.md",
+    "ai-agent-rules.md",
+    "audit-log-rules.md",
+    "cart-checkout-rules.md",
+    "complaint-rules.md",
+    "domain-rules.md",
+    "export-rules.md",
+    "generation-rules.md",
+    "human-takeover-rules.md",
+    "notification-rules.md",
+    "order-rules.md",
+    "payment-rules.md",
+    "permissions.md",
+    "product-catalog-rules.md",
+    "quota-rules.md",
+    "status-rules.md",
+    "storage-rules.md",
+    "telegram-commerce-rules.md",
+    "validations.md",
+    "webhook-rules.md",
+    "workspace-tenant-rules.md"
+  ],
+  "notes": [
+    "Designed for docs/backend/03-business-rules.",
+    "API details should live in 05-api-spec.",
+    "Database schema details should live in 06-data.",
+    "Security implementation details should live in 08-security."
+  ]
+}

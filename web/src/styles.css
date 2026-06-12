@@ -241,6 +241,51 @@ a:hover {
     /* Subtle shadow */
 }
 
+.sidebar-header {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px 10px 6px;
+}
+
+.sidebar-pin-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: white;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.sidebar-pin-btn:hover {
+    background: var(--lp-orange-50);
+    color: var(--brand);
+    border-color: var(--lp-orange-100);
+}
+
+.sidebar-pin-btn.is-active {
+    background: var(--lp-orange-50);
+    color: var(--brand);
+    border-color: var(--lp-orange-100);
+}
+
+.sidebar-pin-label {
+    display: none;
+    font-size: 12px;
+}
+
+.sidebar:hover .sidebar-pin-label,
+.sidebar--pinned .sidebar-pin-label,
+body.sidebar-pinned .sidebar-pin-label {
+    display: inline;
+}
+
 .sidebar .label {
     opacity: 0;
     transition: all 0.2s ease-out;
@@ -261,6 +306,22 @@ a:hover {
     /* Allow it to expand fully within its flex container */
     flex-grow: 1;
     /* Takes up remaining space */
+}
+
+.sidebar--pinned {
+    width: 270px;
+}
+
+.sidebar--pinned .label {
+    opacity: 1;
+    max-width: 200px;
+    white-space: nowrap;
+    word-break: break-word;
+    flex-grow: 1;
+}
+
+.sidebar--pinned .sidebar-pin-label {
+    display: inline;
 }
 
 .sidebar:hover {
@@ -325,7 +386,8 @@ a:hover {
     overflow: hidden;
 }
 
-.sidebar:hover~.main {
+.sidebar-container:hover~.main,
+body.sidebar-pinned .main {
     margin-left: 270px;
 }
 
@@ -355,12 +417,91 @@ a:hover {
     box-shadow: var(--panel-shadow);
 }
 
+.navbar--pinned {
+    height: 44px;
+    padding: 0 12px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    backdrop-filter: blur(16px);
+}
+
 .dashboard-layout .navbar {
     margin-left: 64px;
 }
 
-.dashboard-layout .sidebar-container:hover~.navbar {
+.dashboard-layout .sidebar-container:hover~.navbar,
+body.sidebar-pinned .dashboard-layout .navbar {
     margin-left: 270px;
+}
+
+body.sidebar-pinned .sidebar {
+    width: 270px;
+}
+
+body.sidebar-pinned .sidebar:hover {
+    width: 270px;
+}
+
+body.sidebar-pinned .sidebar .label {
+    opacity: 1;
+    max-width: 200px;
+    white-space: nowrap;
+    word-break: break-word;
+    flex-grow: 1;
+}
+
+.navbar-pin-btn {
+    height: 40px;
+    padding: 0 12px;
+    gap: 6px;
+}
+
+.navbar-pin-btn.is-active {
+    background: var(--lp-orange-50);
+    border-color: var(--lp-orange-200, #fed7aa);
+    color: var(--lp-orange-600, #ea580c);
+}
+
+.navbar-pin-label {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.navbar-compact-hidden {
+    display: inline-flex;
+    align-items: center;
+    transition: opacity 0.2s ease, transform 0.2s ease, max-width 0.2s ease, margin 0.2s ease;
+}
+
+.navbar--pinned .navbar-compact-hidden {
+    display: none;
+}
+
+.navbar--pinned .navbar-pin-label,
+.navbar--pinned .navbar-user-name {
+    display: none;
+}
+
+.navbar--pinned .logo {
+    gap: 8px;
+}
+
+.navbar--pinned .logo .lp-logo-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+}
+
+.navbar--pinned .row {
+    gap: 6px;
+}
+
+.navbar--pinned .btn.ghost {
+    padding: 4px 10px;
 }
 
 .logo {

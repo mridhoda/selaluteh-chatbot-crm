@@ -1,0 +1,35 @@
+{
+  "package": "telegram-marketplace-data-migrations-v2",
+  "generated_for": "KALIS.AI / eskala-bot",
+  "purpose": "Rewrite of 14 migration-related files plus new docs for Telegram-first marketplace MVP schema",
+  "preserved_original_file_count": 14,
+  "files": [
+    "README.md",
+    "checklists/marketplace-mvp-checklist.md",
+    "checklists/post-migration-checklist.md",
+    "checklists/pre-migration-checklist.md",
+    "notes/cutover-plan.md",
+    "notes/data-backfill-order.md",
+    "notes/marketplace-schema-notes.md",
+    "notes/mongo-to-postgres-mapping.md",
+    "notes/payment-gateway-contract.md",
+    "notes/repository-layer-contract.md",
+    "notes/telegram-commerce-flow.md",
+    "sql/001_extensions_and_enums.sql",
+    "sql/002_core_identity.sql",
+    "sql/003_platforms_agents.sql",
+    "sql/004_crm_chats_messages.sql",
+    "sql/005_orders_complaints_files.sql",
+    "sql/006_indexes.sql",
+    "sql/007_rls_policies.sql",
+    "sql/008_local_file_storage.sql",
+    "sql/009_migration_validation_queries.sql"
+  ],
+  "notes": [
+    "Supabase/Postgres structured data",
+    "Local server filesystem for large media",
+    "CRM compatibility preserved",
+    "Marketplace MVP tables added",
+    "AI commerce guardrails and webhook idempotency included"
+  ]
+}

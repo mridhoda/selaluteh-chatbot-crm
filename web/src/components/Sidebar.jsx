@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
@@ -8,6 +8,7 @@ import {
   faCog,
   faExclamationCircle,
   faShoppingCart,
+  faThumbtack,
 } from '@fortawesome/free-solid-svg-icons'
 import {
   faComment,
@@ -37,10 +38,49 @@ const bottomItems = [
 ]
 
 export default function Sidebar() {
+  const [isPinned, setIsPinned] = useState(() => {
+    try {
+      return localStorage.getItem('sidebarPinned') === '1'
+    } catch {
+      return false
+    }
+  })
+
+  useEffect(() => {
+    try {
+      if (isPinned) {
+        localStorage.setItem('sidebarPinned', '1')
+        document.body.classList.add('sidebar-pinned')
+      } else {
+        localStorage.removeItem('sidebarPinned')
+        document.body.classList.remove('sidebar-pinned')
+      }
+    } catch {
+      // Ignore storage errors in demo/private browsing contexts.
+    }
+    return () => {
+      document.body.classList.remove('sidebar-pinned')
+    }
+  }, [isPinned])
+
   return (
-    <div className='sidebar'>
+    <div className={`sidebar ${isPinned ? 'sidebar--pinned' : ''}`}>
+      <div className='sidebar-header'>
+        <button
+          type='button'
+          className={`sidebar-pin-btn ${isPinned ? 'is-active' : ''}`}
+          onClick={() => setIsPinned((prev) => !prev)}
+          aria-pressed={isPinned}
+          title={isPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+        >
+          <FontAwesomeIcon icon={faThumbtack} />
+          <span className='sidebar-pin-label'>
+            {isPinned ? 'Pinned' : 'Pin'}
+          </span>
+        </button>
+      </div>
       <div>
-        <div style={{ paddingTop: 64 }}></div>
+        <div style={{ paddingTop: 12 }}></div>
         {topItems.map((item, index) => {
           if (item[0] === 'divider') {
             return <div key={index} className='divider'></div>

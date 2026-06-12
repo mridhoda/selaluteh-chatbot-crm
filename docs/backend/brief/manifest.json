@@ -1,0 +1,28 @@
+{
+  "package": "backend-brief-docs-v2",
+  "project": "SelaluTeh Chatbot CRM \u2014 Telegram Marketplace MVP",
+  "folder": "docs/backend/brief",
+  "generated_at": "2026-06-12T03:19:10.054238+00:00",
+  "total_files": 19,
+  "files": [
+    "ALL_BRIEFS_COMBINED.md",
+    "README.md",
+    "agent-handoff-brief.md",
+    "ai-agent-brief.md",
+    "current-priority-brief.md",
+    "current-system-brief.md",
+    "data-migration-brief.md",
+    "folder-map-brief.md",
+    "implementation-priority-brief.md",
+    "manifest.json",
+    "mvp-brief.md",
+    "payment-brief.md",
+    "project-brief.md",
+    "quick-prompt-for-ai-agent.md",
+    "security-brief.md",
+    "target-system-brief.md",
+    "task-brief-template.md",
+    "telegram-commerce-brief.md",
+    "testing-brief.md"
+  ]
+}

@@ -1,0 +1,1114 @@
+# PROJECT CONTEXT EXTRACTION PROMPT — Telegram Marketplace MVP
+
+Kamu adalah AI engineering assistant yang sedang berada di dalam codebase project saya.
+
+Saya ingin kamu melakukan **audit menyeluruh terhadap seluruh project ini** dan membuat dokumentasi teknis yang sangat lengkap, detail, dan terstruktur agar AI lain yang belum pernah melihat codebase ini bisa memahami project saya dengan cepat dan akurat.
+
+Project ini akan saya lanjutkan menjadi:
+
+> **Telegram-first Marketplace MVP dengan chatbot, product catalog, order flow, dan payment gateway sandbox.**
+
+Saat ini project saya sudah memiliki dukungan chatbot ke Telegram. Saya ingin melanjutkan project ini, bukan membangun ulang dari nol.
+
+Tugas utama kamu adalah membuat satu file Markdown bernama:
+
+```txt
+PROJECT_CONTEXT_REPORT.md
+```
+
+File ini harus berisi seluruh informasi penting tentang project, mulai dari struktur folder, teknologi yang digunakan, fitur yang sudah ada, fitur yang belum ada, flow chatbot Telegram, database, API, environment variable, deployment, masalah teknis, dan rekomendasi sprint berikutnya.
+
+Jangan ubah kode aplikasi kecuali perlu membuat atau memperbarui file dokumentasi ini.
+
+---
+
+# 1. Tujuan Dokumentasi
+
+Buat dokumentasi yang bisa menjawab pertanyaan berikut:
+
+1. Project ini sebenarnya aplikasi apa?
+2. Stack teknologi apa yang digunakan?
+3. Bagaimana struktur folder dan arsitekturnya?
+4. Fitur apa saja yang sudah ada?
+5. Fitur apa saja yang belum ada?
+6. Bagaimana integrasi Telegram chatbot berjalan?
+7. Bagaimana alur pesan dari user Telegram sampai dibalas bot?
+8. Apakah sudah ada AI chatbot? Kalau ada, bagaimana cara kerjanya?
+9. Apakah sudah ada database? Kalau ada, schema/tabel/model apa saja?
+10. Apakah sudah ada sistem product catalog?
+11. Apakah sudah ada cart/order/payment?
+12. Apakah sudah ada admin dashboard?
+13. Bagaimana konfigurasi environment variable?
+14. Bagaimana cara menjalankan project secara lokal?
+15. Apa error, technical debt, atau bagian yang berisiko?
+16. Apa langkah terbaik untuk melanjutkan menjadi Telegram marketplace MVP?
+
+---
+
+# 2. Output Utama
+
+Buat file:
+
+```txt
+PROJECT_CONTEXT_REPORT.md
+```
+
+Dokumentasi boleh sangat panjang. Prioritaskan kelengkapan dan keakuratan.
+
+Gunakan struktur heading yang rapi seperti:
+
+```md
+# Project Context Report
+
+## 1. Executive Summary
+## 2. Current Project Purpose
+## 3. Tech Stack
+## 4. Repository Structure
+## 5. Application Architecture
+## 6. Current Features
+## 7. Telegram Bot Integration
+## 8. AI Chatbot Integration
+## 9. Backend/API Analysis
+## 10. Database Analysis
+## 11. Product/Commerce Readiness
+## 12. Payment Readiness
+## 13. Admin/User Interface
+## 14. Environment Variables
+## 15. Local Development Guide
+## 16. Deployment Notes
+## 17. Security Notes
+## 18. Known Issues
+## 19. Technical Debt
+## 20. Missing Pieces for MVP
+## 21. Recommended MVP Scope
+## 22. Recommended Development Roadmap
+## 23. Next Sprint Plan
+## 24. Files and Code References
+## 25. Final Recommendation
+```
+
+---
+
+# 3. Cara Melakukan Audit
+
+Periksa seluruh project secara sistematis.
+
+Lakukan eksplorasi minimal terhadap:
+
+```txt
+package.json
+pnpm-lock.yaml / package-lock.json / yarn.lock / bun.lockb
+tsconfig.json
+vite.config.*
+next.config.*
+nuxt.config.*
+nest-cli.json
+src/
+app/
+pages/
+components/
+lib/
+server/
+api/
+routes/
+controllers/
+services/
+modules/
+database/
+db/
+prisma/
+drizzle/
+supabase/
+migrations/
+schema.*
+.env.example
+README.md
+docker-compose.yml
+Dockerfile
+scripts/
+workers/
+bot/
+telegram/
+ai/
+payment/
+webhook/
+```
+
+Jika ada folder atau file penting lain, ikut audit juga.
+
+---
+
+# 4. Executive Summary
+
+Di awal file, buat ringkasan singkat namun padat:
+
+* Nama project jika ditemukan.
+* Jenis aplikasi.
+* Stack utama.
+* Status project saat ini.
+* Apakah project bisa langsung dilanjutkan atau perlu refactor dulu.
+* Apakah Telegram bot sudah benar-benar berjalan.
+* Apakah sudah siap menjadi marketplace MVP.
+* Rekomendasi langkah berikutnya.
+
+Contoh format:
+
+```md
+## Executive Summary
+
+Project ini adalah aplikasi berbasis [stack] yang saat ini memiliki fitur [fitur utama]. Integrasi Telegram ditemukan di [path]. Bot saat ini mampu [kemampuan]. Namun, project belum/belum sepenuhnya memiliki [database/order/payment/admin]. Untuk menjadikannya Telegram marketplace MVP, prioritas berikutnya adalah [prioritas].
+```
+
+---
+
+# 5. Tech Stack Analysis
+
+Identifikasi teknologi yang digunakan.
+
+Tulis dalam tabel:
+
+```md
+| Area | Technology | Evidence/File | Notes |
+|---|---|---|---|
+| Frontend | ... | package.json | ... |
+| Backend | ... | src/server | ... |
+| Database | ... | prisma/schema.prisma | ... |
+| ORM | ... | ... | ... |
+| Telegram Bot | ... | ... | ... |
+| AI Provider | ... | ... | ... |
+| Payment | ... | ... | ... |
+| Auth | ... | ... | ... |
+| Queue/Worker | ... | ... | ... |
+| Deployment | ... | ... | ... |
+```
+
+Jangan menebak tanpa bukti. Kalau tidak ditemukan, tulis:
+
+```txt
+Not found in current codebase.
+```
+
+---
+
+# 6. Repository Structure
+
+Buat struktur folder penting dalam bentuk tree.
+
+Contoh:
+
+```txt
+project-root/
+  src/
+    ...
+  app/
+    ...
+  lib/
+    ...
+  prisma/
+    schema.prisma
+  package.json
+```
+
+Setelah tree, jelaskan fungsi tiap folder penting.
+
+Gunakan format:
+
+```md
+### Folder Explanation
+
+| Path | Purpose | Notes |
+|---|---|---|
+| src/bot | Telegram bot logic | Contains message handlers |
+| src/api | Backend endpoints | ... |
+```
+
+---
+
+# 7. Application Architecture
+
+Jelaskan arsitektur project saat ini.
+
+Buat diagram teks seperti:
+
+```txt
+Telegram User
+   ↓
+Telegram Bot Webhook / Polling
+   ↓
+Bot Handler
+   ↓
+AI / Business Logic
+   ↓
+Database / External API
+   ↓
+Telegram Reply
+```
+
+Jika project menggunakan frontend/backend terpisah, jelaskan juga.
+
+Tulis:
+
+* apakah monolith atau monorepo
+* apakah frontend dan backend tergabung
+* apakah ada worker
+* apakah Telegram memakai webhook atau polling
+* apakah ada queue
+* bagaimana flow request diproses
+
+---
+
+# 8. Telegram Bot Integration
+
+Ini bagian sangat penting. Audit secara detail.
+
+Cari semua file terkait Telegram, misalnya:
+
+```txt
+telegram
+bot
+telegraf
+grammy
+node-telegram-bot-api
+webhook
+polling
+sendMessage
+callback_query
+inline_keyboard
+```
+
+Jelaskan:
+
+1. Library Telegram apa yang digunakan.
+2. Bot berjalan dengan webhook atau long polling.
+3. File entry point bot.
+4. Cara bot diinisialisasi.
+5. Cara menerima message.
+6. Cara mengirim reply.
+7. Apakah mendukung command seperti `/start`.
+8. Apakah ada inline keyboard/button.
+9. Apakah ada session/conversation state.
+10. Apakah chat history disimpan.
+11. Apakah user Telegram disimpan ke database.
+12. Apakah error handling sudah ada.
+13. Apakah sudah aman untuk production.
+
+Format yang diharapkan:
+
+```md
+## Telegram Bot Integration
+
+### Library Used
+- Library: ...
+- Evidence: ...
+
+### Entry Point
+- File: ...
+- Function/Class: ...
+
+### Message Flow
+1. ...
+2. ...
+3. ...
+
+### Supported Commands
+| Command | Handler | Behavior |
+|---|---|---|
+| /start | ... | ... |
+
+### Current Limitations
+- ...
+```
+
+---
+
+# 9. AI Chatbot Integration
+
+Audit apakah project sudah punya AI chatbot.
+
+Cari:
+
+```txt
+openai
+anthropic
+gemini
+llm
+ai
+chat
+completion
+prompt
+agent
+assistant
+tool
+function calling
+rag
+embedding
+vector
+```
+
+Jelaskan:
+
+1. Provider AI yang digunakan.
+2. Model yang digunakan.
+3. File konfigurasi AI.
+4. Prompt system yang digunakan.
+5. Bagaimana pesan user dikirim ke AI.
+6. Bagaimana hasil AI dikirim balik ke Telegram.
+7. Apakah AI memiliki akses ke tools/function.
+8. Apakah AI bisa akses product/order/database.
+9. Apakah ada RAG/knowledge base.
+10. Apakah ada guardrail atau batasan AI.
+11. Apakah chat memory disimpan.
+12. Apa risiko AI saat ini.
+
+Tambahkan rekomendasi untuk marketplace MVP:
+
+```md
+### Recommended AI Role for MVP
+
+AI sebaiknya tidak langsung memodifikasi order tanpa konfirmasi user. AI sebaiknya bertindak sebagai shopping assistant yang bisa:
+- mencari produk
+- menjelaskan produk
+- menambahkan item ke cart setelah konfirmasi
+- membantu checkout
+- mengecek status order
+- mengarahkan ke admin jika tidak yakin
+```
+
+---
+
+# 10. Backend/API Analysis
+
+Audit semua endpoint/backend route.
+
+Cari:
+
+```txt
+api/
+routes/
+controllers/
+server actions
+handlers
+express
+fastify
+nestjs
+next api routes
+trpc
+```
+
+Buat tabel endpoint jika ditemukan:
+
+```md
+| Method | Path | File | Purpose | Auth Required | Status |
+|---|---|---|---|---|---|
+| GET | /api/products | ... | List products | No/Yes | Working/Unknown |
+```
+
+Jelaskan:
+
+* API apa saja yang sudah ada
+* apakah endpoint sudah RESTful
+* apakah validasi request ada
+* apakah error handling ada
+* apakah auth middleware ada
+* apakah ada webhook endpoint
+* apakah API siap untuk Telegram commerce flow
+
+---
+
+# 11. Database Analysis
+
+Audit database secara detail.
+
+Cari:
+
+```txt
+prisma/schema.prisma
+drizzle schema
+supabase migrations
+sql files
+models
+entities
+repositories
+database client
+```
+
+Jelaskan:
+
+1. Database yang digunakan.
+2. ORM/query builder yang digunakan.
+3. Connection setup.
+4. Schema/model yang tersedia.
+5. Relasi antar model.
+6. Migration status.
+7. Seed data jika ada.
+8. Apakah schema sudah mendukung marketplace.
+9. Apakah schema sudah mendukung chat Telegram.
+10. Apakah schema sudah mendukung order/payment.
+
+Jika ada schema, buat ringkasan tabel/model:
+
+```md
+| Table/Model | Purpose | Important Fields | Relations | Notes |
+|---|---|---|---|---|
+| User | ... | id, telegramId | orders | ... |
+| Product | ... | name, price | orderItems | ... |
+```
+
+Jika belum ada database, tulis dengan jelas:
+
+```md
+No database schema found.
+```
+
+Lalu rekomendasikan schema MVP:
+
+```txt
+users
+telegram_contacts
+products
+product_variants
+carts
+cart_items
+orders
+order_items
+payments
+chat_sessions
+chat_messages
+webhook_events
+```
+
+---
+
+# 12. Product & Commerce Readiness
+
+Audit apakah project sudah punya fitur produk/commerce.
+
+Cari:
+
+```txt
+product
+catalog
+cart
+order
+checkout
+payment
+invoice
+transaction
+customer
+seller
+```
+
+Jelaskan:
+
+* apakah sudah ada product catalog
+* apakah produk tersimpan di database atau hardcoded
+* apakah ada cart
+* apakah ada order
+* apakah ada checkout
+* apakah ada status order
+* apakah ada customer profile
+* apakah ada seller/admin concept
+* apakah siap single merchant atau multi-seller
+
+Beri status:
+
+```md
+| Feature | Exists? | Evidence | MVP Readiness |
+|---|---|---|---|
+| Product Catalog | Yes/No | ... | Ready/Partial/Missing |
+| Cart | Yes/No | ... | ... |
+| Order | Yes/No | ... | ... |
+| Payment | Yes/No | ... | ... |
+```
+
+---
+
+# 13. Payment Gateway Readiness
+
+Audit apakah sudah ada integrasi payment gateway.
+
+Cari:
+
+```txt
+midtrans
+xendit
+payment
+snap
+invoice
+transaction
+webhook
+signature
+settlement
+pending
+expire
+cancel
+```
+
+Jelaskan:
+
+1. Payment gateway apa yang sudah ada, kalau ada.
+2. Apakah sudah sandbox.
+3. Apakah bisa create payment link.
+4. Apakah ada webhook handler.
+5. Apakah ada signature verification.
+6. Apakah status payment disimpan.
+7. Apakah order status update otomatis.
+8. Apa yang kurang untuk MVP.
+
+Jika belum ada, rekomendasikan:
+
+```md
+Recommended MVP Payment Flow:
+1. User checkout via Telegram.
+2. Backend creates pending order.
+3. Backend creates Midtrans sandbox payment link.
+4. Bot sends payment link to user.
+5. Midtrans webhook updates payment status.
+6. Backend marks order as paid.
+7. Bot sends payment success notification.
+```
+
+---
+
+# 14. Admin/User Interface
+
+Audit UI/dashboard jika ada.
+
+Cari:
+
+```txt
+dashboard
+admin
+products page
+orders page
+chat page
+login
+auth
+settings
+```
+
+Jelaskan:
+
+* page apa saja yang ada
+* apakah ada admin dashboard
+* apakah admin bisa CRUD produk
+* apakah admin bisa lihat order
+* apakah admin bisa lihat chat
+* apakah UI sudah siap untuk MVP
+* apakah perlu redesign atau cukup lanjutkan
+
+Buat tabel:
+
+```md
+| Page | Path | Purpose | Status | Notes |
+|---|---|---|---|---|
+| Dashboard | /dashboard | ... | Partial | ... |
+```
+
+---
+
+# 15. Environment Variables
+
+Audit semua env variable yang digunakan.
+
+Cari di:
+
+```txt
+.env.example
+.env.local.example
+config files
+process.env
+import.meta.env
+```
+
+Jangan pernah menampilkan secret asli. Jika menemukan `.env` berisi secret, jangan copy nilainya. Tulis nama key saja.
+
+Buat tabel:
+
+```md
+| Env Key | Purpose | Required? | Example/Safe Placeholder | Used In |
+|---|---|---|---|---|
+| TELEGRAM_BOT_TOKEN | Telegram bot token | Yes | <redacted> | ... |
+| DATABASE_URL | Database connection | Yes | <redacted> | ... |
+```
+
+Tambahkan section:
+
+```md
+### Missing .env.example Keys
+
+Jika ada env yang dipakai di kode tapi tidak ada di .env.example, tuliskan.
+```
+
+---
+
+# 16. Local Development Guide
+
+Buat instruksi menjalankan project secara lokal berdasarkan codebase.
+
+Harus mencakup:
+
+````md
+## Local Development Guide
+
+### Prerequisites
+- Node version:
+- Package manager:
+- Database:
+- Redis:
+- Other services:
+
+### Install Dependencies
+```bash
+...
+````
+
+### Setup Environment
+
+```bash
+cp .env.example .env
+```
+
+### Database Setup
+
+```bash
+...
+```
+
+### Run Development Server
+
+```bash
+...
+```
+
+### Run Telegram Bot
+
+```bash
+...
+```
+
+### Run Worker
+
+```bash
+...
+```
+
+### Run Tests
+
+```bash
+...
+```
+
+````
+
+Jika tidak yakin, tulis:
+
+```txt
+Not confirmed from current codebase.
+````
+
+Jangan mengarang command yang tidak ada bukti.
+
+---
+
+# 17. Deployment Notes
+
+Audit apakah sudah ada deployment config.
+
+Cari:
+
+```txt
+vercel.json
+railway
+render
+fly.toml
+docker
+docker-compose
+nginx
+pm2
+github actions
+ci/cd
+```
+
+Jelaskan:
+
+* platform deploy yang terlihat
+* apakah deploy frontend/backend terpisah
+* apakah bot perlu webhook URL publik
+* apakah butuh worker terpisah
+* apakah ada CI/CD
+* environment production apa saja yang dibutuhkan
+
+---
+
+# 18. Security Notes
+
+Buat audit keamanan awal.
+
+Periksa dan jelaskan:
+
+* apakah secret hardcoded
+* apakah token Telegram aman
+* apakah endpoint webhook dilindungi
+* apakah payment webhook diverifikasi
+* apakah input user divalidasi
+* apakah AI prompt injection dipertimbangkan
+* apakah user bisa mengakses data user lain
+* apakah ada rate limiting
+* apakah ada logging sensitif
+* apakah CORS aman
+* apakah admin route butuh auth
+
+Berikan rekomendasi praktis.
+
+---
+
+# 19. Known Issues & Technical Debt
+
+Buat daftar masalah yang terlihat dari codebase.
+
+Contoh format:
+
+```md
+| Issue | Severity | Evidence | Impact | Recommended Fix |
+|---|---|---|---|---|
+| No payment webhook verification | High | ... | Payment spoof risk | Add signature verification |
+```
+
+Severity gunakan:
+
+```txt
+Low
+Medium
+High
+Critical
+```
+
+---
+
+# 20. Missing Pieces for Telegram Marketplace MVP
+
+Berdasarkan audit, buat checklist fitur yang belum ada.
+
+Gunakan format:
+
+```md
+## Missing Pieces for MVP
+
+### Required
+- [ ] Product catalog connected to database
+- [ ] Telegram product browsing flow
+- [ ] Cart/session state
+- [ ] Create order
+- [ ] Midtrans sandbox payment link
+- [ ] Payment webhook
+- [ ] Order status notification
+- [ ] Admin order dashboard
+
+### Optional
+- [ ] AI recommendation
+- [ ] Human handoff
+- [ ] Promo code
+- [ ] Delivery fee calculation
+```
+
+---
+
+# 21. Recommended MVP Scope
+
+Buat rekomendasi scope MVP yang realistis.
+
+MVP target:
+
+```txt
+Telegram user can:
+1. Start bot
+2. Browse products
+3. Ask AI about products
+4. Add product to cart
+5. Checkout
+6. Receive payment link
+7. Pay using sandbox payment
+8. Receive payment confirmation
+9. Check order status
+```
+
+Admin can:
+
+```txt
+1. Login
+2. Manage products
+3. View orders
+4. Update order status
+5. View payment status
+6. View Telegram chats
+```
+
+Jelaskan mana fitur yang harus ditunda:
+
+```txt
+Multi-seller
+Wallet seller
+Commission
+Payout
+Review/rating
+Advanced logistics
+Complex refund
+```
+
+---
+
+# 22. Recommended Architecture for MVP
+
+Berikan rekomendasi arsitektur akhir untuk MVP berdasarkan project saat ini.
+
+Contoh:
+
+```txt
+Telegram Bot
+   ↓
+Bot Handler
+   ↓
+Conversation State / Intent Parser
+   ↓
+Marketplace Service
+   ├─ Product Service
+   ├─ Cart Service
+   ├─ Order Service
+   ├─ Payment Service
+   └─ Notification Service
+   ↓
+Database
+```
+
+Jika project saat ini berbeda, jelaskan apakah lebih baik:
+
+* lanjutkan struktur yang ada
+* refactor ringan
+* pisahkan worker
+* pisahkan API dan bot
+* buat modul baru
+
+---
+
+# 23. Recommended Development Roadmap
+
+Buat roadmap bertahap.
+
+Gunakan format sprint.
+
+```md
+## Sprint 0 — Project Recovery
+Goal:
+Tasks:
+Output:
+
+## Sprint 1 — Database & Commerce Foundation
+Goal:
+Tasks:
+Output:
+
+## Sprint 2 — Telegram Commerce Flow
+Goal:
+Tasks:
+Output:
+
+## Sprint 3 — Payment Gateway Sandbox
+Goal:
+Tasks:
+Output:
+
+## Sprint 4 — AI Shopping Assistant
+Goal:
+Tasks:
+Output:
+
+## Sprint 5 — Admin Dashboard
+Goal:
+Tasks:
+Output:
+
+## Sprint 6 — Hardening & MVP Demo
+Goal:
+Tasks:
+Output:
+```
+
+Setiap sprint harus punya checklist yang actionable.
+
+---
+
+# 24. Next Sprint Plan
+
+Setelah semua audit, buat rekomendasi **sprint berikutnya yang paling tepat dilakukan sekarang**.
+
+Format:
+
+```md
+## Immediate Next Sprint Recommendation
+
+### Sprint Name
+...
+
+### Goal
+...
+
+### Why This Sprint First
+...
+
+### Tasks
+- [ ] ...
+- [ ] ...
+- [ ] ...
+
+### Files Likely To Change
+- ...
+- ...
+
+### Acceptance Criteria
+- ...
+```
+
+Acceptance criteria harus jelas.
+
+Contoh:
+
+```txt
+- Bot can show product list in Telegram.
+- User can select a product.
+- Selected product is stored in cart/session.
+- Admin can see the draft order.
+```
+
+---
+
+# 25. Important Code References
+
+Buat daftar file-file penting yang harus diketahui AI lain.
+
+Format:
+
+```md
+| File | Why Important | Related Feature |
+|---|---|---|
+| src/bot/telegram.ts | Telegram bot entry point | Telegram |
+| src/lib/ai.ts | AI provider setup | AI Chatbot |
+| prisma/schema.prisma | Database schema | Database |
+```
+
+---
+
+# 26. Evidence Rules
+
+Saat menjelaskan sesuatu, sertakan referensi file sebisa mungkin.
+
+Contoh:
+
+```md
+Telegram bot initialization is handled in `src/bot/telegram.ts`.
+Product data appears to be hardcoded in `src/data/products.ts`.
+No payment gateway integration was found.
+```
+
+Jangan klaim sesuatu ada kalau tidak menemukan bukti.
+
+Jika tidak yakin, gunakan:
+
+```txt
+Unknown
+Not found
+Not confirmed
+Likely, based on file naming
+```
+
+---
+
+# 27. Secret Handling Rules
+
+Jangan pernah menulis nilai secret asli.
+
+Jika menemukan:
+
+```txt
+TELEGRAM_BOT_TOKEN=123456...
+DATABASE_URL=postgres://...
+OPENAI_API_KEY=sk-...
+```
+
+Tulis hanya:
+
+```txt
+TELEGRAM_BOT_TOKEN=<redacted>
+DATABASE_URL=<redacted>
+OPENAI_API_KEY=<redacted>
+```
+
+Jika secret hardcoded di source code, tulis di Security Notes sebagai masalah serius.
+
+---
+
+# 28. Jangan Lakukan Ini
+
+Jangan:
+
+* Mengubah business logic aplikasi.
+* Menghapus file.
+* Melakukan refactor besar.
+* Menginstall package baru kecuali benar-benar diperlukan.
+* Menjalankan command berbahaya.
+* Menampilkan secret asli.
+* Mengarang fitur yang tidak ada.
+* Mengabaikan Telegram bot flow.
+* Membuat dokumentasi terlalu singkat.
+
+---
+
+# 29. Jika Project Sangat Besar
+
+Jika laporan menjadi sangat panjang, tetap buat `PROJECT_CONTEXT_REPORT.md`.
+
+Jika perlu, tambahkan appendix di bawah:
+
+```md
+# Appendix A — Full Route List
+# Appendix B — Full Database Model Summary
+# Appendix C — Telegram Handler Map
+# Appendix D — AI Prompt/Tool Map
+# Appendix E — Environment Variable Map
+```
+
+Jika sistem file mengizinkan dan dokumentasi terlalu besar, boleh juga buat folder:
+
+```txt
+docs/project-audit/
+  PROJECT_CONTEXT_REPORT.md
+  ROUTES.md
+  DATABASE.md
+  TELEGRAM_BOT.md
+  AI_CHATBOT.md
+  MVP_ROADMAP.md
+```
+
+Namun file utama `PROJECT_CONTEXT_REPORT.md` tetap wajib ada dan harus merangkum semuanya.
+
+---
+
+# 30. Final Output
+
+Setelah selesai, tampilkan ringkasan singkat:
+
+```txt
+Created PROJECT_CONTEXT_REPORT.md
+
+Summary:
+- Tech stack: ...
+- Telegram bot status: ...
+- Database status: ...
+- Marketplace readiness: ...
+- Recommended next sprint: ...
+```
+
+Pastikan file Markdown yang dibuat benar-benar lengkap, jelas, dan bisa dibaca oleh AI lain untuk memahami project ini secara menyeluruh.
+
+Mulai sekarang lakukan audit project dan buat dokumentasinya.
+

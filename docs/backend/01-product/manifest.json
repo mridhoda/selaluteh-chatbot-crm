@@ -1,0 +1,24 @@
+{
+  "name": "backend-product-docs-v2",
+  "project": "SelaluTeh Chatbot CRM / Telegram Marketplace MVP",
+  "folder": "docs/backend/01-product",
+  "generated_for": "product documentation based on latest backend architecture and marketplace MVP direction",
+  "files": [
+    "README.md",
+    "product-vision.md",
+    "requirements.md",
+    "mvp-scope.md",
+    "feature-list.md",
+    "user-personas.md",
+    "user-stories.md",
+    "customer-journey.md",
+    "admin-experience.md",
+    "brand-personality.md",
+    "logo-direction.md",
+    "logo-system.md",
+    "success-metrics.md",
+    "release-plan.md",
+    "out-of-scope.md",
+    "risks-and-assumptions.md"
+  ]
+}

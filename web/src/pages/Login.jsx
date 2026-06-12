@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
+import { getDemoToken, getDemoUser, setDemoMode } from '../demoState';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEnvelope, faLock, faEye, faEyeSlash, faRobot } from '@fortawesome/free-solid-svg-icons';
 
@@ -24,6 +25,16 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const loginDemo = () => {
+    setDemoMode(true);
+    const token = getDemoToken();
+    const user = getDemoUser();
+    sessionStorage.setItem('token', token);
+    localStorage.setItem('token', token);
+    sessionStorage.setItem('user', JSON.stringify(user));
+    navigate('/app');
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -93,6 +104,15 @@ export default function Login() {
 
             <button type='submit' className="lp-btn lp-btn-primary auth-new-btn" disabled={loading}>
               {loading ? 'Signing In...' : 'Sign In'}
+            </button>
+
+            <button
+              type="button"
+              className="lp-btn auth-new-btn"
+              style={{ marginTop: 10, background: '#fff7ed', border: '1px solid #fdba74', color: '#9a3412' }}
+              onClick={loginDemo}
+            >
+              Masuk Demo UI
             </button>
           </form>
 

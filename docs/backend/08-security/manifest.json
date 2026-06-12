@@ -1,0 +1,36 @@
+{
+  "name": "backend-security-docs-v2",
+  "description": "Security docs for SelaluTeh Chatbot CRM / Telegram-first Marketplace MVP backend",
+  "folder": "docs/backend/08-security",
+  "existing_files_covered": [
+    "ai-prompt-security.md",
+    "api-security.md",
+    "asset-access-security.md",
+    "auth-authz.md",
+    "data-protection.md",
+    "incident-response.md",
+    "rate-limit-abuse.md",
+    "README.md",
+    "secrets-env-policy.md",
+    "security-checklist.md",
+    "threat-model.md"
+  ],
+  "added_files": [
+    "workspace-tenant-security.md",
+    "webhook-security.md",
+    "payment-security.md",
+    "rls-security.md",
+    "file-storage-security.md",
+    "audit-logging-security.md",
+    "telegram-security.md",
+    "meta-platform-security.md",
+    "ai-action-security.md",
+    "dependency-supply-chain-security.md",
+    "backup-recovery-security.md",
+    "vulnerability-management.md",
+    "admin-dashboard-security.md",
+    "ALL_SECURITY_DOCS_COMBINED.md"
+  ],
+  "total_markdown_files": 25,
+  "notes": "ALL_SECURITY_DOCS_COMBINED.md is for AI/human context, not executable."
+}

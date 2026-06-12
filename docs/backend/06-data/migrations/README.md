@@ -1,0 +1,111 @@
+# Data Migrations — Telegram Marketplace MVP v2
+
+Folder ini adalah versi baru dari migration pack Supabase/Postgres untuk project **KALIS.AI / eskala-bot**.
+
+Versi ini tetap mendukung migrasi dari MongoDB/Mongoose, tetapi skemanya sudah diperluas untuk rancangan terbaru:
+
+```txt
+Existing app:
+  Chatbot CRM + Telegram/WhatsApp/Instagram webhook + AI Agent + Human Takeover
+
+New MVP direction:
+  Telegram-first single-merchant marketplace
+  Product catalog -> Cart -> Checkout -> Order -> Payment gateway sandbox -> Payment webhook
+```
+
+## Structure
+
+```txt
+migrations-v2/
+  README.md
+  sql/
+    001_extensions_and_enums.sql
+    002_core_identity.sql
+    003_platforms_agents.sql
+    004_crm_chats_messages.sql
+    005_orders_complaints_files.sql
+    006_indexes.sql
+    007_rls_policies.sql
+    008_local_file_storage.sql
+    009_migration_validation_queries.sql
+  notes/
+    mongo-to-postgres-mapping.md
+    data-backfill-order.md
+    cutover-plan.md
+    telegram-commerce-flow.md
+    payment-gateway-contract.md
+    repository-layer-contract.md
+    marketplace-schema-notes.md
+  checklists/
+    pre-migration-checklist.md
+    post-migration-checklist.md
+    marketplace-mvp-checklist.md
+  manifest.json
+  ALL_MIGRATIONS_COMBINED.md
+```
+
+## How to Use
+
+1. Review all docs in `notes/` and `checklists/`.
+2. Run SQL files `001` to `008` on a fresh Supabase staging project.
+3. Use `009_migration_validation_queries.sql` only for manual validation, not as an automatic migration.
+4. Build repository layer so app routes can move from Mongoose to Supabase table-by-table.
+5. Run import script in dry-run mode first.
+6. Migrate old CRM data.
+7. Add marketplace data and Telegram commerce flow.
+8. Test with Telegram bot sandbox/test bot.
+9. Add Midtrans/Xendit sandbox payment flow.
+10. Cutover only after pre/post migration checklists pass.
+
+## Core Decisions
+
+- `workspace_id` is the tenant boundary for every operational table.
+- Postgres stores structured data and file metadata.
+- Local server filesystem stores media binaries.
+- AI can assist commerce but must not be the source of truth for order/payment state.
+- Cart, checkout, order, and payment must be deterministic backend flows.
+- Public webhooks write through backend service role, but provider validation and idempotency are mandatory.
+
+## New Marketplace Tables
+
+```txt
+product_categories
+products
+product_variants
+product_images
+carts
+cart_items
+checkouts
+orders
+order_items
+payments
+payment_events
+webhook_events
+ai_actions
+```
+
+## Important Compatibility Notes
+
+The old `orders` model created by `FILE_ORDER_JSON` is not removed. It is absorbed into the expanded `orders` table using:
+
+```txt
+source = ai_form
+form_name
+form_data
+status = new / processed / completed / cancelled
+```
+
+New Telegram marketplace orders should use:
+
+```txt
+source = telegram
+cart_id
+checkout_id
+order_items
+payments
+payment_events
+```
+
+## Status
+
+These are migration drafts and should be reviewed in staging before production.

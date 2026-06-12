@@ -1,0 +1,32 @@
+{
+  "package": "backend-business-docs-v2",
+  "project": "SelaluTeh Chatbot CRM \u2014 Telegram Marketplace MVP",
+  "folder": "docs/backend/0000-business",
+  "generated_at": "2026-06-12T03:07:39.340203+00:00",
+  "total_files": 23,
+  "files": [
+    "ALL_BUSINESS_DOCS_COMBINED.md",
+    "README.md",
+    "brd.md",
+    "business-decision-log.md",
+    "business-metrics.md",
+    "business-model.md",
+    "business-risks.md",
+    "competitor-analysis.md",
+    "customer-segments.md",
+    "financial-assumptions.md",
+    "go-to-market.md",
+    "legal-business-notes.md",
+    "manifest.json",
+    "market-positioning.md",
+    "mvp-validation-plan.md",
+    "mvp-validation-scorecard.md",
+    "partnerships.md",
+    "pricing-strategy.md",
+    "revenue-model.md",
+    "roadmap-business.md",
+    "sales-discovery-questions.md",
+    "unit-economics.md",
+    "value-proposition.md"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "package": "backend-ai-context-docs-v2",
+  "generated_at": "2026-06-12T02:38:29.633621Z",
+  "purpose": "AI context docs for SelaluTeh Chatbot CRM + Telegram-first Marketplace MVP backend",
+  "base_scope": "09-ai-context",
+  "file_count": 23,
+  "files": [
+    "README.md",
+    "prompt-context.md",
+    "current-task.md",
+    "backend-boundaries.md",
+    "do-not-break.md",
+    "ai-pipeline-rules.md",
+    "agent-response-format.md",
+    "ai-action-contract.md",
+    "commerce-agent-guardrails.md",
+    "telegram-bot-context.md",
+    "payment-context.md",
+    "database-context.md",
+    "storage-context.md",
+    "human-handoff-context.md",
+    "notification-context.md",
+    "tool-calling-contract.md",
+    "security-rules-for-ai.md",
+    "testing-expectations.md",
+    "coding-guidelines.md",
+    "context-packing.md",
+    "agent-evaluation.md",
+    "ALL_AI_CONTEXT_DOCS_COMBINED.md",
+    "manifest.json"
+  ],
+  "notes": [
+    "Combined file is for AI onboarding/context only.",
+    "Individual markdown files should be kept in docs/backend/09-ai-context.",
+    "Do not treat these docs as executable scripts."
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "created_at": "2026-06-11T08:34:09.870690",
+  "description": "Updated 13 original data/database docs plus additional docs for Telegram-first Marketplace MVP, Supabase/Postgres migration, local storage, deterministic commerce, and payment sandbox.",
+  "files": [
+    "ALL_DOCS_COMBINED.md",
+    "README.md",
+    "ai-commerce-guardrails.md",
+    "data-flow.md",
+    "database-schema.md",
+    "entities.md",
+    "erd.md",
+    "implementation-checklist.md",
+    "import-script-spec.md",
+    "indexes.md",
+    "marketplace-module.md",
+    "migration-plan.md",
+    "payment-gateway.md",
+    "query-contracts.md",
+    "relationships.md",
+    "repository-layer-contract.md",
+    "rls-policies.md",
+    "seed-data.md",
+    "storage-model.md",
+    "telegram-commerce-flow.md"
+  ]
+}
