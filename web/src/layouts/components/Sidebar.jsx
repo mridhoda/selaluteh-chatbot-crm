@@ -9,6 +9,7 @@ import {
   faExclamationCircle,
   faShoppingCart,
   faThumbtack,
+  faBars,
   faBoxOpen,
   faStore,
   faFileAlt,
@@ -45,6 +46,14 @@ const topGroups = navigationGroups.filter((group) => group.label !== 'SETTINGS')
 const bottomItems = navigationGroups.find((group) => group.label === 'SETTINGS')?.items || []
 
 export default function Sidebar() {
+  const [isExpanded, setIsExpanded] = useState(() => {
+    try {
+      return localStorage.getItem('sidebarExpanded') === '1'
+    } catch {
+      return false
+    }
+  })
+
   const [isPinned, setIsPinned] = useState(() => {
     try {
       return localStorage.getItem('sidebarPinned') === '1'
@@ -57,32 +66,61 @@ export default function Sidebar() {
     try {
       if (isPinned) {
         localStorage.setItem('sidebarPinned', '1')
+        localStorage.setItem('sidebarExpanded', '1')
         document.body.classList.add('sidebar-pinned')
+        document.body.classList.add('sidebar-expanded')
       } else {
         localStorage.removeItem('sidebarPinned')
         document.body.classList.remove('sidebar-pinned')
+        
+        if (isExpanded) {
+          localStorage.setItem('sidebarExpanded', '1')
+          document.body.classList.add('sidebar-expanded')
+        } else {
+          localStorage.removeItem('sidebarExpanded')
+          document.body.classList.remove('sidebar-expanded')
+        }
       }
     } catch {
       // Ignore storage errors in demo/private browsing contexts.
     }
     return () => {
       document.body.classList.remove('sidebar-pinned')
+      document.body.classList.remove('sidebar-expanded')
     }
-  }, [isPinned])
+  }, [isPinned, isExpanded])
+
+  const handleButtonClick = () => {
+    if (!isExpanded) {
+      setIsExpanded(true)
+      setIsPinned(false)
+    } else if (!isPinned) {
+      setIsPinned(true)
+    } else {
+      setIsExpanded(false)
+      setIsPinned(false)
+    }
+  }
 
   return (
-    <div className={`sidebar ${isPinned ? 'sidebar--pinned' : ''}`}>
+    <div className={`sidebar ${isExpanded ? 'sidebar--expanded' : ''} ${isPinned ? 'sidebar--pinned' : ''}`}>
       <div className='sidebar-header'>
         <button
           type='button'
           className={`sidebar-pin-btn ${isPinned ? 'is-active' : ''}`}
-          onClick={() => setIsPinned((prev) => !prev)}
-          aria-pressed={isPinned}
-          title={isPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+          onClick={handleButtonClick}
+          aria-pressed={isPinned || isExpanded}
+          title={
+            !isExpanded 
+              ? 'Open sidebar' 
+              : !isPinned 
+                ? 'Pin sidebar' 
+                : 'Collapse sidebar'
+          }
         >
-          <FontAwesomeIcon icon={faThumbtack} />
+          <FontAwesomeIcon icon={!isExpanded ? faBars : faThumbtack} />
           <span className='sidebar-pin-label'>
-            {isPinned ? 'Pinned' : 'Pin'}
+            {!isExpanded ? 'Sidebar' : !isPinned ? 'Pin' : 'Pinned'}
           </span>
         </button>
       </div>

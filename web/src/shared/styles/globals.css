@@ -371,7 +371,7 @@ body {
     left: 0;
     top: 0;
     bottom: 0;
-    z-index: 40;
+    z-index: 60; /* Higher than navbar z-index of 50 */
 }
 
 .sidebar {
@@ -428,7 +428,7 @@ body {
     font-size: 12px;
 }
 
-.sidebar:hover .sidebar-pin-label,
+.sidebar--expanded .sidebar-pin-label,
 .sidebar--pinned .sidebar-pin-label,
 body.sidebar-pinned .sidebar-pin-label {
     display: inline;
@@ -446,7 +446,8 @@ body.sidebar-pinned .sidebar-pin-label {
     /* Prevent label from shrinking prematurely */
 }
 
-.sidebar:hover .label {
+.sidebar--expanded .label,
+.sidebar--pinned .label {
     opacity: 1;
     max-width: 200px;
     white-space: nowrap;
@@ -456,23 +457,8 @@ body.sidebar-pinned .sidebar-pin-label {
     /* Takes up remaining space */
 }
 
+.sidebar--expanded,
 .sidebar--pinned {
-    width: 270px;
-}
-
-.sidebar--pinned .label {
-    opacity: 1;
-    max-width: 200px;
-    white-space: nowrap;
-    word-break: break-word;
-    flex-grow: 1;
-}
-
-.sidebar--pinned .sidebar-pin-label {
-    display: inline;
-}
-
-.sidebar:hover {
     width: 270px;
 }
 
@@ -534,7 +520,6 @@ body.sidebar-pinned .sidebar-pin-label {
     overflow: hidden;
 }
 
-.sidebar-container:hover~.main,
 body.sidebar-pinned .main {
     margin-left: 270px;
 }
@@ -591,7 +576,6 @@ body.sidebar-pinned .dashboard-layout.no-sidebar .navbar {
     margin-left: 64px;
 }
 
-.dashboard-layout .sidebar-container:hover~.navbar,
 body.sidebar-pinned .dashboard-layout .navbar {
     margin-left: 270px;
 }
@@ -600,17 +584,7 @@ body.sidebar-pinned .sidebar {
     width: 270px;
 }
 
-body.sidebar-pinned .sidebar:hover {
-    width: 270px;
-}
 
-body.sidebar-pinned .sidebar .label {
-    opacity: 1;
-    max-width: 200px;
-    white-space: nowrap;
-    word-break: break-word;
-    flex-grow: 1;
-}
 
 .navbar-pin-btn {
     height: 40px;
