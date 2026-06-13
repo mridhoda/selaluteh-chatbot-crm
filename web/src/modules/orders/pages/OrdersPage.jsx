@@ -626,7 +626,7 @@ export default function Orders() {
   };
 
   return (
-    <div className="flex flex-1 overflow-hidden bg-slate-50 -m-4 h-[calc(100vh-58px)] max-h-[calc(100vh-58px)]">
+    <div className="flex flex-1 overflow-hidden bg-[var(--app-background)] -m-4 h-[calc(100vh-58px)] max-h-[calc(100vh-58px)]">
       {/* LEFT PORTION: Orders Main Content Dashboard */}
       <div className={`flex-1 flex flex-col min-w-0 p-4 pt-3 overflow-hidden transition-[padding] duration-200 motion-reduce:transition-none ${isOrderDetailOpen ? 'md:pr-[416px]' : 'md:pr-4'}`}>
         {/* Toolbar Header (Title, Subtitle, Actions, Filters) */}
@@ -664,7 +664,7 @@ export default function Orders() {
         />
 
         {/* Table Pagination Footer */}
-        <div className="bg-white border-x border-b border-gray-200 rounded-b-xl px-6 py-3 flex items-center justify-between shrink-0 select-none text-xs text-gray-500 font-semibold mt-[-1px]">
+        <div className="bg-[var(--surface-primary)] border-x border-b border-[var(--border-subtle)] rounded-b-xl px-6 py-3 flex items-center justify-between shrink-0 select-none text-xs text-[var(--text-muted)] font-semibold mt-[-1px]">
           <div>
             Showing {filteredOrders.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to{' '}
             {Math.min(currentPage * pageSize, filteredOrders.length)} of {filteredOrders.length} orders
@@ -676,7 +676,7 @@ export default function Orders() {
               <button
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage(p => p - 1)}
-                className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition text-gray-600 disabled:opacity-40 disabled:hover:bg-white"
+                className="w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-primary)] flex items-center justify-center hover:bg-[var(--surface-secondary)] transition text-[var(--text-secondary)] disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-[var(--surface-primary)] focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]"
               >
                 <FontAwesomeIcon icon={faChevronLeft} />
               </button>
@@ -688,10 +688,10 @@ export default function Orders() {
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition text-xs font-bold border ${
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition text-xs font-bold border focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)] ${
                       isActive
-                        ? 'bg-brand-50 border-brand-500 text-brand-600'
-                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                        ? 'bg-[var(--brand-50)] border-[var(--brand-500)] text-[var(--brand-600)]'
+                        : 'bg-[var(--surface-primary)] border-[var(--border-subtle)] text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)]'
                     }`}
                   >
                     {pageNum}
@@ -702,7 +702,7 @@ export default function Orders() {
               <button
                 disabled={currentPage === totalPages}
                 onClick={() => setCurrentPage(p => p + 1)}
-                className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition text-gray-600 disabled:opacity-40 disabled:hover:bg-white"
+                className="w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-primary)] flex items-center justify-center hover:bg-[var(--surface-secondary)] transition text-[var(--text-secondary)] disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-[var(--surface-primary)] focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]"
               >
                 <FontAwesomeIcon icon={faChevronRight} />
               </button>
@@ -715,7 +715,7 @@ export default function Orders() {
                 setPageSize(parseInt(e.target.value));
                 setCurrentPage(1);
               }}
-              className="bg-white border border-gray-200 py-1.5 px-3 rounded-lg text-xs font-semibold text-gray-700 cursor-pointer focus:outline-none"
+              className="bg-[var(--surface-primary)] border border-[var(--border-subtle)] py-1.5 px-3 rounded-lg text-xs font-semibold text-[var(--text-secondary)] cursor-pointer focus:outline-none focus-visible:border-[var(--brand-500)] focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]"
             >
               <option value={5}>5 / page</option>
               <option value={10}>10 / page</option>
@@ -742,45 +742,45 @@ export default function Orders() {
       {/* Cancel Order Modal Dialogue */}
       {cancelModalOrder && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 transition-all duration-200">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-100 flex flex-col gap-4.5 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex justify-between items-center pb-2 border-b border-gray-100">
-              <h3 className="text-base font-bold text-gray-800">Batalkan Pesanan</h3>
+          <div className="bg-[var(--surface-primary)] rounded-2xl p-6 max-w-md w-full shadow-[0_16px_40px_rgba(17,24,46,0.14)] border border-[var(--border-subtle)] flex flex-col gap-4.5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center pb-2 border-b border-[var(--border-subtle)]">
+              <h3 className="text-base font-bold text-[var(--text-primary)]">Batalkan Pesanan</h3>
               <button
                 onClick={() => setCancelModalOrder(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-50 transition"
+                className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] p-1 rounded-full hover:bg-[var(--surface-secondary)] transition focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]"
               >
                 <FontAwesomeIcon icon={faTimes} />
               </button>
             </div>
             
-            <div className="text-xs text-gray-600 flex flex-col gap-1.5">
-              <span>Pesanan dari: <strong className="text-gray-800 font-extrabold">{cancelModalOrder.contactId?.name}</strong></span>
-              <span>Order ID: <strong className="text-gray-800 font-extrabold">{cancelModalOrder.orderIdDisplay}</strong></span>
+            <div className="text-xs text-[var(--text-secondary)] flex flex-col gap-1.5">
+              <span>Pesanan dari: <strong className="text-[var(--text-primary)] font-extrabold">{cancelModalOrder.contactId?.name}</strong></span>
+              <span>Order ID: <strong className="text-[var(--text-primary)] font-extrabold">{cancelModalOrder.orderIdDisplay}</strong></span>
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-gray-700">Alasan Pembatalan:</label>
+              <label className="text-xs font-bold text-[var(--text-secondary)]">Alasan Pembatalan:</label>
               <textarea
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
                 placeholder="Contoh: Pembayaran tidak valid, stok habis, outlet tutup..."
                 rows={4}
-                className="w-full border border-gray-200 rounded-xl p-3 text-xs font-medium focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-slate-50/50"
+                className="w-full border border-[var(--border-subtle)] rounded-xl p-3 text-xs font-medium text-[var(--text-primary)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-[0_0_0_3px_var(--focus-brand-ring)] bg-[var(--surface-secondary)]"
               />
             </div>
 
-            <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100">
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-[var(--border-subtle)]">
               <button
                 onClick={() => setCancelModalOrder(null)}
                 disabled={submittingCancel}
-                className="px-4 py-2 border border-gray-200 text-xs font-semibold rounded-lg text-gray-600 hover:bg-gray-50 transition duration-150"
+                className="px-4 py-2 border border-[var(--border-subtle)] text-xs font-semibold rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)] transition duration-150 focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]"
               >
                 Batal
               </button>
               <button
                 onClick={handleCancelSubmit}
                 disabled={submittingCancel}
-                className="px-4 py-2 bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 transition duration-150 text-xs font-bold rounded-lg disabled:opacity-50"
+                className="px-4 py-2 bg-[var(--danger-50)] text-[var(--danger-600)] border border-[var(--danger-100)] hover:border-[var(--danger-500)] transition duration-150 text-xs font-bold rounded-lg disabled:opacity-50 focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]"
               >
                 {submittingCancel ? 'Membatalkan...' : 'Batalkan Pesanan'}
               </button>

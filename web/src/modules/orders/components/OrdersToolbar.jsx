@@ -50,27 +50,34 @@ const filterOptions = {
   ]
 };
 
-function OrdersFilterSelect({ label, icon, value, options, onChange, className = '' }) {
+function OrdersFilterSelect({ label, icon, value, options, onChange, defaultValue = 'all', className = '' }) {
   const selectedLabel = options.find((option) => option.value === value)?.label || options[0]?.label;
+  const isApplied = value !== defaultValue;
 
   return (
-    <label className={`relative flex h-[54px] min-w-0 flex-col justify-center rounded-xl border border-gray-200 bg-white px-3 text-left transition hover:bg-gray-50 focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500 ${className}`}>
-      <span className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 whitespace-nowrap">
+    <label
+      className={`relative flex h-[54px] min-w-0 flex-col justify-center rounded-xl border px-3 text-left transition focus-within:border-[var(--brand-500)] focus-within:shadow-[0_0_0_3px_var(--focus-brand-ring)] ${
+        isApplied
+          ? 'border-[var(--brand-400)] bg-[var(--brand-50)]'
+          : 'border-[var(--border-subtle)] bg-[var(--surface-primary)] hover:border-[var(--border-default)] hover:bg-[var(--surface-secondary)]'
+      } ${className}`}
+    >
+      <span className={`mb-1 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap ${isApplied ? 'text-[var(--brand-600)]' : 'text-[var(--text-muted)]'}`}>
         {label}
       </span>
-      <span className="pointer-events-none flex min-w-0 items-center gap-2 pr-5 text-xs font-bold text-gray-700">
-        <FontAwesomeIcon icon={icon} className="shrink-0 text-[11px] text-gray-400" />
+      <span className="pointer-events-none flex min-w-0 items-center gap-2 pr-5 text-xs font-bold text-[var(--text-primary)]">
+        <FontAwesomeIcon icon={icon} className={`shrink-0 text-[11px] ${isApplied ? 'text-[var(--brand-500)]' : 'text-[var(--text-subtle)]'}`} />
         <span className="truncate whitespace-nowrap">{selectedLabel}</span>
       </span>
       <FontAwesomeIcon
         icon={faChevronDown}
-        className="pointer-events-none absolute bottom-3.5 right-3 text-[10px] text-gray-400"
+        className="pointer-events-none absolute bottom-3.5 right-3 text-[10px] text-[var(--text-subtle)]"
       />
       <select
         aria-label={label}
         value={value}
         onChange={onChange}
-        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0 focus-visible:outline-none"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -122,25 +129,25 @@ export default function OrdersToolbar({
     <div className="mb-2.5 flex shrink-0 flex-col">
       <div className="orders-page-header mb-3 flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
         <div className="flex flex-col">
-          <div className="text-2xl font-bold leading-tight text-gray-800">Orders</div>
-          <div className="mt-1 text-xs leading-tight text-gray-500">
+          <div className="text-2xl font-bold leading-tight text-[var(--text-primary)]">Orders</div>
+          <div className="mt-1 text-xs leading-tight text-[var(--text-muted)]">
             Manage orders across all outlets in your workspace
           </div>
         </div>
         <div className="orders-toolbar-actions flex flex-wrap items-center justify-end gap-2.5 xl:flex-nowrap">
           <button
             onClick={onExport}
-            className="flex h-10 shrink-0 items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-50"
+            className="flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-primary)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] transition duration-200 hover:border-[var(--border-default)] hover:bg-[var(--surface-secondary)] focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]"
           >
-            <FontAwesomeIcon icon={faDownload} className="text-xs text-gray-500" />
+            <FontAwesomeIcon icon={faDownload} className="text-xs text-[var(--text-muted)]" />
             <span>Export</span>
           </button>
-          <div className="last-updated flex shrink-0 items-center text-xs font-medium text-gray-400 xl:border-l xl:border-gray-200 xl.pl-3">
+          <div className="last-updated flex shrink-0 items-center text-xs font-medium text-[var(--text-muted)] xl:border-l xl:border-[var(--border-subtle)] xl.pl-3">
             <span>Last updated: {lastUpdated}</span>
           </div>
           <button
             onClick={onRefresh}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-400 transition duration-150 hover:bg-gray-50 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-primary)] text-[var(--text-muted)] transition duration-150 hover:border-[var(--border-default)] hover:bg-[var(--surface-secondary)] hover:text-[var(--text-secondary)] focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]"
             title="Refresh"
             aria-label="Refresh orders"
           >
@@ -150,11 +157,11 @@ export default function OrdersToolbar({
             <button
               type="button"
               onClick={onShowOrderDetail}
-              className="order-detail-restore-button flex h-10 shrink-0 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-bold text-slate-700 transition duration-150 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30"
+              className="order-detail-restore-button flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-primary)] px-3 text-xs font-bold text-[var(--text-secondary)] transition duration-150 hover:border-[var(--brand-200)] hover:bg-[var(--brand-50)] hover:text-[var(--brand-600)] focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]"
               title="Show order details"
               aria-label={`Show order details for ${selectedOrder.orderIdDisplay}`}
             >
-              <FontAwesomeIcon icon={faTableColumns} className="text-sm text-slate-400" />
+              <FontAwesomeIcon icon={faTableColumns} className="text-sm text-[var(--text-muted)]" />
               <span className="truncate">{selectedOrder.orderIdDisplay}</span>
             </button>
           )}
@@ -175,6 +182,7 @@ export default function OrdersToolbar({
           icon={faCalendarAlt}
           value={filters.date}
           options={filterOptions.date}
+          defaultValue="today"
           onChange={(e) => handleFilterChange('date', e.target.value)}
           className="flex-1 min-w-[120px]"
         />
@@ -209,61 +217,61 @@ export default function OrdersToolbar({
             placeholder="Search by order ID, customer, phone..."
             value={filters.search}
             onChange={(e) => handleFilterChange('search', e.target.value)}
-            className="h-full w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-xs font-medium text-gray-700 transition placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            className="h-full w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-primary)] pl-10 pr-3 text-xs font-medium text-[var(--text-primary)] transition placeholder:text-[var(--text-subtle)] hover:border-[var(--border-default)] focus:border-[var(--brand-500)] focus:outline-none focus:shadow-[0_0_0_3px_var(--focus-brand-ring)]"
           />
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[var(--text-subtle)]">
             <FontAwesomeIcon icon={faSearch} className="text-xs" />
           </div>
         </div>
       </div>
 
       {/* Showing Active Filters Status Bar */}
-      <div className="bg-emerald-50/50 border border-emerald-100/50 rounded-lg px-4 py-2.5 flex items-center justify-between text-xs text-emerald-800 shrink-0 font-medium gap-3">
+      <div className="rounded-lg border border-[var(--brand-100)] bg-[var(--brand-50)] px-4 py-2.5 flex items-center justify-between text-xs text-[var(--text-secondary)] shrink-0 font-medium gap-3">
         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
           <span>Showing:</span>
-          <span className="text-emerald-900 font-bold">
+          <span className="text-[var(--text-primary)] font-bold">
             {filters.outlet === 'all' ? 'All Outlets' : filters.outlet}
           </span>
-          <span className="text-gray-300">·</span>
+          <span className="text-[var(--brand-400)]">·</span>
           <span>Date:</span>
-          <span className="text-emerald-900 font-bold">
+          <span className="text-[var(--text-primary)] font-bold">
             {filters.date === 'today' ? '16 May 2025 (Today)' :
              filters.date === 'yesterday' ? '15 May 2025 (Yesterday)' :
              filters.date === '7days' ? 'Last 7 Days' : 'All Time'}
           </span>
           {filters.channel !== 'all' && (
             <>
-              <span className="text-gray-300">·</span>
+              <span className="text-[var(--brand-400)]">·</span>
               <span>Channel:</span>
-              <span className="text-emerald-900 font-bold capitalize">{filters.channel}</span>
+              <span className="text-[var(--text-primary)] font-bold capitalize">{filters.channel}</span>
             </>
           )}
           {filters.paymentStatus !== 'all' && (
             <>
-              <span className="text-gray-300">·</span>
+              <span className="text-[var(--brand-400)]">·</span>
               <span>Payment:</span>
-              <span className="text-emerald-900 font-bold">{filters.paymentStatus}</span>
+              <span className="text-[var(--text-primary)] font-bold">{filters.paymentStatus}</span>
             </>
           )}
           {filters.orderStatus !== 'all' && (
             <>
-              <span className="text-gray-300">·</span>
+              <span className="text-[var(--brand-400)]">·</span>
               <span>Status:</span>
-              <span className="text-emerald-900 font-bold capitalize">{filters.orderStatus}</span>
+              <span className="text-[var(--text-primary)] font-bold capitalize">{filters.orderStatus}</span>
             </>
           )}
           {filters.search && (
             <>
-              <span className="text-gray-300">·</span>
+              <span className="text-[var(--brand-400)]">·</span>
               <span>Keyword:</span>
-              <span className="text-emerald-900 font-bold">&ldquo;{filters.search}&rdquo;</span>
+              <span className="text-[var(--text-primary)] font-bold">&ldquo;{filters.search}&rdquo;</span>
             </>
           )}
         </div>
         {(hasActiveFilters) && (
           <button
             onClick={clearAllFilters}
-            className="shrink-0 text-emerald-600 hover:text-emerald-800 font-bold hover:underline flex items-center gap-1 transition duration-150"
+            className="shrink-0 text-[var(--brand-600)] hover:text-[var(--brand-700)] font-bold hover:underline flex items-center gap-1 transition duration-150 focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]"
           >
             <FontAwesomeIcon icon={faTimes} className="text-[10px]" />
             <span>Clear all</span>
