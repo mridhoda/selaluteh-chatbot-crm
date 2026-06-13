@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisV, faGlobe, faUser, faTrash, faImage } from '@fortawesome/free-solid-svg-icons';
+import { faGlobe, faUser, faTrash, faImage, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons';
 import BrandIcon from '../../../shared/components/brand/BrandIcon';
 import OrderStatusBadge from './OrderStatusBadge';
 
@@ -11,6 +11,22 @@ export default function OrdersTable({
   onDeleteOrder,
   onViewImage
 }) {
+  const [openDropdownId, setOpenDropdownId] = useState(null);
+
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      setOpenDropdownId(null);
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => {
+      document.removeEventListener('click', handleOutsideClick);
+    };
+  }, []);
+
+  const toggleDropdown = (orderId, event) => {
+    event.stopPropagation();
+    setOpenDropdownId(prev => (prev === orderId ? null : orderId));
+  };
   const formatRupiah = (number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -69,11 +85,15 @@ export default function OrdersTable({
                 key={order._id}
                 onClick={() => onSelectOrder(order)}
                 className={`hover:bg-slate-50/60 cursor-pointer transition-colors duration-150 ${
-                  isSelected ? 'bg-orange-50/40 border-l-2 border-brand-500' : ''
+                  isSelected ? 'bg-[var(--brand-50)] hover:bg-[var(--brand-50)]' : ''
                 }`}
               >
                 {/* Order ID */}
-                <td className="px-6 py-4.5 text-sm font-semibold text-gray-800">
+                <td className={`py-4.5 pr-6 text-sm font-semibold text-gray-800 transition-all duration-150 ${
+                  isSelected 
+                    ? 'border-l-4 border-l-brand-500 pl-5' 
+                    : 'border-l-4 border-l-transparent pl-5'
+                }`}>
                   <div className="flex flex-col">
                     <span>{order.orderIdDisplay}</span>
                     {order.status === 'new' && (
@@ -159,21 +179,40 @@ export default function OrdersTable({
                 </td>
 
                 {/* Action */}
-                <td className="px-6 py-4.5 text-right" onClick={(e) => e.stopPropagation()}>
+                <td className="px-6 py-4.5 text-right relative" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => onSelectOrder(order)}
-                      className="bg-white hover:bg-gray-50 border border-gray-200 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-gray-700 shadow-sm transition duration-150"
+                      className="bg-[var(--surface-primary)] hover:bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-xs font-semibold px-2.5 py-1.5 rounded-lg text-[var(--text-secondary)] shadow-[var(--orders-card-shadow)] transition duration-150 focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]"
                     >
                       View
                     </button>
-                    <button
-                      onClick={() => onDeleteOrder(order._id, order.contactId?.name || 'Unknown')}
-                      className="text-gray-400 hover:text-red-500 p-1.5 rounded-md hover:bg-gray-50 transition duration-150"
-                      title="Delete order"
-                    >
-                      <FontAwesomeIcon icon={faTrash} className="text-xs" />
-                    </button>
+                    <div className="relative inline-block text-left">
+                      <button
+                        onClick={(e) => toggleDropdown(order._id, e)}
+                        className={`border-0 text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)] w-8 h-8 rounded-lg flex items-center justify-center transition duration-150 focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)] ${
+                          openDropdownId === order._id ? 'bg-[var(--surface-secondary)] text-[var(--text-secondary)]' : ''
+                        }`}
+                        title="More actions"
+                      >
+                        <FontAwesomeIcon icon={faEllipsisVertical} className="text-sm" />
+                      </button>
+                      
+                      {openDropdownId === order._id && (
+                        <div className="absolute right-0 mt-1 w-44 bg-[var(--surface-primary)] border border-[var(--border-subtle)] rounded-xl shadow-lg py-1.5 z-50 text-left animate-in fade-in duration-100">
+                          <button
+                            onClick={() => {
+                              setOpenDropdownId(null);
+                              onDeleteOrder(order._id, order.contactId?.name || 'Unknown');
+                            }}
+                            className="w-full border-0 px-4 py-2 text-xs font-bold text-[var(--danger-600)] hover:bg-[var(--danger-50)] flex items-center gap-2 transition duration-150 cursor-pointer text-left"
+                          >
+                            <FontAwesomeIcon icon={faTrash} className="text-[10px]" />
+                            Delete Order
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </td>
               </tr>
