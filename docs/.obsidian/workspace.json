@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "backend/READING-ORDER.md",
+                "file": "backend/mvp-priority.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "READING-ORDER"
+              "title": "mvp-priority"
             }
           }
         ]
@@ -185,8 +185,10 @@
   },
   "active": "c55c7cb47bc6d912",
   "lastOpenFiles": [
-    "backend/index.md",
+    "backend/mvp-priority-checklist.md",
+    "backend/README-MERGED-PACKAGE.md",
     "backend/READING-ORDER.md",
+    "backend/index.md",
     "backend/06-data/ai-commerce-guardrails.md",
     "backend/05-api-spec/encyclopedias-api.md",
     "backend/05-api-spec/telegram-commerce-api.md",
@@ -209,8 +211,6 @@
     "backend/05-api-spec/backup-docs/backend-api-spec-v2/webhooks-api.md",
     "backend/05-api-spec/backup-docs/backend-api-spec-v2/users-api.md",
     "backend/05-api-spec/backup-docs/backend-api-spec-v2/telegram-commerce-api.md",
-    "backend/05-api-spec/backup-docs/backend-api-spec-v2/settings-api.md",
-    "backend/05-api-spec/backup-docs/backend-api-spec-v2/rate-limits.md",
     "backend/05-api-spec/backup-docs/backend-api-spec-v2",
     "backend/05-api-spec/backup-docs/auth-api.zip",
     "backend/05-api-spec/backup-docs",
