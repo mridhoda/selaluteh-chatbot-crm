@@ -1,20 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faRobot, faUser, faThumbtack } from '@fortawesome/free-solid-svg-icons'
+import { faRobot, faUser } from '@fortawesome/free-solid-svg-icons'
 import { clearDemoMode } from '../../mocks/demoState'
 
 export default function Navbar({ authed, user, plan, className }) {
   const navigate = useNavigate()
   const [showDropdown, setShowDropdown] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
-  const [isPinned, setIsPinned] = useState(() => {
-    try {
-      return localStorage.getItem('navbarPinned') === '1'
-    } catch {
-      return false
-    }
-  })
   const dropdownRef = useRef(null)
 
   const handleLogout = () => {
@@ -37,19 +30,10 @@ export default function Navbar({ authed, user, plan, className }) {
     }
   }, [dropdownRef])
 
-  useEffect(() => {
-    try {
-      if (isPinned) localStorage.setItem('navbarPinned', '1')
-      else localStorage.removeItem('navbarPinned')
-    } catch {
-      // Ignore storage errors in private/demo contexts.
-    }
-  }, [isPinned])
-
   const onlineStatusColor = isOnline ? 'var(--lp-green-500)' : 'var(--lp-slate-400)';
 
   return (
-    <div className={`navbar ${isPinned ? 'navbar--pinned' : ''} ${className || ''}`}>
+    <div className={`navbar ${className || ''}`}>
       <Link
         to={authed ? '/app' : '/'}
         style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
@@ -71,7 +55,7 @@ export default function Navbar({ authed, user, plan, className }) {
           </Link>
         </div>
       ) : (
-        <div className='row' style={{ alignItems: 'center' }}>
+        <div className='row' style={{ alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <span className='badge navbar-compact-hidden'>
             Paket: {plan?.plan?.toUpperCase?.() || 'PRO'}
           </span>
@@ -79,18 +63,6 @@ export default function Navbar({ authed, user, plan, className }) {
             Sisa aktif:{' '}
             {plan?.expiry ? new Date(plan.expiry).toLocaleDateString() : '-'}
           </div>
-          <button
-            type='button'
-            className={`btn ghost navbar-pin-btn ${isPinned ? 'is-active' : ''}`}
-            onClick={() => setIsPinned((prev) => !prev)}
-            aria-pressed={isPinned}
-            title={isPinned ? 'Unpin navbar' : 'Pin navbar'}
-          >
-            <FontAwesomeIcon icon={faThumbtack} />
-            <span className='navbar-pin-label'>
-              {isPinned ? 'Pinned' : 'Pin'}
-            </span>
-          </button>
           <div
             ref={dropdownRef}
             style={{ display: 'flex', gap: 8, alignItems: 'center', position: 'relative', margin: 0, padding: 0 }}
@@ -100,7 +72,7 @@ export default function Navbar({ authed, user, plan, className }) {
               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 12px', height: '40px' }}
               onClick={() => setShowDropdown((prev) => !prev)}
             >
-              <span className='navbar-user-name'>{user?.name}</span>
+              <span>{user?.name}</span>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <div style={{
                   width: '28px',

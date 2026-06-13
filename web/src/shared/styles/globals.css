@@ -1,3 +1,7 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
 :root {
     --brand: #f97316;
     /* lp-orange-500 */
@@ -389,6 +393,16 @@ body.sidebar-pinned .sidebar-pin-label {
 .sidebar-container:hover~.main,
 body.sidebar-pinned .main {
     margin-left: 270px;
+}
+
+.dashboard-layout.no-sidebar .main,
+body.sidebar-pinned .dashboard-layout.no-sidebar .main {
+    margin-left: 0;
+}
+
+.dashboard-layout.no-sidebar .navbar,
+body.sidebar-pinned .dashboard-layout.no-sidebar .navbar {
+    margin-left: 0;
 }
 
 .main-body {
@@ -2344,4 +2358,100 @@ input:checked+.slider {
 input:checked+.slider:before {
     transform: translateX(16px);
     /* Adjust translation for new width */
+}
+
+/* Custom thin scrollbars for the orders dashboard */
+.dashboard-layout.no-sidebar ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.dashboard-layout.no-sidebar ::-webkit-scrollbar-track {
+    background: transparent;
+}
+.dashboard-layout.no-sidebar ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+.dashboard-layout.no-sidebar ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.orders-page-header {
+    min-width: 0;
+}
+
+.orders-toolbar-actions {
+    min-width: 0;
+}
+
+.orders-toolbar-actions .last-updated {
+    white-space: nowrap;
+}
+
+.orders-filter-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.orders-filter-toolbar>* {
+    min-width: 0;
+}
+
+.order-detail-collapse-button {
+    box-shadow: none;
+}
+
+.order-detail-collapse-button:focus {
+    outline: none;
+}
+
+.order-detail-collapse-button:focus-visible {
+    outline: 2px solid rgba(249, 115, 22, 0.28);
+    outline-offset: 2px;
+}
+
+.order-detail-restore-button {
+    position: static;
+}
+
+@media (min-width: 768px) {
+    .orders-filter-toolbar {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1100px) {
+    .orders-filter-toolbar {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .orders-filter-search {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (min-width: 1350px) {
+    .orders-filter-toolbar {
+        grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(200px, 1.6fr);
+    }
+
+    .orders-filter-search {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 1099px) {
+    .order-detail-restore-button span {
+        display: none;
+    }
+}
+
+@media (max-width: 767px) {
+    .orders-toolbar-actions {
+        justify-content: flex-start;
+    }
+
+    .orders-toolbar-actions .last-updated {
+        order: 3;
+        width: 100%;
+    }
 }

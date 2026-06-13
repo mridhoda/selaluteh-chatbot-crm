@@ -1,691 +1,815 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../../shared/api/httpClient';
+import * as XLSX from 'xlsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faFilter, faTimes, faImage, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+
+import OrdersSummaryCards from '../components/OrdersSummaryCards';
+import OrdersStatusTabs from '../components/OrdersStatusTabs';
+import OrdersToolbar from '../components/OrdersToolbar';
+import OrdersTable from '../components/OrdersTable';
+import OrderDetailDrawer from '../components/OrderDetailDrawer';
 
 export default function Orders() {
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('all');
-    const [agents, setAgents] = useState({});
-    const [cancelModal, setCancelModal] = useState(null);
-    const [cancelReason, setCancelReason] = useState('');
-    const [submitting, setSubmitting] = useState(false);
-    const [selectedImage, setSelectedImage] = useState(null);
+  const navigate = useNavigate();
 
-    useEffect(() => {
-        loadOrders();
-    }, [filter]);
+  // Primary API Data States
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [agents, setAgents] = useState({});
+  const [lastUpdated, setLastUpdated] = useState('');
 
-    const loadOrders = async () => {
-        setLoading(true);
+  // Local/Interactive States (overrides mockup changes in-session)
+  const [mockOverrides, setMockOverrides] = useState({});
+  const [deletedMockIds, setDeletedMockIds] = useState(new Set());
+
+  // Filter States
+  const [filters, setFilters] = useState({
+    outlet: 'all',
+    date: 'today',
+    channel: 'all',
+    paymentStatus: 'all',
+    orderStatus: 'all',
+    search: ''
+  });
+  const [activeTab, setActiveTab] = useState('all');
+
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Selected Detail Drawer State
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [isOrderDetailOpen, setIsOrderDetailOpen] = useState(true);
+
+  // Modal States
+  const [cancelModalOrder, setCancelModalOrder] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [submittingCancel, setSubmittingCancel] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState(null);
+
+  // Fetch orders on mount or manual refresh
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  const loadOrders = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/orders');
+      setOrders(res.data);
+
+      // Fetch agents for product/price parsing
+      const agentIds = [...new Set(res.data.map(o => o.agentId).filter(Boolean))];
+      const agentMap = {};
+      for (const agentId of agentIds) {
         try {
-            const params = {};
-            if (filter !== 'all') params.status = filter;
-            const res = await api.get('/orders', { params });
-            setOrders(res.data);
-
-            // Load agents for price lookup
-            const agentIds = [...new Set(res.data.map(o => o.agentId).filter(Boolean))];
-            const agentMap = {};
-            for (const agentId of agentIds) {
-                try {
-                    const agentRes = await api.get(`/agents/${agentId}`);
-                    agentMap[agentId] = agentRes.data;
-                } catch (err) {
-                    console.error('Failed to load agent:', agentId);
-                }
-            }
-            setAgents(agentMap);
+          const agentRes = await api.get(`/agents/${agentId}`);
+          agentMap[agentId] = agentRes.data;
         } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
+          console.error('Failed to load agent:', agentId);
         }
-    };
+      }
+      setAgents(agentMap);
+      setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    } catch (err) {
+      console.error('Failed to load orders:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const handleStatusChange = async (id, newStatus) => {
-        try {
-            await api.put(`/orders/${id}`, { status: newStatus });
-            setOrders(orders.map(o => o._id === id ? { ...o, status: newStatus } : o));
-        } catch (err) {
-            alert('Failed to update status');
+  // Price & item calculation for database orders
+  const calculateOrderPrice = (order, agent) => {
+    if (!agent || !agent.salesForms) return null;
+
+    const salesForm = agent.salesForms.find(f => f.name === order.formName);
+    if (!salesForm || !salesForm.products || salesForm.products.length === 0) return null;
+
+    const formData = order.formData || {};
+    const itemNameKey = Object.keys(formData).find(k =>
+      k.toLowerCase().includes('item') && k.toLowerCase().includes('name')
+    );
+    const quantityKey = Object.keys(formData).find(k =>
+      k.toLowerCase() === 'quantity' || k.toLowerCase() === 'qty'
+    );
+
+    if (!itemNameKey || !quantityKey) return null;
+
+    const itemName = formData[itemNameKey];
+    const quantity = parseInt(formData[quantityKey]) || 1;
+
+    const product = salesForm.products.find(p =>
+      p.name.toLowerCase() === itemName.toLowerCase()
+    );
+
+    if (!product) return null;
+
+    const unitPrice = product.price || 0;
+    const subtotal = unitPrice * quantity;
+
+    return {
+      itemName: product.name,
+      quantity,
+      unitPrice,
+      subtotal
+    };
+  };
+
+  // Master list combiner (database orders + mock orders)
+  const masterOrdersList = useMemo(() => {
+    const mockList = [
+      {
+        _id: 'order-1028',
+        orderIdDisplay: 'ORD-1028',
+        status: 'preparing',
+        contactId: { name: 'Rina Pratiwi', phone: '0812-3456-7890' },
+        outlet: 'Samarinda',
+        channel: 'whatsapp',
+        itemsCount: '2 items',
+        itemsList: [
+          { name: 'Sally Caramel', qty: 1, variant: 'Large, Less Ice, Normal Sugar', price: 26000 },
+          { name: 'Kopi Susu Gula Aren', qty: 1, variant: 'Large, Normal Ice, Extra Aren', price: 14000 }
+        ],
+        total: 38000,
+        paymentMethod: 'Cash on Delivery',
+        paymentStatus: 'Paid',
+        notes: 'Less ice ya, terima kasih!',
+        createdAt: '2025-05-16T10:21:00Z',
+        timeline: [
+          { time: '16 May 2025, 10:21 AM', label: 'Order created' },
+          { time: '16 May 2025, 10:22 AM', label: 'Payment received' },
+          { time: '16 May 2025, 10:24 AM', label: 'Preparing' }
+        ]
+      },
+      {
+        _id: 'order-1027',
+        orderIdDisplay: 'ORD-1027',
+        status: 'new',
+        contactId: { name: 'Dewi Lestari', phone: '0813-2545-6789' },
+        outlet: 'Tenggarong',
+        channel: 'telegram',
+        itemsCount: '3 items',
+        itemsList: [
+          { name: 'Es Teh Lemon', qty: 2, variant: 'Medium, Normal Ice, Less Sugar', price: 15000 },
+          { name: 'Kopi Susu Gula Aren', qty: 1, variant: 'Medium, Normal Ice, Normal Sugar', price: 22000 }
+        ],
+        total: 52000,
+        paymentMethod: 'Bank Transfer',
+        paymentStatus: 'Paid',
+        notes: '',
+        createdAt: '2025-05-16T10:19:00Z',
+        timeline: [
+          { time: '16 May 2025, 10:19 AM', label: 'Order created' },
+          { time: '16 May 2025, 10:20 AM', label: 'Payment received' }
+        ]
+      },
+      {
+        _id: 'order-1026',
+        orderIdDisplay: 'ORD-1026',
+        status: 'ready',
+        contactId: { name: 'Andi Wijaya', phone: '0811-2233-4455' },
+        outlet: 'Bontang',
+        channel: 'whatsapp',
+        itemsCount: '1 item',
+        itemsList: [
+          { name: 'Sally Caramel', qty: 1, variant: 'Large, Normal Ice, Normal Sugar', price: 24000 }
+        ],
+        total: 24000,
+        paymentMethod: 'Bank Transfer',
+        paymentStatus: 'Unpaid',
+        notes: 'Tolong dibuat agak manis',
+        createdAt: '2025-05-16T10:12:00Z',
+        timeline: [
+          { time: '16 May 2025, 10:12 AM', label: 'Order created' }
+        ]
+      },
+      {
+        _id: 'order-1025',
+        orderIdDisplay: 'ORD-1025',
+        status: 'preparing',
+        contactId: { name: 'Siti Aminah', phone: '0812-9988-7766' },
+        outlet: 'Samarinda',
+        channel: 'website',
+        itemsCount: '4 items',
+        itemsList: [
+          { name: 'Es Teh Lemon', qty: 2, variant: 'Medium, Normal Ice, Normal Sugar', price: 15000 },
+          { name: 'Sally Caramel', qty: 2, variant: 'Medium, Normal Ice, Normal Sugar', price: 23000 }
+        ],
+        total: 76000,
+        paymentMethod: 'Cash on Delivery',
+        paymentStatus: 'Paid',
+        notes: '',
+        createdAt: '2025-05-16T10:08:00Z',
+        timeline: [
+          { time: '16 May 2025, 10:08 AM', label: 'Order created' },
+          { time: '16 May 2025, 10:10 AM', label: 'Payment received' }
+        ]
+      },
+      {
+        _id: 'order-1024',
+        orderIdDisplay: 'ORD-1024',
+        status: 'completed',
+        contactId: { name: 'Budi Santoso', phone: '0852-6677-8899' },
+        outlet: 'Balikpapan',
+        channel: 'whatsapp',
+        itemsCount: '2 items',
+        itemsList: [
+          { name: 'Es Teh Lemon', qty: 1, variant: 'Medium, Normal Ice, Normal Sugar', price: 15000 },
+          { name: 'Kopi Susu Gula Aren', qty: 1, variant: 'Medium, Normal Ice, Normal Sugar', price: 16000 }
+        ],
+        total: 31000,
+        paymentMethod: 'Bank Transfer',
+        paymentStatus: 'Paid',
+        notes: '',
+        createdAt: '2025-05-16T09:58:00Z',
+        timeline: [
+          { time: '16 May 2025, 09:58 AM', label: 'Order created' },
+          { time: '16 May 2025, 10:00 AM', label: 'Payment received' },
+          { time: '16 May 2025, 10:05 AM', label: 'Preparing' },
+          { time: '16 May 2025, 10:10 AM', label: 'Completed' }
+        ]
+      },
+      {
+        _id: 'order-1023',
+        orderIdDisplay: 'ORD-1023',
+        status: 'completed',
+        contactId: { name: 'Nina Marlina', phone: '0813-5566-7788' },
+        outlet: 'Tenggarong',
+        channel: 'telegram',
+        itemsCount: '1 item',
+        itemsList: [
+          { name: 'Kopi Susu Gula Aren', qty: 1, variant: 'Medium, Normal Ice, Normal Sugar', price: 18000 }
+        ],
+        total: 18000,
+        paymentMethod: 'Cash on Delivery',
+        paymentStatus: 'Paid',
+        notes: '',
+        createdAt: '2025-05-16T09:45:00Z',
+        timeline: [
+          { time: '16 May 2025, 09:45 AM', label: 'Order created' },
+          { time: '16 May 2025, 09:46 AM', label: 'Payment received' },
+          { time: '16 May 2025, 09:50 AM', label: 'Preparing' },
+          { time: '16 May 2025, 10:02 AM', label: 'Completed' }
+        ]
+      },
+      {
+        _id: 'order-1022',
+        orderIdDisplay: 'ORD-1022',
+        status: 'cancelled',
+        contactId: { name: 'Fajar Rahman', phone: '0821-4777-6655' },
+        outlet: 'Bontang',
+        channel: 'manual',
+        itemsCount: '2 items',
+        itemsList: [
+          { name: 'Es Teh', qty: 2, variant: 'Medium, Normal Ice, Normal Sugar', price: 12000 },
+          { name: 'Lemon Tea', qty: 1, variant: 'Medium, Normal Ice, Normal Sugar', price: 5000 }
+        ],
+        total: 29000,
+        paymentMethod: 'Bank Transfer',
+        paymentStatus: 'Unpaid',
+        notes: 'Dibatalkan oleh pelanggan',
+        createdAt: '2025-05-16T09:32:00Z',
+        timeline: [
+          { time: '16 May 2025, 09:32 AM', label: 'Order created' },
+          { time: '16 May 2025, 09:35 AM', label: 'Cancelled' }
+        ]
+      }
+    ];
+
+    // Filter out deleted mock items
+    const activeMocks = mockList.filter(m => !deletedMockIds.has(m._id));
+
+    // Map overrides onto mocks
+    const overriddenMocks = activeMocks.map(m => {
+      if (mockOverrides[m._id]) {
+        return { ...m, ...mockOverrides[m._id] };
+      }
+      return m;
+    });
+
+    // Map API orders to standard shape
+    const apiList = orders.map(order => {
+      const agent = agents[order.agentId];
+      const priceInfo = calculateOrderPrice(order, agent);
+
+      const entries = Object.entries(order.formData || {});
+      const outletEntry = entries.find(([key]) => key.toLowerCase().includes('outlet'));
+      const outlet = outletEntry ? outletEntry[1] : 'Samarinda';
+
+      const channelEntry = entries.find(([key]) => key.toLowerCase().includes('channel') || key.toLowerCase().includes('platform'));
+      const channel = channelEntry ? channelEntry[1].toLowerCase() : 'whatsapp';
+
+      const payStatusEntry = entries.find(([key]) => key.toLowerCase().includes('payment') || key.toLowerCase().includes('bayar'));
+      let paymentStatus = payStatusEntry ? payStatusEntry[1] : (order.paymentProofUrl ? 'Paid' : 'Unpaid');
+      if (paymentStatus.toLowerCase().includes('paid') || paymentStatus.toLowerCase().includes('lunas')) {
+        paymentStatus = 'Paid';
+      } else {
+        paymentStatus = 'Unpaid';
+      }
+
+      let itemsList = [];
+      if (priceInfo) {
+        itemsList.push({
+          name: priceInfo.itemName,
+          qty: priceInfo.quantity,
+          variant: 'Default Variant',
+          price: priceInfo.unitPrice
+        });
+      } else {
+        const itemNameEntry = entries.find(([key]) => key.toLowerCase().includes('item') && key.toLowerCase().includes('name'));
+        const qtyEntry = entries.find(([key]) => key.toLowerCase() === 'qty' || key.toLowerCase() === 'quantity');
+        if (itemNameEntry) {
+          itemsList.push({
+            name: itemNameEntry[1],
+            qty: qtyEntry ? parseInt(qtyEntry[1]) || 1 : 1,
+            variant: 'Standard',
+            price: 15000
+          });
         }
-    };
+      }
 
-    const openCancelModal = (order) => {
-        setCancelModal(order);
-        setCancelReason('');
-    };
+      const subtotal = priceInfo ? priceInfo.subtotal : (itemsList[0]?.price * itemsList[0]?.qty || 0);
+      const orderIdDisplay = order._id.startsWith('order-') ? `ORD-${order._id.replace('order-', '')}` : `ORD-${order._id.substring(order._id.length - 4).toUpperCase()}`;
 
-    const closeCancelModal = () => {
-        setCancelModal(null);
-        setCancelReason('');
-    };
+      const timeline = [
+        { time: new Date(order.createdAt).toLocaleString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }), label: 'Order created' }
+      ];
+      if (order.status === 'processed' || order.status === 'preparing' || order.status === 'ready' || order.status === 'completed') {
+        timeline.push({ time: new Date().toLocaleString(), label: 'Preparing' });
+      }
+      if (order.status === 'ready' || order.status === 'completed') {
+        timeline.push({ time: new Date().toLocaleString(), label: 'Ready to Process' });
+      }
+      if (order.status === 'completed') {
+        timeline.push({ time: new Date().toLocaleString(), label: 'Completed' });
+      }
+      if (order.status === 'cancelled') {
+        timeline.push({ time: new Date().toLocaleString(), label: 'Cancelled' });
+      }
 
-    const handleCancelOrder = async () => {
-        if (!cancelReason.trim()) {
-            alert('Mohon masukkan alasan pembatalan');
-            return;
+      return {
+        _id: order._id,
+        orderIdDisplay,
+        status: order.status,
+        contactId: {
+          name: order.contactId?.name || 'Unknown User',
+          phone: order.contactId?.phone || ''
+        },
+        outlet,
+        channel,
+        itemsCount: itemsList.length > 0 ? `${itemsList.length} item${itemsList.length > 1 ? 's' : ''}` : '0 items',
+        itemsList,
+        total: subtotal || 25000,
+        paymentMethod: 'Bank Transfer',
+        paymentStatus,
+        notes: order.notes || '',
+        createdAt: order.createdAt,
+        timeline,
+        paymentProofUrl: order.paymentProofUrl
+      };
+    });
+
+    return [...apiList, ...overriddenMocks];
+  }, [orders, agents, mockOverrides, deletedMockIds]);
+
+  // Date Filter matching helper
+  const isDateMatched = (dateStr, dateFilter) => {
+    if (dateFilter === 'all') return true;
+    const orderDate = new Date(dateStr);
+    const now = new Date();
+
+    if (dateFilter === 'today') {
+      const isMockToday = orderDate.getFullYear() === 2025 && orderDate.getMonth() === 4 && orderDate.getDate() === 16;
+      const isActualToday = orderDate.getFullYear() === now.getFullYear() && orderDate.getMonth() === now.getMonth() && orderDate.getDate() === now.getDate();
+      return isActualToday || isMockToday;
+    }
+    if (dateFilter === 'yesterday') {
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      return orderDate.getFullYear() === yesterday.getFullYear() && orderDate.getMonth() === yesterday.getMonth() && orderDate.getDate() === yesterday.getDate();
+    }
+    if (dateFilter === '7days') {
+      const diffDays = Math.ceil(Math.abs(now - orderDate) / (1000 * 60 * 60 * 24));
+      return diffDays <= 7;
+    }
+    return true;
+  };
+
+  // Filtering Logic
+  const filteredOrders = useMemo(() => {
+    return masterOrdersList.filter(o => {
+      // 1. Outlet Filter
+      if (filters.outlet !== 'all' && o.outlet !== filters.outlet) return false;
+
+      // 2. Date Filter
+      if (!isDateMatched(o.createdAt, filters.date)) return false;
+
+      // 3. Channel Filter
+      if (filters.channel !== 'all' && o.channel !== filters.channel) return false;
+
+      // 4. Payment Status Filter
+      if (filters.paymentStatus !== 'all' && o.paymentStatus !== filters.paymentStatus) return false;
+
+      // 5. Order Status Dropdown Filter
+      if (filters.orderStatus !== 'all' && o.status !== filters.orderStatus) return false;
+
+      // 6. Tabs status filter (upper layer)
+      if (activeTab !== 'all') {
+        if (activeTab === 'pending_payment') {
+          if (o.paymentStatus !== 'Unpaid' || o.status === 'cancelled') return false;
+        } else if (activeTab === 'accepted') {
+          // accepted in mockup corresponds to processed
+          if (o.status !== 'processed') return false;
+        } else {
+          if (o.status !== activeTab) return false;
         }
+      }
 
-        setSubmitting(true);
-        try {
-            await api.put(`/orders/${cancelModal._id}/cancel`, { reason: cancelReason });
-            setOrders(orders.map(o => o._id === cancelModal._id ? { ...o, status: 'cancelled', notes: cancelReason } : o));
-            closeCancelModal();
-        } catch (err) {
-            alert('Gagal membatalkan order: ' + (err.response?.data?.error || err.message));
-        } finally {
-            setSubmitting(false);
+      // 7. Search keyword
+      if (filters.search.trim()) {
+        const query = filters.search.toLowerCase();
+        const name = (o.contactId?.name || '').toLowerCase();
+        const phone = (o.contactId?.phone || '').toLowerCase();
+        const displayId = (o.orderIdDisplay || '').toLowerCase();
+        if (!name.includes(query) && !phone.includes(query) && !displayId.includes(query)) return false;
+      }
+
+      return true;
+    });
+  }, [masterOrdersList, filters, activeTab]);
+
+  // Handle current page resets on filter modifications
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, activeTab]);
+
+  // Paginated Orders
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredOrders.slice(startIndex, startIndex + pageSize);
+  }, [filteredOrders, currentPage, pageSize]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredOrders.length / pageSize) || 1;
+  }, [filteredOrders, pageSize]);
+
+  // Get currently selected order object details
+  const currentSelectedOrder = useMemo(() => {
+    if (!selectedOrderId) {
+      // Auto select the first item on load (to mimic mockup screen)
+      return filteredOrders[0] || null;
+    }
+    return masterOrdersList.find(o => o._id === selectedOrderId) || filteredOrders[0] || null;
+  }, [selectedOrderId, filteredOrders, masterOrdersList]);
+
+  // Status Change Logic (Quick Actions & Dropdown)
+  const handleStatusChange = async (orderId, newStatus) => {
+    // Check if mock order
+    const isMock = orderId.startsWith('order-');
+    if (isMock) {
+      // Update local override
+      const order = masterOrdersList.find(o => o._id === orderId);
+      if (order) {
+        const updatedTimeline = [...(order.timeline || [])];
+        const label = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+        updatedTimeline.push({
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          label: `${label} (updated)`
+        });
+
+        setMockOverrides(prev => ({
+          ...prev,
+          [orderId]: {
+            ...prev[orderId],
+            status: newStatus,
+            timeline: updatedTimeline
+          }
+        }));
+      }
+    } else {
+      // Real API update
+      try {
+        await api.put(`/orders/${orderId}`, { status: newStatus });
+        // Update local state list
+        setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status: newStatus } : o));
+      } catch (err) {
+        alert('Gagal memperbarui status order.');
+      }
+    }
+  };
+
+  // Open Cancel Modal
+  const openCancelModal = (order) => {
+    setCancelModalOrder(order);
+    setCancelReason('');
+  };
+
+  // Handle Cancel Order Submission
+  const handleCancelSubmit = async () => {
+    if (!cancelReason.trim()) {
+      alert('Mohon masukkan alasan pembatalan.');
+      return;
+    }
+
+    const orderId = cancelModalOrder._id;
+    const isMock = orderId.startsWith('order-');
+
+    setSubmittingCancel(true);
+    try {
+      if (isMock) {
+        const order = masterOrdersList.find(o => o._id === orderId);
+        const updatedTimeline = [...(order.timeline || [])];
+        updatedTimeline.push({
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          label: `Cancelled: ${cancelReason}`
+        });
+
+        setMockOverrides(prev => ({
+          ...prev,
+          [orderId]: {
+            ...prev[orderId],
+            status: 'cancelled',
+            paymentStatus: 'Unpaid',
+            notes: cancelReason,
+            timeline: updatedTimeline
+          }
+        }));
+        setCancelModalOrder(null);
+      } else {
+        await api.put(`/orders/${orderId}/cancel`, { reason: cancelReason });
+        setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status: 'cancelled', notes: cancelReason } : o));
+        setCancelModalOrder(null);
+      }
+    } catch (err) {
+      alert('Gagal membatalkan order: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setSubmittingCancel(false);
+    }
+  };
+
+  // Delete Order
+  const handleDeleteOrder = async (orderId, orderName) => {
+    if (!window.confirm(`Apakah Anda yakin ingin menghapus order dari ${orderName}?`)) {
+      return;
+    }
+
+    const isMock = orderId.startsWith('order-');
+    if (isMock) {
+      setDeletedMockIds(prev => {
+        const next = new Set(prev);
+        next.add(orderId);
+        return next;
+      });
+      if (selectedOrderId === orderId) {
+        setSelectedOrderId(null);
+      }
+    } else {
+      try {
+        await api.delete(`/orders/${orderId}`);
+        setOrders(prev => prev.filter(o => o._id !== orderId));
+        if (selectedOrderId === orderId) {
+          setSelectedOrderId(null);
         }
-    };
+      } catch (err) {
+        alert('Gagal menghapus order: ' + (err.response?.data?.error || err.message));
+      }
+    }
+  };
 
-    const calculateOrderPrice = (order, agent) => {
-        if (!agent || !agent.salesForms) return null;
+  // Export to Excel
+  const handleExportToExcel = () => {
+    if (filteredOrders.length === 0) {
+      alert('Tidak ada data order untuk diekspor.');
+      return;
+    }
 
-        const salesForm = agent.salesForms.find(f => f.name === order.formName);
-        if (!salesForm || !salesForm.products || salesForm.products.length === 0) return null;
+    const data = filteredOrders.map(o => ({
+      'Order ID': o.orderIdDisplay,
+      'Customer Name': o.contactId?.name,
+      'Phone': o.contactId?.phone,
+      'Outlet': o.outlet,
+      'Channel': o.channel,
+      'Items': o.itemsCount,
+      'Total Amount': o.total,
+      'Payment Status': o.paymentStatus,
+      'Order Status': o.status,
+      'Notes': o.notes,
+      'Created At': new Date(o.createdAt).toLocaleString()
+    }));
 
-        const formData = order.formData;
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
+    XLSX.writeFile(workbook, `orders_report_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
 
-        const itemNameKey = Object.keys(formData).find(k =>
-            k.toLowerCase().includes('item') && k.toLowerCase().includes('name')
-        );
-        const quantityKey = Object.keys(formData).find(k =>
-            k.toLowerCase() === 'quantity' || k.toLowerCase() === 'qty'
-        );
+  // Open Chat navigation helper
+  const handleOpenChat = (order) => {
+    if (order.chatId) {
+      navigate('/app', { state: { selectChatId: order.chatId } });
+    } else {
+      navigate('/app');
+    }
+  };
 
-        if (!itemNameKey || !quantityKey) return null;
+  // Resend Payment Link mock response
+  const handleResendPayment = (order) => {
+    alert(`Link pembayaran berhasil dikirim ulang ke ${order.contactId?.name} (${order.contactId?.phone})`);
+  };
 
-        const itemName = formData[itemNameKey];
-        const quantity = parseInt(formData[quantityKey]) || 1;
+  // View image proof in modal
+  const handleViewImage = (url) => {
+    const fullUrl = url.startsWith('http') ? url : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${url}`;
+    setPreviewImageUrl(fullUrl);
+  };
 
-        const product = salesForm.products.find(p =>
-            p.name.toLowerCase() === itemName.toLowerCase()
-        );
+  return (
+    <div className="flex flex-1 overflow-hidden bg-slate-50 -m-4 h-[calc(100vh-58px)] max-h-[calc(100vh-58px)]">
+      {/* LEFT PORTION: Orders Main Content Dashboard */}
+      <div className={`flex-1 flex flex-col min-w-0 p-4 pt-3 overflow-hidden transition-[padding] duration-200 motion-reduce:transition-none ${isOrderDetailOpen ? 'md:pr-[416px]' : 'md:pr-4'}`}>
+        {/* Toolbar Header (Title, Subtitle, Actions, Filters) */}
+        <OrdersToolbar
+          filters={filters}
+          setFilters={setFilters}
+          onRefresh={loadOrders}
+          onExport={handleExportToExcel}
+          lastUpdated={lastUpdated}
+          selectedOrder={currentSelectedOrder}
+          isOrderDetailOpen={isOrderDetailOpen}
+          onShowOrderDetail={() => setIsOrderDetailOpen(true)}
+        />
 
-        if (!product) return null;
+        {/* Dynamic Summary Cards */}
+        <OrdersSummaryCards orders={masterOrdersList} />
 
-        const unitPrice = product.price || 0;
-        const subtotal = unitPrice * quantity;
+        {/* Tabs Row */}
+        <OrdersStatusTabs
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          orders={masterOrdersList}
+        />
 
-        return {
-            itemName: product.name,
-            quantity,
-            unitPrice,
-            subtotal
-        };
-    };
+        {/* Orders Data Table */}
+        <OrdersTable
+          orders={paginatedOrders}
+          selectedOrder={currentSelectedOrder}
+          onSelectOrder={(order) => {
+            setSelectedOrderId(order._id);
+            setIsOrderDetailOpen(true);
+          }}
+          onDeleteOrder={handleDeleteOrder}
+          onViewImage={handleViewImage}
+        />
 
-    const formatRupiah = (number) => {
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            minimumFractionDigits: 0
-        }).format(number);
-    };
+        {/* Table Pagination Footer */}
+        <div className="bg-white border-x border-b border-gray-200 rounded-b-xl px-6 py-3 flex items-center justify-between shrink-0 select-none text-xs text-gray-500 font-semibold mt-[-1px]">
+          <div>
+            Showing {filteredOrders.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to{' '}
+            {Math.min(currentPage * pageSize, filteredOrders.length)} of {filteredOrders.length} orders
+          </div>
+          
+          <div className="flex items-center gap-4">
+            {/* Page Buttons */}
+            <div className="flex items-center gap-1.5">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => p - 1)}
+                className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition text-gray-600 disabled:opacity-40 disabled:hover:bg-white"
+              >
+                <FontAwesomeIcon icon={faChevronLeft} />
+              </button>
+              
+              {Array.from({ length: totalPages }).map((_, i) => {
+                const pageNum = i + 1;
+                const isActive = pageNum === currentPage;
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition text-xs font-bold border ${
+                      isActive
+                        ? 'bg-brand-50 border-brand-500 text-brand-600'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
 
-    const openImageModal = (imageUrl) => {
-        setSelectedImage(imageUrl);
-    };
-
-    const closeImageModal = () => {
-        setSelectedImage(null);
-    };
-
-    const handleDeleteOrder = async (orderId, orderName) => {
-        if (!window.confirm(`Apakah Anda yakin ingin menghapus order dari ${orderName}?`)) {
-            return;
-        }
-
-        try {
-            await api.delete(`/orders/${orderId}`);
-            setOrders(orders.filter(o => o._id !== orderId));
-        } catch (err) {
-            alert('Gagal menghapus order: ' + (err.response?.data?.error || err.message));
-        }
-    };
-
-    return (
-        <div style={{ padding: 20 }}>
-            <div className="header" style={{ marginBottom: 20 }}>
-                <h2>Incoming Orders</h2>
-                <div className="filters" style={{ display: 'flex', gap: 10 }}>
-                    <select className="select" value={filter} onChange={e => setFilter(e.target.value)}>
-                        <option value="all">All Status</option>
-                        <option value="new">New</option>
-                        <option value="processed">Processed</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                    </select>
-                </div>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => p + 1)}
+                className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition text-gray-600 disabled:opacity-40 disabled:hover:bg-white"
+              >
+                <FontAwesomeIcon icon={faChevronRight} />
+              </button>
             </div>
 
-            {loading ? (
-                <div>Loading...</div>
-            ) : (
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                    gap: '20px',
-                    alignItems: 'start'
-                }}>
-                    {orders.map(order => {
-                        const agent = agents[order.agentId];
-                        const priceInfo = calculateOrderPrice(order, agent);
-
-                        const entries = Object.entries(order.formData);
-
-                        const totalEntry = entries.find(([key]) =>
-                            key.toLowerCase().includes('total')
-                        );
-
-                        const metadata = entries.filter(([key, val]) =>
-                            val !== 0 &&
-                            val !== '0' &&
-                            (key.toLowerCase().includes('outlet') ||
-                                key.toLowerCase().includes('less') ||
-                                key.toLowerCase().includes('sugar') ||
-                                key.toLowerCase().includes('ice') ||
-                                (key.toLowerCase().includes('nama') && !key.toLowerCase().includes('item')) ||
-                                (key.toLowerCase().includes('name') && !key.toLowerCase().includes('item')))
-                        );
-
-                        const itemFields = entries.filter(([key, val]) =>
-                            val !== 0 &&
-                            val !== '0' &&
-                            (key.toLowerCase().includes('item') || key.toLowerCase().includes('quantity')) &&
-                            !key.toLowerCase().includes('total')
-                        );
-
-                        const calculatedTotal = priceInfo ? priceInfo.subtotal : null;
-                        const displayTotal = totalEntry ? totalEntry[1] : (calculatedTotal ? formatRupiah(calculatedTotal) : null);
-
-                        return (
-                            <div key={order._id} style={{
-                                background: 'white',
-                                padding: '24px',
-                                borderRadius: '12px',
-                                boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
-                                border: '1px solid #f0f0f0',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '16px',
-                                position: 'relative',
-                                overflow: 'hidden'
-                            }}>
-                                <div style={{
-                                    height: '4px',
-                                    background: 'linear-gradient(90deg, #ff6b6b, #ff8e53)',
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    width: '100%'
-                                }} />
-
-                                {/* Delete Button */}
-                                <button
-                                    onClick={() => handleDeleteOrder(order._id, order.contactId?.name || 'Unknown')}
-                                    style={{
-                                        position: 'absolute',
-                                        top: '12px',
-                                        right: '12px',
-                                        background: 'rgba(239, 68, 68, 0.1)',
-                                        border: 'none',
-                                        borderRadius: '50%',
-                                        width: '32px',
-                                        height: '32px',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: '#ef4444',
-                                        fontSize: '0.9em',
-                                        transition: 'all 0.2s ease',
-                                        zIndex: 10
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.background = '#ef4444';
-                                        e.currentTarget.style.color = 'white';
-                                        e.currentTarget.style.transform = 'scale(1.1)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
-                                        e.currentTarget.style.color = '#ef4444';
-                                        e.currentTarget.style.transform = 'scale(1)';
-                                    }}
-                                    title="Hapus Order"
-                                >
-                                    <FontAwesomeIcon icon={faTrash} />
-                                </button>
-
-                                <div style={{
-                                    textAlign: 'center',
-                                    borderBottom: '2px dashed #eee',
-                                    paddingBottom: '16px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '4px'
-                                }}>
-                                    <div style={{ fontSize: '0.85em', color: '#888', marginBottom: '4px' }}>
-                                        {new Date(order.createdAt).toLocaleString()}
-                                    </div>
-                                    <div style={{ fontSize: '1.2em', fontWeight: 'bold', color: '#333' }}>
-                                        {order.contactId?.name || 'Unknown User'}
-                                    </div>
-                                    <div style={{ color: '#666', fontSize: '0.9em' }}>
-                                        {order.contactId?.phone}
-                                    </div>
-                                    <div style={{
-                                        marginTop: '8px',
-                                        fontSize: '0.8em',
-                                        background: '#f8f9fa',
-                                        display: 'inline-block',
-                                        alignSelf: 'center',
-                                        padding: '2px 8px',
-                                        borderRadius: '4px',
-                                        color: '#666'
-                                    }}>
-                                        {order.formName}
-                                    </div>
-                                </div>
-
-                                <div style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '12px',
-                                    paddingBottom: '12px',
-                                }}>
-                                    {priceInfo ? (
-                                        <div style={{ marginBottom: '8px' }}>
-                                            <div style={{
-                                                fontSize: '0.95em',
-                                                color: '#333',
-                                                fontWeight: '500',
-                                                marginBottom: '4px'
-                                            }}>
-                                                {priceInfo.itemName}
-                                            </div>
-                                            <div style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                fontSize: '0.85em',
-                                                color: '#666'
-                                            }}>
-                                                <span>{priceInfo.quantity} × {formatRupiah(priceInfo.unitPrice)}</span>
-                                                <span style={{ fontWeight: '600', color: '#333' }}>
-                                                    {formatRupiah(priceInfo.subtotal)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        itemFields.map(([key, val]) => (
-                                            <div key={key} style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                fontSize: '0.95em',
-                                                marginBottom: '4px'
-                                            }}>
-                                                <span style={{ color: '#555', textTransform: 'capitalize' }}>{key}</span>
-                                                <span style={{ fontWeight: '600', color: '#333' }}>{val}</span>
-                                            </div>
-                                        ))
-                                    )}
-
-                                    {metadata.length > 0 && (
-                                        <div style={{
-                                            borderTop: '1px solid #f0f0f0',
-                                            paddingTop: '8px',
-                                            marginTop: '4px'
-                                        }}>
-                                            {metadata.map(([key, val]) => (
-                                                <div key={key} style={{
-                                                    display: 'flex',
-                                                    justifyContent: 'space-between',
-                                                    fontSize: '0.85em',
-                                                    color: '#666',
-                                                    marginBottom: '4px'
-                                                }}>
-                                                    <span style={{ textTransform: 'capitalize' }}>{key}</span>
-                                                    <span style={{ fontWeight: '500' }}>{val}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {displayTotal && (
-                                        <div style={{
-                                            borderTop: '2px dashed #ddd',
-                                            paddingTop: '12px',
-                                            marginTop: '8px'
-                                        }}>
-                                            <div style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center'
-                                            }}>
-                                                <span style={{
-                                                    fontSize: '1.05em',
-                                                    fontWeight: '700',
-                                                    color: '#333',
-                                                    textTransform: 'uppercase'
-                                                }}>
-                                                    Total
-                                                </span>
-                                                <span style={{
-                                                    fontSize: '1.15em',
-                                                    fontWeight: '700',
-                                                    color: '#ff6b6b'
-                                                }}>
-                                                    {displayTotal}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Payment Proof Icon */}
-                                    {order.paymentProofUrl && (
-                                        <div style={{
-                                            borderTop: '1px solid #f0f0f0',
-                                            paddingTop: '12px',
-                                            marginTop: '8px',
-                                            display: 'flex',
-                                            justifyContent: 'flex-start',
-                                            alignItems: 'center',
-                                            gap: '8px'
-                                        }}>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    const imageUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${order.paymentProofUrl}`;
-                                                    console.log('Opening image:', imageUrl);
-                                                    openImageModal(imageUrl);
-                                                }}
-                                                style={{
-                                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                                    border: 'none',
-                                                    borderRadius: '50%',
-                                                    width: '30px',
-                                                    height: '30px',
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    color: 'white',
-                                                    fontSize: '0.9em',
-                                                    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
-                                                    transition: 'all 0.2s ease'
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    e.currentTarget.style.transform = 'scale(1.1)';
-                                                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.5)';
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.currentTarget.style.transform = 'scale(1)';
-                                                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.3)';
-                                                }}
-                                                title="Lihat Bukti Transfer"
-                                            >
-                                                <FontAwesomeIcon icon={faImage} />
-                                            </button>
-                                            <span style={{ fontSize: '0.85em', color: '#666' }}>Bukti Transfer</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Footer: Status & Action */}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
-                                    <div style={{ fontSize: '0.9em', fontWeight: '500', color: '#888' }}>Status</div>
-                                    {order.status === 'new' ? (
-                                        <div style={{ display: 'flex', gap: 8 }}>
-                                            <button
-                                                className="btn small"
-                                                style={{
-                                                    background: '#ef4444',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    padding: '6px 16px',
-                                                    borderRadius: '20px',
-                                                    cursor: 'pointer',
-                                                    fontWeight: '600',
-                                                    fontSize: '0.9em'
-                                                }}
-                                                onClick={() => openCancelModal(order)}
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                className="btn small"
-                                                style={{
-                                                    background: '#10b981',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    padding: '6px 16px',
-                                                    borderRadius: '20px',
-                                                    cursor: 'pointer',
-                                                    fontWeight: '600',
-                                                    fontSize: '0.9em'
-                                                }}
-                                                onClick={() => handleStatusChange(order._id, 'processed')}
-                                            >
-                                                Confirm
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <select
-                                            value={order.status}
-                                            onChange={(e) => handleStatusChange(order._id, e.target.value)}
-                                            style={{
-                                                padding: '6px 12px',
-                                                borderRadius: '20px',
-                                                border: '1px solid #e2e8f0',
-                                                backgroundColor: '#f8fafc',
-                                                fontSize: '0.9em',
-                                                cursor: 'pointer',
-                                                outline: 'none',
-                                                color: '#475569'
-                                            }}
-                                        >
-                                            <option value="new">New</option>
-                                            <option value="processed">Processed</option>
-                                            <option value="completed">Completed</option>
-                                            <option value="cancelled">Cancelled</option>
-                                        </select>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
-
-                    {orders.length === 0 && (
-                        <div style={{
-                            gridColumn: '1 / -1',
-                            textAlign: 'center',
-                            padding: '40px',
-                            color: '#888',
-                            background: 'white',
-                            borderRadius: '12px'
-                        }}>
-                            No orders found.
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* Cancel Modal */}
-            {cancelModal && (
-                <div
-                    onClick={closeCancelModal}
-                    style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: 'rgba(0, 0, 0, 0.5)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 9999,
-                        padding: '20px'
-                    }}
-                >
-                    <div
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                            background: 'white',
-                            borderRadius: '12px',
-                            padding: '24px',
-                            maxWidth: '500px',
-                            width: '100%',
-                            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-                        }}
-                    >
-                        <div style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '20px'
-                        }}>
-                            <h3 style={{ margin: 0, color: '#333' }}>Batalkan Pesanan</h3>
-                            <button
-                                onClick={closeCancelModal}
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    fontSize: '1.5em',
-                                    cursor: 'pointer',
-                                    color: '#999',
-                                    padding: '0',
-                                    width: '30px',
-                                    height: '30px'
-                                }}
-                            >
-                                <FontAwesomeIcon icon={faTimes} />
-                            </button>
-                        </div>
-
-                        <div style={{ marginBottom: '16px' }}>
-                            <p style={{ color: '#666', fontSize: '0.9em', marginBottom: '12px' }}>
-                                Pesanan dari: <strong>{cancelModal.contactId?.name}</strong>
-                            </p>
-                            <label style={{
-                                display: 'block',
-                                marginBottom: '8px',
-                                fontWeight: '500',
-                                color: '#333'
-                            }}>
-                                Alasan Pembatalan:
-                            </label>
-                            <textarea
-                                value={cancelReason}
-                                onChange={(e) => setCancelReason(e.target.value)}
-                                placeholder="Contoh: Pembayaran tidak valid, Lagi ramai, Tidak dapat melayani..."
-                                style={{
-                                    width: '100%',
-                                    minHeight: '100px',
-                                    padding: '12px',
-                                    borderRadius: '8px',
-                                    border: '1px solid #e2e8f0',
-                                    fontSize: '0.95em',
-                                    fontFamily: 'inherit',
-                                    resize: 'vertical'
-                                }}
-                            />
-                        </div>
-
-                        <div style={{
-                            display: 'flex',
-                            gap: '12px',
-                            justifyContent: 'flex-end'
-                        }}>
-                            <button
-                                onClick={closeCancelModal}
-                                disabled={submitting}
-                                style={{
-                                    padding: '10px 20px',
-                                    borderRadius: '8px',
-                                    border: '1px solid #e2e8f0',
-                                    background: 'white',
-                                    color: '#666',
-                                    cursor: 'pointer',
-                                    fontWeight: '500'
-                                }}
-                            >
-                                Batal
-                            </button>
-                            <button
-                                onClick={handleCancelOrder}
-                                disabled={submitting}
-                                style={{
-                                    padding: '10px 20px',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: '#ef4444',
-                                    color: 'white',
-                                    cursor: submitting ? 'not-allowed' : 'pointer',
-                                    fontWeight: '600',
-                                    opacity: submitting ? 0.6 : 1
-                                }}
-                            >
-                                {submitting ? 'Membatalkan...' : 'Batalkan Pesanan'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Image Modal */}
-            {selectedImage && (
-                <div
-                    onClick={closeImageModal}
-                    style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: 'rgba(0, 0, 0, 0.9)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 10000,
-                        cursor: 'pointer',
-                        padding: '20px'
-                    }}
-                >
-                    <img
-                        src={selectedImage}
-                        alt="Payment Proof Full Size"
-                        style={{
-                            maxWidth: '90%',
-                            maxHeight: '90%',
-                            objectFit: 'contain',
-                            borderRadius: '8px'
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                    />
-                    <div style={{
-                        position: 'absolute',
-                        top: '20px',
-                        right: '20px',
-                        color: 'white',
-                        fontSize: '2em',
-                        cursor: 'pointer',
-                        background: 'rgba(0,0,0,0.5)',
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}>
-                        ×
-                    </div>
-                </div>
-            )}
+            {/* Page Size Select */}
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(parseInt(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="bg-white border border-gray-200 py-1.5 px-3 rounded-lg text-xs font-semibold text-gray-700 cursor-pointer focus:outline-none"
+            >
+              <option value={5}>5 / page</option>
+              <option value={10}>10 / page</option>
+              <option value={20}>20 / page</option>
+              <option value={50}>50 / page</option>
+            </select>
+          </div>
         </div>
-    );
+      </div>
+
+      {/* RIGHT PORTION: Dynamic Order Detail Sidebar Drawer */}
+      {isOrderDetailOpen && (
+        <OrderDetailDrawer
+          order={currentSelectedOrder}
+          onClose={() => setSelectedOrderId(null)}
+          onHide={() => setIsOrderDetailOpen(false)}
+          onStatusChange={(status) => handleStatusChange(currentSelectedOrder._id, status)}
+          onCancelClick={() => openCancelModal(currentSelectedOrder)}
+          onOpenChat={() => handleOpenChat(currentSelectedOrder)}
+          onResendPayment={() => handleResendPayment(currentSelectedOrder)}
+        />
+      )}
+
+      {/* Cancel Order Modal Dialogue */}
+      {cancelModalOrder && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 transition-all duration-200">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-100 flex flex-col gap-4.5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+              <h3 className="text-base font-bold text-gray-800">Batalkan Pesanan</h3>
+              <button
+                onClick={() => setCancelModalOrder(null)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-50 transition"
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+            
+            <div className="text-xs text-gray-600 flex flex-col gap-1.5">
+              <span>Pesanan dari: <strong className="text-gray-800 font-extrabold">{cancelModalOrder.contactId?.name}</strong></span>
+              <span>Order ID: <strong className="text-gray-800 font-extrabold">{cancelModalOrder.orderIdDisplay}</strong></span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-gray-700">Alasan Pembatalan:</label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Contoh: Pembayaran tidak valid, stok habis, outlet tutup..."
+                rows={4}
+                className="w-full border border-gray-200 rounded-xl p-3 text-xs font-medium focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-slate-50/50"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100">
+              <button
+                onClick={() => setCancelModalOrder(null)}
+                disabled={submittingCancel}
+                className="px-4 py-2 border border-gray-200 text-xs font-semibold rounded-lg text-gray-600 hover:bg-gray-50 transition duration-150"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleCancelSubmit}
+                disabled={submittingCancel}
+                className="px-4 py-2 bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 transition duration-150 text-xs font-bold rounded-lg disabled:opacity-50"
+              >
+                {submittingCancel ? 'Membatalkan...' : 'Batalkan Pesanan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Proof Preview Modal Dialogue */}
+      {previewImageUrl && (
+        <div
+          onClick={() => setPreviewImageUrl(null)}
+          className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[10000] p-4 cursor-pointer"
+        >
+          <img
+            src={previewImageUrl}
+            alt="Payment Proof Fullscreen"
+            className="max-w-[90%] max-h-[85vh] object-contain rounded-xl shadow-2xl border-2 border-white/10"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setPreviewImageUrl(null)}
+            className="absolute top-6 right-6 text-white bg-white/10 hover:bg-white/20 p-2.5 rounded-full transition duration-150 cursor-pointer"
+            title="Close image"
+          >
+            <FontAwesomeIcon icon={faTimes} className="text-lg" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
