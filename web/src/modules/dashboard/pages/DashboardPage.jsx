@@ -20,6 +20,7 @@ import FileInput from '../../../shared/components/ui/FileInput'
 import ProductsPage from '../../products/pages/ProductsPage'
 import OutletsPage from '../../outlets/pages/OutletsPage'
 import PaymentsPage from '../../payments/pages/PaymentsPage'
+import SettingsPage from '../../settings/pages/SettingsPage'
 import ChatCenterPage from '../../chats/pages/ChatCenterPage'
 import ReportsPage from '../../reports/pages/ReportsPage'
 import {
@@ -1223,7 +1224,7 @@ function Profile() {
 
 /* ========================= SETTINGS/BILLING/PROFILE ========================= */
 function Settings() {
-  return <div className='card'>Pengaturan umum (placeholder).</div>
+  return <SettingsPage />
 }
 function Billing() {
   const [data, setData] = useState(null)

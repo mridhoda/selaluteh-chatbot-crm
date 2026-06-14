@@ -148,13 +148,16 @@ function MessageBubble({ message }) {
 
 // ─── main component ────────────────────────────────────────────────────────
 
-export default function ChatPanel({
-  chat,
-  messages = [],
-  isLoading,
-  onSendMessage,
-  onTakeover,
-  onResolve,
+// Backward-compatible ChatPanel — supports both old DashboardPage Inbox API
+// (selected, onChatUpdate, replyingTo, setReplyingTo)
+// and new ChatCenterPage API (chat, messages, isLoading, onSendMessage, onTakeover, onResolve)
+
+export default function ChatPanel({ 
+  // New API
+  chat: chatProp, messages: messagesProp, isLoading,
+  onSendMessage, onTakeover, onResolve,
+  // Old API (DashboardPage Inbox)
+  selected, onChatUpdate, replyingTo: _replyingTo, setReplyingTo: _setReplyingTo
 }) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
