@@ -1,555 +1,935 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react'
-import api from '../../../shared/api/httpClient'
+import React, { useState, useEffect, useCallback } from 'react'
+import { Plus, RefreshCw, Search, Eye, Trash2, Settings, TestTube, RotateCcw } from 'lucide-react'
+import PageHeader from '../../../shared/components/ui/PageHeader'
+import EmptyState from '../../../shared/components/ui/EmptyState'
+import ConfirmDialog from '../../../shared/components/ui/ConfirmDialog'
+import { useToast } from '../../../shared/components/feedback/Toast'
 import BrandIcon from '../../../shared/components/brand/BrandIcon'
-import PlatformPickerModal from '../components/PlatformPickerModal'
+import { platformsApi } from '../api/platformsApi'
+import PlatformStatusBadge from '../components/PlatformStatusBadge'
+import WebhookHealthBadge from '../components/WebhookHealthBadge'
+import PlatformDetailDrawer from '../components/PlatformDetailDrawer'
 
-export default function Platforms() {
-  const [rows, setRows] = useState([])
-  const [agents, setAgents] = useState([])
-  const [sel, setSel] = useState(null)
-  const [q, setQ] = useState('')
+// ─── helpers ───────────────────────────────────────────────────────────────
 
-  // modal: picker & form
-  const [showPicker, setShowPicker] = useState(false)
-  const [showModal, setShowModal] = useState(false)
+const PLATFORM_TYPES = [
+  {
+    type: 'telegram',
+    label: 'Telegram',
+    description: 'Bot-based messaging with inline buttons and cart flow',
+  },
+  {
+    type: 'whatsapp',
+    label: 'WhatsApp',
+    description: 'Meta Business API — requires a verified business number',
+  },
+  {
+    type: 'instagram',
+    label: 'Instagram',
+    description: 'Meta Business API — requires a connected Instagram account',
+  },
+]
 
-  // form state
-  const [editing, setEditing] = useState(null)
-  const [type, setType] = useState('telegram')
-  const [label, setLabel] = useState('')
-  const [token, setToken] = useState('')
-  const [accountId, setAccountId] = useState('')
-  const [webhookSecret, setWebhookSecret] = useState('')
-  const [appId, setAppId] = useState('')
-  const [appSecret, setAppSecret] = useState('')
-  const [phoneNumberId, setPhoneNumberId] = useState('')
-  const [saving, setSaving] = useState(false)
+function getConnectionStatus(platform) {
+  if (platform.type === 'telegram') {
+    return platform.token ? 'connected' : 'pending_setup'
+  }
+  return platform.credentials && platform.credentials.accessToken
+    ? 'connected'
+    : 'pending_setup'
+}
 
-  // ===== Load data sekali (anti-loop) =====
-  useEffect(() => {
-    const ac = new AbortController()
-      ; (async () => {
-        try {
-          const [p, a] = await Promise.all([
-            api.get('/platforms', { signal: ac.signal }),
-            api.get('/agents', { signal: ac.signal }),
-          ])
-          const plats = p.data || []
-          setRows(plats)
-          setAgents(a.data || [])
-          // Only set sel if it's currently null and there are platforms
-          setSel((currentSel) => {
-            if (!currentSel && plats.length) {
-              return plats[0]
-            }
-            return currentSel
-          })
-        } catch (error) {
-          console.error('Failed to load platforms or agents', error)
-        }
-      })()
-    return () => ac.abort()
-  }, [])
+function getWebhookHealth(platform) {
+  return platform.webhookConfigured ? 'healthy' : 'unconfigured'
+}
 
-  // ===== Derived =====
-  const filtered = useMemo(() => {
-    const qq = q.toLowerCase()
-    return rows.filter(
-      (x) =>
-        x.label?.toLowerCase().includes(qq) ||
-        x.type?.toLowerCase().includes(qq) ||
-        (x.accountId || '').toLowerCase().includes(qq)
-    )
-  }, [rows, q])
-
-  const pfAgent = useMemo(() => {
-    const m = {}
-    for (const a of agents) if (a.platformId) m[a.platformId] = a
-    return m
-  }, [agents])
-
-  const mask = (s = '') =>
-    s.length > 10 ? s.slice(0, 6) + '…' + s.slice(-2) : s
-  const openPopup = (url) =>
-    window.open(
-      url,
-      'connect_popup',
-      'width=720,height=720,noopener,noreferrer'
-    )
-
-  // ===== Add New (SELALU buka picker) =====
-  const openAddNew = useCallback(() => {
-    // pastikan form TIDAK muncul dulu
-    setShowModal(false)
-    setEditing(null)
-    setType('telegram')
-    setLabel('')
-    setToken('')
-    setAccountId('')
-    setWebhookSecret('')
-    setAppId('')
-    setAppSecret('')
-    setPhoneNumberId('')
-    // buka picker
-    setShowPicker(true)
-  }, [])
-
-  // ===== Edit =====
-  const openEdit = useCallback(() => {
-    if (!sel) return
-    setEditing(sel)
-    setType(sel.type)
-    setLabel(sel.label || '')
-    setToken(sel.token || '')
-    setAccountId(sel.accountId || '')
-    setWebhookSecret(sel.webhookSecret || '')
-    setAppId(sel.appId || '')
-    setAppSecret(sel.appSecret || '')
-    setPhoneNumberId(sel.phoneNumberId || '')
-    setShowModal(true)
-  }, [sel])
-
-  // ===== Simpan (create/update) =====
-  const submit = useCallback(
-    async (e) => {
-      e?.preventDefault?.()
-      if (!label) return alert('Label wajib diisi')
-      setSaving(true)
-      try {
-        if (editing) {
-          const r = await api.put(`/platforms/${editing._id}`, {
-            type,
-            label,
-            token,
-            accountId,
-            phoneNumberId,
-            webhookSecret,
-            appId,
-            appSecret,
-          })
-          setRows((prev) =>
-            prev.map((x) => (x._id === editing._id ? r.data : x))
-          )
-          setSel(r.data)
-        } else {
-          const r = await api.post('/platforms', {
-            type,
-            label,
-            token,
-            accountId,
-            phoneNumberId,
-            webhookSecret,
-            appId,
-            appSecret,
-          })
-          setRows((prev) => [r.data, ...prev])
-          setSel(r.data)
-          if (r.data.type === 'telegram') {
-            try {
-              await api.post(`/integrations/telegram/${r.data._id}/setWebhook`)
-              console.log('Successfully set Telegram webhook for', r.data.label)
-            } catch (err) {
-              console.error('Failed to auto-set webhook for Telegram', err)
-              alert(
-                'Platform berhasil disimpan, tapi gagal auto-set webhook. Coba edit dan simpan lagi.'
-              )
-            }
-          }
-        }
-        setShowModal(false)
-      } finally {
-        setSaving(false)
-      }
-    },
-    [
-      editing,
-      type,
-      label,
-      token,
-      accountId,
-      phoneNumberId,
-      webhookSecret,
-      appId,
-      appSecret,
-    ]
+function getAccountId(platform) {
+  return (
+    platform.accountId ||
+    platform.botId ||
+    (platform.credentials &&
+      (platform.credentials.phoneNumberId || platform.credentials.pageId)) ||
+    null
   )
+}
 
-  // ===== Delete =====
-  const remove = useCallback(async () => {
-    if (!sel) return
-    if (!confirm(`Hapus platform "${sel.label}"?`)) return
-    await api.delete(`/platforms/${sel._id}`)
-    setRows((prev) => prev.filter((x) => x._id !== sel._id))
-    setSel(null)
-  }, [sel])
+function maskAccountId(id) {
+  if (!id) return '—'
+  const s = String(id)
+  if (s.length <= 8) return '••' + s.slice(-4)
+  return s.slice(0, 3) + '•••' + s.slice(-4)
+}
 
-  // ===== Picker flow =====
-  const createPlaceholderAndOAuth = useCallback(
-    async (ptype) => {
-      // Buat placeholder agar ada kartu di list kiri, lalu jalankan OAuth
-      const next = rows.filter((r) => r.type === ptype).length + 1
-      const defaultLabel = `${ptype.charAt(0).toUpperCase() + ptype.slice(1)} #${next}`
-      const r = await api.post('/platforms', {
-        type: ptype,
-        label: defaultLabel,
+function formatRelativeDate(d) {
+  if (!d) return '—'
+  const diff = Date.now() - new Date(d).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'Just now'
+  if (mins < 60) return mins + 'm ago'
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return hours + 'h ago'
+  const days = Math.floor(hours / 24)
+  if (days < 30) return days + 'd ago'
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+// ─── sub-components ────────────────────────────────────────────────────────
+
+function SummaryCard({ label, value, color }) {
+  return (
+    <div
+      className="card"
+      style={{ padding: '16px 20px', flex: 1, minWidth: 0 }}
+    >
+      <div
+        style={{
+          fontSize: 28,
+          fontWeight: 700,
+          color: color || 'var(--text-primary)',
+          lineHeight: 1.1,
+          marginBottom: 4,
+        }}
+      >
+        {value}
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{label}</div>
+    </div>
+  )
+}
+
+function FieldLabel({ children }) {
+  return (
+    <label
+      style={{
+        display: 'block',
+        fontSize: 12,
+        fontWeight: 500,
+        color: 'var(--text-secondary)',
+        marginBottom: 6,
+      }}
+    >
+      {children}
+    </label>
+  )
+}
+
+function PlatformForm({ type, initialData = {}, onSubmit, onCancel, saving }) {
+  const isEdit = !!(initialData._id || initialData.id)
+  const [form, setForm] = useState({
+    label: initialData.label || '',
+    token: '',
+    phoneNumberId:
+      (initialData.credentials && initialData.credentials.phoneNumberId) || '',
+    accessToken: '',
+    webhookVerifyToken:
+      (initialData.credentials && initialData.credentials.webhookVerifyToken) || '',
+    pageId: (initialData.credentials && initialData.credentials.pageId) || '',
+    agentId: initialData.agentId || '',
+  })
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    const typeName = type.charAt(0).toUpperCase() + type.slice(1)
+    if (type === 'telegram') {
+      const payload = { label: form.label, type: 'telegram' }
+      if (form.token) payload.token = form.token
+      onSubmit(payload)
+    } else if (type === 'whatsapp') {
+      onSubmit({
+        label: form.label,
+        type: 'whatsapp',
+        credentials: {
+          phoneNumberId: form.phoneNumberId,
+          ...(form.accessToken ? { accessToken: form.accessToken } : {}),
+          webhookVerifyToken: form.webhookVerifyToken,
+        },
       })
-      const created = r.data
-      setRows((prev) => [created, ...prev])
-      setSel(created)
-      openPopup(
-        `/integrations/meta/start?platformId=${created._id}&channel=${ptype}`
-      )
-    },
-    [rows]
-  )
+    } else if (type === 'instagram') {
+      onSubmit({
+        label: form.label,
+        type: 'instagram',
+        credentials: {
+          pageId: form.pageId,
+          ...(form.accessToken ? { accessToken: form.accessToken } : {}),
+          webhookVerifyToken: form.webhookVerifyToken,
+        },
+      })
+    }
+  }
 
-  const handlePick = useCallback(
-    async (ptype) => {
-      setShowPicker(false)
-      // Messenger via OAuth
-      if (ptype === 'messenger') {
-        try {
-          await createPlaceholderAndOAuth(ptype)
-        } catch {
-          alert('Gagal membuka OAuth')
-        }
-        return
-      }
-      // Platform biasa → tampilkan FORM setelah pilih tipe
-      setEditing(null)
-      setType(ptype)
-      const next = rows.filter((r) => r.type === ptype).length + 1
-      setLabel(`${ptype.charAt(0).toUpperCase() + ptype.slice(1)} #${next}`)
-      setToken('')
-      setAccountId('')
-      setWebhookSecret('')
-      setAppId('')
-      setAppSecret('')
-      setPhoneNumberId('')
-      setShowModal(true)
-    },
-    [rows, createPlaceholderAndOAuth]
-  )
-
-
+  const isMeta = type === 'whatsapp' || type === 'instagram'
 
   return (
-    <div className='platforms-layout'>
-      {/* LEFT */}
-      <div className='platforms-list-container'>
-        <div
-          className='row'
-          style={{ alignItems: 'center', justifyContent: 'space-between' }}
-        >
-          <div className='title'>Inboxes</div>
-          <button className='btn ghost' onClick={openAddNew}>
-            ＋
-          </button>
-        </div>
-
-        <div className='searchbox' style={{ margin: '8px 0 12px' }}>
+    <form onSubmit={handleSubmit}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div>
+          <FieldLabel>Display Label *</FieldLabel>
           <input
-            className='input'
-            placeholder='Search by name…'
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+            className="input"
+            required
+            placeholder={'My ' + type.charAt(0).toUpperCase() + type.slice(1) + ' Bot'}
+            value={form.label}
+            onChange={(e) => set('label', e.target.value)}
           />
         </div>
 
-        <div className='platforms-list'>
-          {filtered.map((p) => (
-            <div
-              key={p._id}
-              className={`platform-item ${sel?._id === p._id ? 'active' : ''}`}
-              onClick={() => setSel(p)}
-            >
-              <div className='platform-ico'>
-                <BrandIcon type={p.type} size={24} />
-              </div>
-              <div className='platform-info'>
-                <div className='platform-name'>{p.label}</div>
-                <div className='platform-sub'>
-                  {p.type.toUpperCase()} {p.accountId ? `• ${p.accountId}` : ''}
-                </div>
-              </div>
-              {pfAgent[p._id] && <div className='platform-separator'></div>}
-              {pfAgent[p._id] && (
-                <div className='platform-agent-badge'>
-                  {pfAgent[p._id].name}
-                </div>
-              )}
-            </div>
-          ))}
-          {!filtered.length && <div className='muted'>Tidak ada platform</div>}
-          <div className='connect-tip' onClick={openAddNew}>
-            + Click to Connect A Platform
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT */}
-      <div className='platform-details'>
-        {!sel ? (
-          <div className='card center' style={{ height: '100%' }}>
-            No Inbox Selected
-          </div>
-        ) : (
-          <div className='card col' style={{ gap: 12 }}>
-            <div
-              className='row'
-              style={{ alignItems: 'center', justifyContent: 'space-between' }}
-            >
-              <div className='row' style={{ alignItems: 'center', gap: 8 }}>
-                <div className='platform-ico'>
-                  <BrandIcon type={sel.type} size={22} />
-                </div>
-                <div style={{ fontWeight: 700 }}>{sel.label}</div>
-                <span className='badge'>{sel.type}</span>
-              </div>
-              <div className='row' style={{ gap: 8 }}>
-                {sel?.type === 'instagram' && (
-                  <button
-                    className='btn ghost'
-                    onClick={() =>
-                      openPopup(
-                        `/integrations/meta/start?platformId=${sel._id}&channel=instagram`
-                      )
-                    }
-                  >
-                    Connect via Facebook
-                  </button>
-                )}
-                {sel?.type === 'facebook' && (
-                  <button
-                    className='btn ghost'
-                    onClick={() =>
-                      openPopup(
-                        `/integrations/meta/start?platformId=${sel._id}&channel=messenger`
-                      )
-                    }
-                  >
-                    Connect via Facebook
-                  </button>
-                )}
-                <button className='btn ghost' onClick={openEdit}>
-                  Edit
-                </button>
-                <button className='btn ghost' onClick={remove}>
-                  Delete
-                </button>
-              </div>
-            </div>
-
-            <div className='row'>
-              <div className='col' style={{ flex: 1 }}>
-                <div className='muted'>Account ID</div>
-                <div>{sel.accountId || '-'}</div>
-              </div>
-              <div className='col' style={{ flex: 1 }}>
-                <div className='muted'>Phone Number ID</div>
-                <div>{sel.phoneNumberId || '-'}</div>
-              </div>
-              <div className='col' style={{ flex: 2 }}>
-                <div className='muted'>Token/API Key</div>
-                <div>{mask(sel.token) || '-'}</div>
-              </div>
-            </div>
-
-            <div className='col'>
-              <div className='muted'>Webhook URL</div>
-              <div className='badge'>{`<PUBLIC_BASE_URL>/webhook/${sel.type === 'facebook' ? 'meta' : sel.type}`}</div>
+        {type === 'telegram' && (
+          <div>
+            <FieldLabel>
+              Bot Token{isEdit ? ' — leave blank to keep existing' : ' *'}
+            </FieldLabel>
+            <input
+              className="input"
+              type="password"
+              required={!isEdit}
+              placeholder={
+                isEdit
+                  ? '••••••••  (unchanged)'
+                  : '110201543:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw'
+              }
+              value={form.token}
+              onChange={(e) => set('token', e.target.value)}
+              autoComplete="new-password"
+            />
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 5 }}>
+              Get your token from @BotFather on Telegram. It will never be shown again.
             </div>
           </div>
         )}
-      </div>
 
-      {/* Picker modal */}
-      {showPicker && (
-        <PlatformPickerModal
-          onClose={() => setShowPicker(false)}
-          onPick={handlePick}
-        />
+        {isMeta && type === 'whatsapp' && (
+          <div>
+            <FieldLabel>Phone Number ID *</FieldLabel>
+            <input
+              className="input"
+              required
+              placeholder="1234567890"
+              value={form.phoneNumberId}
+              onChange={(e) => set('phoneNumberId', e.target.value)}
+            />
+          </div>
+        )}
+
+        {isMeta && type === 'instagram' && (
+          <div>
+            <FieldLabel>Page ID *</FieldLabel>
+            <input
+              className="input"
+              required
+              placeholder="123456789"
+              value={form.pageId}
+              onChange={(e) => set('pageId', e.target.value)}
+            />
+          </div>
+        )}
+
+        {isMeta && (
+          <>
+            <div>
+              <FieldLabel>
+                Access Token{isEdit ? ' — leave blank to keep existing' : ' *'}
+              </FieldLabel>
+              <input
+                className="input"
+                type="password"
+                required={!isEdit}
+                placeholder={isEdit ? '••••••••  (unchanged)' : 'EAABwzLixnjYBAO…'}
+                value={form.accessToken}
+                onChange={(e) => set('accessToken', e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+            <div>
+              <FieldLabel>Webhook Verify Token</FieldLabel>
+              <input
+                className="input"
+                placeholder="my_verify_token"
+                value={form.webhookVerifyToken}
+                onChange={(e) => set('webhookVerifyToken', e.target.value)}
+              />
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 5 }}>
+                Set this same value in your Meta App webhook configuration.
+              </div>
+            </div>
+          </>
+        )}
+
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            justifyContent: 'flex-end',
+            paddingTop: 4,
+          }}
+        >
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={onCancel}
+            disabled={saving}
+          >
+            {isEdit ? 'Cancel' : 'Back'}
+          </button>
+          <button type="submit" className="btn" disabled={saving}>
+            {saving
+              ? 'Saving…'
+              : isEdit
+              ? 'Save Changes'
+              : 'Connect Platform'}
+          </button>
+        </div>
+      </div>
+    </form>
+  )
+}
+
+// ─── page ──────────────────────────────────────────────────────────────────
+
+export default function PlatformsPage() {
+  const toast = useToast()
+
+  const [platforms, setPlatforms] = useState([])
+  const [agents, setAgents] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [search, setSearch] = useState('')
+
+  // connect / edit modal
+  const [connectOpen, setConnectOpen] = useState(false)
+  const [connectStep, setConnectStep] = useState(1)
+  const [selectedType, setSelectedType] = useState(null)
+  const [editPlatform, setEditPlatform] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  // detail drawer
+  const [drawerPlatform, setDrawerPlatform] = useState(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
+  // confirm delete
+  const [confirmDelete, setConfirmDelete] = useState(null)
+
+  // ── data fetching ────────────────────────────────────────────────────────
+
+  const fetchPlatforms = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await platformsApi.list()
+      setPlatforms(res.data || [])
+    } catch (e) {
+      setError(
+        (e && e.response && e.response.data && e.response.data.message) ||
+          (e && e.message) ||
+          'Failed to load platforms'
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  const fetchAgents = useCallback(async () => {
+    try {
+      // agents endpoint is optional — fail silently
+      const res = await fetch('/api/agents', { credentials: 'include' })
+      if (res.ok) {
+        const d = await res.json()
+        setAgents(Array.isArray(d) ? d : d.data || [])
+      }
+    } catch {
+      // no-op
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchPlatforms()
+    fetchAgents()
+  }, [fetchPlatforms, fetchAgents])
+
+  // ── derived stats ────────────────────────────────────────────────────────
+
+  const connectedCount = platforms.filter(
+    (p) => getConnectionStatus(p) === 'connected'
+  ).length
+  const needsAttentionCount = platforms.filter(
+    (p) =>
+      getConnectionStatus(p) !== 'connected' || !p.webhookConfigured
+  ).length
+
+  // ── modal helpers ────────────────────────────────────────────────────────
+
+  const openConnect = () => {
+    setEditPlatform(null)
+    setSelectedType(null)
+    setConnectStep(1)
+    setConnectOpen(true)
+  }
+
+  const openEdit = (platform) => {
+    setEditPlatform(platform)
+    setSelectedType(platform.type)
+    setConnectStep(2)
+    setConnectOpen(true)
+    setDrawerOpen(false)
+  }
+
+  const closeConnect = () => {
+    setConnectOpen(false)
+    setEditPlatform(null)
+    setSelectedType(null)
+    setConnectStep(1)
+  }
+
+  // ── CRUD ─────────────────────────────────────────────────────────────────
+
+  const handleSubmit = async (payload) => {
+    setSaving(true)
+    try {
+      if (editPlatform) {
+        const pid = editPlatform._id || editPlatform.id
+        await platformsApi.update(pid, payload)
+        toast.success('Platform updated')
+      } else {
+        const res = await platformsApi.create(payload)
+        const created = res.data
+        toast.success('Platform connected')
+        if (payload.type === 'telegram' && created) {
+          const pid = created._id || created.id
+          try {
+            await platformsApi.setTelegramWebhook(pid)
+            toast.success('Telegram webhook configured automatically')
+          } catch (webhookErr) {
+            toast.error(
+              'Platform connected, but webhook setup failed: ' +
+                (webhookErr.message || 'unknown error')
+            )
+          }
+        }
+      }
+      await fetchPlatforms()
+      closeConnect()
+    } catch (e) {
+      toast.error(
+        (e && e.response && e.response.data && e.response.data.message) ||
+          (e && e.message) ||
+          'Save failed'
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (pid) => {
+    try {
+      await platformsApi.delete(pid)
+      toast.success('Platform deleted')
+      setPlatforms((prev) => prev.filter((p) => (p._id || p.id) !== pid))
+      if (drawerOpen && drawerPlatform && (drawerPlatform._id || drawerPlatform.id) === pid) {
+        setDrawerOpen(false)
+      }
+    } catch (e) {
+      toast.error(
+        (e && e.response && e.response.data && e.response.data.message) ||
+          (e && e.message) ||
+          'Delete failed'
+      )
+    } finally {
+      setConfirmDelete(null)
+    }
+  }
+
+  const handleSetWebhook = async (pid) => {
+    await platformsApi.setTelegramWebhook(pid)
+    await fetchPlatforms()
+  }
+
+  const handleTest = async (pid) => {
+    return platformsApi.test(pid)
+  }
+
+  // ── filtering ────────────────────────────────────────────────────────────
+
+  const filtered = platforms.filter((p) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (
+      (p.label || '').toLowerCase().includes(q) ||
+      (p.type || '').toLowerCase().includes(q) ||
+      (String(getAccountId(p) || '')).toLowerCase().includes(q)
+    )
+  })
+
+  // ── render ───────────────────────────────────────────────────────────────
+
+  return (
+    <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
+      {/* Header */}
+      <PageHeader
+        title="Connected Platforms"
+        subtitle="Connect and monitor the channels used by your customers"
+        actions={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn ghost"
+              onClick={fetchPlatforms}
+              disabled={isLoading}
+            >
+              <RefreshCw
+                size={13}
+                style={{
+                  marginRight: 5,
+                  animation: isLoading ? 'spin 0.8s linear infinite' : 'none',
+                }}
+              />
+              Refresh
+            </button>
+            <button className="btn" onClick={openConnect}>
+              <Plus size={13} style={{ marginRight: 5 }} />
+              Connect Platform
+            </button>
+          </div>
+        }
+      />
+
+      {/* Summary cards */}
+      {!isLoading && platforms.length > 0 && (
+        <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
+          <SummaryCard label="Connected Channels" value={platforms.length} />
+          <SummaryCard
+            label="Active"
+            value={connectedCount}
+            color="var(--success-600)"
+          />
+          <SummaryCard
+            label="Needs Attention"
+            value={needsAttentionCount}
+            color={
+              needsAttentionCount > 0
+                ? 'var(--warning-600)'
+                : 'var(--text-primary)'
+            }
+          />
+          <SummaryCard label="Messages Today" value="—" />
+        </div>
       )}
 
-      {/* Form modal */}
-      {showModal && (
-        <div className='modal'>
-          <div className='modal-card'>
-            <div
-              className='row'
-              style={{ justifyContent: 'space-between', alignItems: 'center' }}
-            >
-              <h3 style={{ margin: 0 }}>
-                {editing ? 'Edit Platform' : 'Connect a Platform'}
-              </h3>
-              <button className='btn ghost' onClick={() => setShowModal(false)}>
-                Close
-              </button>
-            </div>
-            <form className='col' onSubmit={submit}>
-              <div
-                className='row'
-                style={{ gap: 8, alignItems: 'center', marginBottom: 12 }}
-              >
-                <BrandIcon type={type} size={22} />
-                <div
-                  style={{
-                    textTransform: 'capitalize',
-                    fontSize: 18,
-                    fontWeight: 600,
-                  }}
-                >
-                  {type}
-                </div>
-              </div>
-              <input
-                className='input'
-                placeholder='Label'
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-              />
-
-              {type === 'whatsapp' ? (
-                <>
-                  <p
-                    className='muted'
-                    style={{ marginTop: 2, marginBottom: 0 }}
-                  >
-                    Masukkan kredensial dari Meta for Developers App Anda.
-                  </p>
-                  <input
-                    className='input'
-                    placeholder='Meta App ID'
-                    value={appId}
-                    onChange={(e) => setAppId(e.target.value)}
-                  />
-                  <input
-                    className='input'
-                    placeholder='Meta App Secret'
-                    value={appSecret}
-                    onChange={(e) => setAppSecret(e.target.value)}
-                  />
-                  <input
-                    className='input'
-                    placeholder='WhatsApp Access Token'
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                  />
-                  <input
-                    className='input'
-                    placeholder='WhatsApp Business Account ID'
-                    value={accountId}
-                    onChange={(e) => setAccountId(e.target.value)}
-                  />
-                  <input
-                    className='input'
-                    placeholder='WhatsApp Phone Number ID'
-                    value={phoneNumberId}
-                    onChange={(e) => setPhoneNumberId(e.target.value)}
-                  />
-                </>
-              ) : type === 'instagram' ? (
-                <>
-                  <p
-                    className='muted'
-                    style={{ marginTop: 2, marginBottom: 0 }}
-                  >
-                    Masukkan kredensial dari Meta for Developers App Anda.
-                  </p>
-                  <input
-                    className='input'
-                    placeholder='Instagram App ID'
-                    value={appId}
-                    onChange={(e) => setAppId(e.target.value)}
-                  />
-                  <input
-                    className='input'
-                    placeholder='Instagram App Secret'
-                    value={appSecret}
-                    onChange={(e) => setAppSecret(e.target.value)}
-                  />
-                  <input
-                    className='input'
-                    placeholder='Page Access Token'
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                  />
-                  <input
-                    className='input'
-                    placeholder='Instagram Business Account ID'
-                    value={accountId}
-                    onChange={(e) => setAccountId(e.target.value)}
-                  />
-                </>
-              ) : type === 'telegram' ? (
-                <>
-                  <p
-                    className='muted'
-                    style={{ marginTop: 2, marginBottom: 0 }}
-                  >
-                    Masukkan token yang Anda dapat dari BotFather.
-                  </p>
-                  <input
-                    className='input'
-                    placeholder='Telegram Bot Token'
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                  />
-                </>
-              ) : (
-                <>
-                  <input
-                    className='input'
-                    placeholder='Token/API Key'
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                  />
-                  <input
-                    className='input'
-                    placeholder='Account ID (opsional)'
-                    value={accountId}
-                    onChange={(e) => setAccountId(e.target.value)}
-                  />
-                  <input
-                    className='input'
-                    placeholder='Webhook Secret (opsional)'
-                    value={webhookSecret}
-                    onChange={(e) => setWebhookSecret(e.target.value)}
-                  />
-                  <input
-                    className='input'
-                    placeholder='App ID (opsional)'
-                    value={appId}
-                    onChange={(e) => setAppId(e.target.value)}
-                  />
-                  <input
-                    className='input'
-                    placeholder='App Secret (opsional)'
-                    value={appSecret}
-                    onChange={(e) => setAppSecret(e.target.value)}
-                  />
-                </>
-              )}
-
-              <div
-                className='row'
-                style={{ justifyContent: 'flex-end', gap: 8 }}
-              >
-                <button
-                  type='button'
-                  className='btn ghost'
-                  onClick={() => setShowModal(false)}
-                >
-                  Batal
-                </button>
-                <button className='btn' disabled={saving}>
-                  {saving ? 'Menyimpan…' : editing ? 'Update' : 'Simpan'}
-                </button>
-              </div>
-            </form>
+      {/* Search bar */}
+      {!isLoading && platforms.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <div style={{ position: 'relative', width: 300 }}>
+            <Search
+              size={13}
+              style={{
+                position: 'absolute',
+                left: 10,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--text-muted)',
+                pointerEvents: 'none',
+              }}
+            />
+            <input
+              className="input"
+              placeholder="Search platforms…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ paddingLeft: 32 }}
+            />
           </div>
         </div>
       )}
+
+      {/* Content */}
+      {isLoading ? (
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 60,
+            color: 'var(--text-muted)',
+            gap: 10,
+          }}
+        >
+          <RefreshCw
+            size={18}
+            style={{ animation: 'spin 0.8s linear infinite' }}
+          />
+          Loading platforms…
+        </div>
+      ) : error ? (
+        <div
+          style={{
+            padding: 24,
+            background: 'var(--danger-50)',
+            borderRadius: 10,
+            color: 'var(--danger-600)',
+            textAlign: 'center',
+          }}
+        >
+          {error}
+          <button
+            className="btn ghost"
+            style={{ marginLeft: 12 }}
+            onClick={fetchPlatforms}
+          >
+            Retry
+          </button>
+        </div>
+      ) : platforms.length === 0 ? (
+        <EmptyState
+          title="No channels connected"
+          description="Connect Telegram to start receiving marketplace conversations"
+          action={
+            <button className="btn" onClick={openConnect}>
+              <Plus size={13} style={{ marginRight: 5 }} />
+              Connect Telegram
+            </button>
+          }
+        />
+      ) : (
+        <div
+          className="card"
+          style={{ overflow: 'hidden', padding: 0 }}
+        >
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr
+                style={{
+                  background: 'var(--surface-secondary)',
+                  borderBottom: '1px solid var(--border-subtle)',
+                }}
+              >
+                {[
+                  'Platform',
+                  'Connection Status',
+                  'AI Agent',
+                  'Last Activity',
+                  'Webhook Health',
+                  'Actions',
+                ].map((col) => (
+                  <th
+                    key={col}
+                    style={{
+                      padding: '10px 16px',
+                      textAlign: 'left',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                      color: 'var(--text-muted)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    style={{
+                      padding: 32,
+                      textAlign: 'center',
+                      color: 'var(--text-muted)',
+                      fontSize: 13,
+                    }}
+                  >
+                    No platforms match your search
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((platform, i) => {
+                  const pid = platform._id || platform.id
+                  const status = getConnectionStatus(platform)
+                  const webhookHealth = getWebhookHealth(platform)
+                  const agent = agents.find(
+                    (a) => (a._id || a.id) === platform.agentId
+                  )
+                  const accountDisplay = maskAccountId(getAccountId(platform))
+                  const isLast = i === filtered.length - 1
+
+                  return (
+                    <tr
+                      key={pid || i}
+                      style={{
+                        borderBottom: isLast
+                          ? 'none'
+                          : '1px solid var(--border-subtle)',
+                        transition: 'background 0.1s',
+                        cursor: 'default',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background =
+                          'var(--surface-hover)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent'
+                      }}
+                    >
+                      {/* Platform */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                          }}
+                        >
+                          <BrandIcon name={platform.type} size={24} />
+                          <div>
+                            <div
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: 'var(--text-primary)',
+                              }}
+                            >
+                              {platform.label || platform.type}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                color: 'var(--text-muted)',
+                                fontFamily: 'monospace',
+                              }}
+                            >
+                              {accountDisplay}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      {/* Connection Status */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <PlatformStatusBadge status={status} />
+                      </td>
+                      {/* AI Agent */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <span
+                          style={{
+                            fontSize: 13,
+                            color: agent
+                              ? 'var(--text-primary)'
+                              : 'var(--text-muted)',
+                          }}
+                        >
+                          {agent ? agent.name : 'No agent'}
+                        </span>
+                      </td>
+                      {/* Last Activity */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <span
+                          style={{
+                            fontSize: 13,
+                            color: 'var(--text-secondary)',
+                          }}
+                        >
+                          {formatRelativeDate(
+                            platform.lastActivity ||
+                              platform.lastActivityAt ||
+                              platform.updatedAt
+                          )}
+                        </span>
+                      </td>
+                      {/* Webhook Health */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <WebhookHealthBadge health={webhookHealth} />
+                      </td>
+                      {/* Actions */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', gap: 2 }}>
+                          <button
+                            className="btn ghost"
+                            style={{ padding: '4px 8px' }}
+                            title="View details"
+                            onClick={() => {
+                              setDrawerPlatform(platform)
+                              setDrawerOpen(true)
+                            }}
+                          >
+                            <Eye size={14} />
+                          </button>
+                          <button
+                            className="btn ghost"
+                            style={{ padding: '4px 8px' }}
+                            title="Edit"
+                            onClick={() => openEdit(platform)}
+                          >
+                            <Settings size={14} />
+                          </button>
+                          <button
+                            className="btn ghost"
+                            style={{
+                              padding: '4px 8px',
+                              color: 'var(--danger-600)',
+                            }}
+                            title="Delete"
+                            onClick={() => setConfirmDelete(platform)}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ── Connect / Edit Modal ─────────────────────────────────────────── */}
+      {connectOpen && (
+        <div
+          className="modal"
+          style={{ zIndex: 1000 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeConnect()
+          }}
+        >
+          <div className="modal-card" style={{ maxWidth: 520, width: '100%' }}>
+            {/* modal header */}
+            <div
+              style={{
+                padding: '18px 24px',
+                borderBottom: '1px solid var(--border-subtle)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {editPlatform
+                  ? 'Edit Platform'
+                  : connectStep === 1
+                  ? 'Select Platform Type'
+                  : 'Connect ' +
+                    (selectedType
+                      ? selectedType.charAt(0).toUpperCase() +
+                        selectedType.slice(1)
+                      : '')}
+              </h3>
+              <button
+                className="btn ghost"
+                style={{ padding: '2px 8px', fontSize: 18, lineHeight: 1 }}
+                onClick={closeConnect}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* modal body */}
+            <div style={{ padding: 24 }}>
+              {connectStep === 1 ? (
+                /* Step 1 — type picker */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {PLATFORM_TYPES.map(({ type, label, description }) => (
+                    <button
+                      key={type}
+                      className="btn ghost"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 14,
+                        padding: '12px 16px',
+                        textAlign: 'left',
+                        width: '100%',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: 10,
+                      }}
+                      onClick={() => {
+                        setSelectedType(type)
+                        setConnectStep(2)
+                      }}
+                    >
+                      <BrandIcon name={type} size={30} />
+                      <div>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: 14,
+                            color: 'var(--text-primary)',
+                          }}
+                        >
+                          {label}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: 'var(--text-muted)',
+                            marginTop: 2,
+                          }}
+                        >
+                          {description}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                /* Step 2 — form */
+                <PlatformForm
+                  type={selectedType}
+                  initialData={editPlatform || {}}
+                  onSubmit={handleSubmit}
+                  onCancel={
+                    editPlatform
+                      ? closeConnect
+                      : () => setConnectStep(1)
+                  }
+                  saving={saving}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Detail Drawer ────────────────────────────────────────────────── */}
+      <PlatformDetailDrawer
+        platform={drawerPlatform}
+        agents={agents}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+        onSetWebhook={handleSetWebhook}
+        onTest={handleTest}
+      />
+
+      {/* ── Confirm Delete ───────────────────────────────────────────────── */}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Delete Platform"
+        description={
+          'Are you sure you want to delete "' +
+          (confirmDelete
+            ? confirmDelete.label || confirmDelete.type || 'this platform'
+            : '') +
+          '"? This cannot be undone.'
+        }
+        variant="danger"
+        onConfirm={() =>
+          confirmDelete &&
+          handleDelete(confirmDelete._id || confirmDelete.id)
+        }
+        onCancel={() => setConfirmDelete(null)}
+      />
+
+      {/* spin keyframe */}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }
