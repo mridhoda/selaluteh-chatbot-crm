@@ -154,12 +154,16 @@ function MessageBubble({ message }) {
 
 export default function ChatPanel({ 
   // New API
-  chat: chatProp, messages: messagesProp, isLoading,
+  chat: _chatNew, messages: _messagesNew, isLoading,
   onSendMessage, onTakeover, onResolve,
   // Old API (DashboardPage Inbox)
   selected, onChatUpdate, replyingTo: _replyingTo, setReplyingTo: _setReplyingTo
 }) {
-  const [text, setText] = useState('')
+  // ─── Backward-compat: normalize old (DashboardPage selected) and new (ChatCenterPage chat) API
+  const chat = _chatNew || selected || null
+  const messages = Array.isArray(_messagesNew) ? _messagesNew : (selected?.messages || [])
+
+    const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const scrollRef = useRef(null)
   const userScrolled = useRef(false)
