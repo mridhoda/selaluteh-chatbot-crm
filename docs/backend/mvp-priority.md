@@ -351,3 +351,5 @@ Halaman prioritasnya:
 ```
 
 Dan perubahan paling penting pada navbar kamu sekarang adalah **tambahkan halaman `Payments` setelah `Orders`**, karena order dan pembayaran harus tetap menjadi dua resource yang berbeda. Setelah Telegram berhasil dari awal sampai pembayaran, barulah sambungkan WhatsApp ke backend commerce yang sama. 🚀
+
+products, payments, chat, dan settings, connected platforms
