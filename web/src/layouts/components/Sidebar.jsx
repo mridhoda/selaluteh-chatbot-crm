@@ -20,6 +20,7 @@ import {
   faShoppingBag,
   faCube,
   faChartLine,
+  faWallet,
 } from '@fortawesome/free-solid-svg-icons'
 import {
   faComment,
@@ -35,6 +36,7 @@ const navigationIcons = {
   orders: faShoppingBag,
   products: faCube,
   outlets: faStore,
+  payments: faWallet,
   chat: faComment,
   analytics: faChartLine,
   contacts: faAddressBook,

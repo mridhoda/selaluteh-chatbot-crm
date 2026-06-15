@@ -802,7 +802,9 @@ body {
 
 /* DASHBOARD LAYOUT */
 .dashboard-layout {
-    min-height: 100vh;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     background-color: var(--dashboard-bg);
