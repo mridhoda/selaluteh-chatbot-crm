@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
     --brand: #f97316;
     /* lp-orange-500 */
@@ -397,6 +401,15 @@ body.sidebar-pinned .main {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+.main--products {
+    overflow: visible;
+}
+
+.main-body--products {
+    display: block;
+    overflow: visible;
 }
 
 /* NAVBAR */

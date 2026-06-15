@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
-import { Routes, Route, useNavigate, useParams, Navigate } from 'react-router-dom'
+import { Routes, Route, useNavigate, useParams, Navigate, useLocation } from 'react-router-dom'
 import Sidebar from '../../../layouts/components/Sidebar'
 import Navbar from '../../../layouts/components/Topbar'
 import api from '../../../shared/api/httpClient'
@@ -3014,6 +3014,7 @@ export default function Dashboard() {
   const { user } = useAuth()
   const [plan, setPlan] = useState(null)
   const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
     if (!user) navigate('/login')
@@ -3023,14 +3024,16 @@ export default function Dashboard() {
       .catch((error) => console.error('Error fetching billing info:', error))
   }, [user, navigate])
 
+  const isProductsPage = location.pathname.replace(/\/+$/, '') === '/app/products'
+
   return (
     <div className='dashboard-layout'>
       <div className='sidebar-container'>
         <Sidebar />
       </div>
       <Navbar authed user={user} plan={plan} />
-      <div className='main'>
-        <div className='main-body'>
+      <div className={`main ${isProductsPage ? 'main--products' : ''}`}>
+        <div className={`main-body ${isProductsPage ? 'main-body--products' : ''}`}>
           <Routes>
             <Route index element={<Inbox />} />
             <Route path='chats' element={<ChatCenterPage />} />
