@@ -65,26 +65,9 @@ export default function ChatCenterPage() {
   // ── render ─────────────────────────────────────────────────────────────
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        height: 'calc(100vh - 60px)',
-        background: 'var(--app-background)',
-        overflow: 'hidden',
-      }}
-    >
+    <div className="chat-prism-shell">
       {/* ── Left: Chat list — 320px ──────────────────────────────────────── */}
-      <div
-        style={{
-          width: 320,
-          flexShrink: 0,
-          borderRight: '1px solid var(--border-subtle)',
-          background: 'var(--surface-primary)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-      >
+      <div className="chat-prism-list-column">
         <ChatList
           chats={chats}
           selectedId={selectedChatId}
@@ -96,31 +79,11 @@ export default function ChatCenterPage() {
       </div>
 
       {/* ── Middle: Conversation panel — flex 1 ──────────────────────────── */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          minWidth: 0,
-          position: 'relative',
-        }}
-      >
+      <div className="chat-prism-main-column">
         {/* toggle context panel button (top-right corner of message pane) */}
         {selectedChat && (
           <button
-            className="btn ghost"
-            style={{
-              position: 'absolute',
-              top: 10,
-              right: 12,
-              zIndex: 10,
-              fontSize: 11,
-              padding: '3px 8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-            }}
+            className="chat-prism-info-toggle"
             onClick={() => setContextOpen((o) => !o)}
             title={contextOpen ? 'Hide context panel' : 'Show context panel'}
           >
@@ -147,17 +110,7 @@ export default function ChatCenterPage() {
 
       {/* ── Right: Context panel — 360px, collapsible ────────────────────── */}
       {selectedChat && contextOpen && (
-        <div
-          style={{
-            width: 360,
-            flexShrink: 0,
-            borderLeft: '1px solid var(--border-subtle)',
-            background: 'var(--surface-primary)',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
+        <div className="chat-prism-context-column">
           <ChatContextPanel
             chat={selectedChat}
             onOpenOrder={(orderId) =>

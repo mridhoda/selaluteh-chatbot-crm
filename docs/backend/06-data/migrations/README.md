@@ -44,6 +44,33 @@ migrations-v2/
   ALL_MIGRATIONS_COMBINED.md
 ```
 
+## Canonical Schema Source
+
+All docs and SQL in this folder are aligned to:
+
+```txt
+docs/backend/06-data/database-schema.md   # canonical field names + status enums
+docs/backend/06-data/entities.md
+docs/backend/06-data/query-contracts.md
+```
+
+Key naming decisions:
+
+```txt
+workspace_settings        replaces settings
+chat_messages             replaces messages
+taken_over_by_user_id     replaces takeover_by
+contacts.external_id      replaces platform_account_id
+agents.* JSONB fields     replaces normalized agent child tables
+agent_outlets.outlet_id   replaces legacy agent.outlets string array
+```
+
+Operational tables required at runtime:
+
+```txt
+files, webhook_events, ai_actions, checkouts
+```
+
 ## How to Use
 
 1. Review all docs in `notes/` and `checklists/`.

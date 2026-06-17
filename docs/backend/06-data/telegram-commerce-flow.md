@@ -139,7 +139,7 @@ Kosongkan Keranjang
 
 ## Checkout
 
-If delivery required, ask address and store temporary state:
+If delivery required, ask address and store temporary state in `chats.state`:
 
 ```json
 {"awaiting":"delivery_address","checkout_cart_id":"..."}
@@ -198,7 +198,7 @@ Total: Rp25.000
 
 ## Talk to Admin
 
-Set `chats.is_escalated=true` and optionally notify dashboard.
+Set `chats.is_escalated=true` and optionally notify dashboard. Human takeover uses `chats.taken_over_by_user_id` when an admin accepts the chat.
 
 Message:
 

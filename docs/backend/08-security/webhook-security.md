@@ -20,6 +20,16 @@ All webhook endpoints are public, so they need provider validation, idempotency,
 6. Process side effects once.
 7. Return fast; use queue/worker if processing is heavy.
 8. Never expose stack traces in webhook responses.
+9. Rate limit webhook endpoints to reduce abuse.
+10. Never log configured provider secrets or verification tokens.
+
+Current MVP backend:
+
+```txt
+express.json({ limit: '2mb' })
+routes/webhooks/index.js in-memory rate limit: 120 requests/minute/IP
+telegram-parser.js and meta-parser.js normalize payload before domain processing
+```
 
 ## Telegram Webhook
 
@@ -39,6 +49,7 @@ Recommended protections:
 - Verify POST signature using app secret when configured.
 - Use account/phone/page id to find platform.
 - Deduplicate message ids.
+- Do not log `META_VERIFY_TOKEN` or app secrets.
 
 ## Payment Webhook
 

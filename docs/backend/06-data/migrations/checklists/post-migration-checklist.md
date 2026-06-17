@@ -1,4 +1,4 @@
-# Post-Migration Checklist — v2
+# Post-Migration Checklist — v3 Pre-MCP
 
 ## Data Counts
 
@@ -9,6 +9,11 @@
 - [ ] Chats count matches expected.
 - [ ] Messages count matches expected.
 - [ ] Legacy orders count matches expected.
+- [ ] Order item count matches expected after normalizing embedded order items.
+- [ ] Checkout count and checkout item count match expected snapshots.
+- [ ] Cart count and cart item count match expected snapshots.
+- [ ] Payments count matches expected.
+- [ ] Payment events count matches expected after dedupe.
 - [ ] Complaints count matches expected.
 - [ ] Files metadata count matches migrated attachments.
 - [ ] Local media files exist on server.
@@ -23,6 +28,7 @@
 - [ ] Agents page loads.
 - [ ] Inbox loads.
 - [ ] Chat messages load in correct order.
+- [ ] Cart, checkout, order, and payment detail pages show normalized item/event rows.
 - [ ] Unread reset works.
 - [ ] Takeover works.
 - [ ] Human reply sends and stores message.
@@ -42,6 +48,8 @@
 - [ ] Service role key is not exposed to frontend.
 - [ ] Payment webhook endpoint rejects invalid signature.
 - [ ] Telegram duplicate update does not create duplicate message/order.
+- [ ] Duplicate payment provider event does not create duplicate `payment_events` row.
+- [ ] Service-role key remains server-side only.
 
 ## Marketplace Smoke Tests
 
@@ -54,5 +62,12 @@
 - [ ] Pending order is created with order items.
 - [ ] Payment sandbox link is created.
 - [ ] Payment event is saved.
-- [ ] Order status becomes `paid` after payment webhook.
+- [ ] Order payment status becomes `paid` after payment webhook.
+- [ ] Order lifecycle status remains separate from payment status.
 - [ ] Telegram paid notification is sent.
+
+## SQL Validation
+
+- [ ] `sql/009_migration_validation_queries.sql` returns zero for orphan and cross-workspace mismatch queries.
+- [ ] Duplicate checks for checkout idempotency keys, order numbers, webhook events, and payment events return no rows.
+- [ ] `mongo_id_map` contains no rows with missing `target_uuid`.

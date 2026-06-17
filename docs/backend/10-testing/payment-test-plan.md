@@ -7,6 +7,7 @@ Validate payment gateway sandbox integration and payment state machine.
 ## Scope
 
 - Create payment link.
+- Create manual/COD payment instruction.
 - Store payment transaction.
 - Receive provider webhook.
 - Verify signature.
@@ -33,6 +34,9 @@ Validate payment gateway sandbox integration and payment state machine.
 - Payment amount equals order total.
 - Payment currency is correct.
 - Payment link URL stored.
+- Manual/COD provider stores pending payment with no payment URL.
+- Existing pending/paid payment attempt is reused.
+- Client-provided amount mismatch is rejected.
 
 ### Webhook Security
 
@@ -45,12 +49,23 @@ Validate payment gateway sandbox integration and payment state machine.
 
 - Duplicate paid webhook does not send duplicate notification.
 - Duplicate event does not create duplicate payment_events row.
+- Payment event timeline links event to payment and order.
 
 ### Notification
 
 - Paid payment sends Telegram notification once.
 - Notification failure does not revert payment status.
 - Failed notification is retryable.
+
+## Automated Coverage Current State
+
+```txt
+payment-attempt.integration.test.js
+payment-webhook.integration.test.js
+payment-reconciliation.unit.test.js
+```
+
+Current passing suite covers manual payment creation, reusable attempts, amount mismatch rejection, payment webhook duplicate handling, payment/order paid transition, and payment event timeline references.
 
 ## Sandbox Manual Test
 

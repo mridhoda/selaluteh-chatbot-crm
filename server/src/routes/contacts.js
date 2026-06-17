@@ -1,48 +1,36 @@
 import express from 'express';
-import Contact from '../models/Contact.js';
-import Chat from '../models/Chat.js';
-import Agent from '../models/Agent.js';
-import Message from '../models/Message.js';
 import { authRequired, attachUser } from '../middleware/auth.js';
-import mongoose from 'mongoose';
+import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
+import { contactsRepository } from '../db/repositories/index.js';
+import { AppError } from '../utils/errors.js';
 
 const router = express.Router();
 
-// Get all contacts
-router.get('/', authRequired, attachUser, async (req, res) => {
-  const contacts = await Contact.find({ workspaceId: req.me.workspaceId }).sort({ updatedAt: -1 });
+router.use(authRequired, attachUser, attachWorkspaceContext);
 
-  const enrichedContacts = await Promise.all(contacts.map(async (contact) => {
-    const chat = await Chat.findOne({ contactId: contact._id }).populate('agentId');
-    const lastMessage = await Message.findOne({ chatId: chat?._id }).sort({ createdAt: -1 });
-
-    return {
-      ...contact.toObject(),
-      agentName: chat?.agentId?.name || '',
-      lastMessage: lastMessage?.text || '',
-      lastMessageAt: chat?.lastMessageAt || contact.createdAt, // Fallback to createdAt
-    };
-  }));
-
-  res.json(enrichedContacts);
+router.get('/', async (req, res, next) => {
+  try {
+    const { search, tags, page, limit, sort } = req.query;
+    const data = await contactsRepository.list({ workspaceId: req.me.workspaceId, search, tags, page, limit, sort });
+    const total = await contactsRepository.count({ workspaceId: req.me.workspaceId, search, tags });
+    res.json({ data, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } });
+  } catch (err) { next(err); }
 });
 
-// Update a contact (tags and notes)
-router.put('/:id', authRequired, attachUser, async (req, res) => {
-  const { id } = req.params;
-  const { tags, notes } = req.body;
+router.get('/:id', async (req, res, next) => {
+  try {
+    const contact = await contactsRepository.findById({ workspaceId: req.me.workspaceId, contactId: req.params.id });
+    if (!contact) throw new AppError('NOT_FOUND', 'Contact not found', 404);
+    res.json({ data: contact });
+  } catch (err) { next(err); }
+});
 
-  const contact = await Contact.findOneAndUpdate(
-    { _id: id, workspaceId: req.me.workspaceId },
-    { $set: { tags, notes } },
-    { new: true }
-  );
-
-  if (!contact) {
-    return res.status(404).json({ error: 'Contact not found' });
-  }
-
-  res.json(contact);
+router.put('/:id', async (req, res, next) => {
+  try {
+    const contact = await contactsRepository.update({ workspaceId: req.me.workspaceId, contactId: req.params.id, updates: req.body });
+    if (!contact) throw new AppError('NOT_FOUND', 'Contact not found', 404);
+    res.json({ data: contact });
+  } catch (err) { next(err); }
 });
 
 export default router;

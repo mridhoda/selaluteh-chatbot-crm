@@ -20,7 +20,7 @@ Checklist praktis untuk mengubah current Chatbot CRM menjadi Telegram-first Mark
 
 - [ ] Create repositories folder.
 - [ ] Add users/platforms/agents repositories.
-- [ ] Add contacts/chats/messages repositories.
+- [ ] Add contacts/chats/chat_messages repositories.
 - [ ] Add files/orders/complaints repositories.
 - [ ] Add products/carts/payments repositories.
 - [ ] Refactor routes to call repositories/services.
@@ -34,7 +34,8 @@ Checklist praktis untuk mengubah current Chatbot CRM menjadi Telegram-first Mark
 - [ ] Create identity tables.
 - [ ] Create integration tables.
 - [ ] Create files table.
-- [ ] Create agents and child tables.
+- [ ] Create agents table with embedded JSON.
+- [ ] Create agent_outlets mapping table.
 - [ ] Create CRM tables.
 - [ ] Create operations tables.
 - [ ] Create marketplace tables.
@@ -47,10 +48,10 @@ Checklist praktis untuk mengubah current Chatbot CRM menjadi Telegram-first Mark
 - [ ] Implement Supabase service role connection.
 - [ ] Generate ID maps.
 - [ ] Implement dry run.
-- [ ] Migrate workspaces/users/settings/platforms.
+- [ ] Migrate workspaces/users/workspace_settings/outlets/platforms.
 - [ ] Migrate files metadata.
-- [ ] Migrate agents and child tables.
-- [ ] Migrate contacts/chats/messages.
+- [ ] Migrate agents and agent_outlets.
+- [ ] Migrate contacts/chats/chat_messages.
 - [ ] Migrate orders/complaints.
 - [ ] Optional product backfill.
 - [ ] Generate reports.

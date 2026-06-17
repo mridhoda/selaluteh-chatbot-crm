@@ -7,8 +7,15 @@
     "dev:server": "npm --prefix server run dev",
     "build": "npm --prefix web run build",
     "start": "npm --prefix server run start",
+    "specs:check": "node scripts/specs/sync-spec-folders.mjs --check",
+    "specs:check:verbose": "node scripts/specs/sync-spec-folders.mjs --check --verbose",
+    "specs:sync:dry": "node scripts/specs/sync-spec-folders.mjs --fix --dry-run",
+    "specs:sync": "node scripts/specs/sync-spec-folders.mjs --fix",
+    "specs:help": "node scripts/specs/sync-spec-folders.mjs --help",
     "seed": "npm --prefix server run seed",
     "cleanup": "npm --prefix server run cleanup"
+  },
+  "devDependencies": {
+    "yaml": "^2.9.0"
   }
 }
-

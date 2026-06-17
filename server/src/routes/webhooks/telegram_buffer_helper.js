@@ -6,7 +6,7 @@ import Agent from '../../models/Agent.js';
 import Chat from '../../models/Chat.js';
 import Message from '../../models/Message.js';
 import Contact from '../../models/Contact.js';
-import { generateAIReply, findAndSendFile } from '../../services/ai.js';
+import { generateAIReply, findAndSendFile } from '../../services/ai.service.js';
 import { openaiClient, geminiClient } from '../../services/aiClient.js';
 import {
     tgSend,

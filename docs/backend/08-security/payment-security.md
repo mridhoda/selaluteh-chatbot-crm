@@ -13,13 +13,15 @@ checkout confirmed
 -> create pending order
 -> create payment transaction with provider
 -> save payment row
--> send payment link
+-> send payment link or manual/COD instruction
 -> receive provider webhook
 -> verify signature
 -> save payment_event
 -> update payment/order status
 -> notify customer
 ```
+
+For local MVP, `PAYMENT_PROVIDER=manual` creates a pending manual/COD payment attempt but does not mark the payment paid.
 
 ## Payment Provider Secrets
 
@@ -76,9 +78,13 @@ transaction status is paid/settlement/capture
 fraud status if provider supplies it is acceptable
 ```
 
+The payment creation API must reject client-provided amount mismatch before provider/manual attempt creation.
+
 ## Manual Payment Proof
 
 Manual proof upload is lower trust.
+
+Manual/COD instruction is allowed for MVP, but payment remains `pending` until verified by an approved operational/admin process. Customer text, AI output, and Telegram callbacks must not set `paid`.
 
 Rules:
 

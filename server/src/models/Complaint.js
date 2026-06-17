@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 
 const ComplaintSchema = new mongoose.Schema({
+    workspaceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workspace', required: true, index: true },
+    outletId: { type: mongoose.Schema.Types.ObjectId, ref: 'Outlet', default: null, index: true },
     chatId: { type: mongoose.Schema.Types.ObjectId, ref: 'Chat' },
     contactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' },
     agentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Agent' }, // optional, if against an agent

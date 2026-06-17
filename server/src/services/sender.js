@@ -18,13 +18,17 @@ export async function tgSendSplit(token, chatId, text, replyToMessageId = null) 
   return results.length > 0 ? results[results.length - 1] : null;
 }
 
-export async function tgSend(token, chatId, text, replyToMessageId = null) {
+export async function tgSend(token, chatId, text, replyToMessageId = null, options = {}) {
   const url = `https://api.telegram.org/bot${token}/sendMessage`
   const body = { chat_id: chatId, text }
 
   // Add reply_to_message_id if provided
   if (replyToMessageId) {
     body.reply_to_message_id = parseInt(replyToMessageId);
+  }
+
+  if (options.replyMarkup || options.reply_markup) {
+    body.reply_markup = options.replyMarkup || options.reply_markup;
   }
 
   const r = await fetch(url, {

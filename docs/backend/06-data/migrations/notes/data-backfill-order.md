@@ -2,6 +2,8 @@
 
 Import order matters because of foreign keys and workspace isolation.
 
+Canonical target schema: `database-schema.md` + `migrations/sql/001..005`.
+
 ## Phase A — Prepare ID Mapping
 
 1. Read all Mongo collections.
@@ -14,84 +16,57 @@ Import order matters because of foreign keys and workspace isolation.
 1. Insert `workspaces` from distinct Mongo `workspaceId`.
 2. Insert `users`.
 3. Update `workspaces.owner_user_id`.
-4. Insert `settings`.
-5. Insert `platforms`.
-6. Insert `agents`.
-7. Insert agent child tables:
-   - `agent_knowledge`
-   - `agent_followups`
-   - `agent_database_files`
-   - `agent_complaint_fields`
-   - `agent_outlets`
-   - `agent_products`
-   - `agent_sales_forms`
-   - `agent_sales_form_fields`
-   - `agent_sales_form_products`
-8. Insert `contacts`.
-9. Insert `chats`.
-10. Verify/copy local files and insert `files` metadata.
-11. Patch `agent_database_files.file_id`.
-12. Insert `messages`.
-13. Insert legacy `orders`.
-14. Insert `complaints`.
-15. Insert `knowledge_files`.
+4. Insert `outlets` (create default outlet per workspace if missing).
+5. Insert `workspace_settings`.
+6. Insert `user_workspace_memberships` and optional `user_outlet_access`.
+7. Insert `platforms`.
+8. Insert `agents` with embedded JSON config.
+9. Insert `agent_outlets` by matching legacy outlet names/codes to `outlets.id`.
+10. Insert `contacts`.
+11. Insert `chats`.
+12. Verify/copy local files and insert `files` metadata.
+13. Insert `chat_messages`.
+14. Insert legacy `orders`.
+15. Insert `complaints`.
 
 ## Phase C — Marketplace Bootstrap
 
 After CRM import is stable:
 
 1. Create product categories if needed.
-2. Migrate selected `agent_products` / `agent_sales_form_products` to `products`.
+2. Migrate selected legacy agent sales-form products into `products`.
 3. Create `product_variants` only when variants are meaningful.
-4. Insert `product_images` for local/public product images.
+4. Insert `product_outlet_availability`.
 5. Do not backfill old carts; carts are new runtime data.
 6. Do not backfill payments unless old manual proofs need audit records.
 
 ## Phase D — Runtime Tables
 
-Runtime-only tables usually start empty:
+Do not seed historical rows for:
 
 ```txt
 carts
 cart_items
 checkouts
 payments
+payment_attempts
 payment_events
+order_events
 webhook_events
 ai_actions
 ```
 
 Exception: `webhook_events` can be seeded with recent processed external message ids if you need duplicate protection during cutover.
 
-## Backfill Validations
+## Validation Queries
 
-After import, required-reference counts must be zero:
+Run `sql/009_migration_validation_queries.sql` after import.
 
-```sql
-select count(*) from messages where chat_id is null;
-select count(*) from chats where workspace_id is null;
-select count(*) from contacts where platform_account_id = '';
-select count(*) from orders where workspace_id is null;
-select count(*) from complaints where workspace_id is null;
-```
-
-Cross-workspace mismatches must return zero rows:
-
-```sql
-select *
-from messages m
-join chats c on c.id = m.chat_id
-where m.workspace_id <> c.workspace_id;
-```
-
-## Timestamp Preservation
-
-Always preserve:
+Expected:
 
 ```txt
-createdAt -> created_at
-updatedAt -> updated_at
-lastMessageAt -> last_message_at
+chat_messages without chat = 0
+orders without workspace = 0
+complaints without workspace = 0
+cross-workspace mismatches = 0
 ```
-
-Message ordering and inbox sorting depend on timestamps.

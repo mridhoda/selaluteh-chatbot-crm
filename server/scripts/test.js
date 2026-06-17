@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { findAndSendFile } from '../src/services/ai.js';
+import { findAndSendFile } from '../src/services/ai.service.js';
 import { openaiClient, geminiClient } from '../src/services/aiClient.js';
 
 async function runTest() {

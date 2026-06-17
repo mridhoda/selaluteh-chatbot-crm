@@ -14,26 +14,25 @@ Dokumen ini menjelaskan flow order setelah payment berhasil hingga completed/can
 
 ```txt
 new
-pending_payment
-paid
-processing
+accepted
+preparing
+ready
 completed
 cancelled
-refunded
 ```
 
-If legacy enum cannot be changed immediately, map marketplace statuses into existing compatible values while planning enum migration.
+Payment state is tracked separately in `orders.payment_status`.
 
 ## Fulfillment Happy Path
 
 ```mermaid
 flowchart TD
-  A[Order pending_payment] --> B[Payment webhook paid]
-  B --> C[Order paid]
+  A[Order new, payment pending] --> B[Payment webhook paid]
+  B --> C[Order accepted]
   C --> D[Admin sees paid order]
-  D --> E[Admin marks processing]
+  D --> E[Admin marks preparing]
   E --> F[Backend optionally notifies user]
-  F --> G[Admin fulfills order]
+  F --> G[Admin marks ready]
   G --> H[Admin marks completed]
   H --> I[Backend notifies user]
 ```
@@ -45,7 +44,7 @@ Admin opens Orders
 -> filters paid orders
 -> opens order detail
 -> checks item/payment/customer info
--> updates status to processing/completed/cancelled
+-> updates status to preparing/ready/completed/cancelled
 -> backend validates transition
 -> backend writes audit log if available
 -> backend sends Telegram notification if enabled
@@ -55,12 +54,13 @@ Admin opens Orders
 
 | From | To | Allowed Actor | Notes |
 |---|---|---|---|
-| pending_payment | paid | Payment webhook | Normal payment success |
-| pending_payment | cancelled | Admin/system | Payment expired/cancelled |
-| paid | processing | Admin | Start fulfillment |
-| processing | completed | Admin | Finish order |
-| paid | cancelled | Admin | Requires reason |
-| completed | refunded | Admin/payment process | Requires refund flow |
+| new | accepted | Payment webhook | Normal payment success |
+| new | cancelled | Admin/system | Payment expired/cancelled |
+| accepted | preparing | Admin | Start fulfillment |
+| preparing | ready | Admin | Ready for pickup/delivery |
+| ready | completed | Admin | Finish order |
+| accepted | cancelled | Admin | Requires reason |
+| completed | completed | Admin/payment process | Refund changes payment status, not lifecycle status |
 
 ## Telegram Notifications
 
@@ -68,8 +68,8 @@ Recommended notification events:
 
 | Event | Message |
 |---|---|
-| Order paid | Pembayaran berhasil, pesanan diproses |
-| Order processing | Pesanan sedang disiapkan |
+| Order accepted | Pembayaran berhasil, pesanan diproses |
+| Order preparing | Pesanan sedang disiapkan |
 | Order completed | Pesanan selesai, terima kasih |
 | Order cancelled | Pesanan dibatalkan, alasan: ... |
 

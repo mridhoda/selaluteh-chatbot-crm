@@ -117,5 +117,5 @@ MIDTRANS_SERVER_KEY=<sandbox-server-key>
 Bad:
 
 ```env
-JWT_SECRET=real_secret_here
+JWT_SECRET=<do-not-commit-real-secret>
 ```

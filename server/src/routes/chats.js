@@ -3,7 +3,7 @@ import path from 'path';
 import Chat from '../models/Chat.js';
 import Message from '../models/Message.js';
 import { authRequired, attachUser } from '../middleware/auth.js';
-import { tgSend, waSend, tgSendDocument, waSendDocument } from '../services/sender.js';
+import { acquireTakeover, releaseTakeover } from '../services/human-takeover.service.js';
 
 const router = express.Router();
 
@@ -202,27 +202,18 @@ router.post('/:chatId/send', authRequired, attachUser, async (req, res) => {
   res.json(msg);
 });
 
-router.post('/:chatId/takeover', authRequired, attachUser, async (req, res) => {
-  const { chatId } = req.params;
-  const { userId } = req.body;
-  const assigneeId = userId || req.me._id;
-
-  const chat = await Chat.findOneAndUpdate(
-    { _id: chatId, workspaceId: req.me.workspaceId },
-    { $set: { takeoverBy: assigneeId, isEscalated: false, status: 'open' } },
-    { new: true }
-  ).populate('contactId').populate('agentId').populate('takeoverBy');
-  res.json(chat);
+router.post('/:chatId/takeover', authRequired, attachUser, async (req, res, next) => {
+  try {
+    const chat = await acquireTakeover({ chatId: req.params.chatId, userId: req.me._id });
+    res.json({ data: chat });
+  } catch (err) { next(err); }
 });
 
-router.post('/:chatId/resolve', authRequired, attachUser, async (req, res) => {
-  const { chatId } = req.params;
-  const chat = await Chat.findOneAndUpdate(
-    { _id: chatId, workspaceId: req.me.workspaceId },
-    { $set: { takeoverBy: null, isEscalated: false, status: 'resolved' } },
-    { new: true }
-  ).populate('contactId').populate('agentId').populate('takeoverBy');
-  res.json(chat);
+router.post('/:chatId/release', authRequired, attachUser, async (req, res, next) => {
+  try {
+    const chat = await releaseTakeover({ chatId: req.params.chatId, userId: req.me._id });
+    res.json({ data: chat });
+  } catch (err) { next(err); }
 });
 
 router.delete('/:chatId', authRequired, attachUser, async (req, res) => {

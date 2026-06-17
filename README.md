@@ -68,14 +68,14 @@ Isi minimal `server/.env`:
 
 ```env
 MONGODB_URI=mongodb://localhost:27017/chatbot_crm
-JWT_SECRET=change_this_secret
+JWT_SECRET=change-me-dev-only
 PORT=5000
 CORS_ORIGIN=http://localhost:5173
 PUBLIC_BASE_URL=
-SMTP_URL=
+SMTP_URL=<smtp-url>
 SMTP_FROM="SelaluTeh Chatbot CRM <no-reply@selaluteh.local>"
-OPENAI_API_KEY=
-GOOGLE_API_KEY=
+OPENAI_API_KEY=<openai-api-key>
+GOOGLE_API_KEY=<google-api-key>
 ```
 
 Isi default `web/.env`:

@@ -138,7 +138,7 @@ AI should escalate when:
 - refund/complaint complex
 - AI confidence low
 
-If `chats.takeover_by` is not null, AI must not reply.
+If `chats.taken_over_by_user_id` is not null, AI must not reply.
 
 ## Prompt Injection Defense
 

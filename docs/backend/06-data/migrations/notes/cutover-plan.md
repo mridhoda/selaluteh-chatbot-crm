@@ -32,7 +32,7 @@ Switch production backend reads/writes from MongoDB to Supabase/Postgres with mi
 - Send human reply in test chat.
 - Receive Telegram test webhook.
 - Verify duplicate Telegram update does not duplicate message.
-- Verify AI skip when `takeover_by` exists.
+- Verify AI skip when `taken_over_by_user_id` exists.
 - Create/update legacy order.
 - Create/update complaint.
 - Confirm local file URLs still resolve.

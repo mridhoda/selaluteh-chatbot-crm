@@ -1,28 +1,16 @@
 import React, { useState } from 'react'
-import { Copy, ExternalLink, Send } from 'lucide-react'
+import { Copy, ExternalLink, Send, AlertCircle, Ticket, ShoppingBag, Filter, ChevronDown, Plus, User, UserPlus, Bot, Shield, CheckCircle, Clock, Calendar, LayoutGrid } from 'lucide-react'
 import { useToast } from '../../../shared/components/feedback/Toast'
 
 // ─── small helpers ─────────────────────────────────────────────────────────
 
-function Tab({ label, active, onClick }) {
+function Tab({ label, active, onClick, icon }) {
   return (
     <button
       onClick={onClick}
-      style={{
-        padding: '8px 12px',
-        fontSize: 12,
-        fontWeight: active ? 600 : 400,
-        color: active ? 'var(--brand-500)' : 'var(--text-muted)',
-        background: 'none',
-        border: 'none',
-        borderBottom: active
-          ? '2px solid var(--brand-500)'
-          : '2px solid transparent',
-        cursor: 'pointer',
-        transition: 'all 0.12s',
-        whiteSpace: 'nowrap',
-      }}
+      className={`chat-prism-context-tab ${active ? 'active' : ''}`}
     >
+      {icon}
       {label}
     </button>
   )
@@ -120,46 +108,146 @@ function ContactTab({ chat }) {
     chat.contactPhone || chat.contactHandle || chat.contactId || null
   const firstContact = chat.createdAt || chat.firstContactAt
 
+  const formattedFirstContact = firstContact
+    ? new Date(firstContact).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : '—'
+
+  return (
+    <div className="chat-prism-info-sections">
+      <section className="chat-prism-profile-block">
+        <div className="chat-prism-profile-title-row">
+          <h2>{chat.contactName || 'Unknown'}</h2>
+          <button onClick={() => copy(phone || chat.contactName)} title="Copy contact">
+            <Copy size={16} />
+          </button>
+        </div>
+        <div className="chat-prism-profile-channel">
+          {chat.platform || 'Channel'} {phone ? `· ${phone}` : ''}
+        </div>
+        <button className="chat-prism-select-status">
+          <span><Filter size={14} /> Select Pipeline Status</span>
+          <ChevronDown size={14} />
+        </button>
+      </section>
+
+      <InfoDivider />
+
+      <InfoHeader title="Labels" action="Add Label" icon={<Plus size={12} />} />
+      <p className="chat-prism-muted-line">{tags.length ? tags.join(', ') : 'No labels yet'}</p>
+
+      <InfoDivider />
+
+      <AccordionMini title="Session History">
+        <p className="chat-prism-center-muted">No sessions available</p>
+      </AccordionMini>
+
+      <InfoDivider />
+
+      <div>
+        <label className="chat-prism-section-label">Handled By</label>
+        <button className="chat-prism-assignee-card">
+          <span className="chat-prism-assignee-icon"><User size={14} /></span>
+          <strong>{chat.takenOverByName || chat.takenOverBy || 'Super Admin IT Core'}</strong>
+          <ChevronDown size={14} />
+        </button>
+      </div>
+
+      <InfoDivider />
+
+      <InfoHeader title="Collaborators" action="Add Collaborator" icon={<UserPlus size={14} />} />
+      <p className="chat-prism-muted-line">No collaborators yet</p>
+
+      <InfoDivider />
+
+      <div>
+        <label className="chat-prism-section-label">Notes</label>
+        <textarea className="chat-prism-notes" placeholder="Add a note..." />
+      </div>
+
+      <InfoDivider />
+
+      <div>
+        <label className="chat-prism-section-label">AI Summary</label>
+        <button className="chat-prism-summary-button">Generate AI Summary</button>
+      </div>
+
+      <InfoDivider />
+
+      <AccordionMini title="Additional Data">
+        <button className="chat-prism-outline-action">Add New Additional Info</button>
+      </AccordionMini>
+
+      <InfoDivider />
+
+      <div>
+        <h4 className="chat-prism-section-label">Conversation Details</h4>
+        <DetailMini label="Assigned By" value="—" icon={<User size={12} />} />
+        <DetailMini label="Handled By" value={chat.takenOverByName || chat.takenOverBy || 'Super Admin IT Core'} icon={<User size={12} />} />
+        <DetailMini label="Resolved By" value="—" icon={<User size={12} />} />
+        <DetailMini label="AI Handoff At" value="—" icon={<Bot size={12} />} />
+        <DetailMini label="Assigned At" value="—" icon={<Clock size={12} />} />
+        <DetailMini label="Created At" value={formattedFirstContact} icon={<Calendar size={12} />} highlight />
+        <DetailMini label="Resolved At" value="—" icon={<CheckCircle size={12} />} />
+      </div>
+
+      <InfoDivider />
+
+      <div className="chat-prism-access-grid">
+        <label className="chat-prism-section-label">Conversation Access</label>
+        <button><Shield size={14} /> Active - Click to Block</button>
+        <label className="chat-prism-section-label">AI Access</label>
+        <button><Bot size={14} /> AI Active - Click to Block</button>
+      </div>
+
+      <InfoDivider />
+
+      <div className="chat-prism-ticket-block">
+        <label className="chat-prism-section-label">Tickets</label>
+        <button className="chat-prism-ticket-board"><span><LayoutGrid size={14} /> Default Board</span><ChevronDown size={14} /></button>
+        <p className="chat-prism-center-muted">No tickets yet</p>
+      </div>
+    </div>
+  )
+}
+
+function InfoDivider() {
+  return <div className="chat-prism-info-divider" />
+}
+
+function InfoHeader({ title, action, icon }) {
+  return (
+    <div className="chat-prism-info-header">
+      <h4>{title}</h4>
+      <button>{icon}{action}</button>
+    </div>
+  )
+}
+
+function AccordionMini({ title, children }) {
+  const [open, setOpen] = useState(true)
   return (
     <div>
-      <SectionTitle>Contact Info</SectionTitle>
-      <Field label="Name" value={chat.contactName} />
-      <Field
-        label="Phone / Handle"
-        value={phone}
-        copyText
-        onCopy={() => copy(phone)}
-      />
-      <Field
-        label="First contact"
-        value={
-          firstContact
-            ? new Date(firstContact).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-              })
-            : null
-        }
-      />
+      <button className="chat-prism-accordion-title" onClick={() => setOpen((v) => !v)}>
+        <span>{title}</span>
+        <ChevronDown size={14} className={open ? 'open' : ''} />
+      </button>
+      {open && children}
+    </div>
+  )
+}
 
-      {tags.length > 0 && (
-        <>
-          <Divider />
-          <SectionTitle>Tags</SectionTitle>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                className="badge"
-                style={{ fontSize: 11 }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        </>
-      )}
+function DetailMini({ label, value, icon, highlight }) {
+  return (
+    <div className="chat-prism-detail-mini">
+      <span>{icon}</span>
+      <div>
+        <small>{label}</small>
+        <strong className={highlight ? 'highlight' : ''}>{value}</strong>
+      </div>
     </div>
   )
 }
@@ -378,48 +466,31 @@ export default function ChatContextPanel({ chat, onOpenOrder, onResendPaymentLin
   if (!chat) return null
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        overflow: 'hidden',
-      }}
-    >
+    <div className="chat-prism-context-panel">
       {/* Tabs */}
-      <div
-        style={{
-          display: 'flex',
-          borderBottom: '1px solid var(--border-subtle)',
-          flexShrink: 0,
-          overflowX: 'auto',
-        }}
-      >
+      <div className="chat-prism-context-tabs">
         <Tab
-          label="Contact"
+          label="Info"
+          icon={<AlertCircle size={16} />}
           active={activeTab === 'contact'}
           onClick={() => setActiveTab('contact')}
         />
         <Tab
-          label="Commerce"
-          active={activeTab === 'commerce'}
-          onClick={() => setActiveTab('commerce')}
-        />
-        <Tab
-          label="AI & Assignment"
+          label="Ticket"
+          icon={<Ticket size={16} />}
           active={activeTab === 'ai'}
           onClick={() => setActiveTab('ai')}
+        />
+        <Tab
+          label="Orders"
+          icon={<ShoppingBag size={16} />}
+          active={activeTab === 'commerce'}
+          onClick={() => setActiveTab('commerce')}
         />
       </div>
 
       {/* Panel content */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '16px',
-        }}
-      >
+      <div className="chat-prism-context-content">
         {activeTab === 'contact' && <ContactTab chat={chat} />}
         {activeTab === 'commerce' && (
           <CommerceTab

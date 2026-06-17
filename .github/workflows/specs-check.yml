@@ -1,0 +1,62 @@
+name: Specs Validation
+
+on:
+  workflow_dispatch:
+
+  pull_request:
+    paths:
+      - "specs/**"
+      - "docs/backend/READING-ORDER.md"
+      - "docs/backend/09-ai-context/current-task.md"
+      - "scripts/specs/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/specs-check.yml"
+
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "specs/**"
+      - "docs/backend/READING-ORDER.md"
+      - "docs/backend/09-ai-context/current-task.md"
+      - "scripts/specs/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/specs-check.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: specs-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  specs-check:
+    name: Validate specs lifecycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies from lockfile
+        if: ${{ hashFiles('package-lock.json') != '' }}
+        run: npm ci
+
+      - name: Install dependencies without lockfile
+        if: ${{ hashFiles('package-lock.json') == '' }}
+        run: npm install --ignore-scripts
+
+      - name: Validate specs
+        run: npm run specs:check

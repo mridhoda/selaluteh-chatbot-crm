@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Search, X } from 'lucide-react'
+import { Filter, Plus, Search, X, Bot } from 'lucide-react'
 import BrandIcon from '../../../shared/components/brand/BrandIcon'
 
 // ─── helpers ───────────────────────────────────────────────────────────────
@@ -17,42 +17,11 @@ function timeAgo(d) {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function getInitial(name) {
-  if (!name) return '?'
-  return name.charAt(0).toUpperCase()
-}
-
-const AVATAR_COLORS = [
-  '#7c3aed', '#db2777', '#2563eb', '#16a34a', '#dc2626', '#ea580c', '#0891b2',
-]
-
-function avatarColor(name) {
-  if (!name) return AVATAR_COLORS[0]
-  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
-}
-
 // ─── skeleton ──────────────────────────────────────────────────────────────
 
 function SkeletonItem() {
   return (
-    <div
-      style={{
-        padding: '10px 16px',
-        display: 'flex',
-        gap: 10,
-        alignItems: 'flex-start',
-        borderBottom: '1px solid var(--border-subtle)',
-      }}
-    >
-      <div
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: '50%',
-          background: 'var(--surface-tertiary)',
-          flexShrink: 0,
-        }}
-      />
+    <div className="chat-prism-list-skeleton">
       <div style={{ flex: 1 }}>
         <div
           style={{
@@ -97,6 +66,7 @@ export default function ChatList({
 }) {
   const [search, setSearch] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [assignmentTab, setAssignmentTab] = useState(filters.assignment || 'assigned')
 
   const sorted = [...chats].sort((a, b) => {
     const ta = new Date(a.lastMessageAt || a.updatedAt || 0).getTime()
@@ -116,115 +86,80 @@ export default function ChatList({
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length
 
+  const setAssignmentFilter = (value) => {
+    setAssignmentTab(value)
+    onFilterChange?.({
+      ...filters,
+      assignment: value === 'assigned' ? 'human' : value === 'unassigned' ? 'ai' : undefined,
+    })
+  }
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        overflow: 'hidden',
-      }}
-    >
+    <div className="chat-prism-list">
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div
-        style={{
-          padding: '12px 16px',
-          borderBottom: '1px solid var(--border-subtle)',
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 10,
-          }}
-        >
-          <span
-            style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: 'var(--text-primary)',
-            }}
-          >
-            Chats
+      <div className="chat-prism-list-header">
+        <div className="chat-prism-list-title-row">
+          <div className="chat-prism-list-title-wrap">
+            <h1 className="chat-prism-list-title">Messages</h1>
             {chats.length > 0 && (
-              <span
-                style={{
-                  fontSize: 11,
-                  color: 'var(--text-muted)',
-                  fontWeight: 400,
-                  marginLeft: 6,
-                }}
-              >
-                {chats.length}
-              </span>
+              <span className="chat-prism-count-badge">{chats.length} New</span>
             )}
-          </span>
-          <button
-            className="btn ghost"
-            style={{ padding: '3px 8px', fontSize: 12, position: 'relative' }}
-            onClick={() => setFiltersOpen((f) => !f)}
-          >
-            Filter
-            {activeFilterCount > 0 && (
-              <span
-                style={{
-                  background: 'var(--brand-500)',
-                  color: '#fff',
-                  borderRadius: '50%',
-                  width: 14,
-                  height: 14,
-                  fontSize: 9,
-                  fontWeight: 700,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginLeft: 4,
-                }}
-              >
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
+          </div>
+          <div className="chat-prism-list-actions">
+            <button
+              className="chat-prism-icon-button"
+              onClick={() => setFiltersOpen((f) => !f)}
+              title="Filter"
+            >
+              <Filter size={18} />
+              {activeFilterCount > 0 && (
+                <span className="chat-prism-filter-dot">{activeFilterCount}</span>
+              )}
+            </button>
+            <button className="chat-prism-icon-button brand-action" title="New conversation">
+              <Plus size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Search */}
-        <div style={{ position: 'relative' }}>
-          <Search
-            size={13}
-            style={{
-              position: 'absolute',
-              left: 9,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--text-muted)',
-              pointerEvents: 'none',
-            }}
-          />
+        <div className="chat-prism-search-wrap">
+          <Search className="chat-prism-search-icon" size={16} />
           <input
-            className="input"
-            placeholder="Search conversations…"
+            className="chat-prism-search-input"
+            placeholder="Search chats..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ paddingLeft: 30, fontSize: 13 }}
           />
+        </div>
+
+        <div className="chat-prism-tabs">
+          <button
+            className={`chat-prism-tab ${assignmentTab === 'assigned' ? 'active' : ''}`}
+            onClick={() => setAssignmentFilter('assigned')}
+          >
+            Assigned
+            <span className="chat-prism-tab-count">120</span>
+          </button>
+          <button
+            className={`chat-prism-tab ${assignmentTab === 'unassigned' ? 'active' : ''}`}
+            onClick={() => setAssignmentFilter('unassigned')}
+          >
+            Unassigned
+          </button>
+          <button
+            className={`chat-prism-tab ${assignmentTab === 'mentions' ? 'active' : ''}`}
+            onClick={() => setAssignmentFilter('mentions')}
+          >
+            Mentions
+          </button>
         </div>
 
         {/* Expandable filters */}
         {filtersOpen && (
-          <div
-            style={{
-              marginTop: 10,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 6,
-            }}
-          >
+          <div className="chat-prism-filters">
             <select
-              className="input"
-              style={{ fontSize: 12 }}
+              className="chat-prism-filter-select"
               value={filters.status || ''}
               onChange={(e) =>
                 onFilterChange({
@@ -240,24 +175,7 @@ export default function ChatList({
             </select>
 
             <select
-              className="input"
-              style={{ fontSize: 12 }}
-              value={filters.assignment || ''}
-              onChange={(e) =>
-                onFilterChange({
-                  ...filters,
-                  assignment: e.target.value || undefined,
-                })
-              }
-            >
-              <option value="">All assignments</option>
-              <option value="ai">AI managed</option>
-              <option value="human">Human agent</option>
-            </select>
-
-            <select
-              className="input"
-              style={{ fontSize: 12 }}
+              className="chat-prism-filter-select"
               value={filters.platform || ''}
               onChange={(e) =>
                 onFilterChange({
@@ -274,11 +192,13 @@ export default function ChatList({
 
             {activeFilterCount > 0 && (
               <button
-                className="btn ghost"
-                style={{ fontSize: 12 }}
-                onClick={() => onFilterChange({})}
+                className="chat-prism-clear-filter"
+                onClick={() => {
+                  setAssignmentTab('')
+                  onFilterChange({})
+                }}
               >
-                <X size={11} style={{ marginRight: 4 }} />
+                <X size={12} />
                 Clear filters
               </button>
             )}
@@ -287,18 +207,11 @@ export default function ChatList({
       </div>
 
       {/* ── List ───────────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div className="chat-prism-list-scroll">
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => <SkeletonItem key={i} />)
         ) : filtered.length === 0 ? (
-          <div
-            style={{
-              padding: 32,
-              textAlign: 'center',
-              color: 'var(--text-muted)',
-              fontSize: 13,
-            }}
-          >
+          <div className="chat-prism-empty-list">
             {chats.length === 0
               ? 'No conversations yet'
               : 'No conversations match your search'}
@@ -313,7 +226,10 @@ export default function ChatList({
               chat.lastMessageText ||
               chat.lastMessagePreview ||
               'No messages yet'
+            const status = chat.status === 'resolved' || chat.status === 'closed' ? 'Resolved' : chat.mode === 'human' || chat.takenOverAt ? 'Assigned' : 'Pending'
+            const agentName = chat.agentName || chat.assignedAgentName || chat.assignedAgent
 
+            const hasUnread = unread > 0
             return (
               <div
                 key={cid}
@@ -321,142 +237,44 @@ export default function ChatList({
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => e.key === 'Enter' && onSelect(cid)}
-                style={{
-                  padding: '10px 16px',
-                  cursor: 'pointer',
-                  background: isSelected
-                    ? 'var(--surface-secondary)'
-                    : 'transparent',
-                  borderLeft: isSelected
-                    ? '3px solid var(--brand-500)'
-                    : '3px solid transparent',
-                  borderBottom: '1px solid var(--border-subtle)',
-                  transition: 'background 0.1s',
-                  display: 'flex',
-                  gap: 10,
-                  alignItems: 'flex-start',
-                  outline: 'none',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSelected)
-                    e.currentTarget.style.background = 'var(--surface-hover)'
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSelected)
-                    e.currentTarget.style.background = 'transparent'
-                }}
+                className={`chat-prism-list-item ${isSelected ? 'active' : ''}`}
               >
-                {/* Avatar */}
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: '50%',
-                    background: avatarColor(chat.contactName),
-                    color: '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 14,
-                    fontWeight: 700,
-                    flexShrink: 0,
-                  }}
-                >
-                  {getInitial(chat.contactName)}
+                {/* Left: Styled Platform Circle Avatar */}
+                <div className={`chat-prism-avatar-wrap ${chat.platform || 'custom'}`}>
+                  {chat.platform ? (
+                    <BrandIcon type={chat.platform} size={14} color="#ffffff" />
+                  ) : (
+                    <Bot size={14} color="#ffffff" />
+                  )}
                 </div>
 
-                {/* Content */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  {/* Row 1: name + timestamp + unread */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      marginBottom: 2,
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        minWidth: 0,
-                        flex: 1,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: 13,
-                          fontWeight: unread > 0 ? 700 : 500,
-                          color: 'var(--text-primary)',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {chat.contactName || 'Unknown'}
-                      </span>
-                      {chat.platform && (
-                        <BrandIcon name={chat.platform} size={11} />
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        flexShrink: 0,
-                        marginLeft: 6,
-                      }}
-                    >
-                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                        {timeAgo(chat.lastMessageAt || chat.updatedAt)}
-                      </span>
-                      {unread > 0 && (
-                        <span
-                          style={{
-                            background: 'var(--brand-500)',
-                            color: '#fff',
-                            borderRadius: 10,
-                            minWidth: 18,
-                            height: 18,
-                            fontSize: 10,
-                            fontWeight: 700,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: '0 4px',
-                          }}
-                        >
-                          {unread > 99 ? '99+' : unread}
-                        </span>
-                      )}
+                {/* Right: Item Body */}
+                <div className="chat-prism-item-body">
+                  <div className="chat-prism-list-item-top">
+                    <h4 className="chat-prism-list-name">{chat.contactName || 'Unknown'}</h4>
+                    <div className={`chat-prism-list-meta-right ${hasUnread ? 'has-unread' : ''}`}>
+                      <span>{timeAgo(chat.lastMessageAt || chat.updatedAt)}</span>
                     </div>
                   </div>
 
-                  {/* Row 2: outlet */}
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: 'var(--text-muted)',
-                      marginBottom: 2,
-                    }}
-                  >
-                    {chat.outletName || 'Outlet not selected'}
-                  </div>
+                  <p className="chat-prism-last-message">{lastText}</p>
 
-                  {/* Row 3: last message */}
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: 'var(--text-secondary)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {lastText}
+                  <div className="chat-prism-list-footer">
+                    <span className={`chat-prism-status ${status.toLowerCase()}`}>{status}</span>
+                    {agentName && (
+                      <span className="chat-prism-agent-chip">
+                        <Bot size={10} />
+                        {agentName}
+                      </span>
+                    )}
+                    {!agentName && chat.outletName && (
+                      <span className="chat-prism-agent-chip muted">{chat.outletName}</span>
+                    )}
+                    {unread > 0 && (
+                      <span className="chat-prism-unread" style={{ marginLeft: 'auto' }}>
+                        {unread > 99 ? '99+' : unread}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

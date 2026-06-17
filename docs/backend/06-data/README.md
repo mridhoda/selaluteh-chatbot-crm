@@ -14,6 +14,22 @@ Product Catalog -> Cart -> Checkout -> Order -> Payment -> Payment Webhook -> Pa
 
 AI tetap dipakai sebagai **shopping assistant**, tetapi backend menjadi sumber kebenaran untuk product, price, cart, order, inventory, dan payment.
 
+## Keputusan Skema Kanonik
+
+Sumber kebenaran skema adalah `database-schema.md`; seluruh dokumen dan migration SQL harus mengikuti keputusan berikut:
+
+| Topik | Keputusan |
+|---|---|
+| Agent config | Embedded JSON di `agents`, bukan child config tables |
+| Agent outlets | `agent_outlets.outlet_id` FK ke `outlets.id` |
+| Settings | `workspace_settings`, bukan tabel `settings` |
+| Messages | `chat_messages`, bukan tabel `messages` |
+| Human takeover | `chats.taken_over_by_user_id`, bukan `takeover_by` |
+| Order status | `orders.status`, `orders.payment_status`, dan `orders.fulfillment_status` terpisah |
+| Checkout state | `chats.state` JSONB untuk state percakapan/checkout ringan |
+
+Operational tables wajib tersedia walaupun tidak semuanya punya halaman admin CRUD: `files`, `webhook_events`, `ai_actions`, dan `checkouts`.
+
 ## Dokumen Utama
 
 | File | Isi |
@@ -37,11 +53,13 @@ AI tetap dipakai sebagai **shopping assistant**, tetapi backend menjadi sumber k
 | `repository-layer-contract.md` | Kontrak repository layer untuk migrasi bertahap |
 | `implementation-checklist.md` | Checklist implementasi end-to-end |
 
+> Catatan bundle: `ALL_DOCS_COMBINED.md` dan `migrations/ALL_MIGRATIONS_COMBINED.md` adalah hasil regenerasi dari file individual. Jika ada konflik, gunakan file individual sebagai source of truth dan regenerate bundle.
+
 ## Prinsip Besar
 
 ### 1. Workspace-first multi-tenancy
 
-Semua data tenant-owned wajib punya `workspace_id`. Ini termasuk `messages`, `payments`, `payment_events`, `products`, `carts`, dan `order_items`.
+Semua data tenant-owned wajib punya `workspace_id`. Ini termasuk `chat_messages`, `payments`, `payment_events`, `products`, `carts`, dan `order_items`.
 
 ### 2. CRM behavior tidak boleh rusak
 

@@ -1,21 +1,30 @@
 # Backlog
 
-## Multi-Outlet Foundation
+## Multi-Outlet Foundation (Selesai — Sprint 1.5)
 
-- Add outlets model/table.
-- Add user outlet access.
-- Add product outlet availability.
-- Add outlet_id to cart/checkout/order/payment.
-- Add current_outlet_id to chats.
-- Add outlet API.
-- Add outlet access API.
-- Add outlet filter in orders/payments/chats/products.
-- Add Telegram outlet selection.
-- Add product filtering by outlet.
-- Add cart outlet binding.
-- Add checkout outlet validation.
-- Add outlet access tests.
-- Add Orders UI outlet filter/column/detail.
+- [x] Add outlets model/table.
+- [x] Add user outlet access.
+- [x] Add product outlet availability.
+- [x] Add outlet_id to cart/checkout/order/payment.
+- [x] Add current_outlet_id to chats.
+- [x] Add outlet API.
+- [x] Add outlet access API.
+- [x] Add outlet filter in orders/payments/chats/products.
+- [x] Add Telegram outlet selection.
+- [x] Add product filtering by outlet.
+- [x] Add cart outlet binding.
+- [x] Add checkout outlet validation.
+- [x] Add outlet access tests.
+- [ ] Add Orders UI outlet filter/column/detail. (Frontend — belum)
+
+## Post-MVP Hardening
+
+- Notification service dengan idempotency
+- Payment reconciliation worker (missing-webhook scan)
+- Cart expiry worker (code ada, jalankan di production)
+- Inventory tracking (quantity/reservation)
+- Audit logging
+- Analytics/reports
 
 ## Future Multi-Workspace
 

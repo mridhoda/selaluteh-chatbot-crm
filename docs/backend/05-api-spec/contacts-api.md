@@ -77,5 +77,5 @@ Not required for MVP.
 Webhook upsert must avoid duplicates by:
 
 ```txt
-workspace_id + platform_type + platform_account_id
+workspace_id + platform_id + external_id
 ```

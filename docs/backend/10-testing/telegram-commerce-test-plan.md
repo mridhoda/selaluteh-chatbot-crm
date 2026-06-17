@@ -23,13 +23,14 @@ Test:
 
 ```txt
 /start
+-> Select Outlet
 -> Browse Products
 -> Select Salty Caramel
 -> Add to Cart
 -> View Cart
 -> Checkout
 -> Confirm
--> Receive Payment Link
+-> Receive Payment Link or Manual/COD Instruction
 -> Payment Paid Webhook
 -> Receive Paid Notification
 ```
@@ -49,9 +50,28 @@ Test:
 
 - Telegram callback data maps to valid backend action.
 - Backend validates workspace/platform/contact.
+- Outlet selection stores chat/contact outlet context.
+- Product list requires active outlet context.
+- Product list only shows products available in selected outlet.
 - Cart state remains consistent.
 - Order is created once.
 - Payment link is tied to the correct order/contact.
+- Manual/COD instruction is shown when `PAYMENT_PROVIDER=manual`.
+- Versioned callback data rejects stale callbacks when version is obsolete.
+
+## Automated Coverage Current State
+
+```txt
+telegram-commerce-outlet.integration.test.js
+cart-service.integration.test.js
+checkout-service.integration.test.js
+order-service.integration.test.js
+payment-attempt.integration.test.js
+payment-webhook.integration.test.js
+webhook-parsers.unit.test.js
+```
+
+Current passing suite covers outlet selection, outlet-scoped catalog, cart/checkout/order/payment attempt, payment webhook paid transition, and webhook parser normalization.
 
 ## Manual QA Checklist
 

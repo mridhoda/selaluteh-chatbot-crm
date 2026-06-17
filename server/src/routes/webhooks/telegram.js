@@ -6,7 +6,7 @@ import Agent from '../../models/Agent.js';
 import Chat from '../../models/Chat.js';
 import Message from '../../models/Message.js';
 import Contact from '../../models/Contact.js';
-import { generateAIReply, findAndSendFile, transcribeAudio } from '../../services/ai.js';
+import { generateAIReply, findAndSendFile, transcribeAudio } from '../../services/ai.service.js';
 import { openaiClient, geminiClient } from '../../services/aiClient.js';
 import {
   tgSend,
@@ -18,6 +18,19 @@ import {
 } from '../../services/sender.js';
 import { findDatabaseFileMention, findUrlFileMention } from '../../utils/fileMentions.js';
 import { downloadFile } from '../../utils/downloader.js';
+import { recordInboundMessage, recordOutboundMessage } from '../../services/chat-message.service.js';
+import {
+  beginWebhookEvent,
+  getTelegramEventId,
+  markWebhookFailed,
+  markWebhookProcessed,
+} from '../../services/webhook-idempotency.service.js';
+import {
+  buildOutletSelectionMessage,
+  handleTelegramCommerceAction,
+  parseTelegramAction,
+} from '../../services/telegram-commerce.service.js';
+import { normalizeTelegramUpdate } from '../../integrations/telegram/telegram-parser.js';
 
 const router = express.Router();
 
@@ -61,27 +74,21 @@ async function saveTelegramFileLocally({
 
 router.post('/:token?', async (req, res) => {
   res.sendStatus(200);
+  let webhookEvent = null;
 
   try {
     const update = req.body || {};
     console.log('[telegram] update:', JSON.stringify(update));
 
-    const msgObj =
-      update.message ||
-      update.edited_message ||
-      (update.callback_query && update.callback_query.message);
+    const normalized = normalizeTelegramUpdate(update);
+    const msgObj = normalized?.message;
 
     if (!msgObj) {
       console.warn('[telegram] update without message, skipping');
       return;
     }
 
-    let text =
-      update.message?.text ||
-      update.edited_message?.text ||
-      update.callback_query?.data ||
-      msgObj.caption ||
-      '';
+    let text = normalized.text;
 
     const chatId = msgObj?.chat?.id;
     if (!chatId) return;
@@ -107,6 +114,21 @@ router.post('/:token?', async (req, res) => {
 
     if (!platform) {
       console.warn('[telegram] no platform/token found');
+      return;
+    }
+
+    const webhookResult = await beginWebhookEvent({
+      provider: 'telegram',
+      eventType: normalized.eventType,
+      externalEventId: getTelegramEventId(update),
+      workspaceId: platform.workspaceId,
+      platformId: platform._id,
+      payload: update,
+      signatureValid: tokenParam ? tokenParam === platform.token : null,
+    });
+    webhookEvent = webhookResult.event;
+    if (webhookResult.duplicate) {
+      console.log('[telegram] duplicate webhook ignored:', getTelegramEventId(update));
       return;
     }
 
@@ -232,6 +254,8 @@ router.post('/:token?', async (req, res) => {
       await chat.save();
     }
 
+    const commerceAction = parseTelegramAction(update.callback_query?.data || '');
+
     let userMessage = null;
     if (text || incomingAttachment) {
       // Check if this is a reply to another message
@@ -248,33 +272,44 @@ router.post('/:token?', async (req, res) => {
         }
       }
 
-      userMessage = await Message.create({
-        chatId: chat._id,
+      userMessage = await recordInboundMessage({
+        chat,
         workspaceId: platform.workspaceId,
-        from: 'user',
         text: text || '',
         attachment: incomingAttachment,
-        platformMessageId: String(msgObj.message_id), // Store Telegram message_id
-        replyTo: replyTo, // Link to replied message
-        createdAt: new Date(),
+        platformMessageId: String(msgObj.message_id),
+        replyTo,
       });
-      await Chat.updateOne(
-        { _id: chat._id },
-        {
-          $set: {
-            lastMessageAt: new Date(),
-            status: 'open',
-            isEscalated: false
-          },
-          $inc: { unread: 1 }
-        },
-      );
+    }
+
+    if (commerceAction) {
+      const commerceResponse = await handleTelegramCommerceAction({
+        action: commerceAction,
+        workspaceId: platform.workspaceId,
+        chat,
+        contact,
+        agent,
+        chatMessageId: userMessage?._id || null,
+      });
+
+      if (commerceResponse) {
+        await tgSend(platform.token, chatId, commerceResponse.text, null, { replyMarkup: commerceResponse.keyboard });
+        await recordOutboundMessage({
+          chatId: chat._id,
+          workspaceId: platform.workspaceId,
+          from: 'ai',
+          text: commerceResponse.text,
+        });
+        await markWebhookProcessed(webhookEvent);
+        return;
+      }
     }
 
     if (chat.takeoverBy) {
       console.log(
         `[telegram] chat ${chat._id} is handled by human (takeoverBy: ${chat.takeoverBy}), skipping AI reply.`,
       );
+      await markWebhookProcessed(webhookEvent);
       return;
     } else {
       console.log(`[telegram] chat ${chat._id} is NOT handled by human (takeoverBy: ${chat.takeoverBy}), proceeding to AI reply.`);
@@ -286,7 +321,7 @@ router.post('/:token?', async (req, res) => {
     if (isNewChat && !isStartCommand) {
       const processedWelcome = welcome.replace('{{name}}', contact.name);
       try {
-        await tgSend(platform.token, chatId, processedWelcome);
+        await tgSend(platform.token, chatId, processedWelcome, null, { replyMarkup: outletSelection?.keyboard || null });
       } catch (e) {
         console.error('[telegram] Failed to send welcome message:', e);
       }
@@ -311,7 +346,10 @@ router.post('/:token?', async (req, res) => {
 
     // Handle /start command specially
     if (isStartCommand) {
-      const processedWelcome = welcome.replace('{{name}}', contact.name);
+      const outletSelection = !chat.currentOutletId
+        ? await buildOutletSelectionMessage({ workspaceId: platform.workspaceId })
+        : null;
+      const processedWelcome = outletSelection?.text || welcome.replace('{{name}}', contact.name);
       try {
         await tgSend(platform.token, chatId, processedWelcome);
         await Message.create({
@@ -333,6 +371,7 @@ router.post('/:token?', async (req, res) => {
       } catch (e) {
         console.error('[telegram] Failed to send welcome message for /start:', e);
       }
+      await markWebhookProcessed(webhookEvent);
       return; // Don't process /start as a regular message
     }
 
@@ -371,14 +410,14 @@ router.post('/:token?', async (req, res) => {
             );
           }
         }
-        await Message.create({
+        await recordOutboundMessage({
           chatId: chat._id,
           workspaceId: platform.workspaceId,
           from: 'ai',
           text: replyText,
           attachment: fileResponse.attachment || null,
-          createdAt: new Date(),
         });
+        await markWebhookProcessed(webhookEvent);
         return;
       }
 
@@ -442,7 +481,7 @@ router.post('/:token?', async (req, res) => {
 
         const savedText =
           cleanedText || altText || replyText || 'Lampiran terkirim.';
-        await Message.create({
+        await recordOutboundMessage({
           chatId: chat._id,
           workspaceId: platform.workspaceId,
           from: 'ai',
@@ -453,10 +492,12 @@ router.post('/:token?', async (req, res) => {
               filename: file.originalName || file.storedName,
             }
             : null,
-          createdAt: new Date(),
         });
 
-        if (documentSent) return;
+        if (documentSent) {
+          await markWebhookProcessed(webhookEvent);
+          return;
+        }
       }
 
       // Check for external file URL mention
@@ -496,7 +537,7 @@ router.post('/:token?', async (req, res) => {
           fs.unlink(filePath).catch(err => console.error('[telegram] Failed to delete temp file:', err));
 
           // Save message
-          await Message.create({
+          await recordOutboundMessage({
             chatId: chat._id,
             workspaceId: platform.workspaceId,
             from: 'ai',
@@ -505,9 +546,9 @@ router.post('/:token?', async (req, res) => {
               url: url,
               filename: originalName,
             },
-            createdAt: new Date(),
           });
 
+          await markWebhookProcessed(webhookEvent);
           return; // Stop processing, file sent
         } catch (e) {
           console.error('[telegram] Failed to send external file:', e);
@@ -531,17 +572,18 @@ router.post('/:token?', async (req, res) => {
       }
 
       if (replyText || attachment) {
-        await Message.create({
+        await recordOutboundMessage({
           chatId: chat._id,
           workspaceId: platform.workspaceId,
           from: 'ai',
           text: replyText || '[Attachment]',
           attachment,
-          createdAt: new Date(),
         });
       }
     }
+    await markWebhookProcessed(webhookEvent);
   } catch (err) {
+    await markWebhookFailed(webhookEvent, err);
     console.error('Webhook /telegram error:', err);
   }
 });

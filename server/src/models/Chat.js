@@ -6,6 +6,7 @@ const ChatSchema = new mongoose.Schema({
   agentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Agent' },
   contactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' },
   platformId: { type: mongoose.Schema.Types.ObjectId, ref: 'Platform', index: true },
+  currentOutletId: { type: mongoose.Schema.Types.ObjectId, ref: 'Outlet', default: null, index: true },
   platformType: { type: String, default: '' },
   unread: { type: Number, default: 0 },
   lastMessageAt: { type: Date, default: Date.now },

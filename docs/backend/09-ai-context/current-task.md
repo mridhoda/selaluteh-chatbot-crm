@@ -1,63 +1,72 @@
+---
+schema_version: 2
+document_type: active-task-pointer
+status: active
+updated_at: 2026-06-17
+
+active_spec:
+  id: general-backend
+  title: SelaluTeh Chatbot CRM & Telegram Marketplace Backend
+  status: active
+  workflow_state: in_progress
+  path: specs/active/general-backend/spec.yaml
+  requirements: specs/active/general-backend/requirements.md
+  design: specs/active/general-backend/design.md
+  tasks: specs/active/general-backend/tasks.md
+
+active_task:
+  id: "17.1"
+  title: Define message delivery service
+  priority: medium
+  phase: notifications
+  source: specs/active/general-backend/tasks.md
+  source_section: "17. Notifications and Delivery Orchestration"
+  requirements:
+    - R25
+    - R35
+
+execution:
+  mode: single-task
+  continue_automatically: false
+  requires_preflight_report: true
+  requires_tests: true
+  requires_documentation_update: true
+  requires_final_specs_check: true
+
+lifecycle:
+  sync_required_before_task: false
+  sync_required_after_task: false
+  sync_required_when_spec_metadata_changes: true
+  sync_required_when_status_changes: true
+  check_command: npm run specs:check
+  dry_run_command: npm run specs:sync:dry
+  sync_command: npm run specs:sync
+---
+
 # Current Task
 
-Dokumen ini mendefinisikan prioritas kerja saat ini untuk AI coding agent.
+Notifications — Define message delivery service.
 
-## Current Objective
+## Objective
 
-Mengubah backend existing dari **Chatbot CRM** menjadi fondasi aman untuk **Telegram-first Marketplace MVP**, tanpa merusak fitur existing.
+Active task pointer remains `17.1`. Sections 1-15 have been closed for MVP Telegram chatbot testing and documentation has been updated according to `docs/backend/READING-ORDER.md`.
 
-## Recommended Current Sprint
+## Task Details
 
-### Sprint 0 — Stabilization & Marketplace Foundation
+Referensi: `specs/active/general-backend/tasks.md` task `17.1`.
 
-Goal:
+Requirements: R25 (Notifications), R35 (Repository Layer).
+
+## Completed Scope
+
+Sections 1-15 — fully complete and ready for MVP Telegram chatbot testing.
+
+Latest verification:
 
 ```txt
-Backend existing tetap berjalan, security risk utama dibereskan, dan data model/service boundary siap untuk product/cart/order/payment.
+npm --prefix server test
+142 tests, 25 suites, 142 pass, 0 fail
+npm run specs:check passed
 ```
 
-### Priority Tasks
-
-1. Secure `orders` routes dengan auth dan workspace scope.
-2. Secure `complaints` routes dengan auth dan workspace scope.
-3. Remove/protect public diagnostic user routes.
-4. Mount atau putuskan status `settings` route.
-5. Tambahkan webhook idempotency plan/model.
-6. Tambahkan repository layer skeleton.
-7. Tambahkan product catalog module.
-8. Tambahkan cart module.
-9. Tambahkan Telegram inline keyboard helper.
-10. Tambahkan payment provider abstraction untuk sandbox.
-
-## Do First
-
-Sebelum menambahkan fitur besar, pastikan:
-
-- app masih bisa login,
-- dashboard bisa load,
-- Telegram webhook masih bisa menerima pesan,
-- human takeover masih menghentikan AI,
-- message history masih tersimpan.
-
-## Do Not Do Yet
-
-Jangan dulu implement:
-
-- multi-seller,
-- wallet seller,
-- payout seller,
-- voucher kompleks,
-- shipping aggregator,
-- refund automation,
-- production payment live mode.
-
-## Acceptance Criteria
-
-Task dianggap selesai jika:
-
-- existing CRM behavior tidak rusak,
-- endpoint baru workspace-scoped,
-- Telegram user bisa minimal melihat product list,
-- cart bisa dibuat secara deterministic,
-- order tidak dibuat langsung dari AI tanpa validasi backend,
-- docs/API/schema yang berubah ikut diperbarui.
+Current next task: 17.1 — Define message delivery service.

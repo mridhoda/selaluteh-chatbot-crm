@@ -37,9 +37,9 @@ For backend admin, color must communicate state clearly.
 | Status | Color Role |
 |---|---|
 | new | info |
-| pending_payment | warning |
-| paid | success |
-| processing | info |
+| accepted | success |
+| preparing | warning |
+| ready | info |
 | completed | success |
 | cancelled | danger |
 

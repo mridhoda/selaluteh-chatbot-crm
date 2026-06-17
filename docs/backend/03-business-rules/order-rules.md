@@ -17,9 +17,10 @@ total_amount
 ## MVP Statuses
 
 ```txt
-pending_payment
-paid
-processing
+new
+accepted
+preparing
+ready
 completed
 cancelled
 ```
@@ -34,18 +35,23 @@ User can view/update order only if:
 
 ## Status Actions
 
-pending_payment:
+new:
 
 - resend payment link
 - cancel order
 - open chat
 
-paid:
+accepted:
 
-- mark processing
+- mark preparing
 - open chat
 
-processing:
+preparing:
+
+- mark ready
+- open chat
+
+ready:
 
 - mark completed
 - open chat

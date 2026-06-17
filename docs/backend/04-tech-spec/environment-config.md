@@ -21,7 +21,7 @@ NODE_ENV=development
 PORT=5000
 CORS_ORIGIN=http://localhost:5173
 PUBLIC_BASE_URL=http://localhost:5000
-JWT_SECRET=change_me
+JWT_SECRET=change-me-dev-only
 ```
 
 ## Database Env
@@ -47,9 +47,9 @@ Never expose `SUPABASE_SERVICE_ROLE_KEY` to frontend.
 ## AI Env
 
 ```env
-OPENAI_API_KEY=
+OPENAI_API_KEY=<openai-api-key>
 OPENAI_MODEL=gpt-4o-mini
-GOOGLE_API_KEY=
+GOOGLE_API_KEY=<google-api-key>
 GEMINI_MODEL=gemini-2.5-flash
 AI_PRIMARY_PROVIDER=openai
 AI_SECONDARY_PROVIDER=gemini

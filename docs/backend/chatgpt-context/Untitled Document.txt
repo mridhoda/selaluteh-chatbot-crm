@@ -1030,9 +1030,9 @@ Jangan pernah menulis nilai secret asli.
 Jika menemukan:
 
 ```txt
-TELEGRAM_BOT_TOKEN=123456...
-DATABASE_URL=postgres://...
-OPENAI_API_KEY=sk-...
+TELEGRAM_BOT_TOKEN=<redacted>
+DATABASE_URL=<redacted>
+OPENAI_API_KEY=<redacted>
 ```
 
 Tulis hanya:
@@ -1111,4 +1111,3 @@ Summary:
 Pastikan file Markdown yang dibuat benar-benar lengkap, jelas, dan bisa dibaca oleh AI lain untuk memahami project ini secara menyeluruh.
 
 Mulai sekarang lakukan audit project dan buat dokumentasinya.
-

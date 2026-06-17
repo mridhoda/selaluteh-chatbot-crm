@@ -12,14 +12,15 @@ server/src/repositories/
   agents.repository.js
   contacts.repository.js
   chats.repository.js
-  messages.repository.js
+  chatMessages.repository.js      # chat_messages
   files.repository.js
   products.repository.js
   carts.repository.js
   orders.repository.js
   payments.repository.js
   complaints.repository.js
-  webhook-events.repository.js
+  settings.repository.js          # workspace_settings
+  webhookEvents.repository.js
 ```
 
 ## Rule

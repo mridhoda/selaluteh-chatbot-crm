@@ -20,10 +20,38 @@ out/
 
 # Environment variables
 .env
+.env.*
+!.env.example
+!.env.*.example
+server/.env
+server/.env.*
+!server/.env.example
+!server/.env.*.example
+web/.env
+web/.env.*
+!web/.env.example
+!web/.env.*.example
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.development
+.env.test
+.env.production
+.env.staging
+.envrc
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+*.keystore
+service-account*.json
+firebase-adminsdk*.json
+google-credentials*.json
+credentials.json
+secrets.json
 
 # IDE
 .vscode/

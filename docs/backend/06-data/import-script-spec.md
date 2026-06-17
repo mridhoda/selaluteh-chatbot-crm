@@ -90,7 +90,7 @@ passwordresets
 settings
 ```
 
-Actual collection names may differ by Mongoose pluralization. Script should allow mapping.
+Actual collection names may differ by Mongoose pluralization. Script should allow mapping. Legacy Mongo collection names such as `messages` and `settings` must be written to canonical Postgres tables `chat_messages` and `workspace_settings`.
 
 ## ID Map Format
 
@@ -151,7 +151,7 @@ products[] -> agent_products
 Contacts unique key:
 
 ```txt
-workspace_id + platform_type + platform_account_id
+workspace_id + platform_id + external_id
 ```
 
 Messages:
@@ -209,7 +209,7 @@ Non-critical failures should not stop migration unless `STRICT_MIGRATION=true`.
 Critical validation:
 
 ```txt
-messages without chat = 0
+chat_messages without chat = 0
 chats without contact = 0
 orders with invalid workspace = 0
 files missing on disk listed

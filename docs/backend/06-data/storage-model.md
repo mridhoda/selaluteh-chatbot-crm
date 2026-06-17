@@ -117,8 +117,7 @@ Current Mongo:
 Target:
 
 ```txt
-messages.attachment_file_id -> files.id
-messages.attachment -> kept temporarily as legacy jsonb
+chat_messages.attachment_file_id -> files.id
 ```
 
 Migration steps:
@@ -126,8 +125,7 @@ Migration steps:
 1. Parse `/files/<storedName>` from old attachment URL.
 2. Locate file under local upload root.
 3. Insert `files` metadata row.
-4. Set `messages.attachment_file_id`.
-5. Keep legacy JSON until frontend fully switches.
+4. Set `chat_messages.attachment_file_id`.
 
 ## Product Image Upload Flow
 

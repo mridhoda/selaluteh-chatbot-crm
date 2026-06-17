@@ -6,6 +6,7 @@ const ContactSchema = new mongoose.Schema({
   name: { type: String, default: '' },
   platformType: { type: String, default: '' },
   platformAccountId: { type: String, index: true },
+  lastOutletId: { type: mongoose.Schema.Types.ObjectId, ref: 'Outlet', default: null, index: true },
   handle: { type: String, default: '' },
   lastSeen: { type: Date },
   tags: [{ type: String }],

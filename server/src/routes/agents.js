@@ -6,7 +6,7 @@ import fs from 'fs';
 import Agent from '../models/Agent.js';
 import Knowledge from '../models/Knowledge.js';
 import { authRequired, attachUser } from '../middleware/auth.js'
-import { generateAIReply, findAndSendFile } from '../services/ai.js'
+import { generateAIReply, findAndSendFile } from '../services/ai.service.js'
 import { openaiClient, geminiClient } from '../services/aiClient.js';
 import { findDatabaseFileMention } from '../utils/fileMentions.js';
 

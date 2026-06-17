@@ -32,7 +32,7 @@ limit
   },
   "customer": {},
   "total_amount": 75000,
-  "order_status": "pending_payment",
+  "order_status": "new",
   "payment_status": "pending"
 }
 ```

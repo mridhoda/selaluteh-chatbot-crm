@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, UserCheck, RotateCcw, Check, MessageCircle } from 'lucide-react'
+import { Send, Check, MessageCircle, Bot, Search, MoreVertical, Plus, Image as ImageIcon, Smile, Keyboard, AlertCircle, Zap } from 'lucide-react'
 import BrandIcon from '../../../shared/components/brand/BrandIcon'
 
 // ─── helpers ───────────────────────────────────────────────────────────────
@@ -50,96 +50,55 @@ function MessageBubble({ message }) {
   const content = message.content || message.text || message.message || ''
 
   if (isSystem) {
+    const isError = content.toLowerCase().includes('error') || content.toLowerCase().includes('failed')
+    if (isError) {
+      return (
+        <div className="chat-prism-error-row">
+          <span className="chat-prism-error-pill">
+            <AlertCircle size={12} className="chat-prism-error-icon" />
+            <span>{content}</span>
+            <span className="chat-prism-error-divider">|</span>
+            <span className="chat-prism-error-time">{formatTime(message.createdAt || message.timestamp)}</span>
+          </span>
+        </div>
+      )
+    }
     return (
-      <div style={{ textAlign: 'center', margin: '6px 0' }}>
-        <span
-          style={{
-            fontSize: 11,
-            color: 'var(--text-muted)',
-            background: 'var(--surface-secondary)',
-            borderRadius: 20,
-            padding: '3px 12px',
-            display: 'inline-block',
-          }}
-        >
-          {content}
+      <div className="chat-prism-system-row">
+        <span className="chat-prism-system-pill">
+          <Zap size={11} className="chat-prism-system-icon" />
+          <span>{content}</span>
+          <span className="chat-prism-system-divider">|</span>
+          <span className="chat-prism-system-time">{formatTime(message.createdAt || message.timestamp)}</span>
         </span>
       </div>
     )
   }
 
-  const bubbleBg = isUser
-    ? 'var(--ai-500)'
-    : isHuman
-    ? 'var(--brand-500)'
-    : 'var(--surface-secondary)'
-  const bubbleColor = isUser || isHuman ? '#fff' : 'var(--text-primary)'
-  const bubbleRadius = isUser
-    ? '16px 4px 16px 16px'
-    : '4px 16px 16px 16px'
-
-  const avatarLabel = isHuman ? 'A' : 'AI'
-  const avatarBg = isHuman ? 'var(--brand-500)' : 'var(--surface-tertiary)'
-  const avatarColor = isHuman ? '#fff' : 'var(--text-muted)'
-
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: isUser ? 'row-reverse' : 'row',
-        gap: 7,
-        marginBottom: 3,
-        alignItems: 'flex-end',
-        maxWidth: '80%',
-        alignSelf: isUser ? 'flex-end' : 'flex-start',
-      }}
-    >
-      {/* avatar for non-user */}
-      {!isUser && (
-        <div
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: '50%',
-            background: avatarBg,
-            color: avatarColor,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 9,
-            fontWeight: 700,
-            flexShrink: 0,
-          }}
-        >
-          {avatarLabel}
-        </div>
-      )}
-
-      <div>
-        <div
-          style={{
-            background: bubbleBg,
-            color: bubbleColor,
-            borderRadius: bubbleRadius,
-            padding: '8px 12px',
-            fontSize: 13,
-            lineHeight: 1.5,
-            wordBreak: 'break-word',
-            whiteSpace: 'pre-wrap',
-          }}
-        >
+    <div className={`chat-prism-message-row ${isUser ? 'user' : 'agent'}`}>
+      <div className="chat-prism-message-stack">
+        <div className={`chat-prism-bubble ${isUser ? 'user' : isHuman ? 'human' : 'ai'}`}>
           {content}
         </div>
-        <div
-          style={{
-            fontSize: 10,
-            color: 'var(--text-muted)',
-            marginTop: 3,
-            textAlign: isUser ? 'right' : 'left',
-          }}
-        >
-          {formatTime(message.createdAt || message.timestamp)}
-          {isHuman && message.agentName ? ' · ' + message.agentName : ''}
+        <div className={`chat-prism-message-meta ${isUser ? 'user' : 'agent'}`}>
+          {isUser ? (
+            <>
+              <span>{formatTime(message.createdAt || message.timestamp)}</span>
+              <span className="chat-prism-meta-dot">•</span>
+              <span>Sent</span>
+            </>
+          ) : (
+            <>
+              <span>Read</span>
+              <span className="chat-prism-meta-dot">•</span>
+              <span>{formatTime(message.createdAt || message.timestamp)}</span>
+              <span className={isHuman ? 'chat-prism-agent-chip-badge human' : 'chat-prism-agent-chip-badge ai'}>
+                <Bot size={10} />
+                <span>{isHuman ? (message.agentName || 'Human Agent') : 'AI Agent'}</span>
+              </span>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -163,7 +122,7 @@ export default function ChatPanel({
   const chat = _chatNew || selected || null
   const messages = Array.isArray(_messagesNew) ? _messagesNew : (selected?.messages || [])
 
-    const [text, setText] = useState('')
+  const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const scrollRef = useRef(null)
   const userScrolled = useRef(false)
@@ -228,20 +187,9 @@ export default function ChatPanel({
 
   if (!chat) {
     return (
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--text-muted)',
-          gap: 12,
-          background: 'var(--app-background)',
-        }}
-      >
+      <div className="chat-prism-empty-panel">
         <MessageCircle size={42} style={{ opacity: 0.25 }} />
-        <p style={{ fontSize: 14, margin: 0 }}>
+        <p>
           Select a conversation to start
         </p>
       </div>
@@ -264,118 +212,54 @@ export default function ChatPanel({
   // ── render ───────────────────────────────────────────────────────────────
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        overflow: 'hidden',
-      }}
-    >
+    <div className="chat-prism-panel">
+      <div className="chat-prism-pattern" />
       {/* ── Conversation header ─────────────────────────────────────────── */}
-      <div
-        style={{
-          padding: '10px 16px',
-          borderBottom: '1px solid var(--border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          flexShrink: 0,
-          background: 'var(--surface-primary)',
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 7,
-              flexWrap: 'wrap',
-            }}
-          >
-            <span
-              style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-              }}
-            >
+      <div className="chat-prism-chat-header">
+        {/* Left: Contact Info */}
+        <div className="chat-prism-header-left">
+          <div className="chat-prism-contact-avatar">
+            {(chat.contactName || 'U').charAt(0).toUpperCase()}
+          </div>
+          <div className="chat-prism-chat-title-area">
+            <span className="chat-prism-chat-name">
               {chat.contactName || 'Unknown'}
             </span>
-            {chat.platform && <BrandIcon name={chat.platform} size={14} />}
-            {chat.outletName && (
-              <span
-                style={{
-                  fontSize: 11,
-                  color: 'var(--text-muted)',
-                  background: 'var(--surface-secondary)',
-                  borderRadius: 4,
-                  padding: '2px 6px',
-                }}
-              >
-                {chat.outletName}
+            <div className="chat-prism-chat-subtitle">
+              <span className="chat-prism-platform-badge">
+                {chat.platform && <BrandIcon type={chat.platform} size={10} />}
+                <span>{chat.outletName || 'selaluteh.id'}</span>
               </span>
-            )}
-          </div>
-          <div
-            style={{
-              fontSize: 11,
-              color: 'var(--text-muted)',
-              marginTop: 2,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <span>{isHumanMode ? '🧑 Human agent mode' : '🤖 AI mode'}</span>
-            <span>·</span>
-            <span
-              style={{
-                color: isResolved
-                  ? 'var(--success-600)'
-                  : 'var(--text-muted)',
-              }}
-            >
-              {isResolved ? 'Resolved' : 'Open'}
-            </span>
+            </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        {/* Center: Mode Switch Action */}
+        <div className="chat-prism-header-center">
           <button
-            className="btn ghost"
-            style={{ fontSize: 12, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5 }}
+            className={isHumanMode ? 'chat-prism-ai-button active' : 'chat-prism-ai-button'}
             onClick={onTakeover}
             title={isHumanMode ? 'Return to AI' : 'Take over conversation from AI'}
           >
-            {isHumanMode ? (
-              <>
-                <RotateCcw size={12} />
-                Return to AI
-              </>
-            ) : (
-              <>
-                <UserCheck size={12} />
-                Take over
-              </>
-            )}
+            <Bot size={16} />
+            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: '10px', opacity: 0.9, fontWeight: 700, lineHeight: 1 }}>Switch to</span>
+              <span style={{ fontSize: '12px', fontWeight: 800, lineHeight: 1.1, marginTop: '2px' }}>{isHumanMode ? 'AI Agent' : 'Human Mode'}</span>
+            </span>
           </button>
+        </div>
+
+        {/* Right: Actions */}
+        <div className="chat-prism-header-right">
           <button
-            className="btn ghost"
-            style={{
-              fontSize: 12,
-              padding: '5px 10px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-              color: isResolved
-                ? 'var(--text-primary)'
-                : 'var(--success-600)',
-            }}
-            onClick={onResolve}
+            className="chat-prism-header-icon"
+            title="Search in chat"
           >
-            <Check size={12} />
-            {isResolved ? 'Reopen' : 'Resolve'}
+            <Search size={18} />
+          </button>
+          <div className="chat-prism-header-divider" />
+          <button className="chat-prism-header-icon" title="More options">
+            <MoreVertical size={18} />
           </button>
         </div>
       </div>
@@ -384,54 +268,22 @@ export default function ChatPanel({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '16px 20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2,
-        }}
+        className="chat-prism-timeline"
       >
         {isLoading && messages.length === 0 ? (
-          <div
-            style={{
-              textAlign: 'center',
-              color: 'var(--text-muted)',
-              fontSize: 13,
-              paddingTop: 40,
-            }}
-          >
+          <div className="chat-prism-empty-messages">
             Loading messages…
           </div>
         ) : messages.length === 0 ? (
-          <div
-            style={{
-              textAlign: 'center',
-              color: 'var(--text-muted)',
-              fontSize: 13,
-              paddingTop: 40,
-            }}
-          >
+          <div className="chat-prism-empty-messages">
             No messages yet — start the conversation below
           </div>
         ) : (
           timeline.map((item) => {
             if (item.type === 'date') {
               return (
-                <div
-                  key={item.key}
-                  style={{ textAlign: 'center', margin: '12px 0 6px' }}
-                >
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: 'var(--text-muted)',
-                      background: 'var(--surface-secondary)',
-                      borderRadius: 20,
-                      padding: '3px 12px',
-                    }}
-                  >
+                <div key={item.key} className="chat-prism-date-row">
+                  <span>
                     {formatDateLabel(item.date)}
                   </span>
                 </div>
@@ -446,34 +298,34 @@ export default function ChatPanel({
 
       {/* ── Composer ────────────────────────────────────────────────────── */}
       <div
-        style={{
-          padding: '10px 16px',
-          borderTop: '1px solid var(--border-subtle)',
-          background: 'var(--surface-primary)',
-          flexShrink: 0,
-        }}
+        className="chat-prism-composer-zone"
       >
         {isResolved ? (
-          <div
-            style={{
-              textAlign: 'center',
-              fontSize: 12,
-              color: 'var(--text-muted)',
-              padding: '8px 0',
-            }}
-          >
+          <div className="chat-prism-resolved-note">
             This conversation is resolved.{' '}
             <button
-              className="btn ghost"
-              style={{ fontSize: 12, padding: '2px 8px' }}
+              className="chat-prism-inline-button"
               onClick={onResolve}
             >
               Reopen
             </button>{' '}
             to send messages.
           </div>
+        ) : !isHumanMode ? (
+          <div className="chat-prism-takeover-wrap">
+            <button className="chat-prism-takeover-button" onClick={onTakeover}>
+              <span className="chat-prism-takeover-icon"><Keyboard size={20} /></span>
+              <span>
+                <strong>Takeover Chat</strong>
+                <small>Switch to manual typing</small>
+              </span>
+            </button>
+          </div>
         ) : (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+          <div className="chat-prism-composer">
+            <button className="chat-prism-composer-icon" type="button">
+              <Plus size={20} />
+            </button>
             <textarea
               ref={textareaRef}
               value={text}
@@ -485,36 +337,19 @@ export default function ChatPanel({
               placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
               disabled={sending}
               rows={1}
-              style={{
-                flex: 1,
-                resize: 'none',
-                borderRadius: 8,
-                border: '1px solid var(--border-default)',
-                padding: '8px 12px',
-                fontSize: 13,
-                background: 'var(--surface-secondary)',
-                color: 'var(--text-primary)',
-                outline: 'none',
-                minHeight: 38,
-                maxHeight: 120,
-                overflowY: 'auto',
-                lineHeight: 1.5,
-                fontFamily: 'inherit',
-              }}
+              className="chat-prism-textarea"
             />
+            <div className="chat-prism-composer-tools">
+              <button className="chat-prism-tool-button" type="button"><ImageIcon size={18} /></button>
+              <button className="chat-prism-tool-button" type="button"><Smile size={18} /></button>
             <button
-              className="btn"
+              className={`chat-prism-send-button ${text.trim() ? 'active' : ''}`}
               onClick={handleSend}
               disabled={!text.trim() || sending}
-              style={{
-                padding: '8px 14px',
-                flexShrink: 0,
-                display: 'flex',
-                alignItems: 'center',
-              }}
             >
-              <Send size={14} />
+              <Send size={18} />
             </button>
+            </div>
           </div>
         )}
       </div>

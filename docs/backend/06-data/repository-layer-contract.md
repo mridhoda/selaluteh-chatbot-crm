@@ -18,12 +18,12 @@ Dengan ini implementasi repository bisa diganti tanpa rewrite semua route.
 server/src/repositories/
   users.repository.js
   workspaces.repository.js
-  settings.repository.js
+  settings.repository.js          # workspace_settings
   platforms.repository.js
   agents.repository.js
   contacts.repository.js
   chats.repository.js
-  messages.repository.js
+  chatMessages.repository.js      # chat_messages table
   files.repository.js
   orders.repository.js
   complaints.repository.js

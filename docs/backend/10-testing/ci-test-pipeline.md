@@ -43,7 +43,7 @@ npm --prefix server test:integration
 Use isolated database:
 
 ```txt
-DATABASE_URL=postgres://test_user:test_password@localhost:5432/selaluteh_test
+DATABASE_URL=<test-database-url>
 LOCAL_UPLOAD_ROOT=/tmp/selaluteh-test-uploads
 ```
 

@@ -43,7 +43,7 @@ If task touches data access:
 
 ## Important Query Contracts
 
-- contact upsert: `workspace_id + platform_type + platform_account_id`
+- contact upsert: `workspace_id + platform_id + external_id`
 - chat upsert: `workspace_id + platform_id + contact_id`
 - inbox sort: `last_message_at desc`
 - messages sort: `created_at asc`
