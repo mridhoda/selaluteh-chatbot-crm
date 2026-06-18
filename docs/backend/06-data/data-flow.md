@@ -19,7 +19,7 @@ flowchart TD
   A[POST /auth/register] --> B[Create workspace]
   B --> C[Create owner user]
   C --> D[Update workspace.owner_user_id]
-  D --> E[Create settings]
+  D --> E[Create workspace_settings]
   E --> F[Create OTP]
   F --> G[Send or log email OTP]
 ```
@@ -29,7 +29,7 @@ Writes:
 ```txt
 workspaces
 users
-settings
+workspace_settings
 otps
 ```
 
@@ -68,24 +68,16 @@ Telegram webhook URL should ideally include a platform-specific secret or token 
 ```txt
 CRM agent form
 -> POST /agents
--> insert agents row
--> insert/update child rows
+-> insert agents row with embedded JSON config
+-> replace agent_outlets rows by outlet_id
 ```
 
 Writes:
 
 ```txt
 agents
-agent_knowledge
-agent_database_files
-agent_followups
-agent_sales_forms
-agent_sales_form_fields
-agent_sales_form_products
-agent_products
 agent_outlets
-agent_complaint_fields
-files
+files                    # optional, when uploading agent database/knowledge files
 ```
 
 # 5. Incoming Telegram Message Flow
@@ -99,9 +91,9 @@ flowchart TD
   E --> F[Find agent by platform or workspace fallback]
   F --> G[Find/upsert contact]
   G --> H[Find/upsert chat]
-  H --> I[Insert message sender=user]
-  I --> J[Update contact.last_seen and chat unread/last_message_at]
-  J --> K{takeover_by exists?}
+  H --> I[Insert chat_message sender=customer]
+  I --> J[Update chat.last_message_at]
+  J --> K{taken_over_by_user_id exists?}
   K -->|Yes| L[Skip AI]
   K -->|No| M[Route deterministic state or AI]
   M --> N[Send Telegram reply]
@@ -112,17 +104,18 @@ flowchart TD
 Critical fields:
 
 ```txt
-platforms.token
-contacts.platform_account_id
-chats.takeover_by
-messages.platform_message_id
+platforms.token_encrypted
+contacts.external_id
+chats.taken_over_by_user_id
+chats.state
+chat_messages.platform_message_id
 webhook_events.external_event_id
 ```
 
 Idempotency:
 
 - Store Telegram `update_id` in `webhook_events.external_event_id`.
-- Store Telegram `message_id` in `messages.platform_message_id`.
+- Store Telegram `message_id` in `chat_messages.platform_message_id`.
 - Do not insert duplicate message for same chat/platform/message id.
 
 # 6. Incoming Media Flow
@@ -132,7 +125,7 @@ Telegram/Meta sends media
 -> backend downloads media
 -> save to LOCAL_UPLOAD_ROOT category folder
 -> insert files row
--> insert messages row with attachment_file_id
+-> insert chat_messages row with attachment_file_id
 ```
 
 # 7. Human Takeover Flow
@@ -140,7 +133,7 @@ Telegram/Meta sends media
 ```txt
 POST /chats/:id/takeover
 -> validate workspace
--> set chats.takeover_by = current user
+-> set chats.taken_over_by_user_id = current user
 -> set is_escalated=false
 -> set status=open
 ```
@@ -148,8 +141,8 @@ POST /chats/:id/takeover
 Next customer message:
 
 ```txt
-Webhook saves message
--> detects takeover_by
+Webhook saves chat_message
+-> detects taken_over_by_user_id
 -> skips AI
 ```
 
@@ -158,7 +151,7 @@ Webhook saves message
 ```txt
 POST /chats/:id/send
 -> validate workspace
--> insert message sender=human
+-> insert chat_message sender=admin
 -> send to provider
 -> store platform_message_id
 -> update chat.last_message_at
@@ -188,6 +181,8 @@ Legacy orders should use:
 ```txt
 orders.source = ai_form
 orders.form_data = parsed legacy payload
+orders.status = new
+orders.payment_status = unpaid
 ```
 
 # 10. Telegram Marketplace /start Flow
@@ -284,9 +279,12 @@ Writes:
 ```txt
 orders
 order_items
+order_events
 carts.status
 payments
-messages
+payment_attempts
+payment_events
+chat_messages
 ```
 
 # 15. Payment Link Creation Flow
@@ -311,19 +309,19 @@ flowchart TD
   D -->|Yes| F[Find payment/order]
   F --> G[Map provider status]
   G --> H[Update payments.status]
-  H --> I[Update orders.payment_status/status]
-  I --> J[Notify Telegram user]
-  J --> K[Mark event processed]
+  H --> I[Update orders.payment_status/status/fulfillment_status]
+  I --> J[Insert order_events + payment_events]
+  J --> K[Notify Telegram user]
 ```
 
 Status mapping:
 
 ```txt
-settlement/capture -> paid
-pending -> pending
-expire -> expired
-cancel/deny/failure -> failed/cancelled
-refund -> refunded
+settlement/capture -> payments.status=paid, orders.payment_status=paid, orders.status=confirmed
+pending -> payments.status=pending, orders.payment_status=pending
+expire -> payments.status=expired, orders.payment_status=expired, orders.status=expired
+cancel/deny/failure -> payments.status=failed, orders.payment_status=failed
+refund -> payments.status=refunded, orders.payment_status=refunded
 ```
 
 # 17. AI Shopping Assistant Flow

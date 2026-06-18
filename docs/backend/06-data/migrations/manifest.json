@@ -1,7 +1,7 @@
 {
   "package": "telegram-marketplace-data-migrations-v2",
   "generated_for": "KALIS.AI / eskala-bot",
-  "purpose": "Rewrite of 14 migration-related files plus new docs for Telegram-first marketplace MVP schema",
+  "purpose": "Canonical Supabase/Postgres migration pack aligned to docs/backend/06-data/database-schema.md",
   "preserved_original_file_count": 14,
   "files": [
     "README.md",
@@ -9,7 +9,7 @@
     "checklists/post-migration-checklist.md",
     "checklists/pre-migration-checklist.md",
     "notes/cutover-plan.md",
-    "notes/data-backfill-order.md",
+    "notes/seed-data-order.md",
     "notes/marketplace-schema-notes.md",
     "notes/mongo-to-postgres-mapping.md",
     "notes/payment-gateway-contract.md",
@@ -23,13 +23,17 @@
     "sql/006_indexes.sql",
     "sql/007_rls_policies.sql",
     "sql/008_local_file_storage.sql",
+    "sql/009_multi_workspace_outlet_foundation.sql",
     "sql/009_migration_validation_queries.sql"
   ],
   "notes": [
     "Supabase/Postgres structured data",
     "Local server filesystem for large media",
-    "CRM compatibility preserved",
-    "Marketplace MVP tables added",
+    "Fresh-start Supabase cutover with no Mongo backfill, no dual-write, and no legacy reconciliation",
+    "CRM behavior compatibility preserved during domain cutover",
+    "Canonical names: workspace_settings, chat_messages, taken_over_by_user_id",
+    "Marketplace MVP and operational tables added",
+    "009_multi_workspace_outlet_foundation.sql is deprecated because its foundation is covered by 002/005",
     "AI commerce guardrails and webhook idempotency included"
   ]
 }

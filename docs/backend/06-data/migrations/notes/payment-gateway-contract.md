@@ -15,7 +15,7 @@ Xendit can be supported later using the same table contract.
 ## Payment Creation Flow
 
 ```txt
-OrderService creates order pending_payment
+OrderService creates order `new` with `payment_status = pending`
 PaymentService.createPaymentLink(order)
   -> create provider transaction
   -> insert payments row
@@ -49,13 +49,13 @@ ORD-20260611-ABC123-A1
 
 | Provider Status | Internal `payment_status` | Internal `order_status` |
 |---|---|---|
-| pending | pending | pending_payment |
-| settlement | settlement / paid | paid |
-| capture | capture / paid | paid |
-| deny | deny | failed |
+| pending | pending | new |
+| settlement | paid | accepted |
+| capture | paid | accepted |
+| deny | failed | new |
 | cancel | cancel | cancelled |
-| expire | expire | expired |
-| failure | failure | failed |
+| expire | expired | new |
+| failure | failed | new |
 | refund | refund | refunded |
 
 ## Webhook Handling
@@ -66,7 +66,7 @@ ORD-20260611-ABC123-A1
 4. Find `payments` by provider + provider_order_id / transaction id.
 5. Insert `payment_events`.
 6. Update `payments.status`.
-7. Update `orders.payment_status` and `orders.status`.
+7. Update `orders.payment_status` and lifecycle `orders.status` only when appropriate.
 8. Send Telegram notification if status changed.
 
 ## Signature Verification

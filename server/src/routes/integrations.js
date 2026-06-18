@@ -1,6 +1,6 @@
 import express from 'express';
-import Platform from '../models/Platform.js';
 import { authRequired, attachUser } from '../middleware/auth.js';
+import { platformsSupabaseRepository } from '../db/repositories/index.js';
 
 const router = express.Router();
 
@@ -40,13 +40,12 @@ router.get('/instagram/callback', async (req, res) => {
 router.post('/telegram/:id/setWebhook', authRequired, attachUser, async (req, res) => {
   try {
     const { id } = req.params;
-    const platform = await Platform.findOne({
-      _id: id,
+    const platform = await platformsSupabaseRepository.findByIdWithCredentials({
       workspaceId: req.me.workspaceId,
-      type: 'telegram',
+      platformId: id,
     });
 
-    if (!platform) {
+    if (!platform || platform.type !== 'telegram') {
       return res.status(404).json({ error: 'Platform telegram tidak ditemukan' });
     }
 

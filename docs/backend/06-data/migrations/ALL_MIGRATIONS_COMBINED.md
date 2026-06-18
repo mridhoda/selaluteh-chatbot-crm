@@ -1,3 +1,7 @@
+# Data Migrations Combined Bundle
+
+Generated from individual source files in `docs/backend/06-data/migrations`. If conflicts appear, treat the individual file as source of truth and regenerate this bundle.
+
 # File: README.md
 
 ```md
@@ -45,6 +49,33 @@ migrations-v2/
     marketplace-mvp-checklist.md
   manifest.json
   ALL_MIGRATIONS_COMBINED.md
+```
+
+## Canonical Schema Source
+
+All docs and SQL in this folder are aligned to:
+
+```txt
+docs/backend/06-data/database-schema.md   # canonical field names + status enums
+docs/backend/06-data/entities.md
+docs/backend/06-data/query-contracts.md
+```
+
+Key naming decisions:
+
+```txt
+workspace_settings        replaces settings
+chat_messages             replaces messages
+taken_over_by_user_id     replaces takeover_by
+contacts.external_id      replaces platform_account_id
+agents.* JSONB fields     replaces normalized agent child tables
+agent_outlets.outlet_id   replaces legacy agent.outlets string array
+```
+
+Operational tables required at runtime:
+
+```txt
+files, webhook_events, ai_actions, checkouts
 ```
 
 ## How to Use
@@ -114,9 +145,6 @@ payment_events
 These are migration drafts and should be reviewed in staging before production.
 ```
 
-
----
-
 # File: checklists/marketplace-mvp-checklist.md
 
 ```md
@@ -174,9 +202,6 @@ These are migration drafts and should be reviewed in staging before production.
 - [ ] Admin can update fulfillment status.
 - [ ] Admin can inspect Telegram chat related to order.
 ```
-
-
----
 
 # File: checklists/post-migration-checklist.md
 
@@ -241,9 +266,6 @@ These are migration drafts and should be reviewed in staging before production.
 - [ ] Telegram paid notification is sent.
 ```
 
-
----
-
 # File: checklists/pre-migration-checklist.md
 
 ```md
@@ -300,9 +322,6 @@ These are migration drafts and should be reviewed in staging before production.
 - [ ] Telegram inline keyboard/callback idempotency is implemented.
 ```
 
-
----
-
 # File: notes/cutover-plan.md
 
 ```md
@@ -340,7 +359,7 @@ Switch production backend reads/writes from MongoDB to Supabase/Postgres with mi
 - Send human reply in test chat.
 - Receive Telegram test webhook.
 - Verify duplicate Telegram update does not duplicate message.
-- Verify AI skip when `takeover_by` exists.
+- Verify AI skip when `taken_over_by_user_id` exists.
 - Create/update legacy order.
 - Create/update complaint.
 - Confirm local file URLs still resolve.
@@ -389,15 +408,14 @@ Before entering no-rollback zone, ensure:
 - Order/payment reconciliation query is ready.
 ```
 
-
----
-
 # File: notes/data-backfill-order.md
 
 ```md
 # Data Backfill Order — v2
 
 Import order matters because of foreign keys and workspace isolation.
+
+Canonical target schema: `database-schema.md` + `migrations/sql/001..005`.
 
 ## Phase A — Prepare ID Mapping
 
@@ -411,91 +429,61 @@ Import order matters because of foreign keys and workspace isolation.
 1. Insert `workspaces` from distinct Mongo `workspaceId`.
 2. Insert `users`.
 3. Update `workspaces.owner_user_id`.
-4. Insert `settings`.
-5. Insert `platforms`.
-6. Insert `agents`.
-7. Insert agent child tables:
-   - `agent_knowledge`
-   - `agent_followups`
-   - `agent_database_files`
-   - `agent_complaint_fields`
-   - `agent_outlets`
-   - `agent_products`
-   - `agent_sales_forms`
-   - `agent_sales_form_fields`
-   - `agent_sales_form_products`
-8. Insert `contacts`.
-9. Insert `chats`.
-10. Verify/copy local files and insert `files` metadata.
-11. Patch `agent_database_files.file_id`.
-12. Insert `messages`.
-13. Insert legacy `orders`.
-14. Insert `complaints`.
-15. Insert `knowledge_files`.
+4. Insert `outlets` (create default outlet per workspace if missing).
+5. Insert `workspace_settings`.
+6. Insert `user_workspace_memberships` and optional `user_outlet_access`.
+7. Insert `platforms`.
+8. Insert `agents` with embedded JSON config.
+9. Insert `agent_outlets` by matching legacy outlet names/codes to `outlets.id`.
+10. Insert `contacts`.
+11. Insert `chats`.
+12. Verify/copy local files and insert `files` metadata.
+13. Insert `chat_messages`.
+14. Insert legacy `orders`.
+15. Insert `complaints`.
 
 ## Phase C — Marketplace Bootstrap
 
 After CRM import is stable:
 
 1. Create product categories if needed.
-2. Migrate selected `agent_products` / `agent_sales_form_products` to `products`.
+2. Migrate selected legacy agent sales-form products into `products`.
 3. Create `product_variants` only when variants are meaningful.
-4. Insert `product_images` for local/public product images.
+4. Insert `product_outlet_availability`.
 5. Do not backfill old carts; carts are new runtime data.
 6. Do not backfill payments unless old manual proofs need audit records.
 
 ## Phase D — Runtime Tables
 
-Runtime-only tables usually start empty:
+Do not seed historical rows for:
 
 ```txt
 carts
 cart_items
 checkouts
 payments
+payment_attempts
 payment_events
+order_events
 webhook_events
 ai_actions
 ```
 
 Exception: `webhook_events` can be seeded with recent processed external message ids if you need duplicate protection during cutover.
 
-## Backfill Validations
+## Validation Queries
 
-After import, required-reference counts must be zero:
+Run `sql/009_migration_validation_queries.sql` after import.
 
-```sql
-select count(*) from messages where chat_id is null;
-select count(*) from chats where workspace_id is null;
-select count(*) from contacts where platform_account_id = '';
-select count(*) from orders where workspace_id is null;
-select count(*) from complaints where workspace_id is null;
-```
-
-Cross-workspace mismatches must return zero rows:
-
-```sql
-select *
-from messages m
-join chats c on c.id = m.chat_id
-where m.workspace_id <> c.workspace_id;
-```
-
-## Timestamp Preservation
-
-Always preserve:
+Expected:
 
 ```txt
-createdAt -> created_at
-updatedAt -> updated_at
-lastMessageAt -> last_message_at
+chat_messages without chat = 0
+orders without workspace = 0
+complaints without workspace = 0
+cross-workspace mismatches = 0
 ```
-
-Message ordering and inbox sorting depend on timestamps.
 ```
-
-
----
 
 # File: notes/marketplace-schema-notes.md
 
@@ -508,21 +496,35 @@ This schema targets a **single-merchant Telegram-first marketplace MVP**.
 
 It is intentionally not a full multi-seller marketplace yet.
 
+Canonical source of truth:
+
+```txt
+database-schema.md
+migrations/sql/001..005
+```
+
 ## Included
 
-- Product categories.
-- Products.
-- Variants.
-- Product images.
-- Active carts.
-- Cart items.
-- Checkout confirmation.
-- Orders.
-- Order items.
-- Payments.
-- Payment events.
-- Telegram webhook idempotency.
-- AI action audit.
+Core admin/commerce tables (26):
+
+```txt
+users, workspaces, workspace_settings, outlets
+user_workspace_memberships, user_outlet_access
+platforms, contacts, chats, chat_messages
+product_categories, products, product_variants, product_outlet_availability
+carts, cart_items, orders, order_items, order_events
+payment_provider_settings, payments, payment_attempts, payment_events
+agents, agent_outlets, complaints
+```
+
+Operational runtime tables:
+
+```txt
+files
+webhook_events
+ai_actions
+checkouts
+```
 
 ## Excluded for MVP
 
@@ -534,6 +536,7 @@ It is intentionally not a full multi-seller marketplace yet.
 - Review/rating.
 - Courier integration.
 - Advanced promo engine.
+- Billing/subscription tables.
 
 ## Why `orders` Supports Both Legacy and Marketplace
 
@@ -544,72 +547,75 @@ So the new `orders` table supports both:
 ```txt
 Legacy AI form order:
   source = ai_form
-  form_name
   form_data
+  status = new
+  payment_status = unpaid
 
 New marketplace order:
   source = telegram
   cart_id
-  checkout_id
+  checkout_id optional
   order_items
   payments
+  status = pending_payment -> confirmed
 ```
 
-## Product Data Source
+## Agent Configuration
 
-Long-term product data should live in:
+Agent settings are stored as embedded JSON in `agents`:
 
 ```txt
-products
-product_variants
-product_images
-product_categories
+tools, knowledge, follow_ups, database, complaint_fields,
+complaint_notification, sales_forms, payment
 ```
 
-Legacy `agent_products` and `agent_sales_form_products` are preserved only for compatibility.
+Outlet mapping uses `agent_outlets.outlet_id` FK, not string arrays.
+
+Legacy agent-embedded products inside `sales_forms` remain for compatibility until migrated to `products`.
 
 ## Price Snapshot Rule
 
-Always snapshot price/name/sku into:
+Always snapshot price/name into:
 
 ```txt
-cart_items.product_snapshot
-order_items.product_snapshot
+cart_items.product_name_snapshot
+cart_items.variant_name_snapshot
+cart_items.unit_price
+order_items.product_name_snapshot
+order_items.variant_name_snapshot
+order_items.unit_price
 ```
-
-This protects historical orders if product price/name changes later.
 
 ## Inventory Rule
 
-MVP can start with `inventory_policy = do_not_track`.
+MVP can start with `products.stock_tracking = false`.
 
 When stock matters:
 
-- Check `stock_quantity` before add-to-cart and checkout.
-- Deduct/reserve stock only after order/payment rule is chosen.
-- For food/drink MVP, simplest rule: deduct stock on paid order.
+- Check `product_outlet_availability.stock_quantity` or `products.stock_quantity` before add-to-cart and checkout.
+- Simplest F&B rule: deduct stock when `orders.payment_status = paid`.
 
 ## Payment Rule
 
 Order is not paid because AI says so.
 
-Only payment webhook or admin action can change:
+Only payment webhook or authorized admin can change:
 
 ```txt
-orders.payment_status = paid/settlement/capture
-orders.status = paid
-```
+payments.status = paid
+orders.payment_status = paid
+orders.status = confirmed
 ```
 
-
----
+Insert matching timeline rows in `order_events` and `payment_events`.
+```
 
 # File: notes/mongo-to-postgres-mapping.md
 
 ```md
 # Mongo to Postgres Mapping — v2
 
-This document maps the current MongoDB/Mongoose CRM schema to the updated Supabase/Postgres schema with marketplace support.
+This document maps the current MongoDB/Mongoose CRM schema to the canonical Supabase/Postgres schema in `database-schema.md` and `migrations/sql/001..005`.
 
 ## Naming
 
@@ -617,20 +623,29 @@ This document maps the current MongoDB/Mongoose CRM schema to the updated Supaba
 |---|---|
 | `_id` | `id` |
 | `workspaceId` | `workspace_id` |
-| `userId` | `owner_user_id` |
+| `userId` | `owner_user_id` or `user_id` depending on table |
 | `platformId` | `platform_id` |
 | `agentId` | `agent_id` |
 | `contactId` | `contact_id` |
 | `chatId` | `chat_id` |
-| `takeoverBy` | `takeover_by` |
+| `takeoverBy` | `taken_over_by_user_id` |
 | `isEscalated` | `is_escalated` |
 | `lastMessageAt` | `last_message_at` |
-| `platformType` | `platform_type` |
-| `platformAccountId` | `platform_account_id` |
-| `platformMessageId` | `platform_message_id` |
-| `replyTo` | `reply_to` |
+| `platformType` | `platform_type` or `contacts.external_id` context |
+| `platformAccountId` | `contacts.external_id` |
+| `platformMessageId` | `chat_messages.platform_message_id` |
 | `createdAt` | `created_at` |
 | `updatedAt` | `updated_at` |
+
+## SQL Naming Notes
+
+| Legacy doc/SQL name | Canonical name |
+|---|---|
+| `settings` | `workspace_settings` |
+| `messages` | `chat_messages` |
+| `takeover_by` | `taken_over_by_user_id` |
+| `platform_account_id` | `external_id` on `contacts` |
+| `token` on platforms | `token_encrypted` |
 
 ## ID Strategy
 
@@ -642,17 +657,7 @@ Use a deterministic mapping during import:
 collection + mongo _id -> generated uuid
 ```
 
-Persist the mapping as:
-
-```txt
-mongo-id-map.json
-```
-
-or temporary staging table:
-
-```txt
-mongo_id_map(collection text, mongo_id text, postgres_id uuid)
-```
+Persist the mapping as `mongo-id-map.json` or staging table `mongo_id_map(collection, mongo_id, postgres_id)`.
 
 ## Workspace Creation
 
@@ -670,32 +675,34 @@ Owner rule:
 
 | Mongoose Model | Target Table(s) | Notes |
 |---|---|---|
-| `User` | `users`, `workspaces` | Custom password auth preserved through `password_hash` |
+| `User` | `users`, `workspaces`, `user_workspace_memberships` | Custom password auth preserved through `password_hash` |
 | `Platform` | `platforms` | Tokens should be rotated/encrypted after migration |
-| `Agent` | `agents` + child tables | Nested arrays are normalized |
-| `Contact` | `contacts` | Upsert key: `workspace_id + platform_type + platform_account_id` |
-| `Chat` | `chats` | Preserve `takeover_by`, `is_escalated`, `status`, `state` |
-| `Message` | `messages`, `files` | Preserve ordering via `created_at` |
-| `Order` | `orders` | Old AI orders become `source = ai_form` |
-| `Complaint` | `complaints` | Must become workspace scoped |
-| `Knowledge` | `knowledge_files`, `files` | Store file metadata only |
+| `Agent` | `agents`, `agent_outlets` | Nested arrays become embedded JSON on `agents` |
+| `Contact` | `contacts` | Upsert key: `workspace_id + platform_id + external_id` |
+| `Chat` | `chats` | Preserve `taken_over_by_user_id`, `is_escalated`, `status`, `state` |
+| `Message` | `chat_messages`, `files` | Preserve ordering via `created_at` |
+| `Order` | `orders`, optional `order_items` | Old AI orders become `source = ai_form` |
+| `Complaint` | `complaints` | Workspace scoped with outlet/contact/chat links |
+| `Knowledge` | `files` + `agents.knowledge` JSON | Store file metadata only |
 | `OTP` | `otps` | Expired records may be skipped |
 | `PasswordReset` | `password_resets` | Expired records may be skipped |
-| `Setting` | `settings` | One per workspace |
+| `Setting` | `workspace_settings` | One per workspace |
 
 ## Agent Nested Data
 
 | Mongo path | Target |
 |---|---|
-| `agent.knowledge[]` | `agent_knowledge` |
-| `agent.followUps[]` | `agent_followups` |
-| `agent.database[]` | `agent_database_files` + `files` |
-| `agent.complaintFields[]` | `agent_complaint_fields` |
-| `agent.outlets[]` | `agent_outlets` |
-| `agent.salesForms[]` | `agent_sales_forms` + child tables |
-| `agent.products[]` | `agent_products` legacy table; optionally copy into new `products` table |
-| `agent.payment` | `agents.payment_*` columns for legacy manual payment |
-| `agent.complaintNotification` | `agents.complaint_notification_*` columns |
+| `agent.knowledge[]` | `agents.knowledge` JSONB |
+| `agent.followUps[]` | `agents.follow_ups` JSONB |
+| `agent.database[]` | `agents.database` JSONB + optional `files` rows |
+| `agent.complaintFields[]` | `agents.complaint_fields` JSONB |
+| `agent.outlets[]` | `agent_outlets.outlet_id` rows matched by outlet name/code |
+| `agent.salesForms[]` | `agents.sales_forms` JSONB |
+| `agent.payment` | `agents.payment` JSONB |
+| `agent.complaintNotification` | `agents.complaint_notification` JSONB |
+| `agent.tools[]` | `agents.tools` JSONB |
+
+Legacy embedded products inside `salesForms.products` stay inside JSON until migrated to `products`.
 
 ## Existing Orders
 
@@ -705,29 +712,26 @@ Map them to:
 
 ```txt
 orders.source = 'ai_form'
-orders.form_name = old form name
 orders.form_data = old formData
-orders.status = mapped old status
+orders.status = new
+orders.payment_status = unpaid
+orders.fulfillment_status = unfulfilled
 orders.payment_proof_file_id = mapped file id if available
-orders.payment_proof_url = old proof URL if available
 ```
 
 Do not create `order_items` for old AI form orders unless product/quantity can be confidently parsed.
 
 ## Marketplace Products
 
-If current `agent.products[]` are used as sellable products, migrate them in two ways:
-
-1. Preserve raw data in `agent_products` for backward compatibility.
-2. Optionally create rows in `products` with:
+If current `agent.salesForms[].products[]` or legacy agent product lists are used as sellable products, migrate them into:
 
 ```txt
-name -> products.name
-price -> products.base_price
-image_url -> file metadata if local or public URL metadata
-status -> active
-source metadata -> { "from": "agent.products" }
+products
+product_variants optional
+product_outlet_availability
 ```
+
+Keep original JSON in `agents.sales_forms` until frontend fully switches to catalog products.
 
 ## Message Attachment
 
@@ -744,8 +748,7 @@ Target:
 
 ```txt
 files row
-messages.attachment_file_id
-messages.attachment legacy jsonb retained temporarily
+chat_messages.attachment_file_id
 ```
 
 File binary remains on local server storage.
@@ -756,15 +759,17 @@ Old manual payment proof stays on orders:
 
 ```txt
 orders.payment_proof_file_id
-orders.payment_proof_url
 ```
 
 New gateway payment data uses:
 
 ```txt
+payment_provider_settings
 payments
+payment_attempts
 payment_events
 webhook_events
+order_events
 ```
 
 ## Webhook Idempotency
@@ -781,9 +786,6 @@ Recommended external ids:
 | Midtrans | `order_id + transaction_id + transaction_status` fallback |
 | Xendit | event id from header/body |
 ```
-
-
----
 
 # File: notes/payment-gateway-contract.md
 
@@ -890,9 +892,6 @@ order by o.created_at desc;
 ```
 ```
 
-
----
-
 # File: notes/repository-layer-contract.md
 
 ```md
@@ -910,14 +909,15 @@ server/src/repositories/
   agents.repository.js
   contacts.repository.js
   chats.repository.js
-  messages.repository.js
+  chatMessages.repository.js      # chat_messages
   files.repository.js
   products.repository.js
   carts.repository.js
   orders.repository.js
   payments.repository.js
   complaints.repository.js
-  webhook-events.repository.js
+  settings.repository.js          # workspace_settings
+  webhookEvents.repository.js
 ```
 
 ## Rule
@@ -1039,9 +1039,6 @@ createPaymentForOrder({ workspaceId, orderId, provider })
 5. Remove direct Mongoose access after full cutover.
 ```
 
-
----
-
 # File: notes/telegram-commerce-flow.md
 
 ```md
@@ -1160,27 +1157,18 @@ AI may not directly:
 Use `ai_actions` for audit when AI proposes a commerce action.
 ```
 
-
----
-
 # File: sql/001_extensions_and_enums.sql
 
 ```sql
 -- 001_extensions_and_enums.sql
--- Base extensions, enum types, and shared trigger helpers for the updated
+-- Base extensions, enum types, and shared trigger helpers for the canonical
 -- Chatbot CRM + Telegram-first Marketplace MVP Supabase/Postgres schema.
---
--- Design goals:
--- - Preserve existing CRM/chatbot behavior migrated from MongoDB/Mongoose.
--- - Add deterministic commerce primitives: product catalog, cart, checkout,
---   normalized order_items, payments, payment_events, and webhook idempotency.
--- - Keep large media binaries on the local application server; Postgres stores metadata only.
 
 create extension if not exists "pgcrypto";
 create extension if not exists "citext";
 create extension if not exists "pg_trgm";
 
--- Identity / billing
+-- Identity
 do $$ begin
   create type user_role as enum ('owner', 'super', 'agent');
 exception when duplicate_object then null;
@@ -1202,52 +1190,58 @@ do $$ begin
 exception when duplicate_object then null;
 end $$;
 
+do $$ begin
+  create type platform_status as enum ('connected', 'disconnected', 'error', 'disabled');
+exception when duplicate_object then null;
+end $$;
+
 -- CRM / messaging
 do $$ begin
-  create type chat_status as enum ('open', 'resolved');
+  create type chat_status as enum ('open', 'pending', 'resolved', 'archived');
 exception when duplicate_object then null;
 end $$;
 
 do $$ begin
-  create type message_sender as enum ('user', 'ai', 'human', 'system');
+  create type chat_message_sender as enum ('customer', 'ai', 'admin', 'system');
 exception when duplicate_object then null;
 end $$;
 
 do $$ begin
-  create type message_kind as enum ('text', 'image', 'video', 'audio', 'voice', 'document', 'sticker', 'callback', 'system');
+  create type chat_message_direction as enum ('inbound', 'outbound');
 exception when duplicate_object then null;
 end $$;
 
 do $$ begin
-  create type knowledge_kind as enum ('url', 'pdf', 'text', 'file', 'qna');
+  create type chat_message_type as enum ('text', 'image', 'file', 'audio', 'system');
+exception when duplicate_object then null;
+end $$;
+
+-- Agents
+do $$ begin
+  create type agent_status as enum ('active', 'inactive');
 exception when duplicate_object then null;
 end $$;
 
 -- Operations
 do $$ begin
-  create type complaint_status as enum ('open', 'resolved', 'dismissed');
+  create type complaint_status as enum ('open', 'in_progress', 'resolved', 'closed');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type complaint_priority as enum ('low', 'medium', 'high', 'urgent');
 exception when duplicate_object then null;
 end $$;
 
 -- Marketplace catalog
 do $$ begin
-  create type product_status as enum ('draft', 'active', 'archived', 'out_of_stock');
-exception when duplicate_object then null;
-end $$;
-
-do $$ begin
-  create type product_type as enum ('physical', 'digital', 'service', 'bundle');
-exception when duplicate_object then null;
-end $$;
-
-do $$ begin
-  create type inventory_policy as enum ('track', 'do_not_track');
+  create type product_category_status as enum ('active', 'inactive');
 exception when duplicate_object then null;
 end $$;
 
 -- Cart / checkout / order
 do $$ begin
-  create type cart_status as enum ('active', 'checked_out', 'abandoned', 'expired');
+  create type cart_status as enum ('active', 'ordered', 'abandoned', 'cleared');
 exception when duplicate_object then null;
 end $$;
 
@@ -1258,18 +1252,26 @@ end $$;
 
 do $$ begin
   create type order_status as enum (
-    'draft',
-    'new',                 -- legacy AI form order status compatibility
+    'new',
     'pending_payment',
-    'paid',
-    'processing',
-    'processed',           -- legacy order status compatibility
+    'confirmed',
+    'preparing',
+    'ready',
     'completed',
     'cancelled',
     'expired',
-    'failed',
-    'refunded'
+    'failed'
   );
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type order_payment_status as enum ('unpaid', 'pending', 'paid', 'failed', 'expired', 'refunded');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type fulfillment_status as enum ('unfulfilled', 'preparing', 'ready', 'fulfilled', 'cancelled');
 exception when duplicate_object then null;
 end $$;
 
@@ -1285,19 +1287,17 @@ exception when duplicate_object then null;
 end $$;
 
 do $$ begin
-  create type payment_status as enum (
-    'pending',
-    'paid',
-    'settlement',
-    'capture',
-    'deny',
-    'cancel',
-    'expire',
-    'failure',
-    'refund',
-    'partial_refund',
-    'chargeback'
-  );
+  create type payment_provider_environment as enum ('sandbox', 'production');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type payment_record_status as enum ('pending', 'paid', 'failed', 'expired', 'cancelled', 'refunded');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type reconciliation_status as enum ('unmatched', 'matched', 'disputed', 'ignored');
 exception when duplicate_object then null;
 end $$;
 
@@ -1339,9 +1339,6 @@ begin
 end;
 $$;
 
--- Generates readable order numbers per workspace in application code preferred.
--- This helper is intentionally simple and safe for dev, but production can replace
--- it with a stronger sequence strategy if required.
 create or replace function generate_order_number(prefix text default 'ORD')
 returns text
 language sql
@@ -1350,24 +1347,17 @@ as $$
 $$;
 ```
 
-
----
-
 # File: sql/002_core_identity.sql
 
 ```sql
 -- 002_core_identity.sql
--- Core identity, workspace, custom JWT compatibility, and settings tables.
---
--- Current app still has custom JWT + password_hash. This schema keeps that path
--- while allowing a future Supabase Auth migration via users.auth_user_id.
+-- Core identity, workspace settings, outlets, and access tables.
 
 create table if not exists workspaces (
   id uuid primary key default gen_random_uuid(),
   name text not null default 'Default Workspace',
   owner_user_id uuid null,
-  default_currency text not null default 'IDR',
-  timezone text not null default 'Asia/Makassar',
+  status text not null default 'active',
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -1430,16 +1420,44 @@ create trigger set_password_resets_updated_at
 before update on password_resets
 for each row execute function set_updated_at();
 
-create table if not exists settings (
+create table if not exists outlets (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  name text not null,
+  code text null,
+  city text null,
+  region text null,
+  address text null,
+  postal_code text null,
+  phone text null,
+  manager_user_id uuid null references users(id) on delete set null,
+  status text not null default 'active',
+  timezone text not null default 'Asia/Makassar',
+  opening_hours jsonb not null default '{}'::jsonb,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint outlets_workspace_code_unique unique (workspace_id, code)
+);
+
+create trigger set_outlets_updated_at
+before update on outlets
+for each row execute function set_updated_at();
+
+create table if not exists workspace_settings (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null unique references workspaces(id) on delete cascade,
+  business_display_name text not null default '',
+  timezone text not null default 'Asia/Makassar',
+  currency text not null default 'IDR',
+  locale text not null default 'id-ID',
+  support_contact_email citext null,
+  default_outlet_id uuid null references outlets(id) on delete set null,
+  allow_all_outlets_view boolean not null default false,
   primary_ai text not null default 'openai' check (primary_ai in ('openai', 'gemini', 'none')),
   secondary_ai text not null default 'gemini' check (secondary_ai in ('openai', 'gemini', 'none')),
   default_language text not null default 'id',
-  default_currency text not null default 'IDR',
-  timezone text not null default 'Asia/Makassar',
   ai_commerce_enabled boolean not null default false,
-  ai_auto_create_order boolean not null default false,
   require_checkout_confirmation boolean not null default true,
   human_handoff_enabled boolean not null default true,
   metadata jsonb not null default '{}'::jsonb,
@@ -1447,38 +1465,63 @@ create table if not exists settings (
   updated_at timestamptz not null default now()
 );
 
-create trigger set_settings_updated_at
-before update on settings
+create trigger set_workspace_settings_updated_at
+before update on workspace_settings
+for each row execute function set_updated_at();
+
+create table if not exists user_workspace_memberships (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
+  role text not null default 'member',
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint user_workspace_memberships_unique unique (workspace_id, user_id)
+);
+
+create trigger set_user_workspace_memberships_updated_at
+before update on user_workspace_memberships
+for each row execute function set_updated_at();
+
+create table if not exists user_outlet_access (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  outlet_id uuid not null references outlets(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
+  role text not null default 'outlet_viewer',
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint user_outlet_access_unique unique (workspace_id, outlet_id, user_id)
+);
+
+create trigger set_user_outlet_access_updated_at
+before update on user_outlet_access
 for each row execute function set_updated_at();
 ```
-
-
----
 
 # File: sql/003_platforms_agents.sql
 
 ```sql
 -- 003_platforms_agents.sql
--- Connected platforms, AI agents, legacy sales forms, and normalized agent child tables.
---
--- Agent sales forms are retained for backward compatibility with the existing AI
--- order capture flow. New marketplace product catalog lives in 005_orders_complaints_files.sql.
+-- Connected platforms, AI agents (embedded JSON config), and agent-outlet mapping.
 
 create table if not exists platforms (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
-  owner_user_id uuid null references users(id) on delete set null,
   type platform_type not null,
   label text not null,
-  token text not null default '',
-  account_id text not null default '',
-  phone_number_id text not null default '',
-  app_id text not null default '',
-  app_secret text not null default '',
-  webhook_secret text not null default '',
-  enabled boolean not null default true,
-  webhook_url text null,
-  last_webhook_at timestamptz null,
+  status platform_status not null default 'connected',
+  account_id text null,
+  bot_id text null,
+  phone_number_id text null,
+  page_id text null,
+  token_encrypted text null,
+  credentials_encrypted text null,
+  webhook_configured boolean not null default false,
+  webhook_secret_encrypted text null,
+  agent_id uuid null,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -1491,25 +1534,21 @@ for each row execute function set_updated_at();
 create table if not exists agents (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
-  owner_user_id uuid null references users(id) on delete set null,
   platform_id uuid null references platforms(id) on delete set null,
   name text not null,
-  prompt text not null default '',
   behavior text not null default '',
-  welcome_message text not null default 'Halo! Ada yang bisa saya bantu?',
-  response_delay integer not null default 0,
+  prompt text not null default '',
+  welcome_message text null,
   sticker_url text null,
-  ai_enabled boolean not null default true,
-  ai_commerce_mode boolean not null default false,
-  ai_may_recommend_products boolean not null default true,
-  ai_may_create_cart boolean not null default false,
-  ai_may_create_order boolean not null default false,
-  payment_enabled boolean not null default false,
-  payment_bank_info text not null default '',
-  payment_qris_url text not null default '',
-  complaint_notification_enabled boolean not null default false,
-  complaint_notification_platform_id uuid null references platforms(id) on delete set null,
-  complaint_notification_destination text null,
+  tools jsonb not null default '[]'::jsonb,
+  knowledge jsonb not null default '[]'::jsonb,
+  follow_ups jsonb not null default '[]'::jsonb,
+  database jsonb not null default '[]'::jsonb,
+  complaint_fields jsonb not null default '[]'::jsonb,
+  complaint_notification jsonb not null default '{}'::jsonb,
+  sales_forms jsonb not null default '[]'::jsonb,
+  payment jsonb not null default '{}'::jsonb,
+  status agent_status not null default 'active',
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -1519,176 +1558,48 @@ create trigger set_agents_updated_at
 before update on agents
 for each row execute function set_updated_at();
 
-create table if not exists agent_knowledge (
-  id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
-  agent_id uuid not null references agents(id) on delete cascade,
-  kind knowledge_kind not null,
-  value text null,
-  question text null,
-  answer text null,
-  position integer not null default 0,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create trigger set_agent_knowledge_updated_at before update on agent_knowledge for each row execute function set_updated_at();
-
-create table if not exists agent_followups (
-  id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
-  agent_id uuid not null references agents(id) on delete cascade,
-  name text not null,
-  trigger_text text not null,
-  prompt text not null,
-  delay_minutes integer not null check (delay_minutes >= 0),
-  enabled boolean not null default true,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create trigger set_agent_followups_updated_at before update on agent_followups for each row execute function set_updated_at();
-
-create table if not exists agent_database_files (
-  id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
-  agent_id uuid not null references agents(id) on delete cascade,
-  file_id uuid null,
-  legacy_file_id text null,
-  name text null,
-  original_name text null,
-  url text null,
-  mime_type text null,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create trigger set_agent_database_files_updated_at before update on agent_database_files for each row execute function set_updated_at();
-
-create table if not exists agent_complaint_fields (
-  id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
-  agent_id uuid not null references agents(id) on delete cascade,
-  label text not null,
-  key text not null,
-  field_type text not null default 'text',
-  required boolean not null default false,
-  position integer not null default 0,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create trigger set_agent_complaint_fields_updated_at before update on agent_complaint_fields for each row execute function set_updated_at();
+do $$ begin
+  alter table platforms
+    add constraint platforms_agent_fk
+    foreign key (agent_id) references agents(id)
+    on delete set null;
+exception when duplicate_object then null;
+end $$;
 
 create table if not exists agent_outlets (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
   agent_id uuid not null references agents(id) on delete cascade,
-  name text not null,
-  address text null,
-  phone text null,
-  maps_url text null,
-  is_active boolean not null default true,
-  position integer not null default 0,
-  metadata jsonb not null default '{}'::jsonb,
+  outlet_id uuid not null references outlets(id) on delete cascade,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  constraint agent_outlets_unique unique (agent_id, outlet_id)
 );
-create trigger set_agent_outlets_updated_at before update on agent_outlets for each row execute function set_updated_at();
 
--- Legacy agent.products[] support. New production catalog uses product tables in 005.
-create table if not exists agent_products (
-  id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
-  agent_id uuid not null references agents(id) on delete cascade,
-  name text not null,
-  description text null,
-  price numeric(14,2) not null default 0,
-  currency text not null default 'IDR',
-  image_url text null,
-  is_active boolean not null default true,
-  position integer not null default 0,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create trigger set_agent_products_updated_at before update on agent_products for each row execute function set_updated_at();
-
-create table if not exists agent_sales_forms (
-  id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
-  agent_id uuid not null references agents(id) on delete cascade,
-  name text not null,
-  description text null,
-  enabled boolean not null default true,
-  position integer not null default 0,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create trigger set_agent_sales_forms_updated_at before update on agent_sales_forms for each row execute function set_updated_at();
-
-create table if not exists agent_sales_form_fields (
-  id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
-  sales_form_id uuid not null references agent_sales_forms(id) on delete cascade,
-  label text not null,
-  key text not null,
-  field_type text not null default 'text',
-  required boolean not null default false,
-  position integer not null default 0,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create trigger set_agent_sales_form_fields_updated_at before update on agent_sales_form_fields for each row execute function set_updated_at();
-
-create table if not exists agent_sales_form_products (
-  id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
-  sales_form_id uuid not null references agent_sales_forms(id) on delete cascade,
-  name text not null,
-  description text null,
-  price numeric(14,2) not null default 0,
-  currency text not null default 'IDR',
-  image_url text null,
-  position integer not null default 0,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create trigger set_agent_sales_form_products_updated_at before update on agent_sales_form_products for each row execute function set_updated_at();
+create index if not exists agent_outlets_workspace_idx on agent_outlets (workspace_id);
+create index if not exists agent_outlets_outlet_idx on agent_outlets (outlet_id);
 ```
-
-
----
 
 # File: sql/004_crm_chats_messages.sql
 
 ```sql
 -- 004_crm_chats_messages.sql
--- CRM contacts, chats, messages, webhook idempotency, and AI action audit tables.
---
--- This keeps the current behavior: platform webhook -> contact upsert -> chat upsert
--- -> message insert -> AI/human flow.
+-- CRM contacts, chats, chat_messages, webhook idempotency, and AI action audit.
 
 create table if not exists contacts (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
-  owner_user_id uuid null references users(id) on delete set null,
+  platform_id uuid null references platforms(id) on delete set null,
+  external_id text not null,
   name text not null default '',
-  platform_type platform_type not null,
-  platform_account_id text not null,
-  handle text null,
   phone text null,
   email citext null,
-  last_seen timestamptz null,
+  handle text null,
   tags text[] not null default '{}',
-  notes text null,
+  last_outlet_id uuid null references outlets(id) on delete set null,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint contacts_platform_identity_unique unique (workspace_id, platform_type, platform_account_id)
+  constraint contacts_platform_identity_unique unique (workspace_id, platform_id, external_id)
 );
 
 create trigger set_contacts_updated_at
@@ -1698,16 +1609,17 @@ for each row execute function set_updated_at();
 create table if not exists chats (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
-  owner_user_id uuid null references users(id) on delete set null,
-  agent_id uuid null references agents(id) on delete set null,
+  platform_id uuid not null references platforms(id) on delete cascade,
   contact_id uuid not null references contacts(id) on delete cascade,
-  platform_id uuid null references platforms(id) on delete set null,
-  platform_type platform_type not null,
-  unread integer not null default 0 check (unread >= 0),
-  last_message_at timestamptz null,
-  takeover_by uuid null references users(id) on delete set null,
-  is_escalated boolean not null default false,
+  current_outlet_id uuid null references outlets(id) on delete set null,
   status chat_status not null default 'open',
+  ai_enabled boolean not null default true,
+  is_blocked boolean not null default false,
+  is_escalated boolean not null default false,
+  taken_over_by_user_id uuid null references users(id) on delete set null,
+  assigned_at timestamptz null,
+  resolved_at timestamptz null,
+  last_message_at timestamptz null,
   state jsonb not null default '{}'::jsonb,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
@@ -1719,29 +1631,23 @@ create trigger set_chats_updated_at
 before update on chats
 for each row execute function set_updated_at();
 
-create table if not exists messages (
+create table if not exists chat_messages (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
   chat_id uuid not null references chats(id) on delete cascade,
-  sender message_sender not null,
-  kind message_kind not null default 'text',
-  text text null,
+  platform_id uuid not null references platforms(id) on delete cascade,
+  contact_id uuid not null references contacts(id) on delete cascade,
+  sender_type chat_message_sender not null,
+  user_id uuid null references users(id) on delete set null,
+  direction chat_message_direction not null,
+  message_type chat_message_type not null default 'text',
+  content text null,
   attachment_file_id uuid null,
-  attachment jsonb not null default '{}'::jsonb,
-  reply_to uuid null references messages(id) on delete set null,
   platform_message_id text null,
-  platform_thread_id text null,
   raw_payload jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  created_at timestamptz not null default now()
 );
 
-create trigger set_messages_updated_at
-before update on messages
-for each row execute function set_updated_at();
-
--- Public webhooks write through backend service role. This table makes webhook
--- processing idempotent for Telegram/Meta/payment providers.
 create table if not exists webhook_events (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid null references workspaces(id) on delete cascade,
@@ -1763,20 +1669,18 @@ create trigger set_webhook_events_updated_at
 before update on webhook_events
 for each row execute function set_updated_at();
 
--- AI action audit. AI can propose commerce actions, but checkout/order/payment
--- must be confirmed and executed by deterministic backend services.
 create table if not exists ai_actions (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
   chat_id uuid null references chats(id) on delete cascade,
-  message_id uuid null references messages(id) on delete set null,
+  chat_message_id uuid null references chat_messages(id) on delete set null,
   agent_id uuid null references agents(id) on delete set null,
   action_type text not null,
   status ai_action_status not null default 'proposed',
   input jsonb not null default '{}'::jsonb,
   output jsonb not null default '{}'::jsonb,
   error text null,
-  confirmed_by_user_at timestamptz null,
+  confirmed_at timestamptz null,
   executed_at timestamptz null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -1787,21 +1691,12 @@ before update on ai_actions
 for each row execute function set_updated_at();
 ```
 
-
----
-
 # File: sql/005_orders_complaints_files.sql
 
 ```sql
 -- 005_orders_complaints_files.sql
--- Files, operations, marketplace catalog, carts, checkouts, orders, and payments.
---
--- This file intentionally expands the old operations schema into the latest
--- Telegram-first Marketplace MVP schema.
+-- Files, marketplace catalog, carts, checkouts, orders, payments, and complaints.
 
--- -----------------------------------------------------------------------------
--- Local file metadata. Binaries stay in server/uploads or another local disk.
--- -----------------------------------------------------------------------------
 create table if not exists files (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
@@ -1820,42 +1715,30 @@ create table if not exists files (
   constraint files_disk_relative_path_unique unique (disk, relative_path)
 );
 
--- Add FK that could not be created in 004 because files did not exist yet.
 do $$ begin
-  alter table messages
-    add constraint messages_attachment_file_fk
+  alter table chat_messages
+    add constraint chat_messages_attachment_file_fk
     foreign key (attachment_file_id) references files(id)
     on delete set null;
 exception when duplicate_object then null;
 end $$;
 
-do $$ begin
-  alter table agent_database_files
-    add constraint agent_database_files_file_fk
-    foreign key (file_id) references files(id)
-    on delete set null;
-exception when duplicate_object then null;
-end $$;
-
--- -----------------------------------------------------------------------------
--- Marketplace catalog
--- -----------------------------------------------------------------------------
 create table if not exists product_categories (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
-  parent_id uuid null references product_categories(id) on delete set null,
   name text not null,
   slug text not null,
-  description text null,
-  image_file_id uuid null references files(id) on delete set null,
-  is_active boolean not null default true,
-  position integer not null default 0,
+  status product_category_status not null default 'active',
+  sort_order integer not null default 0,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint product_categories_workspace_slug_unique unique (workspace_id, slug)
 );
-create trigger set_product_categories_updated_at before update on product_categories for each row execute function set_updated_at();
+
+create trigger set_product_categories_updated_at
+before update on product_categories
+for each row execute function set_updated_at();
 
 create table if not exists products (
   id uuid primary key default gen_random_uuid(),
@@ -1863,28 +1746,31 @@ create table if not exists products (
   category_id uuid null references product_categories(id) on delete set null,
   name text not null,
   slug text not null,
-  description text null,
-  short_description text null,
   sku text null,
-  product_type product_type not null default 'physical',
-  status product_status not null default 'active',
+  short_description text null,
+  description text null,
   base_price numeric(14,2) not null default 0 check (base_price >= 0),
+  cost_price numeric(14,2) null check (cost_price is null or cost_price >= 0),
   currency text not null default 'IDR',
-  inventory_policy inventory_policy not null default 'do_not_track',
-  stock_quantity integer null check (stock_quantity is null or stock_quantity >= 0),
-  low_stock_threshold integer null check (low_stock_threshold is null or low_stock_threshold >= 0),
-  primary_image_file_id uuid null references files(id) on delete set null,
+  thumbnail_file_id uuid null references files(id) on delete set null,
+  thumbnail_url text null,
   tags text[] not null default '{}',
+  tax_rate numeric(8,4) null,
+  tax_label text null,
   is_featured boolean not null default false,
-  sort_order integer not null default 0,
-  ai_search_text text null,
+  is_active boolean not null default true,
+  stock_tracking boolean not null default false,
+  stock_quantity integer null check (stock_quantity is null or stock_quantity >= 0),
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint products_workspace_slug_unique unique (workspace_id, slug),
   constraint products_workspace_sku_unique unique (workspace_id, sku)
 );
-create trigger set_products_updated_at before update on products for each row execute function set_updated_at();
+
+create trigger set_products_updated_at
+before update on products
+for each row execute function set_updated_at();
 
 create table if not exists product_variants (
   id uuid primary key default gen_random_uuid(),
@@ -1892,12 +1778,8 @@ create table if not exists product_variants (
   product_id uuid not null references products(id) on delete cascade,
   name text not null,
   sku text null,
-  option_values jsonb not null default '{}'::jsonb,
-  price numeric(14,2) null check (price is null or price >= 0),
-  currency text not null default 'IDR',
-  inventory_policy inventory_policy not null default 'do_not_track',
-  stock_quantity integer null check (stock_quantity is null or stock_quantity >= 0),
-  is_default boolean not null default false,
+  price_delta numeric(14,2) not null default 0,
+  final_price numeric(14,2) null check (final_price is null or final_price >= 0),
   is_active boolean not null default true,
   sort_order integer not null default 0,
   metadata jsonb not null default '{}'::jsonb,
@@ -1905,40 +1787,50 @@ create table if not exists product_variants (
   updated_at timestamptz not null default now(),
   constraint product_variants_workspace_sku_unique unique (workspace_id, sku)
 );
-create trigger set_product_variants_updated_at before update on product_variants for each row execute function set_updated_at();
 
-create table if not exists product_images (
+create trigger set_product_variants_updated_at
+before update on product_variants
+for each row execute function set_updated_at();
+
+create table if not exists product_outlet_availability (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
   product_id uuid not null references products(id) on delete cascade,
-  file_id uuid not null references files(id) on delete cascade,
-  alt_text text null,
-  position integer not null default 0,
-  created_at timestamptz not null default now()
+  variant_id uuid null references product_variants(id) on delete cascade,
+  outlet_id uuid not null references outlets(id) on delete cascade,
+  is_available boolean not null default true,
+  price_override numeric(14,2) null check (price_override is null or price_override >= 0),
+  stock_quantity integer null check (stock_quantity is null or stock_quantity >= 0),
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint product_outlet_availability_unique unique (workspace_id, product_id, variant_id, outlet_id)
 );
 
--- -----------------------------------------------------------------------------
--- Cart / checkout
--- -----------------------------------------------------------------------------
+create trigger set_product_outlet_availability_updated_at
+before update on product_outlet_availability
+for each row execute function set_updated_at();
+
 create table if not exists carts (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
+  outlet_id uuid not null references outlets(id) on delete cascade,
   contact_id uuid not null references contacts(id) on delete cascade,
-  chat_id uuid null references chats(id) on delete set null,
-  platform_id uuid null references platforms(id) on delete set null,
-  platform_type platform_type not null,
+  platform_id uuid not null references platforms(id) on delete cascade,
   status cart_status not null default 'active',
-  currency text not null default 'IDR',
   subtotal_amount numeric(14,2) not null default 0 check (subtotal_amount >= 0),
   discount_amount numeric(14,2) not null default 0 check (discount_amount >= 0),
-  shipping_amount numeric(14,2) not null default 0 check (shipping_amount >= 0),
+  delivery_fee numeric(14,2) not null default 0 check (delivery_fee >= 0),
   total_amount numeric(14,2) not null default 0 check (total_amount >= 0),
-  expires_at timestamptz null,
+  currency text not null default 'IDR',
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create trigger set_carts_updated_at before update on carts for each row execute function set_updated_at();
+
+create trigger set_carts_updated_at
+before update on carts
+for each row execute function set_updated_at();
 
 create table if not exists cart_items (
   id uuid primary key default gen_random_uuid(),
@@ -1946,22 +1838,26 @@ create table if not exists cart_items (
   cart_id uuid not null references carts(id) on delete cascade,
   product_id uuid not null references products(id) on delete restrict,
   variant_id uuid null references product_variants(id) on delete restrict,
-  quantity integer not null check (quantity > 0),
+  product_name_snapshot text not null,
+  variant_name_snapshot text null,
   unit_price numeric(14,2) not null check (unit_price >= 0),
-  currency text not null default 'IDR',
-  line_total numeric(14,2) not null check (line_total >= 0),
-  product_snapshot jsonb not null default '{}'::jsonb,
+  quantity integer not null check (quantity > 0),
+  subtotal_amount numeric(14,2) not null check (subtotal_amount >= 0),
   notes text null,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint cart_items_unique_product_variant unique (cart_id, product_id, variant_id)
 );
-create trigger set_cart_items_updated_at before update on cart_items for each row execute function set_updated_at();
+
+create trigger set_cart_items_updated_at
+before update on cart_items
+for each row execute function set_updated_at();
 
 create table if not exists checkouts (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
+  outlet_id uuid not null references outlets(id) on delete cascade,
   cart_id uuid not null references carts(id) on delete cascade,
   chat_id uuid null references chats(id) on delete set null,
   contact_id uuid not null references contacts(id) on delete cascade,
@@ -1977,47 +1873,47 @@ create table if not exists checkouts (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create trigger set_checkouts_updated_at before update on checkouts for each row execute function set_updated_at();
 
--- -----------------------------------------------------------------------------
--- Orders and order items
--- -----------------------------------------------------------------------------
+create trigger set_checkouts_updated_at
+before update on checkouts
+for each row execute function set_updated_at();
+
 create table if not exists orders (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
-  order_number text not null default generate_order_number('ORD'),
-  source order_source not null default 'telegram',
-  platform_id uuid null references platforms(id) on delete set null,
-  platform_type platform_type null,
+  outlet_id uuid not null references outlets(id) on delete cascade,
+  contact_id uuid not null references contacts(id) on delete cascade,
+  platform_id uuid not null references platforms(id) on delete cascade,
   chat_id uuid null references chats(id) on delete set null,
-  contact_id uuid null references contacts(id) on delete set null,
-  agent_id uuid null references agents(id) on delete set null,
   cart_id uuid null references carts(id) on delete set null,
   checkout_id uuid null references checkouts(id) on delete set null,
-  form_name text null,               -- legacy AI sales form compatibility
-  form_data jsonb not null default '{}'::jsonb,
+  order_number text not null default generate_order_number('ORD'),
+  source order_source not null default 'telegram',
   status order_status not null default 'pending_payment',
-  payment_status payment_status not null default 'pending',
-  currency text not null default 'IDR',
+  payment_status order_payment_status not null default 'unpaid',
+  fulfillment_status fulfillment_status not null default 'unfulfilled',
+  customer_name_snapshot text not null default '',
+  customer_phone_snapshot text null,
+  channel_snapshot text null,
   subtotal_amount numeric(14,2) not null default 0 check (subtotal_amount >= 0),
   discount_amount numeric(14,2) not null default 0 check (discount_amount >= 0),
-  shipping_amount numeric(14,2) not null default 0 check (shipping_amount >= 0),
+  delivery_fee numeric(14,2) not null default 0 check (delivery_fee >= 0),
   total_amount numeric(14,2) not null default 0 check (total_amount >= 0),
-  customer_name text null,
-  customer_phone text null,
-  customer_address text null,
+  currency text not null default 'IDR',
+  payment_method text null,
   notes text null,
+  form_data jsonb not null default '{}'::jsonb,
   payment_proof_file_id uuid null references files(id) on delete set null,
-  payment_proof_url text null,
   paid_at timestamptz null,
-  completed_at timestamptz null,
-  cancelled_at timestamptz null,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint orders_workspace_order_number_unique unique (workspace_id, order_number)
 );
-create trigger set_orders_updated_at before update on orders for each row execute function set_updated_at();
+
+create trigger set_orders_updated_at
+before update on orders
+for each row execute function set_updated_at();
 
 create table if not exists order_items (
   id uuid primary key default gen_random_uuid(),
@@ -2025,204 +1921,213 @@ create table if not exists order_items (
   order_id uuid not null references orders(id) on delete cascade,
   product_id uuid null references products(id) on delete set null,
   variant_id uuid null references product_variants(id) on delete set null,
-  product_name text not null,
-  variant_name text null,
-  sku text null,
-  quantity integer not null check (quantity > 0),
+  product_name_snapshot text not null,
+  variant_name_snapshot text null,
   unit_price numeric(14,2) not null check (unit_price >= 0),
-  currency text not null default 'IDR',
-  line_total numeric(14,2) not null check (line_total >= 0),
-  product_snapshot jsonb not null default '{}'::jsonb,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now()
-);
-
--- -----------------------------------------------------------------------------
--- Payments
--- -----------------------------------------------------------------------------
-create table if not exists payments (
-  id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
-  order_id uuid not null references orders(id) on delete cascade,
-  provider payment_provider not null default 'midtrans',
-  provider_order_id text not null,
-  provider_transaction_id text null,
-  provider_payment_type text null,
-  status payment_status not null default 'pending',
-  currency text not null default 'IDR',
-  amount numeric(14,2) not null check (amount >= 0),
-  payment_link_url text null,
-  snap_token text null,
-  raw_response jsonb not null default '{}'::jsonb,
-  expires_at timestamptz null,
-  paid_at timestamptz null,
-  cancelled_at timestamptz null,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint payments_provider_order_unique unique (workspace_id, provider, provider_order_id)
-);
-create trigger set_payments_updated_at before update on payments for each row execute function set_updated_at();
-
-create table if not exists payment_events (
-  id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
-  payment_id uuid null references payments(id) on delete set null,
-  order_id uuid null references orders(id) on delete set null,
-  provider payment_provider not null,
-  event_type text not null,
-  external_event_id text null,
-  provider_order_id text null,
-  provider_transaction_id text null,
-  status payment_status null,
-  signature_verified boolean not null default false,
-  payload jsonb not null default '{}'::jsonb,
-  processed_at timestamptz null,
-  error text null,
-  created_at timestamptz not null default now(),
-  constraint payment_events_external_unique unique (provider, external_event_id)
-);
-
--- -----------------------------------------------------------------------------
--- Complaints
--- -----------------------------------------------------------------------------
-create table if not exists complaints (
-  id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces(id) on delete cascade,
-  chat_id uuid null references chats(id) on delete set null,
-  contact_id uuid null references contacts(id) on delete set null,
-  agent_id uuid null references agents(id) on delete set null,
-  platform_type platform_type null,
-  text text not null default '',
-  form_data jsonb not null default '{}'::jsonb,
-  status complaint_status not null default 'open',
-  assigned_to uuid null references users(id) on delete set null,
-  resolved_at timestamptz null,
+  quantity integer not null check (quantity > 0),
+  subtotal_amount numeric(14,2) not null check (subtotal_amount >= 0),
+  notes text null,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create trigger set_complaints_updated_at before update on complaints for each row execute function set_updated_at();
 
--- Separate workspace knowledge file metadata retained for migration compatibility.
-create table if not exists knowledge_files (
+create trigger set_order_items_updated_at
+before update on order_items
+for each row execute function set_updated_at();
+
+create table if not exists order_events (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
-  file_id uuid null references files(id) on delete set null,
-  original_name text not null,
-  stored_name text not null,
-  mime_type text null,
-  size_bytes bigint null,
+  order_id uuid not null references orders(id) on delete cascade,
+  event_type text not null,
+  label text not null,
+  actor_type text not null default 'system',
+  actor_user_id uuid null references users(id) on delete set null,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+create table if not exists payment_provider_settings (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  provider payment_provider not null,
+  environment payment_provider_environment not null default 'sandbox',
+  merchant_id text null,
+  public_key text null,
+  server_key_encrypted text null,
+  webhook_secret_encrypted text null,
+  enabled_methods jsonb not null default '[]'::jsonb,
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint payment_provider_settings_unique unique (workspace_id, provider)
+);
+
+create trigger set_payment_provider_settings_updated_at
+before update on payment_provider_settings
+for each row execute function set_updated_at();
+
+create table if not exists payments (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  outlet_id uuid not null references outlets(id) on delete cascade,
+  order_id uuid not null references orders(id) on delete cascade,
+  contact_id uuid not null references contacts(id) on delete cascade,
+  provider payment_provider not null default 'midtrans',
+  method text null,
+  status payment_record_status not null default 'pending',
+  reconciliation_status reconciliation_status not null default 'unmatched',
+  amount numeric(14,2) not null check (amount >= 0),
+  provider_fee numeric(14,2) null check (provider_fee is null or provider_fee >= 0),
+  net_amount numeric(14,2) null check (net_amount is null or net_amount >= 0),
+  currency text not null default 'IDR',
+  payment_link text null,
+  provider_ref text null,
+  merchant_reference text null,
+  expires_at timestamptz null,
+  paid_at timestamptz null,
+  matched_at timestamptz null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create trigger set_payments_updated_at
+before update on payments
+for each row execute function set_updated_at();
+
+create table if not exists payment_attempts (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  payment_id uuid not null references payments(id) on delete cascade,
+  attempt_number integer not null check (attempt_number > 0),
+  status payment_record_status not null default 'pending',
+  method text null,
+  provider_ref text null,
+  payment_link text null,
+  created_at timestamptz not null default now(),
+  expired_at timestamptz null,
+  paid_at timestamptz null
+);
+
+create table if not exists payment_events (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  payment_id uuid not null references payments(id) on delete cascade,
+  event_type text not null,
+  label text not null default '',
+  raw_payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists complaints (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  outlet_id uuid null references outlets(id) on delete set null,
+  contact_id uuid null references contacts(id) on delete set null,
+  chat_id uuid null references chats(id) on delete set null,
+  platform_id uuid null references platforms(id) on delete set null,
+  channel platform_type null,
+  subject text not null,
+  description text null,
+  status complaint_status not null default 'open',
+  priority complaint_priority not null default 'medium',
+  assigned_to_user_id uuid null references users(id) on delete set null,
+  resolution_notes text null,
+  form_data jsonb not null default '{}'::jsonb,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create trigger set_complaints_updated_at
+before update on complaints
+for each row execute function set_updated_at();
 ```
-
-
----
 
 # File: sql/006_indexes.sql
 
 ```sql
 -- 006_indexes.sql
--- Query indexes for CRM, Telegram webhook, marketplace MVP, payments, and migration checks.
+-- Query indexes aligned to database-schema.md and query-contracts.md.
 
--- Identity
+-- Identity / access
 create unique index if not exists users_email_unique on users (email);
 create index if not exists users_workspace_id_idx on users (workspace_id);
 create index if not exists users_auth_user_id_idx on users (auth_user_id);
-create index if not exists users_workspace_role_idx on users (workspace_id, role);
+create index if not exists idx_outlets_workspace_id on outlets (workspace_id);
+create index if not exists idx_outlets_workspace_status on outlets (workspace_id, status);
+create index if not exists idx_user_workspace_memberships_user on user_workspace_memberships (user_id);
+create index if not exists idx_user_workspace_memberships_workspace on user_workspace_memberships (workspace_id);
+create index if not exists idx_user_outlet_access_user_workspace on user_outlet_access (user_id, workspace_id);
+create index if not exists idx_user_outlet_access_outlet on user_outlet_access (outlet_id);
+create unique index if not exists uq_workspace_settings_workspace on workspace_settings (workspace_id);
 
--- Platforms and agents
-create index if not exists platforms_workspace_id_idx on platforms (workspace_id);
-create index if not exists platforms_workspace_type_idx on platforms (workspace_id, type);
-create index if not exists platforms_account_lookup_idx on platforms (type, account_id) where account_id <> '';
-create index if not exists platforms_token_lookup_idx on platforms (type, token) where token <> '';
-create index if not exists platforms_enabled_idx on platforms (workspace_id, enabled);
+-- Platforms / agents
+create index if not exists idx_platforms_workspace_type_status on platforms (workspace_id, type, status);
+create index if not exists idx_platforms_account_lookup on platforms (type, account_id) where account_id is not null;
+create index if not exists idx_agents_workspace_id on agents (workspace_id);
+create index if not exists idx_agents_platform_id on agents (platform_id);
+create index if not exists idx_agent_outlets_agent on agent_outlets (agent_id);
+create index if not exists idx_agent_outlets_outlet on agent_outlets (outlet_id);
 
-create index if not exists agents_workspace_id_idx on agents (workspace_id);
-create index if not exists agents_platform_id_idx on agents (platform_id);
-create index if not exists agents_ai_commerce_idx on agents (workspace_id, ai_commerce_mode);
+-- CRM
+create index if not exists idx_contacts_workspace_platform_external on contacts (workspace_id, platform_id, external_id);
+create index if not exists idx_contacts_workspace_last_outlet on contacts (workspace_id, last_outlet_id);
+create index if not exists idx_contacts_tags_gin on contacts using gin (tags);
+create index if not exists idx_chats_workspace_platform_status on chats (workspace_id, platform_id, status);
+create index if not exists idx_chats_workspace_outlet_status on chats (workspace_id, current_outlet_id, status);
+create index if not exists idx_chats_last_message_at on chats (workspace_id, last_message_at desc nulls last);
+create index if not exists idx_chats_takeover_by on chats (workspace_id, taken_over_by_user_id);
+create index if not exists idx_chats_escalated on chats (workspace_id, is_escalated);
+create index if not exists idx_chat_messages_chat_created on chat_messages (chat_id, created_at desc);
+create index if not exists idx_chat_messages_platform_message_id on chat_messages (platform_message_id) where platform_message_id is not null;
 
-create index if not exists agent_knowledge_agent_idx on agent_knowledge (agent_id);
-create index if not exists agent_followups_agent_idx on agent_followups (agent_id);
-create index if not exists agent_database_files_agent_idx on agent_database_files (agent_id);
-create index if not exists agent_products_agent_idx on agent_products (agent_id);
-create index if not exists agent_sales_forms_agent_idx on agent_sales_forms (agent_id);
+-- Webhooks / AI audit
+create index if not exists idx_webhook_events_workspace on webhook_events (workspace_id, received_at desc);
+create index if not exists idx_webhook_events_status on webhook_events (status, received_at desc);
+create index if not exists idx_ai_actions_workspace_chat on ai_actions (workspace_id, chat_id, created_at desc);
 
--- CRM contacts/chats/messages
-create index if not exists contacts_workspace_id_idx on contacts (workspace_id);
-create index if not exists contacts_tags_gin_idx on contacts using gin (tags);
-create index if not exists contacts_name_trgm_idx on contacts using gin (name gin_trgm_ops);
-create index if not exists contacts_handle_trgm_idx on contacts using gin (handle gin_trgm_ops);
-
-create index if not exists chats_workspace_last_message_idx on chats (workspace_id, last_message_at desc nulls last);
-create index if not exists chats_contact_id_idx on chats (contact_id);
-create index if not exists chats_platform_contact_idx on chats (workspace_id, platform_id, contact_id);
-create index if not exists chats_takeover_by_idx on chats (workspace_id, takeover_by);
-create index if not exists chats_status_idx on chats (workspace_id, status);
-create index if not exists chats_unread_idx on chats (workspace_id, unread);
-create index if not exists chats_escalated_idx on chats (workspace_id, is_escalated);
-
-create index if not exists messages_chat_created_idx on messages (chat_id, created_at);
-create index if not exists messages_workspace_created_idx on messages (workspace_id, created_at desc);
-create index if not exists messages_platform_message_id_idx on messages (platform_message_id) where platform_message_id is not null;
-create index if not exists messages_reply_to_idx on messages (reply_to);
-create index if not exists messages_text_trgm_idx on messages using gin (text gin_trgm_ops);
-
-create index if not exists webhook_events_workspace_idx on webhook_events (workspace_id, received_at desc);
-create index if not exists webhook_events_status_idx on webhook_events (status, received_at desc);
-create index if not exists webhook_events_provider_type_idx on webhook_events (provider, event_type);
-create index if not exists ai_actions_workspace_chat_idx on ai_actions (workspace_id, chat_id, created_at desc);
-create index if not exists ai_actions_status_idx on ai_actions (workspace_id, status);
-
--- Files
-create index if not exists files_workspace_id_idx on files (workspace_id);
-create index if not exists files_source_idx on files (workspace_id, source);
-create index if not exists files_public_path_idx on files (public_path);
-create index if not exists files_mime_type_idx on files (workspace_id, mime_type);
-
--- Marketplace catalog
-create index if not exists product_categories_workspace_idx on product_categories (workspace_id, is_active, position);
-create index if not exists product_categories_parent_idx on product_categories (workspace_id, parent_id);
-create index if not exists products_workspace_status_idx on products (workspace_id, status, sort_order);
-create index if not exists products_category_idx on products (workspace_id, category_id, status);
-create index if not exists products_featured_idx on products (workspace_id, is_featured) where is_featured = true;
-create index if not exists products_name_trgm_idx on products using gin (name gin_trgm_ops);
-create index if not exists products_description_trgm_idx on products using gin (description gin_trgm_ops);
-create index if not exists products_tags_gin_idx on products using gin (tags);
-create index if not exists product_variants_product_idx on product_variants (product_id, is_active, sort_order);
-create index if not exists product_images_product_idx on product_images (product_id, position);
+-- Files / catalog
+create index if not exists idx_files_workspace_source on files (workspace_id, source);
+create index if not exists idx_product_categories_workspace_status on product_categories (workspace_id, status, sort_order);
+create index if not exists idx_products_workspace_status on products (workspace_id, is_active);
+create index if not exists idx_products_workspace_category on products (workspace_id, category_id);
+create index if not exists idx_product_variants_product on product_variants (product_id, is_active, sort_order);
+create index if not exists idx_product_outlet_availability_workspace_outlet on product_outlet_availability (workspace_id, outlet_id);
+create index if not exists idx_product_outlet_availability_product on product_outlet_availability (product_id);
+create index if not exists idx_product_outlet_availability_product_outlet on product_outlet_availability (product_id, outlet_id);
 
 -- Cart / checkout
-create index if not exists carts_contact_active_idx on carts (workspace_id, contact_id, status);
-create index if not exists carts_chat_active_idx on carts (workspace_id, chat_id, status);
-create index if not exists carts_expires_idx on carts (expires_at) where status = 'active';
-create index if not exists cart_items_cart_idx on cart_items (cart_id);
-create index if not exists checkouts_cart_idx on checkouts (cart_id);
-create index if not exists checkouts_status_idx on checkouts (workspace_id, status, created_at desc);
+create index if not exists idx_carts_workspace_contact_platform_outlet_status on carts (workspace_id, contact_id, platform_id, outlet_id, status);
+create index if not exists idx_cart_items_cart on cart_items (cart_id);
+create index if not exists idx_checkouts_cart on checkouts (cart_id);
+create index if not exists idx_checkouts_status on checkouts (workspace_id, status, created_at desc);
 
--- Orders/payments/complaints
-create index if not exists orders_workspace_status_created_idx on orders (workspace_id, status, created_at desc);
-create index if not exists orders_contact_created_idx on orders (workspace_id, contact_id, created_at desc);
-create index if not exists orders_chat_id_idx on orders (chat_id);
-create index if not exists orders_payment_status_idx on orders (workspace_id, payment_status, created_at desc);
-create index if not exists order_items_order_idx on order_items (order_id);
-create index if not exists order_items_product_idx on order_items (workspace_id, product_id);
+-- Orders / payments / complaints
+create index if not exists idx_orders_workspace_outlet_created on orders (workspace_id, outlet_id, created_at desc);
+create index if not exists idx_orders_workspace_status_created on orders (workspace_id, status, created_at desc);
+create index if not exists idx_orders_workspace_payment_status_created on orders (workspace_id, payment_status, created_at desc);
+create index if not exists idx_orders_contact_created on orders (contact_id, created_at desc);
+create index if not exists idx_order_items_order on order_items (order_id);
+create index if not exists idx_order_items_product on order_items (product_id);
+create index if not exists idx_order_events_order_created on order_events (order_id, created_at desc);
+create unique index if not exists uq_payment_provider_settings_workspace_provider on payment_provider_settings (workspace_id, provider);
+create index if not exists idx_payments_workspace_outlet_created on payments (workspace_id, outlet_id, created_at desc);
+create index if not exists idx_payments_workspace_status_created on payments (workspace_id, status, created_at desc);
+create index if not exists idx_payments_order on payments (order_id);
+create index if not exists idx_payments_provider_ref on payments (provider, provider_ref);
+create index if not exists idx_payment_attempts_payment_created on payment_attempts (payment_id, created_at desc);
+create index if not exists idx_payment_events_payment_created on payment_events (payment_id, created_at desc);
+create index if not exists idx_complaints_workspace_status_created on complaints (workspace_id, status, created_at desc);
+create index if not exists idx_complaints_outlet on complaints (workspace_id, outlet_id, status);
 
-create index if not exists payments_workspace_status_idx on payments (workspace_id, status, created_at desc);
-create index if not exists payments_order_idx on payments (order_id);
-create index if not exists payments_provider_transaction_idx on payments (provider, provider_transaction_id) where provider_transaction_id is not null;
-create index if not exists payment_events_payment_idx on payment_events (payment_id, created_at desc);
-create index if not exists payment_events_order_idx on payment_events (order_id, created_at desc);
-
-create index if not exists complaints_workspace_status_created_idx on complaints (workspace_id, status, created_at desc);
-create index if not exists complaints_chat_id_idx on complaints (chat_id);
-create index if not exists complaints_assigned_idx on complaints (workspace_id, assigned_to, status);
+-- Recommended partial unique index for one active cart per contact/outlet/platform:
+-- create unique index uq_carts_active_contact_outlet_platform
+-- on carts (workspace_id, outlet_id, contact_id, platform_id)
+-- where status = 'active';
 ```
-
-
----
 
 # File: sql/007_rls_policies.sql
 
@@ -2276,36 +2181,34 @@ $$;
 
 alter table workspaces enable row level security;
 alter table users enable row level security;
-alter table settings enable row level security;
+alter table workspace_settings enable row level security;
+alter table outlets enable row level security;
+alter table user_workspace_memberships enable row level security;
+alter table user_outlet_access enable row level security;
 alter table platforms enable row level security;
 alter table agents enable row level security;
-alter table agent_knowledge enable row level security;
-alter table agent_followups enable row level security;
-alter table agent_database_files enable row level security;
-alter table agent_complaint_fields enable row level security;
 alter table agent_outlets enable row level security;
-alter table agent_products enable row level security;
-alter table agent_sales_forms enable row level security;
-alter table agent_sales_form_fields enable row level security;
-alter table agent_sales_form_products enable row level security;
 alter table contacts enable row level security;
-alter table messages enable row level security;
+alter table chats enable row level security;
+alter table chat_messages enable row level security;
 alter table webhook_events enable row level security;
 alter table ai_actions enable row level security;
 alter table files enable row level security;
 alter table product_categories enable row level security;
 alter table products enable row level security;
 alter table product_variants enable row level security;
-alter table product_images enable row level security;
+alter table product_outlet_availability enable row level security;
 alter table carts enable row level security;
 alter table cart_items enable row level security;
 alter table checkouts enable row level security;
 alter table orders enable row level security;
 alter table order_items enable row level security;
+alter table order_events enable row level security;
+alter table payment_provider_settings enable row level security;
 alter table payments enable row level security;
+alter table payment_attempts enable row level security;
 alter table payment_events enable row level security;
 alter table complaints enable row level security;
-alter table knowledge_files enable row level security;
 
 
 -- Workspaces and users
@@ -2334,7 +2237,7 @@ using (
   workspace_id = public.current_workspace_id()
   and (
     public.current_app_role() in ('owner', 'super')
-    or takeover_by = public.current_app_user_id()
+    or taken_over_by_user_id = public.current_app_user_id()
   )
 );
 
@@ -2353,21 +2256,72 @@ using (workspace_id = public.current_workspace_id() and public.current_app_role(
 
 -- Product catalog can be readable by workspace users; customer-facing reads should go through backend.
 
-create policy "settings workspace select"
-on settings for select
+create policy "workspace_settings workspace select"
+on workspace_settings for select
 using (workspace_id = public.current_workspace_id());
 
-create policy "settings workspace insert"
-on settings for insert
+create policy "workspace_settings workspace insert"
+on workspace_settings for insert
 with check (workspace_id = public.current_workspace_id());
 
-create policy "settings workspace update"
-on settings for update
+create policy "workspace_settings workspace update"
+on workspace_settings for update
 using (workspace_id = public.current_workspace_id())
 with check (workspace_id = public.current_workspace_id());
 
-create policy "settings workspace delete"
-on settings for delete
+create policy "workspace_settings workspace delete"
+on workspace_settings for delete
+using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
+
+create policy "outlets workspace select"
+on outlets for select
+using (workspace_id = public.current_workspace_id());
+
+create policy "outlets workspace insert"
+on outlets for insert
+with check (workspace_id = public.current_workspace_id());
+
+create policy "outlets workspace update"
+on outlets for update
+using (workspace_id = public.current_workspace_id())
+with check (workspace_id = public.current_workspace_id());
+
+create policy "outlets workspace delete"
+on outlets for delete
+using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
+
+create policy "user_workspace_memberships workspace select"
+on user_workspace_memberships for select
+using (workspace_id = public.current_workspace_id());
+
+create policy "user_workspace_memberships workspace insert"
+on user_workspace_memberships for insert
+with check (workspace_id = public.current_workspace_id());
+
+create policy "user_workspace_memberships workspace update"
+on user_workspace_memberships for update
+using (workspace_id = public.current_workspace_id())
+with check (workspace_id = public.current_workspace_id());
+
+create policy "user_workspace_memberships workspace delete"
+on user_workspace_memberships for delete
+using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
+
+create policy "user_outlet_access workspace select"
+on user_outlet_access for select
+using (workspace_id = public.current_workspace_id());
+
+create policy "user_outlet_access workspace insert"
+on user_outlet_access for insert
+with check (workspace_id = public.current_workspace_id());
+
+create policy "user_outlet_access workspace update"
+on user_outlet_access for update
+using (workspace_id = public.current_workspace_id())
+with check (workspace_id = public.current_workspace_id());
+
+create policy "user_outlet_access workspace delete"
+on user_outlet_access for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
 create policy "platforms workspace select"
@@ -2404,74 +2358,6 @@ create policy "agents workspace delete"
 on agents for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
-create policy "agent_knowledge workspace select"
-on agent_knowledge for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_knowledge workspace insert"
-on agent_knowledge for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_knowledge workspace update"
-on agent_knowledge for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_knowledge workspace delete"
-on agent_knowledge for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "agent_followups workspace select"
-on agent_followups for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_followups workspace insert"
-on agent_followups for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_followups workspace update"
-on agent_followups for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_followups workspace delete"
-on agent_followups for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "agent_database_files workspace select"
-on agent_database_files for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_database_files workspace insert"
-on agent_database_files for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_database_files workspace update"
-on agent_database_files for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_database_files workspace delete"
-on agent_database_files for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "agent_complaint_fields workspace select"
-on agent_complaint_fields for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_complaint_fields workspace insert"
-on agent_complaint_fields for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_complaint_fields workspace update"
-on agent_complaint_fields for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_complaint_fields workspace delete"
-on agent_complaint_fields for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
 create policy "agent_outlets workspace select"
 on agent_outlets for select
 using (workspace_id = public.current_workspace_id());
@@ -2487,74 +2373,6 @@ with check (workspace_id = public.current_workspace_id());
 
 create policy "agent_outlets workspace delete"
 on agent_outlets for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "agent_products workspace select"
-on agent_products for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_products workspace insert"
-on agent_products for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_products workspace update"
-on agent_products for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_products workspace delete"
-on agent_products for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "agent_sales_forms workspace select"
-on agent_sales_forms for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_forms workspace insert"
-on agent_sales_forms for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_forms workspace update"
-on agent_sales_forms for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_forms workspace delete"
-on agent_sales_forms for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "agent_sales_form_fields workspace select"
-on agent_sales_form_fields for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_form_fields workspace insert"
-on agent_sales_form_fields for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_form_fields workspace update"
-on agent_sales_form_fields for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_form_fields workspace delete"
-on agent_sales_form_fields for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "agent_sales_form_products workspace select"
-on agent_sales_form_products for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_form_products workspace insert"
-on agent_sales_form_products for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_form_products workspace update"
-on agent_sales_form_products for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_form_products workspace delete"
-on agent_sales_form_products for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
 create policy "contacts workspace select"
@@ -2574,21 +2392,21 @@ create policy "contacts workspace delete"
 on contacts for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
-create policy "messages workspace select"
-on messages for select
+create policy "chat_messages workspace select"
+on chat_messages for select
 using (workspace_id = public.current_workspace_id());
 
-create policy "messages workspace insert"
-on messages for insert
+create policy "chat_messages workspace insert"
+on chat_messages for insert
 with check (workspace_id = public.current_workspace_id());
 
-create policy "messages workspace update"
-on messages for update
+create policy "chat_messages workspace update"
+on chat_messages for update
 using (workspace_id = public.current_workspace_id())
 with check (workspace_id = public.current_workspace_id());
 
-create policy "messages workspace delete"
-on messages for delete
+create policy "chat_messages workspace delete"
+on chat_messages for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
 create policy "webhook_events workspace select"
@@ -2693,21 +2511,21 @@ create policy "product_variants workspace delete"
 on product_variants for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
-create policy "product_images workspace select"
-on product_images for select
+create policy "product_outlet_availability workspace select"
+on product_outlet_availability for select
 using (workspace_id = public.current_workspace_id());
 
-create policy "product_images workspace insert"
-on product_images for insert
+create policy "product_outlet_availability workspace insert"
+on product_outlet_availability for insert
 with check (workspace_id = public.current_workspace_id());
 
-create policy "product_images workspace update"
-on product_images for update
+create policy "product_outlet_availability workspace update"
+on product_outlet_availability for update
 using (workspace_id = public.current_workspace_id())
 with check (workspace_id = public.current_workspace_id());
 
-create policy "product_images workspace delete"
-on product_images for delete
+create policy "product_outlet_availability workspace delete"
+on product_outlet_availability for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
 create policy "carts workspace select"
@@ -2795,6 +2613,40 @@ create policy "order_items workspace delete"
 on order_items for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
+create policy "order_events workspace select"
+on order_events for select
+using (workspace_id = public.current_workspace_id());
+
+create policy "order_events workspace insert"
+on order_events for insert
+with check (workspace_id = public.current_workspace_id());
+
+create policy "order_events workspace update"
+on order_events for update
+using (workspace_id = public.current_workspace_id())
+with check (workspace_id = public.current_workspace_id());
+
+create policy "order_events workspace delete"
+on order_events for delete
+using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
+
+create policy "payment_provider_settings workspace select"
+on payment_provider_settings for select
+using (workspace_id = public.current_workspace_id());
+
+create policy "payment_provider_settings workspace insert"
+on payment_provider_settings for insert
+with check (workspace_id = public.current_workspace_id());
+
+create policy "payment_provider_settings workspace update"
+on payment_provider_settings for update
+using (workspace_id = public.current_workspace_id())
+with check (workspace_id = public.current_workspace_id());
+
+create policy "payment_provider_settings workspace delete"
+on payment_provider_settings for delete
+using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
+
 create policy "payments workspace select"
 on payments for select
 using (workspace_id = public.current_workspace_id());
@@ -2810,6 +2662,23 @@ with check (workspace_id = public.current_workspace_id());
 
 create policy "payments workspace delete"
 on payments for delete
+using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
+
+create policy "payment_attempts workspace select"
+on payment_attempts for select
+using (workspace_id = public.current_workspace_id());
+
+create policy "payment_attempts workspace insert"
+on payment_attempts for insert
+with check (workspace_id = public.current_workspace_id());
+
+create policy "payment_attempts workspace update"
+on payment_attempts for update
+using (workspace_id = public.current_workspace_id())
+with check (workspace_id = public.current_workspace_id());
+
+create policy "payment_attempts workspace delete"
+on payment_attempts for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
 create policy "payment_events workspace select"
@@ -2845,27 +2714,7 @@ with check (workspace_id = public.current_workspace_id());
 create policy "complaints workspace delete"
 on complaints for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "knowledge_files workspace select"
-on knowledge_files for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "knowledge_files workspace insert"
-on knowledge_files for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "knowledge_files workspace update"
-on knowledge_files for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "knowledge_files workspace delete"
-on knowledge_files for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 ```
-
-
----
 
 # File: sql/008_local_file_storage.sql
 
@@ -2916,8 +2765,19 @@ for each row execute function set_updated_at();
 --   Database backup and uploads backup must be taken from the same time window.
 ```
 
+# File: sql/009_multi_workspace_outlet_foundation.sql
 
----
+```sql
+-- 009_multi_workspace_outlet_foundation.sql
+-- DEPRECATED: outlet/access/product_outlet_availability foundation now lives in:
+--   002_core_identity.sql
+--   005_orders_complaints_files.sql
+--
+-- Keep this file as a no-op placeholder for older migration manifests.
+-- Safe to run on fresh installs; does nothing.
+
+select 1;
+```
 
 # File: sql/009_migration_validation_queries.sql
 
@@ -2926,16 +2786,16 @@ for each row execute function set_updated_at();
 -- Non-destructive validation queries for staging and post-migration checks.
 -- Run manually after importing Mongo data and local file metadata.
 
--- Required references should be zero.
 select 'chats without workspace' as check_name, count(*) as count from chats where workspace_id is null;
-select 'messages without chat' as check_name, count(*) as count from messages where chat_id is null;
-select 'messages without workspace' as check_name, count(*) as count from messages where workspace_id is null;
+select 'chat_messages without chat' as check_name, count(*) as count from chat_messages where chat_id is null;
+select 'chat_messages without workspace' as check_name, count(*) as count from chat_messages where workspace_id is null;
 select 'orders without workspace' as check_name, count(*) as count from orders where workspace_id is null;
+select 'orders without outlet' as check_name, count(*) as count from orders where outlet_id is null;
 select 'complaints without workspace' as check_name, count(*) as count from complaints where workspace_id is null;
+select 'agents without workspace' as check_name, count(*) as count from agents where workspace_id is null;
 
--- Cross-workspace consistency checks should return zero rows.
-select m.id as message_id, m.workspace_id as message_workspace_id, c.workspace_id as chat_workspace_id
-from messages m
+select m.id as chat_message_id, m.workspace_id as message_workspace_id, c.workspace_id as chat_workspace_id
+from chat_messages m
 join chats c on c.id = m.chat_id
 where m.workspace_id <> c.workspace_id
 limit 50;
@@ -2952,11 +2812,58 @@ join orders o on o.id = oi.order_id
 where oi.workspace_id <> o.workspace_id
 limit 50;
 
--- Marketplace readiness counts.
 select 'products' as table_name, count(*) from products
 union all select 'product_variants', count(*) from product_variants
+union all select 'product_outlet_availability', count(*) from product_outlet_availability
 union all select 'carts', count(*) from carts
 union all select 'orders', count(*) from orders
+union all select 'order_events', count(*) from order_events
 union all select 'payments', count(*) from payments
-union all select 'payment_events', count(*) from payment_events;
+union all select 'payment_attempts', count(*) from payment_attempts
+union all select 'payment_events', count(*) from payment_events
+union all select 'agents', count(*) from agents
+union all select 'complaints', count(*) from complaints;
+```
+
+# File: manifest.json
+
+```json
+{
+  "package": "telegram-marketplace-data-migrations-v2",
+  "generated_for": "KALIS.AI / eskala-bot",
+  "purpose": "Canonical Supabase/Postgres migration pack aligned to docs/backend/06-data/database-schema.md",
+  "preserved_original_file_count": 14,
+  "files": [
+    "README.md",
+    "checklists/marketplace-mvp-checklist.md",
+    "checklists/post-migration-checklist.md",
+    "checklists/pre-migration-checklist.md",
+    "notes/cutover-plan.md",
+    "notes/data-backfill-order.md",
+    "notes/marketplace-schema-notes.md",
+    "notes/mongo-to-postgres-mapping.md",
+    "notes/payment-gateway-contract.md",
+    "notes/repository-layer-contract.md",
+    "notes/telegram-commerce-flow.md",
+    "sql/001_extensions_and_enums.sql",
+    "sql/002_core_identity.sql",
+    "sql/003_platforms_agents.sql",
+    "sql/004_crm_chats_messages.sql",
+    "sql/005_orders_complaints_files.sql",
+    "sql/006_indexes.sql",
+    "sql/007_rls_policies.sql",
+    "sql/008_local_file_storage.sql",
+    "sql/009_multi_workspace_outlet_foundation.sql",
+    "sql/009_migration_validation_queries.sql"
+  ],
+  "notes": [
+    "Supabase/Postgres structured data",
+    "Local server filesystem for large media",
+    "CRM compatibility preserved",
+    "Canonical names: workspace_settings, chat_messages, taken_over_by_user_id",
+    "Marketplace MVP and operational tables added",
+    "009_multi_workspace_outlet_foundation.sql is deprecated because its foundation is covered by 002/005",
+    "AI commerce guardrails and webhook idempotency included"
+  ]
+}
 ```

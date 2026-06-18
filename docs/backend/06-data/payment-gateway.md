@@ -2,6 +2,8 @@
 
 Dokumen ini menjelaskan rancangan payment gateway untuk Telegram-first Marketplace MVP.
 
+Canonical status values live in `database-schema.md` under **Status Reference**.
+
 ## MVP Recommendation
 
 Start with:
@@ -21,15 +23,19 @@ Order -> Payment -> Provider Transaction -> Payment URL -> Customer Pays -> Prov
 ## Tables
 
 ```txt
+payment_provider_settings
 orders
+order_items
+order_events
 payments
+payment_attempts
 payment_events
-webhook_events optional
+webhook_events
 ```
 
 ## Statuses
 
-Internal payment status:
+Internal payment record status (`payments.status`):
 
 ```txt
 pending
@@ -38,38 +44,79 @@ failed
 expired
 cancelled
 refunded
-partial_refund
+```
+
+Order payment status (`orders.payment_status`):
+
+```txt
+unpaid
+pending
+paid
+failed
+expired
+refunded
+```
+
+Order lifecycle status (`orders.status`):
+
+```txt
+new
+accepted
+preparing
+ready
+completed
+cancelled
+```
+
+Fulfillment status (`orders.fulfillment_status`):
+
+```txt
+unfulfilled
+preparing
+ready
+fulfilled
+cancelled
 ```
 
 Provider-specific status is stored in:
 
 ```txt
-payment_events.transaction_status
-payment_events.payload
-payments.raw_response
+payment_events.raw_payload
+payments.metadata
 ```
 
 ## Order Status vs Payment Status
 
+Important rule:
+
+```txt
+orders.status != orders.payment_status
+orders.fulfillment_status tracks kitchen/ops progress separately
+```
+
 Examples:
 
 ```txt
-orders.status = pending_payment
-orders.payment_status = pending
+Checkout confirmed:
+  orders.status = new
+  orders.payment_status = pending
+  orders.fulfillment_status = unfulfilled
 ```
 
 After payment success:
 
 ```txt
-orders.status = paid
+payments.status = paid
 orders.payment_status = paid
+orders.status = accepted
 orders.paid_at = now()
 ```
 
 When admin starts fulfillment:
 
 ```txt
-orders.status = processing
+orders.status = preparing
+orders.fulfillment_status = preparing
 orders.payment_status = paid
 ```
 
@@ -77,10 +124,12 @@ orders.payment_status = paid
 
 ```txt
 Checkout confirmed
--> create order pending_payment
+-> create order new with payment_status pending
 -> create order_items
--> call provider
+-> insert order_events(created)
+-> call provider using payment_provider_settings
 -> insert payments row
+-> insert payment_attempts row
 -> send payment URL to Telegram
 ```
 
@@ -119,33 +168,34 @@ Never expose server keys to frontend.
 
 ```txt
 Provider webhook
--> insert payment_events row
--> verify signature
+-> insert webhook_events / payment_events row
+-> verify signature using payment_provider_settings.webhook_secret_encrypted
 -> find order/payment
 -> map provider status
 -> update payments.status
--> update orders.payment_status/status
+-> update orders.payment_status and lifecycle status when appropriate
+-> insert order_events(paid)
 -> notify Telegram
 ```
 
 Invalid signature:
 
 ```txt
-payment_events.signature_valid=false
+payment_events.raw_payload.signature_valid=false
 no order/payment update
 ```
 
 ## Status Mapping
 
-| Provider Status | Payment Status | Order Status |
-|---|---|---|
-| pending | pending | pending_payment |
-| settlement | paid | paid |
-| capture accepted | paid | paid |
-| expire | expired | expired |
-| cancel | cancelled | cancelled |
-| deny/failure | failed | failed |
-| refund | refunded | refunded |
+| Provider Status | payments.status | orders.payment_status | orders.status |
+|---|---|---|---|
+| pending | pending | pending | new |
+| settlement | paid | paid | accepted |
+| capture accepted | paid | paid | accepted |
+| expire | expired | expired | new |
+| cancel | cancelled | failed | cancelled |
+| deny/failure | failed | failed | new |
+| refund | refunded | refunded | cancelled |
 
 ## Idempotency
 
@@ -176,8 +226,8 @@ Existing manual QRIS/proof can stay as fallback:
 
 ```txt
 provider=manual
-payment_proof_file_id
-payment_status updated by admin
+orders.payment_proof_file_id
+orders.payment_status updated by admin
 ```
 
 But gateway webhook should be preferred.

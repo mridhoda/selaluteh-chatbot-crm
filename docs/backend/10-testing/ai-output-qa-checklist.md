@@ -20,6 +20,9 @@ Memastikan output AI aman, berguna, dan tidak merusak state bisnis.
 - [ ] AI tidak membuat order final tanpa konfirmasi user.
 - [ ] AI tidak bypass cart/checkout service.
 - [ ] AI menjelaskan total berdasarkan backend-provided summary.
+- [ ] AI action yang mengubah state bisnis tercatat di `ai_actions`.
+- [ ] Backend menolak action restricted seperti `mark_payment_paid` atau `override_payment_status`.
+- [ ] Commerce action seperti `add_to_cart` dan `start_checkout` membawa outlet context.
 
 ## Human Handoff
 

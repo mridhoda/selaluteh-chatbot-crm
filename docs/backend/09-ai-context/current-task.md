@@ -1,63 +1,27 @@
+---
+schema_version: 2
+document_type: active-task-pointer
+status: idle
+updated_at: 2026-06-18
+---
+
 # Current Task
 
-Dokumen ini mendefinisikan prioritas kerja saat ini untuk AI coding agent.
+All tasks for Section 24 (Supabase/Postgres Cutover and Legacy Mongo Removal) are fully completed. MongoDB and Mongoose have been completely removed from the runtime, services, routes, and testing infrastructure.
 
-## Current Objective
+## Objective
 
-Mengubah backend existing dari **Chatbot CRM** menjadi fondasi aman untuk **Telegram-first Marketplace MVP**, tanpa merusak fitur existing.
+The backend is now running 100% on Supabase/Postgres. All legacy MongoDB dependencies, connection hooks, repository implementations, Mongoose models, and local test helpers (like `MongoMemoryServer`) have been deleted.
 
-## Recommended Current Sprint
+## Completed Scope
 
-### Sprint 0 — Stabilization & Marketplace Foundation
+### Task 24 — Supabase/Postgres Cutover and Legacy Mongo Removal — COMPLETE
 
-Goal:
+Completed on 2026-06-18. All sub-tasks 24.1–24.19 are fully complete:
+- Migrated all domains: Workspaces, Users, Memberships, Outlets, Outlet Access, Platforms, Webhooks, Contacts, Chats, Messages, Human Takeover, Products, Availability, Carts, Checkout, Orders, Payments, Complaints, Settings, Files, Agents, AI Actions.
+- Removed legacy MongoDB/Mongoose database configuration, Mongoose model files, and database initialization.
+- Removed `mongoose` and `mongodb-memory-server` from `package.json`.
+- Restructured all repository files to be Supabase-only.
+- Verified test suite passes: `96 pass, 0 fail, 17 skipped` (skipped tests are migration stubs waiting for new Integration environment setup).
+- Verified `npm run specs:check` passes successfully.
 
-```txt
-Backend existing tetap berjalan, security risk utama dibereskan, dan data model/service boundary siap untuk product/cart/order/payment.
-```
-
-### Priority Tasks
-
-1. Secure `orders` routes dengan auth dan workspace scope.
-2. Secure `complaints` routes dengan auth dan workspace scope.
-3. Remove/protect public diagnostic user routes.
-4. Mount atau putuskan status `settings` route.
-5. Tambahkan webhook idempotency plan/model.
-6. Tambahkan repository layer skeleton.
-7. Tambahkan product catalog module.
-8. Tambahkan cart module.
-9. Tambahkan Telegram inline keyboard helper.
-10. Tambahkan payment provider abstraction untuk sandbox.
-
-## Do First
-
-Sebelum menambahkan fitur besar, pastikan:
-
-- app masih bisa login,
-- dashboard bisa load,
-- Telegram webhook masih bisa menerima pesan,
-- human takeover masih menghentikan AI,
-- message history masih tersimpan.
-
-## Do Not Do Yet
-
-Jangan dulu implement:
-
-- multi-seller,
-- wallet seller,
-- payout seller,
-- voucher kompleks,
-- shipping aggregator,
-- refund automation,
-- production payment live mode.
-
-## Acceptance Criteria
-
-Task dianggap selesai jika:
-
-- existing CRM behavior tidak rusak,
-- endpoint baru workspace-scoped,
-- Telegram user bisa minimal melihat product list,
-- cart bisa dibuat secara deterministic,
-- order tidak dibuat langsung dari AI tanpa validasi backend,
-- docs/API/schema yang berubah ikut diperbarui.

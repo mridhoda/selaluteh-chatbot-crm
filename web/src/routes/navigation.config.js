@@ -6,6 +6,7 @@ export const navigationGroups = [
       { label: 'Orders', path: '/app/orders', key: 'orders' },
       { label: 'Products', path: '/app/products', key: 'products' },
       { label: 'Outlets', path: '/app/outlets', key: 'outlets' },
+      { label: 'Payments', path: '/app/payments', key: 'payments' },
     ],
   },
   {

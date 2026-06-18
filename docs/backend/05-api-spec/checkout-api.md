@@ -68,7 +68,8 @@ Create pending order from checkout.
   "success": true,
   "data": {
     "order_id": "019...",
-    "status": "pending_payment",
+    "status": "new",
+    "payment_status": "pending",
     "total_amount": 50000,
     "currency": "IDR"
   }

@@ -1,12 +1,14 @@
 import express from 'express';
 import path from 'path';
 import { promises as fs } from 'fs';
-import Platform from '../../models/Platform.js';
-import Agent from '../../models/Agent.js';
-import Chat from '../../models/Chat.js';
-import Message from '../../models/Message.js';
-import Contact from '../../models/Contact.js';
-import { generateAIReply, findAndSendFile, transcribeAudio } from '../../services/ai.js';
+import {
+  platformsSupabaseRepository,
+  agentsSupabaseRepository,
+  contactsSupabaseRepository,
+  chatsSupabaseRepository,
+  messagesSupabaseRepository,
+} from '../../db/repositories/index.js';
+import { generateAIReply, findAndSendFile, transcribeAudio } from '../../services/ai.service.js';
 import { openaiClient, geminiClient } from '../../services/aiClient.js';
 import {
   tgSend,
@@ -18,6 +20,19 @@ import {
 } from '../../services/sender.js';
 import { findDatabaseFileMention, findUrlFileMention } from '../../utils/fileMentions.js';
 import { downloadFile } from '../../utils/downloader.js';
+import { recordInboundMessage, recordOutboundMessage } from '../../services/chat-message.service.js';
+import {
+  beginWebhookEvent,
+  getTelegramEventId,
+  markWebhookFailed,
+  markWebhookProcessed,
+} from '../../services/webhook-idempotency.service.js';
+import {
+  buildOutletSelectionMessage,
+  handleTelegramCommerceAction,
+  parseTelegramAction,
+} from '../../services/telegram-commerce.service.js';
+import { normalizeTelegramUpdate } from '../../integrations/telegram/telegram-parser.js';
 
 const router = express.Router();
 
@@ -61,27 +76,21 @@ async function saveTelegramFileLocally({
 
 router.post('/:token?', async (req, res) => {
   res.sendStatus(200);
+  let webhookEvent = null;
 
   try {
     const update = req.body || {};
     console.log('[telegram] update:', JSON.stringify(update));
 
-    const msgObj =
-      update.message ||
-      update.edited_message ||
-      (update.callback_query && update.callback_query.message);
+    const normalized = normalizeTelegramUpdate(update);
+    const msgObj = normalized?.message;
 
     if (!msgObj) {
       console.warn('[telegram] update without message, skipping');
       return;
     }
 
-    let text =
-      update.message?.text ||
-      update.edited_message?.text ||
-      update.callback_query?.data ||
-      msgObj.caption ||
-      '';
+    let text = normalized.text;
 
     const chatId = msgObj?.chat?.id;
     if (!chatId) return;
@@ -90,23 +99,32 @@ router.post('/:token?', async (req, res) => {
     let platform;
 
     if (tokenParam) {
-      platform = await Platform.findOne({
-        type: 'telegram',
-        token: tokenParam,
-      });
+      platform = await platformsSupabaseRepository.findByToken({ type: 'telegram', token: tokenParam });
       if (!platform) {
         console.warn(`[telegram] no platform found for token: ${tokenParam}`);
         return;
       }
     } else {
-      platform = await Platform.findOne({
-        type: 'telegram',
-        token: { $exists: true, $ne: '' },
-      }).sort({ createdAt: -1 });
+      platform = await platformsSupabaseRepository.findLatestByType({ type: 'telegram' });
     }
 
     if (!platform) {
       console.warn('[telegram] no platform/token found');
+      return;
+    }
+
+    const webhookResult = await beginWebhookEvent({
+      provider: 'telegram',
+      eventType: normalized.eventType,
+      externalEventId: getTelegramEventId(update),
+      workspaceId: platform.workspaceId,
+      platformId: platform.id,
+      payload: update,
+      signatureValid: tokenParam ? tokenParam === platform.token : null,
+    });
+    webhookEvent = webhookResult.event;
+    if (webhookResult.duplicate) {
+      console.log('[telegram] duplicate webhook ignored:', getTelegramEventId(update));
       return;
     }
 
@@ -180,104 +198,93 @@ router.post('/:token?', async (req, res) => {
       }
     }
 
-    let agent = await Agent.findOne({ platformId: platform._id });
-    if (!agent) {
-      agent = await Agent.findOne({ workspaceId: platform.workspaceId }).sort({
-        createdAt: 1,
-      });
-    }
+    // Find agent for this platform (by platformId, fallback to any agent in workspace)
+    const workspaceAgents = await agentsSupabaseRepository.list({ workspaceId: platform.workspaceId });
+    let agent = workspaceAgents.find((a) => a.platformId === platform.id);
+    if (!agent) agent = workspaceAgents[0] || null;
     const system = agent?.behavior || 'You are a helpful assistant.';
     const prompt = agent?.prompt || '';
     const welcome = agent?.welcomeMessage || 'Halo! Ada yang bisa saya bantu?';
 
-    let contact = await Contact.findOne({
-      userId: platform.userId,
-      platformAccountId: String(chatId),
-    });
-    if (!contact) {
-      const from = msgObj?.chat || {};
-      const name =
-        [from.first_name, from.last_name].filter(Boolean).join(' ') ||
-        from.username ||
-        `User ${chatId}`;
-      contact = await Contact.create({
-        userId: platform.userId,
-        workspaceId: platform.workspaceId,
-        name,
-        platformType: 'telegram',
-        platformAccountId: String(chatId),
-        handle: from.username ? `@${from.username}` : '',
-        lastSeen: new Date(),
-      });
-    }
+    // Upsert contact by platform identity
+    const from = msgObj?.chat || {};
+    const contactName = [from.first_name, from.last_name].filter(Boolean).join(' ') || from.username || `User ${chatId}`;
+    const contact = await contactsSupabaseRepository.upsertByProviderIdentity(
+      platform.workspaceId,
+      platform.id,
+      String(chatId),
+      { name: contactName, handle: from.username ? `@${from.username}` : null },
+    );
 
-    let chat = await Chat.findOne({
-      userId: platform.userId,
-      platformId: platform._id,
-      contactId: contact._id,
+    // Upsert chat by platform + contact
+    const chat = await chatsSupabaseRepository.upsertByPlatformContact({
+      workspaceId: platform.workspaceId,
+      platformId: platform.id,
+      contactId: contact.id,
+      data: {
+        agent_id: agent?.id || null,
+        last_message_at: new Date().toISOString(),
+      },
     });
-    const isNewChat = !chat;
-    if (!chat) {
-      chat = await Chat.create({
-        userId: platform.userId,
-        workspaceId: platform.workspaceId,
-        platformId: platform._id,
-        platformType: 'telegram',
-        contactId: contact._id,
-        agentId: agent?._id || null,
-        lastMessageAt: new Date(),
-      });
-    } else if (!chat.agentId && agent) {
-      chat.agentId = agent._id;
-      await chat.save();
-    }
+    const isNewChat = !chat.updatedAt || (new Date(chat.createdAt).getTime() > Date.now() - 2000);
+
+    const commerceAction = parseTelegramAction(update.callback_query?.data || '');
 
     let userMessage = null;
     if (text || incomingAttachment) {
       // Check if this is a reply to another message
       let replyTo = null;
       const replyToMessage = msgObj.reply_to_message;
-      if (replyToMessage && replyToMessage.message_id) {
+      if (replyToMessage?.message_id) {
         // Find the original message by platformMessageId
-        const originalMsg = await Message.findOne({
-          platformMessageId: String(replyToMessage.message_id),
-          chatId: chat._id
-        });
-        if (originalMsg) {
-          replyTo = originalMsg._id;
-        }
+        const originalMsg = await messagesSupabaseRepository.findByPlatformId(
+          platform.workspaceId,
+          String(replyToMessage.message_id),
+        );
+        if (originalMsg) replyTo = originalMsg.id;
       }
 
-      userMessage = await Message.create({
-        chatId: chat._id,
+      userMessage = await recordInboundMessage({
+        chat,
         workspaceId: platform.workspaceId,
-        from: 'user',
         text: text || '',
         attachment: incomingAttachment,
-        platformMessageId: String(msgObj.message_id), // Store Telegram message_id
-        replyTo: replyTo, // Link to replied message
-        createdAt: new Date(),
+        platformMessageId: String(msgObj.message_id),
+        replyTo,
       });
-      await Chat.updateOne(
-        { _id: chat._id },
-        {
-          $set: {
-            lastMessageAt: new Date(),
-            status: 'open',
-            isEscalated: false
-          },
-          $inc: { unread: 1 }
-        },
-      );
     }
 
-    if (chat.takeoverBy) {
-      console.log(
-        `[telegram] chat ${chat._id} is handled by human (takeoverBy: ${chat.takeoverBy}), skipping AI reply.`,
-      );
+    if (commerceAction) {
+      const commerceResponse = await handleTelegramCommerceAction({
+        action: commerceAction,
+        workspaceId: platform.workspaceId,
+        chat,
+        contact,
+        agent,
+        chatMessageId: userMessage?.id || null,
+      });
+
+      if (commerceResponse) {
+        await tgSend(platform.token, chatId, commerceResponse.text, null, { replyMarkup: commerceResponse.keyboard });
+        await recordOutboundMessage({
+          chatId: chat.id,
+          workspaceId: platform.workspaceId,
+          from: 'ai',
+          text: commerceResponse.text,
+        });
+        await markWebhookProcessed(webhookEvent);
+        return;
+      }
+    }
+
+    // Human takeover check
+    if (chat.takenOverByUserId || chat.takeoverBy) {
+      const takeoverUser = chat.takenOverByUserId || chat.takeoverBy;
+      console.log(`[telegram] chat ${chat.id} is handled by human (takeoverBy: ${takeoverUser}), skipping AI reply.`);
+      await markWebhookProcessed(webhookEvent);
       return;
     } else {
-      console.log(`[telegram] chat ${chat._id} is NOT handled by human (takeoverBy: ${chat.takeoverBy}), proceeding to AI reply.`);
+      console.log(`[telegram] chat ${chat.id} is NOT handled by human, proceeding to AI reply.`);
     }
 
     // Send welcome message for new chats, but not for /start command
@@ -286,16 +293,19 @@ router.post('/:token?', async (req, res) => {
     if (isNewChat && !isStartCommand) {
       const processedWelcome = welcome.replace('{{name}}', contact.name);
       try {
-        await tgSend(platform.token, chatId, processedWelcome);
+        await tgSend(platform.token, chatId, processedWelcome, null, { replyMarkup: null });
       } catch (e) {
         console.error('[telegram] Failed to send welcome message:', e);
       }
-      await Message.create({
-        chatId: chat._id,
+      await messagesSupabaseRepository.create({
         workspaceId: platform.workspaceId,
-        from: 'ai',
-        text: processedWelcome,
-        createdAt: new Date(),
+        chatId: chat.id,
+        platformId: platform.id,
+        contactId: contact.id,
+        senderType: 'ai',
+        direction: 'outbound',
+        messageType: 'text',
+        content: processedWelcome,
       });
 
       if (agent && agent.stickerUrl) {
@@ -311,15 +321,21 @@ router.post('/:token?', async (req, res) => {
 
     // Handle /start command specially
     if (isStartCommand) {
-      const processedWelcome = welcome.replace('{{name}}', contact.name);
+      const outletSelection = !chat.currentOutletId
+        ? await buildOutletSelectionMessage({ workspaceId: platform.workspaceId })
+        : null;
+      const processedWelcome = outletSelection?.text || welcome.replace('{{name}}', contact.name);
       try {
         await tgSend(platform.token, chatId, processedWelcome);
-        await Message.create({
-          chatId: chat._id,
+        await messagesSupabaseRepository.create({
           workspaceId: platform.workspaceId,
-          from: 'ai',
-          text: processedWelcome,
-          createdAt: new Date(),
+          chatId: chat.id,
+          platformId: platform.id,
+          contactId: contact.id,
+          senderType: 'ai',
+          direction: 'outbound',
+          messageType: 'text',
+          content: processedWelcome,
         });
 
         if (agent && agent.stickerUrl) {
@@ -333,6 +349,7 @@ router.post('/:token?', async (req, res) => {
       } catch (e) {
         console.error('[telegram] Failed to send welcome message for /start:', e);
       }
+      await markWebhookProcessed(webhookEvent);
       return; // Don't process /start as a regular message
     }
 
@@ -371,23 +388,20 @@ router.post('/:token?', async (req, res) => {
             );
           }
         }
-        await Message.create({
-          chatId: chat._id,
+        await recordOutboundMessage({
+          chatId: chat.id,
           workspaceId: platform.workspaceId,
           from: 'ai',
           text: replyText,
           attachment: fileResponse.attachment || null,
-          createdAt: new Date(),
         });
+        await markWebhookProcessed(webhookEvent);
         return;
       }
 
       let reply;
       try {
-        const history = await Message.find({ chatId: chat._id })
-          .sort({ createdAt: -1 })
-          .limit(10);
-        history.reverse();
+        const history = await messagesSupabaseRepository.listByChatId(chat.id, { limit: 10 });
         reply = await generateAIReply({
           system,
           prompt,
@@ -440,10 +454,9 @@ router.post('/:token?', async (req, res) => {
           }
         }
 
-        const savedText =
-          cleanedText || altText || replyText || 'Lampiran terkirim.';
-        await Message.create({
-          chatId: chat._id,
+        const savedText = cleanedText || altText || replyText || 'Lampiran terkirim.';
+        await recordOutboundMessage({
+          chatId: chat.id,
           workspaceId: platform.workspaceId,
           from: 'ai',
           text: savedText,
@@ -453,10 +466,12 @@ router.post('/:token?', async (req, res) => {
               filename: file.originalName || file.storedName,
             }
             : null,
-          createdAt: new Date(),
         });
 
-        if (documentSent) return;
+        if (documentSent) {
+          await markWebhookProcessed(webhookEvent);
+          return;
+        }
       }
 
       // Check for external file URL mention
@@ -496,18 +511,15 @@ router.post('/:token?', async (req, res) => {
           fs.unlink(filePath).catch(err => console.error('[telegram] Failed to delete temp file:', err));
 
           // Save message
-          await Message.create({
-            chatId: chat._id,
+          await recordOutboundMessage({
+            chatId: chat.id,
             workspaceId: platform.workspaceId,
             from: 'ai',
             text: caption || 'File sent',
-            attachment: {
-              url: url,
-              filename: originalName,
-            },
-            createdAt: new Date(),
+            attachment: { url, filename: originalName },
           });
 
+          await markWebhookProcessed(webhookEvent);
           return; // Stop processing, file sent
         } catch (e) {
           console.error('[telegram] Failed to send external file:', e);
@@ -531,17 +543,18 @@ router.post('/:token?', async (req, res) => {
       }
 
       if (replyText || attachment) {
-        await Message.create({
-          chatId: chat._id,
+        await recordOutboundMessage({
+          chatId: chat.id,
           workspaceId: platform.workspaceId,
           from: 'ai',
           text: replyText || '[Attachment]',
           attachment,
-          createdAt: new Date(),
         });
       }
     }
+    await markWebhookProcessed(webhookEvent);
   } catch (err) {
+    await markWebhookFailed(webhookEvent, err);
     console.error('Webhook /telegram error:', err);
   }
 });

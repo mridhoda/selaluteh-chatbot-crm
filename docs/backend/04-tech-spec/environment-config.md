@@ -11,7 +11,7 @@ Generated: 2026-06-11
 
 - Keep secrets out of source code.
 - Make local/staging/production explicit.
-- Support Mongo-to-Supabase transition.
+- Support Supabase/Postgres runtime.
 - Support Telegram, AI, payment gateway, local storage.
 
 ## Backend Required Env
@@ -21,35 +21,29 @@ NODE_ENV=development
 PORT=5000
 CORS_ORIGIN=http://localhost:5173
 PUBLIC_BASE_URL=http://localhost:5000
-JWT_SECRET=change_me
+JWT_SECRET=change-me-dev-only
 ```
 
 ## Database Env
 
-During transition:
+Supabase/Postgres is the backend runtime target:
 
 ```env
-MONGODB_URI=mongodb://localhost:27017/chatbot_crm
-DATABASE_PROVIDER=mongo
-```
-
-Target:
-
-```env
-DATABASE_PROVIDER=supabase
-SUPABASE_URL=https://project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<server-only>
+DATA_SOURCE=supabase
+SUPABASE_URL=https://hxeljduldgynligjioff.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<server-only-service-role-key>
+SUPABASE_DATABASE_URL=<server-only-postgres-connection-string>
 SUPABASE_ANON_KEY=<optional-client-safe>
 ```
 
-Never expose `SUPABASE_SERVICE_ROLE_KEY` to frontend.
+Never expose `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_DATABASE_URL` to frontend, Git, logs, screenshots, or generated docs with real secret values.
 
 ## AI Env
 
 ```env
-OPENAI_API_KEY=
+OPENAI_API_KEY=<openai-api-key>
 OPENAI_MODEL=gpt-4o-mini
-GOOGLE_API_KEY=
+GOOGLE_API_KEY=<google-api-key>
 GEMINI_MODEL=gemini-2.5-flash
 AI_PRIMARY_PROVIDER=openai
 AI_SECONDARY_PROVIDER=gemini

@@ -1,0 +1,943 @@
+# SelaluTeh Backend Marketplace Specification
+#
+# This file intentionally keeps the full project context.
+# `status` controls the physical bucket folder.
+# `workflow_state` controls the internal progress state.
+# Cross-folder references use repository-root-relative paths.
+#
+schema_version: 2
+spec_version: 1.2.0
+id: general-backend
+title: SelaluTeh Chatbot CRM & Telegram Marketplace Backend
+description: Requirements-first specification untuk memodernisasi backend CRM chatbot SelaluTeh menjadi Telegram-first
+  marketplace yang mendukung multi-outlet, product catalog, cart, checkout, orders, payment gateway, verified payment
+  webhooks, human takeover, AI guardrails, inventory readiness, dan fondasi future multi-workspace atau franchise-owner
+  tanpa melakukan big-bang rewrite.
+type: feature
+workflow: requirements-first
+status: active
+workflow_state: in_progress
+priority: high
+created_at: '2026-06-17'
+updated_at: '2026-06-17'
+lifecycle:
+  config: specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: specs/active/general-backend
+  move_entire_spec_directory: true
+  repository_root_relative_paths: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    check_command: npm run specs:check
+    sync_command: npm run specs:sync
+    dry_run_command: npm run specs:sync:dry
+    automatic_on_file_save: false
+    automatic_local_folder_move: false
+    manual_sync_required_after_status_change: true
+    ci_check_only: true
+    ci_must_not_move_or_commit_files: true
+    index_path: specs/SPECS-INDEX.md
+  completion_requirements:
+  - all-required-tasks-completed
+  - definition-of-done-passed
+  - critical-tests-passed
+  - documentation-updated
+  - implementation-status-updated
+  - progress-log-updated
+  - current-task-pointer-updated
+  - specs-check-passed
+spec_registry:
+  root: specs
+  config: specs/specs.config.yaml
+  index: specs/SPECS-INDEX.md
+  template: specs/_templates/feature
+  buckets:
+    backlog: specs/backlog
+    active: specs/active
+    completed: specs/completed
+  required_files:
+  - spec.yaml
+  - requirements.md
+  - design.md
+  - tasks.md
+product:
+  name: SelaluTeh Marketplace
+  project_context: KALIS.AI / Selalu Teh Marketplace
+  area: backend
+  stage: mvp-modernization
+  primary_channel: telegram
+  future_channels:
+  - whatsapp
+  - instagram
+  - web
+  existing_product: chatbot-crm
+  target_product: chatbot-crm-with-channel-commerce
+scope:
+  included:
+  - existing-crm-preservation
+  - workspace-and-membership
+  - multi-outlet
+  - outlet-access-control
+  - connected-platforms
+  - webhook-idempotency
+  - contacts-chats-messages
+  - human-takeover
+  - ai-agent-guardrails
+  - product-catalog
+  - product-availability-per-outlet
+  - cart
+  - checkout
+  - orders
+  - payment-links
+  - verified-payment-webhooks
+  - payment-events
+  - notifications
+  - local-file-storage
+  - audit-logging
+  - testing
+  - observability
+  - migration-readiness
+  deferred:
+  - full-inventory-quantity-tracking
+  - stock-transfer
+  - standalone-payment-reconciliation-ui
+  - whatsapp-checkout
+  - automated-refunds
+  - settlement-and-payout-monitoring
+  - durable-distributed-queue
+  - postgres-production-cutover
+  - multi-workspace-switcher-ui
+  excluded:
+  - multi-seller-marketplace
+  - seller-wallet
+  - commission-splitting
+  - franchise-payout-automation
+  - advanced-accounting-ledger
+  - chargeback-management
+  - public-web-storefront
+  - complex-promotion-engine
+  - multi-currency
+  - erp-replacement
+  - microservices-rewrite
+  - kubernetes-requirement
+mvp_context:
+  workspace_model: one-workspace-many-outlets
+  initial_workspace: SelaluTeh
+  commerce_channel: telegram-first
+  customer_checkout_surface: telegram-chat
+  admin_surface: react-vite-dashboard
+  payment_method: gateway-generated-payment-link
+  payment_authority: verified-provider-webhook
+  current_database: mongodb-mongoose
+  migration_strategy: incremental-repository-led
+future_context:
+  workspace_model: many-workspaces-each-with-many-outlets
+  business_models:
+  - business-account
+  - merchant-account
+  - franchise-owner
+  future_channels:
+  - whatsapp-commerce
+  - instagram-assisted-commerce
+  - web-storefront-optional
+  database_direction: postgresql-supabase-ready
+  queue_direction: durable-queue-before-critical-multi-instance-production
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+  reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md
+  current_sprint: docs/backend/11-sprint/current-sprint.md
+  backlog: docs/backend/11-sprint/backlog.md
+  decision_log: docs/backend/04-tech-spec/decision-log.md
+  definition_of_done: docs/backend/11-sprint/definition-of-done.md
+  release_checklist: docs/backend/11-sprint/release-checklist.md
+document_authority:
+  spec:
+    path: spec.yaml
+    purpose: identity-status-scope-references-lifecycle-and-control
+  requirements:
+    path: requirements.md
+    purpose: what-the-system-must-do
+  design:
+    path: design.md
+    purpose: how-the-system-is-designed
+  tasks:
+    path: tasks.md
+    purpose: implementation-order-dependencies-checkpoints-and-verification
+  reading_order:
+    path: docs/backend/READING-ORDER.md
+    purpose: global-entry-point-and-domain-context-routing
+  current_task:
+    path: docs/backend/09-ai-context/current-task.md
+    purpose: explicit-active-spec-and-active-task-pointer
+  implementation_status:
+    path: docs/backend/11-sprint/implementation-status.md
+    purpose: actual-current-implementation-state-not-target-design
+  precedence:
+  - latest-approved-decision
+  - spec.yaml
+  - requirements.md
+  - design.md
+  - tasks.md
+  - current-task-and-current-sprint
+  - domain-specific-docs
+  - implementation-status-for-current-reality
+  - generated-combined-docs
+  - archived-docs
+  conflict_rules:
+  - requirements-controls-what
+  - design-controls-how
+  - tasks-controls-order
+  - current-task-controls-immediate-scope
+  - implementation-status-controls-actual-state
+  - newer-approved-decision-overrides-stale-doc
+  - source-docs-override-generated-combined-or-backup-docs
+affected_projects:
+- path: server
+  role: primary-backend-runtime
+- path: web
+  role: admin-dashboard-consumer
+- path: docs/backend
+  role: backend-documentation-authority
+- path: specs
+  role: requirements-first-spec-registry
+runtime:
+  language: javascript
+  platform: nodejs
+  framework: express
+  source_root: server/src
+  current_database:
+    engine: mongodb
+    orm: mongoose
+    status: active
+  target_database_direction:
+    engine: postgresql
+    platform: supabase-ready
+    status: planned-incremental
+  frontend:
+    framework: react-vite
+    root: web
+  architecture_pattern:
+  - route
+  - middleware
+  - service
+  - repository
+  - model-or-database
+  external_integration_pattern:
+  - service
+  - provider-adapter
+  - external-provider
+source_locations:
+  bootstrap: server/src/index.js
+  config: server/src/config
+  repositories: server/src/db/repositories
+  integrations: server/src/integrations
+  middleware: server/src/middleware
+  models: server/src/models
+  routes: server/src/routes
+  services: server/src/services
+  validators: server/src/validators
+  workers: server/src/workers
+  tests: server/test
+  scripts: server/scripts
+  uploads: server/uploads
+architecture:
+  application_pattern:
+  - route
+  - middleware
+  - service
+  - repository
+  - model-or-database
+  external_provider_pattern:
+  - service
+  - provider-adapter
+  - external-provider
+  folder_strategy: layer-based-express-architecture
+  domain-module_migration: not-required-for-current-mvp
+  route_rules:
+  - route-remains-thin
+  - route-maps-http-request-and-response
+  - route-does-not-own-complex-business-logic
+  - route-does-not-call-external-provider-directly
+  - route-does-not-run-unscoped-database-query
+  service_rules:
+  - service-owns-business-rules-and-state-transitions
+  - service-receives-verified-request-context
+  - service-does-not-format-express-response
+  - service-uses-provider-adapters
+  repository_rules:
+  - repository-owns-persistence-contract
+  - tenant-owned-method-requires-workspace-scope
+  - outlet-owned-method-requires-validated-outlet-scope
+  - repository-does-not-own-http-response
+  - repository-contract-must-be-database-implementation-neutral-where-practical
+  integration_rules:
+  - integration-client-owns-provider-http-contract
+  - integration-client-does-not-decide-workspace-permission
+  - integration-client-does-not-become-domain-source-of-truth
+domain_boundaries:
+  identity:
+  - user
+  - workspace
+  - workspace-membership
+  - outlet
+  - user-outlet-access
+  channels:
+  - platform-connection
+  - telegram
+  - meta-whatsapp
+  - instagram
+  - webhook-event
+  crm:
+  - contact
+  - chat
+  - message
+  - human-takeover
+  - complaint
+  ai:
+  - agent-configuration
+  - provider-client
+  - tool-calling
+  - commerce-guardrails
+  catalog:
+  - product
+  - variant
+  - modifier
+  - product-outlet-availability
+  - effective-price
+  commerce:
+  - cart
+  - checkout
+  - order
+  - order-timeline
+  - fulfillment
+  payments:
+  - payment-attempt
+  - payment-event
+  - payment-webhook
+  - reconciliation
+  inventory:
+  - inventory-item
+  - stock-movement
+  - reservation
+  - release
+  - consumption
+  operations:
+  - notification
+  - audit-log
+  - background-job
+  - analytics
+  - report
+  - file-storage
+current_implementation_baseline:
+  must_preserve:
+  - existing-authentication
+  - existing-telegram-webhook
+  - existing-meta-webhook
+  - existing-contacts
+  - existing-chats
+  - existing-messages
+  - existing-ai-agents
+  - existing-human-takeover
+  - existing-connected-platforms
+  - existing-complaints
+  - existing-analytics
+  - existing-local-file-storage
+  - existing-legacy-orders
+  existing_structure:
+  - server/src/config
+  - server/src/db
+  - server/src/db/repositories
+  - server/src/integrations
+  - server/src/middleware
+  - server/src/models
+  - server/src/routes
+  - server/src/routes/webhooks
+  - server/src/services
+  - server/src/utils
+  - server/src/validators
+  - server/src/workers
+  - server/test
+  existing_important_components:
+  - server/src/middleware/workspaceContext.js
+  - server/src/services/access-control.service.js
+  - server/src/services/webhook-idempotency.service.js
+  - server/src/models/Workspace.js
+  - server/src/models/Outlet.js
+  - server/src/models/UserOutletAccess.js
+  - server/src/models/Product.js
+  - server/src/models/ProductOutletAvailability.js
+  - server/src/models/Order.js
+  - server/src/models/WebhookEvent.js
+  - server/src/db/repositories/orders.repository.js
+  - server/src/db/repositories/outlets.repository.js
+  - server/src/db/repositories/products.repository.js
+  - server/src/db/repositories/webhook-events.repository.js
+  - server/src/integrations/telegram/telegram-client.js
+  - server/src/integrations/meta/meta-client.js
+  - server/src/integrations/payments/midtrans-client.js
+  - server/src/integrations/payments/xendit-client.js
+  missing_or_incomplete_priority_domains:
+  - UserWorkspaceMembership
+  - Cart
+  - Checkout
+  - Payment
+  - PaymentEvent
+  - InventoryItem
+  - StockMovement
+  - AuditLog
+  - cart.service
+  - checkout.service
+  - payment.service
+  - payment-webhook.service
+  - payment-reconciliation.service
+  - inventory.service
+  - notification.service
+  - carts.repository
+  - checkouts.repository
+  - payments.repository
+  - payment-events.repository
+  - inventory.repository
+  - stock-movements.repository
+  - audit-logs.repository
+data_authority:
+  backend_authoritative_for:
+  - workspace
+  - outlet
+  - permissions
+  - product
+  - effective-price
+  - availability
+  - inventory
+  - cart
+  - checkout
+  - order
+  - payment
+  - payment-reconciliation
+  channel_adapters_not_authoritative:
+  - telegram
+  - whatsapp
+  - instagram
+  - admin-frontend
+  ai_not_authoritative_for:
+  - price
+  - product-availability
+  - permission
+  - order-transition
+  - payment-status
+  - refund-approval
+  payment_paid_authority: verified-provider-event
+core_invariants:
+- workspace-is-the-primary-tenant-boundary
+- outlet-is-the-operational-branch-boundary
+- workspace-id-is-derived-from-verified-request-context
+- outlet-access-is-validated-server-side
+- one-cart-belongs-to-one-outlet
+- backend-is-authoritative-for-price-availability-order-and-payment
+- payment-paid-requires-verified-provider-event
+- duplicate-webhooks-must-not-duplicate-side-effects
+- human-takeover-disables-ai-auto-reply
+- routes-remain-thin
+- provider-calls-live-in-integrations
+- tenant-owned-persistence-uses-workspace-scope
+- secrets-never-appear-in-client-responses-or-normal-logs
+- existing-crm-behavior-must-not-regress
+- order-status-and-payment-status-remain-separate
+- product-price-is-resolved-server-side
+- checkout-is-idempotent
+- order-snapshot-does-not-change-after-product-update
+- paid-payment-must-not-be-downgraded-by-stale-event
+- notification-is-sent-only-after-state-persistence
+- inventory-quantities-must-not-become-negative
+- every-stock-mutation-has-stock-movement
+- runtime-remains-mongodb-until-approved-cutover
+- spec-folder-must-match-declared-status
+status_workflow:
+  initial_status: backlog
+  initial_workflow_state: draft
+  folder_statuses:
+    backlog:
+      folder: specs/backlog
+      workflow_states:
+      - draft
+      - review
+      - approved
+    active:
+      folder: specs/active
+      workflow_states:
+      - in_progress
+      - blocked
+      - verifying
+    completed:
+      folder: specs/completed
+      workflow_states:
+      - done
+      - archived
+  all_workflow_states:
+  - draft
+  - review
+  - approved
+  - in_progress
+  - blocked
+  - verifying
+  - done
+  - archived
+  normal_state_transitions:
+  - from: draft
+    to: review
+  - from: review
+    to: approved
+  - from: approved
+    to: in_progress
+  - from: in_progress
+    to: verifying
+  - from: verifying
+    to: done
+  - from: done
+    to: archived
+  exceptional_state_transitions:
+  - from: approved
+    to: blocked
+  - from: in_progress
+    to: blocked
+  - from: verifying
+    to: blocked
+  - from: blocked
+    to: in_progress
+  - from: done
+    to: in_progress
+  allowed_folder_transitions:
+  - from: backlog
+    to: active
+  - from: active
+    to: backlog
+  - from: active
+    to: completed
+  - from: completed
+    to: active
+  folder_move_rule: edit-status-then-run-npm-run-specs-sync
+  completed_guard: required-unchecked-tasks-must-be-zero
+implementation:
+  current_phase: baseline-and-foundation
+  task_source: tasks.md
+  active_task_pointer: docs/backend/09-ai-context/current-task.md
+  progress_sources:
+  - docs/backend/11-sprint/implementation-status.md
+  - docs/backend/11-sprint/progress-log.md
+  - docs/backend/09-ai-context/current-task.md
+  - docs/backend/11-sprint/backlog.md
+  - docs/backend/11-sprint/current-sprint.md
+  checkpoints:
+  - stabilized-legacy-backend
+  - multi-outlet-security
+  - catalog-ready
+  - cart-and-checkout-ready
+  - payment-flow-ready
+  - admin-operations-ready
+  - production-ready
+  release_gates:
+  - workspace-isolation-tests-pass
+  - outlet-access-tests-pass
+  - webhook-idempotency-tests-pass
+  - payment-signature-tests-pass
+  - payment-amount-validation-pass
+  - paid-status-no-downgrade-pass
+  - human-takeover-regression-pass
+  - no-tracked-secrets
+  - uploads-excluded-from-git
+  - backup-and-rollback-documented
+  task_closure_updates:
+  - tasks.md
+  - docs/backend/11-sprint/implementation-status.md
+  - docs/backend/11-sprint/progress-log.md
+  - docs/backend/09-ai-context/current-task.md
+  final_validation_command: npm run specs:check
+references:
+  overview:
+  - docs/backend/00-overview/project-summary.md
+  - docs/backend/00-overview/scope.md
+  - docs/backend/00-overview/mvp-principles.md
+  - docs/backend/00-overview/decision-summary.md
+  - docs/backend/00-overview/target-state.md
+  - docs/backend/00-overview/assumptions-constraints.md
+  product:
+  - docs/backend/01-product/product-vision.md
+  - docs/backend/01-product/mvp-scope.md
+  - docs/backend/01-product/feature-list.md
+  - docs/backend/01-product/user-stories.md
+  - docs/backend/01-product/admin-experience.md
+  - docs/backend/01-product/release-plan.md
+  - docs/backend/01-product/risks-and-assumptions.md
+  flows:
+  - docs/backend/02-flows/auth-flow.md
+  - docs/backend/02-flows/outlet-selection-flow.md
+  - docs/backend/02-flows/product-catalog-flow.md
+  - docs/backend/02-flows/cart-checkout-flow.md
+  - docs/backend/02-flows/checkout-flow.md
+  - docs/backend/02-flows/order-fulfillment-flow.md
+  - docs/backend/02-flows/payment-flow.md
+  - docs/backend/02-flows/telegram-commerce-flow.md
+  - docs/backend/02-flows/webhook-message-flow.md
+  - docs/backend/02-flows/human-takeover-flow.md
+  - docs/backend/02-flows/complaint-flow.md
+  - docs/backend/02-flows/media-file-flow.md
+  - docs/backend/02-flows/edge-cases.md
+  business_rules:
+  - docs/backend/03-business-rules/domain-rules.md
+  - docs/backend/03-business-rules/workspace-tenant-rules.md
+  - docs/backend/03-business-rules/outlet-rules.md
+  - docs/backend/03-business-rules/outlet-access-rules.md
+  - docs/backend/03-business-rules/product-catalog-rules.md
+  - docs/backend/03-business-rules/cart-checkout-rules.md
+  - docs/backend/03-business-rules/order-rules.md
+  - docs/backend/03-business-rules/payment-rules.md
+  - docs/backend/03-business-rules/telegram-commerce-rules.md
+  - docs/backend/03-business-rules/human-takeover-rules.md
+  - docs/backend/03-business-rules/ai-agent-rules.md
+  - docs/backend/03-business-rules/webhook-rules.md
+  - docs/backend/03-business-rules/permissions.md
+  - docs/backend/03-business-rules/status-rules.md
+  - docs/backend/03-business-rules/validations.md
+  - docs/backend/03-business-rules/audit-log-rules.md
+  - docs/backend/03-business-rules/notification-rules.md
+  - docs/backend/03-business-rules/storage-rules.md
+  tech_spec:
+  - docs/backend/04-tech-spec/architecture.md
+  - docs/backend/04-tech-spec/folder-structure.md
+  - docs/backend/04-tech-spec/recommended-scalable-structure.md
+  - docs/backend/04-tech-spec/coding-rules.md
+  - docs/backend/04-tech-spec/database-access.md
+  - docs/backend/04-tech-spec/tech-stack.md
+  - docs/backend/04-tech-spec/environment-config.md
+  - docs/backend/04-tech-spec/storage-strategy.md
+  - docs/backend/04-tech-spec/background-jobs.md
+  - docs/backend/04-tech-spec/observability.md
+  - docs/backend/04-tech-spec/deployment.md
+  - docs/backend/04-tech-spec/runbook.md
+  - docs/backend/04-tech-spec/decision-log.md
+  api:
+  - docs/backend/05-api-spec/overview.md
+  - docs/backend/05-api-spec/api-versioning.md
+  - docs/backend/05-api-spec/error-format.md
+  - docs/backend/05-api-spec/auth-api.md
+  - docs/backend/05-api-spec/users-api.md
+  - docs/backend/05-api-spec/outlets-api.md
+  - docs/backend/05-api-spec/outlet-access-api.md
+  - docs/backend/05-api-spec/platforms-api.md
+  - docs/backend/05-api-spec/integrations-api.md
+  - docs/backend/05-api-spec/agents-api.md
+  - docs/backend/05-api-spec/ai-actions-api.md
+  - docs/backend/05-api-spec/contacts-api.md
+  - docs/backend/05-api-spec/chats-api.md
+  - docs/backend/05-api-spec/products-api.md
+  - docs/backend/05-api-spec/carts-api.md
+  - docs/backend/05-api-spec/checkout-api.md
+  - docs/backend/05-api-spec/orders-api.md
+  - docs/backend/05-api-spec/payments-api.md
+  - docs/backend/05-api-spec/complaints-api.md
+  - docs/backend/05-api-spec/files-api.md
+  - docs/backend/05-api-spec/settings-api.md
+  - docs/backend/05-api-spec/analytics-api.md
+  - docs/backend/05-api-spec/webhooks-api.md
+  - docs/backend/05-api-spec/telegram-commerce-api.md
+  - docs/backend/05-api-spec/rate-limits.md
+  data:
+  - docs/backend/06-data/database-schema.md
+  - docs/backend/06-data/entities.md
+  - docs/backend/06-data/erd.md
+  - docs/backend/06-data/relationships.md
+  - docs/backend/06-data/data-flow.md
+  - docs/backend/06-data/query-contracts.md
+  - docs/backend/06-data/repository-layer-contract.md
+  - docs/backend/06-data/indexes.md
+  - docs/backend/06-data/rls-policies.md
+  - docs/backend/06-data/storage-model.md
+  - docs/backend/06-data/payment-gateway.md
+  - docs/backend/06-data/marketplace-module.md
+  - docs/backend/06-data/telegram-commerce-flow.md
+  - docs/backend/06-data/migration-plan.md
+  - docs/backend/06-data/implementation-checklist.md
+  ui_backend_contract:
+  - docs/backend/07-uiux/backend-ui-contract.md
+  - docs/backend/07-uiux/components-backend-contract.md
+  - docs/backend/07-uiux/pages-backend-requirements.md
+  - docs/backend/07-uiux/admin-actions-matrix.md
+  - docs/backend/07-uiux/orders-page-multi-outlet.md
+  - docs/backend/07-uiux/outlet-selector-pattern.md
+  - docs/backend/07-uiux/outlet-ui-requirements.md
+  - docs/backend/07-uiux/payment-ui-requirements.md
+  - docs/backend/07-uiux/filters-search-sort.md
+  - docs/backend/07-uiux/data-table-actions.md
+  - docs/backend/07-uiux/ui-states.md
+  - docs/backend/07-uiux/workflow-buttons.md
+  security:
+  - docs/backend/08-security/auth-authz.md
+  - docs/backend/08-security/api-security.md
+  - docs/backend/08-security/workspace-tenant-security.md
+  - docs/backend/08-security/outlet-access-security.md
+  - docs/backend/08-security/webhook-security.md
+  - docs/backend/08-security/payment-security.md
+  - docs/backend/08-security/telegram-security.md
+  - docs/backend/08-security/meta-platform-security.md
+  - docs/backend/08-security/ai-action-security.md
+  - docs/backend/08-security/ai-prompt-security.md
+  - docs/backend/08-security/file-storage-security.md
+  - docs/backend/08-security/data-protection.md
+  - docs/backend/08-security/secrets-env-policy.md
+  - docs/backend/08-security/rate-limit-abuse.md
+  - docs/backend/08-security/audit-logging-security.md
+  - docs/backend/08-security/security-checklist.md
+  - docs/backend/08-security/threat-model.md
+  - docs/backend/08-security/incident-response.md
+  - docs/backend/08-security/backup-recovery-security.md
+  ai_context:
+  - docs/backend/09-ai-context/prompt-context.md
+  - docs/backend/09-ai-context/current-task.md
+  - docs/backend/09-ai-context/do-not-break.md
+  - docs/backend/09-ai-context/backend-boundaries.md
+  - docs/backend/09-ai-context/coding-guidelines.md
+  - docs/backend/09-ai-context/security-rules-for-ai.md
+  - docs/backend/09-ai-context/tool-calling-contract.md
+  - docs/backend/09-ai-context/commerce-agent-guardrails.md
+  - docs/backend/09-ai-context/outlet-context.md
+  - docs/backend/09-ai-context/payment-context.md
+  - docs/backend/09-ai-context/telegram-bot-context.md
+  - docs/backend/09-ai-context/storage-context.md
+  - docs/backend/09-ai-context/testing-expectations.md
+  - docs/backend/09-ai-context/agent-response-format.md
+  testing:
+  - docs/backend/10-testing/test-strategy.md
+  - docs/backend/10-testing/unit-test-plan.md
+  - docs/backend/10-testing/integration-test-plan.md
+  - docs/backend/10-testing/e2e-test-plan.md
+  - docs/backend/10-testing/security-test-plan.md
+  - docs/backend/10-testing/webhook-test-plan.md
+  - docs/backend/10-testing/payment-test-plan.md
+  - docs/backend/10-testing/outlet-test-plan.md
+  - docs/backend/10-testing/telegram-commerce-test-plan.md
+  - docs/backend/10-testing/migration-test-plan.md
+  - docs/backend/10-testing/regression-checklist.md
+  - docs/backend/10-testing/acceptance-test-cases.md
+  - docs/backend/10-testing/ci-test-pipeline.md
+  - docs/backend/10-testing/qa-process.md
+  - docs/backend/10-testing/tdd-rules.md
+  sprint:
+  - docs/backend/11-sprint/implementation-status.md
+  - docs/backend/11-sprint/progress-log.md
+  - docs/backend/11-sprint/current-sprint.md
+  - docs/backend/11-sprint/backlog.md
+  - docs/backend/11-sprint/task-breakdown.md
+  - docs/backend/11-sprint/sprint-plan.md
+  - docs/backend/11-sprint/milestones.md
+  - docs/backend/11-sprint/dependency-map.md
+  - docs/backend/11-sprint/definition-of-done.md
+  - docs/backend/11-sprint/risk-log.md
+  - docs/backend/11-sprint/release-checklist.md
+  operations:
+  - docs/backend/12-ops/ops-overview.md
+  - docs/backend/12-ops/environment-ops.md
+  - docs/backend/12-ops/deployment-runbook.md
+  - docs/backend/12-ops/release-runbook.md
+  - docs/backend/12-ops/rollback-runbook.md
+  - docs/backend/12-ops/database-ops.md
+  - docs/backend/12-ops/migration-ops.md
+  - docs/backend/12-ops/payment-ops.md
+  - docs/backend/12-ops/webhook-ops.md
+  - docs/backend/12-ops/telegram-ops.md
+  - docs/backend/12-ops/job-ops.md
+  - docs/backend/12-ops/storage-ops.md
+  - docs/backend/12-ops/security-ops.md
+  - docs/backend/12-ops/monitoring-alerting.md
+  - docs/backend/12-ops/health-checks.md
+  - docs/backend/12-ops/backup-restore-runbook.md
+  - docs/backend/12-ops/disaster-recovery.md
+  - docs/backend/12-ops/incident-response-runbook.md
+  - docs/backend/12-ops/production-readiness.md
+security_context:
+  tenant_boundary: workspace_id
+  branch_boundary: outlet_id
+  workspace_context_source: verified-authenticated-membership
+  outlet_access_source: server-side-access-control
+  secret_policy: server-only-write-only-or-replace-only
+  webhook_policy: verify-before-mutation
+  payment_policy: verified-provider-event-before-paid
+  logging_policy: structured-and-redacted
+  file_policy: local-filesystem-with-path-containment-and-metadata
+  required_security_docs:
+  - docs/backend/08-security/auth-authz.md
+  - docs/backend/08-security/workspace-tenant-security.md
+  - docs/backend/08-security/outlet-access-security.md
+  - docs/backend/08-security/webhook-security.md
+  - docs/backend/08-security/payment-security.md
+  - docs/backend/08-security/ai-action-security.md
+  - docs/backend/08-security/ai-prompt-security.md
+  - docs/backend/08-security/file-storage-security.md
+  - docs/backend/08-security/secrets-env-policy.md
+  - docs/backend/08-security/security-checklist.md
+testing_context:
+  required_layers:
+  - unit
+  - integration
+  - security
+  - e2e
+  critical_suites:
+  - workspace-isolation
+  - outlet-access
+  - webhook-idempotency
+  - payment-signature
+  - payment-amount-match
+  - payment-no-downgrade
+  - human-takeover
+  - single-outlet-cart
+  - checkout-idempotency
+  - order-state-transition
+  - existing-crm-regression
+  provider_strategy: mocked-automated-tests-plus-sandbox-verification
+  release_blocking:
+  - workspace-isolation-failure
+  - outlet-access-failure
+  - payment-security-failure
+  - critical-regression-failure
+  documents:
+  - docs/backend/10-testing/test-strategy.md
+  - docs/backend/10-testing/integration-test-plan.md
+  - docs/backend/10-testing/security-test-plan.md
+  - docs/backend/10-testing/payment-test-plan.md
+  - docs/backend/10-testing/webhook-test-plan.md
+  - docs/backend/10-testing/telegram-commerce-test-plan.md
+  - docs/backend/10-testing/regression-checklist.md
+operations_context:
+  environments:
+  - local
+  - staging
+  - production
+  production_tunnel_policy: development-tunnels-not-allowed-as-production-dependency
+  health_endpoints:
+  - /health/live
+  - /health/ready
+  backup_scope:
+  - database
+  - required-local-files
+  - migration-state
+  - configuration-inventory
+  required_runbooks:
+  - docs/backend/12-ops/deployment-runbook.md
+  - docs/backend/12-ops/release-runbook.md
+  - docs/backend/12-ops/rollback-runbook.md
+  - docs/backend/12-ops/payment-ops.md
+  - docs/backend/12-ops/webhook-ops.md
+  - docs/backend/12-ops/backup-restore-runbook.md
+  - docs/backend/12-ops/incident-response-runbook.md
+  - docs/backend/12-ops/production-readiness.md
+dependencies:
+  depends_on: []
+  blocked_by: []
+  enables:
+  - telegram-commerce-mvp
+  - multi-outlet-admin
+  - payment-gateway-integration
+  - future-whatsapp-commerce
+  - future-postgres-migration
+risks:
+- id: RISK-001
+  title: Existing CRM regression
+  severity: high
+  mitigation: Preserve existing behavior and require regression tests before each checkpoint.
+- id: RISK-002
+  title: Cross-workspace or cross-outlet data leak
+  severity: critical
+  mitigation: Server-derived workspace context, outlet-access middleware, scoped repositories, and security tests.
+- id: RISK-003
+  title: Duplicate order or payment from repeated webhook/callback
+  severity: critical
+  mitigation: Idempotency keys, unique provider event keys, atomic transitions, and concurrent duplicate tests.
+- id: RISK-004
+  title: False paid payment
+  severity: critical
+  mitigation: Verified provider webhook, amount/currency validation, and no standard mark-paid endpoint.
+- id: RISK-005
+  title: Database migration inconsistency
+  severity: high
+  mitigation: Repository contracts, incremental cutover, backfill validation, backup, and rollback.
+- id: RISK-006
+  title: In-process jobs lost on restart
+  severity: medium
+  mitigation: Document limitation and migrate critical jobs to a durable queue before multi-instance production.
+ai_agent:
+  entry_point: docs/backend/READING-ORDER.md
+  active_task_pointer: docs/backend/09-ai-context/current-task.md
+  required_reading:
+  - docs/backend/READING-ORDER.md
+  - docs/backend/09-ai-context/current-task.md
+  - spec.yaml
+  - requirements.md
+  - design.md
+  - tasks.md
+  - docs/backend/11-sprint/implementation-status.md
+  - docs/backend/11-sprint/progress-log.md
+  - docs/backend/04-tech-spec/decision-log.md
+  - docs/backend/09-ai-context/do-not-break.md
+  - docs/backend/09-ai-context/backend-boundaries.md
+  - docs/backend/09-ai-context/security-rules-for-ai.md
+  - docs/backend/09-ai-context/testing-expectations.md
+  - docs/backend/11-sprint/definition-of-done.md
+  required_preflight_report:
+  - documents-read
+  - active-spec-id-and-path
+  - active-task-id
+  - existing-files-inspected
+  - behavior-to-preserve
+  - planned-files-to-change
+  - workspace-security-impact
+  - outlet-access-impact
+  - payment-webhook-idempotency-risk
+  - database-migration-impact
+  - tests-to-add-and-run
+  - compatibility-or-rollback-plan
+  execution_rules:
+  - implement-only-the-active-task
+  - do-not-select-another-spec-automatically
+  - inspect-existing-code-before-creating-new-file
+  - preserve-existing-crm-behavior
+  - use-route-middleware-service-repository-model-database
+  - run-relevant-tests-before-closing
+  - update-task-and-progress-documents
+  - run-npm-run-specs-check
+  forbidden_shortcuts:
+  - rewrite-existing-backend-from-scratch
+  - trust-workspace-id-from-client
+  - bypass-outlet-access
+  - direct-route-to-provider-business-logic
+  - mark-payment-paid-without-verified-event
+  - skip-idempotency
+  - log-secrets
+  - claim-postgres-is-active-before-cutover
+  - close-task-without-tests-and-doc-update
+completion:
+  definition_of_done: docs/backend/11-sprint/definition-of-done.md
+  release_checklist: docs/backend/11-sprint/release-checklist.md
+  completed_when:
+  - all-approved-p0-tasks-complete
+  - critical-security-tests-pass
+  - payment-release-gate-pass
+  - end-to-end-telegram-commerce-pass
+  - no-known-critical-regression
+  - operations-and-rollback-ready
+  folder_transition:
+    set_status: completed
+    set_workflow_state: done
+    run: npm run specs:sync
+    expected_target: specs/completed/general-backend
+  must_update_before_completion:
+  - tasks.md
+  - docs/backend/11-sprint/implementation-status.md
+  - docs/backend/11-sprint/progress-log.md
+  - docs/backend/09-ai-context/current-task.md
+  - specs/SPECS-INDEX.md

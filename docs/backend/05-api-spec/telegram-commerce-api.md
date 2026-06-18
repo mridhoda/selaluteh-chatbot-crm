@@ -13,24 +13,27 @@ Telegram callback data has length limits, so keep compact.
 Recommended format:
 
 ```txt
-act:<action>:<short_id>
+act:<scope>:<action>:<optional_id>:v<version>
 ```
 
 Examples:
 
 ```txt
-act:cat:list
-act:prod:p_abc123
-act:add:v_abc123
-act:cart:view
-act:cart:inc_i_abc123
-act:cart:dec_i_abc123
-act:checkout:start
-act:checkout:confirm
-act:order:o_abc123
+act:outlet:select:<outlet_id>:v1
+act:prod:list:v1
+act:prod:list:<page>:v1
+act:prod:detail:<product_id>:v1
+act:add:1:<product_id>:v1
+act:add:3:<product_id>:v1
+act:cart:view:v1
+act:cart:clear:v1
+act:remove:<product_id>:v1
+act:checkout:start:v1
+act:checkout:confirm:<checkout_id>:v1
+act:order:status:v1
 ```
 
-Use short IDs mapped to UUID server-side if needed.
+The `v<version>` suffix enables stale callback protection. Older callbacks are rejected when the runtime commerce version is bumped.
 
 ## Internal Action Endpoint
 
@@ -89,8 +92,8 @@ This endpoint should only be callable by trusted webhook handler, not public das
 | `view_cart` | Show cart summary |
 | `update_quantity` | Increment/decrement cart item |
 | `start_checkout` | Ask customer info/confirm order |
-| `confirm_checkout` | Create order pending payment |
-| `create_payment` | Create payment link and send it |
+| `confirm_checkout` | Create order, payment attempt, and payment instruction |
+| `create_payment` | Create payment link or manual/COD instruction |
 | `check_order_status` | Show latest order status |
 | `talk_to_human` | Escalate/takeover path |
 
@@ -99,8 +102,10 @@ This endpoint should only be callable by trusted webhook handler, not public das
 - Product list should be short and paginated.
 - Product detail should include price, availability, and add-to-cart button.
 - Cart summary must show total before checkout.
-- Payment link should be shown only after order is created.
+- Payment link or manual/COD instruction should be shown only after order is created.
 - Checkout confirmation must be explicit.
+- Product list must be paginated.
+- Order status action shows recent orders for the Telegram contact/chat.
 
 ## Idempotency
 
@@ -109,6 +114,8 @@ Callback query may be resent/retried. Backend must prevent duplicate:
 - cart item increments from same callback event
 - checkout confirmations
 - payment creations
+
+Current implementation also reuses existing pending/paid payment attempts for the same order.
 
 Use:
 

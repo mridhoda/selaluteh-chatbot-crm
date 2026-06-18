@@ -1,0 +1,38 @@
+{
+  "package": "selaluteh-frontend-mvp-page-design-docs-v1",
+  "generated_at": "2026-06-14T16:03:00.729263+00:00",
+  "pages": [
+    "products",
+    "payments",
+    "chat-center",
+    "settings",
+    "connected-platforms"
+  ],
+  "architecture": {
+    "mvp": "single workspace/account with multiple outlets",
+    "future": "multiple workspaces/accounts/franchise owners with multiple outlets each"
+  },
+  "file_count": 20,
+  "files": {
+    "README.md": 75,
+    "00-foundation/design-alignment.md": 136,
+    "00-foundation/multi-outlet-and-workspace-context.md": 90,
+    "00-foundation/shared-page-components.md": 97,
+    "01-pages/products-page.md": 362,
+    "01-pages/payments-page.md": 349,
+    "01-pages/chat-center-page.md": 329,
+    "01-pages/settings-page.md": 287,
+    "01-pages/connected-platforms-page.md": 379,
+    "02-contracts/api-and-data-contracts.md": 123,
+    "02-contracts/permissions-and-security.md": 75,
+    "02-contracts/status-and-label-matrix.md": 69,
+    "02-contracts/ui-state-contract.md": 52,
+    "03-implementation/frontend-module-map.md": 81,
+    "03-implementation/delivery-plan.md": 78,
+    "03-implementation/navigation-and-routes.md": 48,
+    "04-testing/acceptance-test-plan.md": 56,
+    "04-testing/responsive-and-accessibility-checklist.md": 23,
+    "ai-handoff/MASTER_IMPLEMENTATION_PROMPT.md": 173,
+    "ALL_FRONTEND_MVP_PAGE_DESIGN_DOCS.md": 2997
+  }
+}

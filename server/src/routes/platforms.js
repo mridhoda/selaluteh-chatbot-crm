@@ -1,93 +1,76 @@
-import express from 'express'
-import mongoose from 'mongoose'
-import { authRequired, attachUser } from '../middleware/auth.js'
-import Platform from '../models/Platform.js' // asumsi model sudah ada
+/**
+ * platforms.js — Supabase-backed (task 24.9 complete)
+ *
+ * Platform management routes.
+ * Migrated from Mongoose to platformsSupabaseRepository.
+ * UUID params validated with native UUID regex, not Mongoose ObjectId.
+ */
 
-const router = express.Router()
+import express from 'express';
+import { authRequired, attachUser } from '../middleware/auth.js';
+import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
+import { canManageWorkspace } from '../services/access-control.service.js';
+import { platformsSupabaseRepository } from '../db/repositories/index.js';
+import { AppError } from '../utils/errors.js';
 
-// LIST semua platform milik user
-router.get('/', authRequired, attachUser, async (req, res) => {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isValidUUID = (id) => UUID_RE.test(id);
+
+const router = express.Router();
+
+router.use(authRequired, attachUser, attachWorkspaceContext);
+
+router.get('/', async (req, res, next) => {
   try {
-    const platforms = await Platform.find({ workspaceId: req.me.workspaceId }).sort({ createdAt: -1 });
-    res.json(platforms)
-  } catch (err) {
-    console.error('GET /platforms error:', err)
-    res.status(500).json({ error: 'Failed to list platforms' })
-  }
-})
+    const platforms = await platformsSupabaseRepository.list({ workspaceId: req.me.workspaceId });
+    res.json(platforms);
+  } catch (err) { next(err); }
+});
 
-// DETAIL satu platform
-router.get('/:id', authRequired, attachUser, async (req, res) => {
+router.get('/:id', async (req, res, next) => {
   try {
-    const { id } = req.params
-    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid platform id' })
-    const row = await Platform.findOne({ _id: id, userId: req.me._id })
-    if (!row) return res.status(404).json({ error: 'Platform not found' })
-    res.json(row)
-  } catch (err) {
-    console.error('GET /platforms/:id error:', err)
-    res.status(500).json({ error: 'Failed to get platform' })
-  }
-})
+    if (!isValidUUID(req.params.id)) throw new AppError('VALIDATION', 'Invalid platform id', 400);
+    const platform = await platformsSupabaseRepository.findById({ workspaceId: req.me.workspaceId, platformId: req.params.id });
+    if (!platform) throw new AppError('NOT_FOUND', 'Platform not found', 404);
+    res.json(platform);
+  } catch (err) { next(err); }
+});
 
-// CREATE platform
-router.post('/', authRequired, attachUser, async (req, res) => {
+router.post('/', async (req, res, next) => {
   try {
-    const { type, label, token, accountId, webhookSecret, appId, appSecret } = req.body
-    if (!type || !label) return res.status(400).json({ error: 'Missing type or label' })
-    console.log('req.me object:', req.me); // for debugging
-    if (!req.me.workspaceId) return res.status(400).json({ error: 'User does not have a workspace' })
+    if (!req.body.type || !req.body.label) throw new AppError('VALIDATION', 'Missing type or label', 400);
+    if (!canManageWorkspace(req.me)) throw new AppError('FORBIDDEN', 'Insufficient permissions', 403);
+    const platform = await platformsSupabaseRepository.create({
+      workspaceId: req.me.workspaceId,
+      userId: req.me.id,
+      payload: req.body,
+    });
+    res.status(201).json(platform);
+  } catch (err) { next(err); }
+});
 
-  const platform = await Platform.create({
-    userId: req.me._id,
-    workspaceId: req.me.workspaceId,
-    type,
-    label,
-    token,
-    accountId,
-    webhookSecret,
-    appId,
-    appSecret,
-  });
-    res.json(platform)
-  } catch (err) {
-    console.error('POST /platforms error:', err)
-    res.status(500).json({ error: 'Failed to create platform' })
-  }
-})
-
-// UPDATE platform
-router.put('/:id', authRequired, attachUser, async (req, res) => {
+router.put('/:id', async (req, res, next) => {
   try {
-    const { id } = req.params
-    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid platform id' })
-    const update = req.body || {}
-    if (update.type) update.type = String(update.type).toLowerCase()
-    const row = await Platform.findOneAndUpdate(
-      { _id: id, workspaceId: req.me.workspaceId },
-      { $set: update },
-      { new: true }
-    )
-    if (!row) return res.status(404).json({ error: 'Platform not found' })
-    res.json(row)
-  } catch (err) {
-    console.error('PUT /platforms/:id error:', err)
-    res.status(500).json({ error: 'Failed to update platform' })
-  }
-})
+    if (!isValidUUID(req.params.id)) throw new AppError('VALIDATION', 'Invalid platform id', 400);
+    if (!canManageWorkspace(req.me)) throw new AppError('FORBIDDEN', 'Insufficient permissions', 403);
+    const platform = await platformsSupabaseRepository.update({
+      workspaceId: req.me.workspaceId,
+      platformId: req.params.id,
+      updates: req.body,
+    });
+    if (!platform) throw new AppError('NOT_FOUND', 'Platform not found', 404);
+    res.json(platform);
+  } catch (err) { next(err); }
+});
 
-// DELETE platform
-router.delete('/:id', authRequired, attachUser, async (req, res) => {
+router.delete('/:id', async (req, res, next) => {
   try {
-    const { id } = req.params
-    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid platform id' })
-  const result = await Platform.deleteOne({ _id: id, workspaceId: req.me.workspaceId });
-    if (result.deletedCount === 0) return res.status(404).json({ error: 'Platform not found' });
-    res.json({ ok: true })
-  } catch (err) {
-    console.error('DELETE /platforms/:id error:', err)
-    res.status(500).json({ error: 'Failed to delete platform' })
-  }
-})
+    if (!isValidUUID(req.params.id)) throw new AppError('VALIDATION', 'Invalid platform id', 400);
+    if (!canManageWorkspace(req.me)) throw new AppError('FORBIDDEN', 'Insufficient permissions', 403);
+    const deleted = await platformsSupabaseRepository.remove({ workspaceId: req.me.workspaceId, platformId: req.params.id });
+    if (!deleted) throw new AppError('NOT_FOUND', 'Platform not found', 404);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
 
-export default router
+export default router;

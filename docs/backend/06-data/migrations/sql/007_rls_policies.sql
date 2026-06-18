@@ -47,36 +47,34 @@ $$;
 
 alter table workspaces enable row level security;
 alter table users enable row level security;
-alter table settings enable row level security;
+alter table workspace_settings enable row level security;
+alter table outlets enable row level security;
+alter table user_workspace_memberships enable row level security;
+alter table user_outlet_access enable row level security;
 alter table platforms enable row level security;
 alter table agents enable row level security;
-alter table agent_knowledge enable row level security;
-alter table agent_followups enable row level security;
-alter table agent_database_files enable row level security;
-alter table agent_complaint_fields enable row level security;
 alter table agent_outlets enable row level security;
-alter table agent_products enable row level security;
-alter table agent_sales_forms enable row level security;
-alter table agent_sales_form_fields enable row level security;
-alter table agent_sales_form_products enable row level security;
 alter table contacts enable row level security;
-alter table messages enable row level security;
+alter table chats enable row level security;
+alter table chat_messages enable row level security;
 alter table webhook_events enable row level security;
 alter table ai_actions enable row level security;
 alter table files enable row level security;
 alter table product_categories enable row level security;
 alter table products enable row level security;
 alter table product_variants enable row level security;
-alter table product_images enable row level security;
+alter table product_outlet_availability enable row level security;
 alter table carts enable row level security;
 alter table cart_items enable row level security;
 alter table checkouts enable row level security;
 alter table orders enable row level security;
 alter table order_items enable row level security;
+alter table order_events enable row level security;
+alter table payment_provider_settings enable row level security;
 alter table payments enable row level security;
+alter table payment_attempts enable row level security;
 alter table payment_events enable row level security;
 alter table complaints enable row level security;
-alter table knowledge_files enable row level security;
 
 
 -- Workspaces and users
@@ -105,7 +103,7 @@ using (
   workspace_id = public.current_workspace_id()
   and (
     public.current_app_role() in ('owner', 'super')
-    or takeover_by = public.current_app_user_id()
+    or taken_over_by_user_id = public.current_app_user_id()
   )
 );
 
@@ -124,21 +122,72 @@ using (workspace_id = public.current_workspace_id() and public.current_app_role(
 
 -- Product catalog can be readable by workspace users; customer-facing reads should go through backend.
 
-create policy "settings workspace select"
-on settings for select
+create policy "workspace_settings workspace select"
+on workspace_settings for select
 using (workspace_id = public.current_workspace_id());
 
-create policy "settings workspace insert"
-on settings for insert
+create policy "workspace_settings workspace insert"
+on workspace_settings for insert
 with check (workspace_id = public.current_workspace_id());
 
-create policy "settings workspace update"
-on settings for update
+create policy "workspace_settings workspace update"
+on workspace_settings for update
 using (workspace_id = public.current_workspace_id())
 with check (workspace_id = public.current_workspace_id());
 
-create policy "settings workspace delete"
-on settings for delete
+create policy "workspace_settings workspace delete"
+on workspace_settings for delete
+using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
+
+create policy "outlets workspace select"
+on outlets for select
+using (workspace_id = public.current_workspace_id());
+
+create policy "outlets workspace insert"
+on outlets for insert
+with check (workspace_id = public.current_workspace_id());
+
+create policy "outlets workspace update"
+on outlets for update
+using (workspace_id = public.current_workspace_id())
+with check (workspace_id = public.current_workspace_id());
+
+create policy "outlets workspace delete"
+on outlets for delete
+using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
+
+create policy "user_workspace_memberships workspace select"
+on user_workspace_memberships for select
+using (workspace_id = public.current_workspace_id());
+
+create policy "user_workspace_memberships workspace insert"
+on user_workspace_memberships for insert
+with check (workspace_id = public.current_workspace_id());
+
+create policy "user_workspace_memberships workspace update"
+on user_workspace_memberships for update
+using (workspace_id = public.current_workspace_id())
+with check (workspace_id = public.current_workspace_id());
+
+create policy "user_workspace_memberships workspace delete"
+on user_workspace_memberships for delete
+using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
+
+create policy "user_outlet_access workspace select"
+on user_outlet_access for select
+using (workspace_id = public.current_workspace_id());
+
+create policy "user_outlet_access workspace insert"
+on user_outlet_access for insert
+with check (workspace_id = public.current_workspace_id());
+
+create policy "user_outlet_access workspace update"
+on user_outlet_access for update
+using (workspace_id = public.current_workspace_id())
+with check (workspace_id = public.current_workspace_id());
+
+create policy "user_outlet_access workspace delete"
+on user_outlet_access for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
 create policy "platforms workspace select"
@@ -175,74 +224,6 @@ create policy "agents workspace delete"
 on agents for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
-create policy "agent_knowledge workspace select"
-on agent_knowledge for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_knowledge workspace insert"
-on agent_knowledge for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_knowledge workspace update"
-on agent_knowledge for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_knowledge workspace delete"
-on agent_knowledge for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "agent_followups workspace select"
-on agent_followups for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_followups workspace insert"
-on agent_followups for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_followups workspace update"
-on agent_followups for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_followups workspace delete"
-on agent_followups for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "agent_database_files workspace select"
-on agent_database_files for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_database_files workspace insert"
-on agent_database_files for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_database_files workspace update"
-on agent_database_files for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_database_files workspace delete"
-on agent_database_files for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "agent_complaint_fields workspace select"
-on agent_complaint_fields for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_complaint_fields workspace insert"
-on agent_complaint_fields for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_complaint_fields workspace update"
-on agent_complaint_fields for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_complaint_fields workspace delete"
-on agent_complaint_fields for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
 create policy "agent_outlets workspace select"
 on agent_outlets for select
 using (workspace_id = public.current_workspace_id());
@@ -258,74 +239,6 @@ with check (workspace_id = public.current_workspace_id());
 
 create policy "agent_outlets workspace delete"
 on agent_outlets for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "agent_products workspace select"
-on agent_products for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_products workspace insert"
-on agent_products for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_products workspace update"
-on agent_products for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_products workspace delete"
-on agent_products for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "agent_sales_forms workspace select"
-on agent_sales_forms for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_forms workspace insert"
-on agent_sales_forms for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_forms workspace update"
-on agent_sales_forms for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_forms workspace delete"
-on agent_sales_forms for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "agent_sales_form_fields workspace select"
-on agent_sales_form_fields for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_form_fields workspace insert"
-on agent_sales_form_fields for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_form_fields workspace update"
-on agent_sales_form_fields for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_form_fields workspace delete"
-on agent_sales_form_fields for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "agent_sales_form_products workspace select"
-on agent_sales_form_products for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_form_products workspace insert"
-on agent_sales_form_products for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_form_products workspace update"
-on agent_sales_form_products for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "agent_sales_form_products workspace delete"
-on agent_sales_form_products for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
 create policy "contacts workspace select"
@@ -345,21 +258,21 @@ create policy "contacts workspace delete"
 on contacts for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
-create policy "messages workspace select"
-on messages for select
+create policy "chat_messages workspace select"
+on chat_messages for select
 using (workspace_id = public.current_workspace_id());
 
-create policy "messages workspace insert"
-on messages for insert
+create policy "chat_messages workspace insert"
+on chat_messages for insert
 with check (workspace_id = public.current_workspace_id());
 
-create policy "messages workspace update"
-on messages for update
+create policy "chat_messages workspace update"
+on chat_messages for update
 using (workspace_id = public.current_workspace_id())
 with check (workspace_id = public.current_workspace_id());
 
-create policy "messages workspace delete"
-on messages for delete
+create policy "chat_messages workspace delete"
+on chat_messages for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
 create policy "webhook_events workspace select"
@@ -464,21 +377,21 @@ create policy "product_variants workspace delete"
 on product_variants for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
-create policy "product_images workspace select"
-on product_images for select
+create policy "product_outlet_availability workspace select"
+on product_outlet_availability for select
 using (workspace_id = public.current_workspace_id());
 
-create policy "product_images workspace insert"
-on product_images for insert
+create policy "product_outlet_availability workspace insert"
+on product_outlet_availability for insert
 with check (workspace_id = public.current_workspace_id());
 
-create policy "product_images workspace update"
-on product_images for update
+create policy "product_outlet_availability workspace update"
+on product_outlet_availability for update
 using (workspace_id = public.current_workspace_id())
 with check (workspace_id = public.current_workspace_id());
 
-create policy "product_images workspace delete"
-on product_images for delete
+create policy "product_outlet_availability workspace delete"
+on product_outlet_availability for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
 create policy "carts workspace select"
@@ -566,6 +479,40 @@ create policy "order_items workspace delete"
 on order_items for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
+create policy "order_events workspace select"
+on order_events for select
+using (workspace_id = public.current_workspace_id());
+
+create policy "order_events workspace insert"
+on order_events for insert
+with check (workspace_id = public.current_workspace_id());
+
+create policy "order_events workspace update"
+on order_events for update
+using (workspace_id = public.current_workspace_id())
+with check (workspace_id = public.current_workspace_id());
+
+create policy "order_events workspace delete"
+on order_events for delete
+using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
+
+create policy "payment_provider_settings workspace select"
+on payment_provider_settings for select
+using (workspace_id = public.current_workspace_id());
+
+create policy "payment_provider_settings workspace insert"
+on payment_provider_settings for insert
+with check (workspace_id = public.current_workspace_id());
+
+create policy "payment_provider_settings workspace update"
+on payment_provider_settings for update
+using (workspace_id = public.current_workspace_id())
+with check (workspace_id = public.current_workspace_id());
+
+create policy "payment_provider_settings workspace delete"
+on payment_provider_settings for delete
+using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
+
 create policy "payments workspace select"
 on payments for select
 using (workspace_id = public.current_workspace_id());
@@ -581,6 +528,23 @@ with check (workspace_id = public.current_workspace_id());
 
 create policy "payments workspace delete"
 on payments for delete
+using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
+
+create policy "payment_attempts workspace select"
+on payment_attempts for select
+using (workspace_id = public.current_workspace_id());
+
+create policy "payment_attempts workspace insert"
+on payment_attempts for insert
+with check (workspace_id = public.current_workspace_id());
+
+create policy "payment_attempts workspace update"
+on payment_attempts for update
+using (workspace_id = public.current_workspace_id())
+with check (workspace_id = public.current_workspace_id());
+
+create policy "payment_attempts workspace delete"
+on payment_attempts for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
 
 create policy "payment_events workspace select"
@@ -615,21 +579,4 @@ with check (workspace_id = public.current_workspace_id());
 
 create policy "complaints workspace delete"
 on complaints for delete
-using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));
-
-create policy "knowledge_files workspace select"
-on knowledge_files for select
-using (workspace_id = public.current_workspace_id());
-
-create policy "knowledge_files workspace insert"
-on knowledge_files for insert
-with check (workspace_id = public.current_workspace_id());
-
-create policy "knowledge_files workspace update"
-on knowledge_files for update
-using (workspace_id = public.current_workspace_id())
-with check (workspace_id = public.current_workspace_id());
-
-create policy "knowledge_files workspace delete"
-on knowledge_files for delete
 using (workspace_id = public.current_workspace_id() and public.current_app_role() in ('owner', 'super'));

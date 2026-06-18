@@ -6,21 +6,35 @@ This schema targets a **single-merchant Telegram-first marketplace MVP**.
 
 It is intentionally not a full multi-seller marketplace yet.
 
+Canonical source of truth:
+
+```txt
+database-schema.md
+migrations/sql/001..005
+```
+
 ## Included
 
-- Product categories.
-- Products.
-- Variants.
-- Product images.
-- Active carts.
-- Cart items.
-- Checkout confirmation.
-- Orders.
-- Order items.
-- Payments.
-- Payment events.
-- Telegram webhook idempotency.
-- AI action audit.
+Core admin/commerce tables (26):
+
+```txt
+users, workspaces, workspace_settings, outlets
+user_workspace_memberships, user_outlet_access
+platforms, contacts, chats, chat_messages
+product_categories, products, product_variants, product_outlet_availability
+carts, cart_items, orders, order_items, order_events
+payment_provider_settings, payments, payment_attempts, payment_events
+agents, agent_outlets, complaints
+```
+
+Operational runtime tables:
+
+```txt
+files
+webhook_events
+ai_actions
+checkouts
+```
 
 ## Excluded for MVP
 
@@ -32,6 +46,7 @@ It is intentionally not a full multi-seller marketplace yet.
 - Review/rating.
 - Courier integration.
 - Advanced promo engine.
+- Billing/subscription tables.
 
 ## Why `orders` Supports Both Legacy and Marketplace
 
@@ -42,58 +57,65 @@ So the new `orders` table supports both:
 ```txt
 Legacy AI form order:
   source = ai_form
-  form_name
   form_data
+  status = new
+  payment_status = unpaid
 
 New marketplace order:
   source = telegram
   cart_id
-  checkout_id
+  checkout_id optional
   order_items
   payments
+  status = new -> accepted -> preparing -> ready -> completed
+  payment_status = pending -> paid
 ```
 
-## Product Data Source
+## Agent Configuration
 
-Long-term product data should live in:
+Agent settings are stored as embedded JSON in `agents`:
 
 ```txt
-products
-product_variants
-product_images
-product_categories
+tools, knowledge, follow_ups, database, complaint_fields,
+complaint_notification, sales_forms, payment
 ```
 
-Legacy `agent_products` and `agent_sales_form_products` are preserved only for compatibility.
+Outlet mapping uses `agent_outlets.outlet_id` FK, not string arrays.
+
+Legacy agent-embedded products inside `sales_forms` remain for compatibility until migrated to `products`.
 
 ## Price Snapshot Rule
 
-Always snapshot price/name/sku into:
+Always snapshot price/name into:
 
 ```txt
-cart_items.product_snapshot
-order_items.product_snapshot
+cart_items.product_name_snapshot
+cart_items.variant_name_snapshot
+cart_items.unit_price
+order_items.product_name_snapshot
+order_items.variant_name_snapshot
+order_items.unit_price
 ```
-
-This protects historical orders if product price/name changes later.
 
 ## Inventory Rule
 
-MVP can start with `inventory_policy = do_not_track`.
+MVP can start with `products.stock_tracking = false`.
 
 When stock matters:
 
-- Check `stock_quantity` before add-to-cart and checkout.
-- Deduct/reserve stock only after order/payment rule is chosen.
-- For food/drink MVP, simplest rule: deduct stock on paid order.
+- Check `product_outlet_availability.stock_quantity` or `products.stock_quantity` before add-to-cart and checkout.
+- Simplest F&B rule: deduct stock when `orders.payment_status = paid`.
 
 ## Payment Rule
 
 Order is not paid because AI says so.
 
-Only payment webhook or admin action can change:
+Only payment webhook or authorized admin can change:
 
 ```txt
-orders.payment_status = paid/settlement/capture
-orders.status = paid
+payments.status = paid
+orders.payment_status = paid
+orders.status = accepted
 ```
+
+Insert matching timeline rows in `order_events` and `payment_events`.

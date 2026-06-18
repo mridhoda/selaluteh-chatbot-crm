@@ -4,11 +4,11 @@ Dokumen ini memberi ringkasan data-layer context untuk AI coding agent.
 
 ## Current Runtime
 
-Current backend runtime masih MongoDB/Mongoose.
+The backend runtime runs 100% on Supabase/Postgres. MongoDB/Mongoose has been completely removed from dependencies, config, tests, and source code.
 
-## Target Data Layer
+## Active Data Layer
 
-Target adalah Supabase/Postgres dengan:
+Supabase/Postgres schema sudah dibuat dengan:
 
 - explicit `workspaces`,
 - `workspace_id` di semua tenant-owned tables,
@@ -23,12 +23,21 @@ Target adalah Supabase/Postgres dengan:
 Recommended:
 
 ```txt
-schema design
--> repository layer
--> route-by-route migration
--> historical import
--> cutover
--> remove Mongo dependency
+Supabase foundation
+-> freeze repository contracts
+-> seed fresh Supabase dev/test data
+-> implement Supabase-backed repositories domain-by-domain
+-> switch routes/services domain-by-domain
+-> remove Mongo connection/models/dependency/MongoMemoryServer/DATA_SOURCE=mongo fallback
+```
+
+Explicitly not part of this cutover:
+
+```txt
+Mongo backfill
+dual-write
+legacy data reconciliation
+Supabase Auth migration
 ```
 
 ## AI Coding Rule
@@ -38,12 +47,13 @@ If task touches data access:
 - do not call DB directly from scattered logic,
 - prefer repository/service,
 - preserve query contracts,
-- preserve timestamps during migration,
 - do not infer workspace from user alone when row has workspace_id.
+- do not add new Mongoose model usage.
+- use Supabase tests for new repositories/features.
 
 ## Important Query Contracts
 
-- contact upsert: `workspace_id + platform_type + platform_account_id`
+- contact upsert: `workspace_id + platform_id + external_id`
 - chat upsert: `workspace_id + platform_id + contact_id`
 - inbox sort: `last_message_at desc`
 - messages sort: `created_at asc`

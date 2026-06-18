@@ -46,16 +46,17 @@ If payment changed:
 - order becomes paid only after valid event,
 - Telegram notification is sent or queued.
 
-## Migration Smoke Tests
+## Supabase Cutover Smoke Tests
 
-If data migration changed:
+If database runtime or repository persistence changed:
 
-- run dry run first,
-- validate count parity,
+- run against Supabase local or a dedicated Supabase test project,
+- never run automated tests against production Supabase,
 - validate workspace ids,
-- validate timestamps,
+- validate outlet access where relevant,
 - validate local file metadata,
-- check orphan records.
+- validate duplicate/idempotency behavior,
+- keep MongoMemory tests only for legacy domains that have not been cut over.
 
 ## Automated Test Preference
 
@@ -66,3 +67,5 @@ Prefer tests for:
 - webhook idempotency,
 - payment status mapping,
 - cart/order total calculation.
+
+Do not add new Mongo tests. All new repositories and features must use Supabase tests.

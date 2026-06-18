@@ -1,0 +1,12 @@
+{
+  "devDependencies": {
+    "yaml": "^2.8.0"
+  },
+  "scripts": {
+    "specs:check": "node scripts/specs/sync-spec-folders.mjs --check",
+    "specs:check:verbose": "node scripts/specs/sync-spec-folders.mjs --check --verbose",
+    "specs:sync": "node scripts/specs/sync-spec-folders.mjs --fix",
+    "specs:sync:dry": "node scripts/specs/sync-spec-folders.mjs --fix --dry-run",
+    "specs:help": "node scripts/specs/sync-spec-folders.mjs --help"
+  }
+}

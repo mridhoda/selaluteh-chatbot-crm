@@ -1,0 +1,1051 @@
+.
+├── .agents
+├── .claude
+│   └── worktrees
+├── .cline
+│   └── kanban
+├── CLOUDFLARE_TUNNEL_GUIDE.md
+├── .codex
+├── .commandcode
+│   └── taste
+│       └── taste.md
+├── docker-compose-advanced.yml
+├── docker-compose-full.yml
+├── docker-compose-with-ngrok.yml
+├── docker-compose.yml
+├── Dockerfile.server
+├── Dockerfile.web
+├── docs
+│   ├── backend
+│   │   ├── 0000-business
+│   │   │   ├── ALL_BUSINESS_DOCS_COMBINED.md
+│   │   │   ├── brd.md
+│   │   │   ├── business-decision-log.md
+│   │   │   ├── business-metrics.md
+│   │   │   ├── business-model.md
+│   │   │   ├── business-risks.md
+│   │   │   ├── competitor-analysis.md
+│   │   │   ├── customer-segments.md
+│   │   │   ├── financial-assumptions.md
+│   │   │   ├── go-to-market.md
+│   │   │   ├── legal-business-notes.md
+│   │   │   ├── market-positioning.md
+│   │   │   ├── mvp-validation-plan.md
+│   │   │   ├── mvp-validation-scorecard.md
+│   │   │   ├── partnerships.md
+│   │   │   ├── pricing-strategy.md
+│   │   │   ├── README.md
+│   │   │   ├── revenue-model.md
+│   │   │   ├── roadmap-business.md
+│   │   │   ├── sales-discovery-questions.md
+│   │   │   ├── unit-economics.md
+│   │   │   └── value-proposition.md
+│   │   ├── 000-business
+│   │   │   ├── ALL_BUSINESS_DOCS_COMBINED.md
+│   │   │   ├── backup-docs
+│   │   │   │   └── backend-business-docs-v2.zip
+│   │   │   ├── brd.md
+│   │   │   ├── business-decision-log.md
+│   │   │   ├── business-metrics.md
+│   │   │   ├── business-model.md
+│   │   │   ├── business-risks.md
+│   │   │   ├── competitor-analysis.md
+│   │   │   ├── customer-segments.md
+│   │   │   ├── financial-assumptions.md
+│   │   │   ├── go-to-market.md
+│   │   │   ├── legal-business-notes.md
+│   │   │   ├── manifest.json
+│   │   │   ├── market-positioning.md
+│   │   │   ├── mvp-validation-plan.md
+│   │   │   ├── mvp-validation-scorecard.md
+│   │   │   ├── partnerships.md
+│   │   │   ├── pricing-strategy.md
+│   │   │   ├── README.md
+│   │   │   ├── revenue-model.md
+│   │   │   ├── roadmap-business.md
+│   │   │   ├── sales-discovery-questions.md
+│   │   │   ├── unit-economics.md
+│   │   │   └── value-proposition.md
+│   │   ├── 001-overview
+│   │   │   ├── ALL_OVERVIEW_DOCS_COMBINED.md
+│   │   │   ├── assumptions-constraints.md
+│   │   │   ├── backup-docs
+│   │   │   │   └── backend-overview-docs-v2.zip
+│   │   │   ├── current-state.md
+│   │   │   ├── decision-summary.md
+│   │   │   ├── glossary.md
+│   │   │   ├── goals-kpi.md
+│   │   │   ├── manifest.json
+│   │   │   ├── mvp-principles.md
+│   │   │   ├── non-goals.md
+│   │   │   ├── overview-map.md
+│   │   │   ├── product-vision.md
+│   │   │   ├── project-summary.md
+│   │   │   ├── README.md
+│   │   │   ├── risks-overview.md
+│   │   │   ├── scope.md
+│   │   │   ├── stakeholders.md
+│   │   │   ├── success-metrics.md
+│   │   │   └── target-state.md
+│   │   ├── 00-overview
+│   │   │   ├── ALL_OVERVIEW_DOCS_COMBINED.md
+│   │   │   ├── assumptions-constraints.md
+│   │   │   ├── current-state.md
+│   │   │   ├── decision-summary.md
+│   │   │   ├── glossary.md
+│   │   │   ├── goals-kpi.md
+│   │   │   ├── mvp-principles.md
+│   │   │   ├── non-goals.md
+│   │   │   ├── overview-map.md
+│   │   │   ├── product-vision.md
+│   │   │   ├── project-summary.md
+│   │   │   ├── README.md
+│   │   │   ├── risks-overview.md
+│   │   │   ├── scope.md
+│   │   │   ├── stakeholders.md
+│   │   │   ├── success-metrics.md
+│   │   │   └── target-state.md
+│   │   ├── 00-research
+│   │   │   ├── 01.Pedagogy
+│   │   │   └── AI Interactive Learning Microsite Generator – Perplexity.md
+│   │   ├── 01-product
+│   │   │   ├── admin-experience.md
+│   │   │   ├── ALL_PRODUCT_DOCS_COMBINED.md
+│   │   │   ├── backup-docs
+│   │   │   │   └── brand-personality.zip
+│   │   │   ├── brand-personality.md
+│   │   │   ├── customer-journey.md
+│   │   │   ├── feature-list.md
+│   │   │   ├── logo-direction.md
+│   │   │   ├── logo-system.md
+│   │   │   ├── manifest.json
+│   │   │   ├── mvp-scope.md
+│   │   │   ├── out-of-scope.md
+│   │   │   ├── product-vision.md
+│   │   │   ├── README.md
+│   │   │   ├── release-plan.md
+│   │   │   ├── requirements.md
+│   │   │   ├── risks-and-assumptions.md
+│   │   │   ├── success-metrics.md
+│   │   │   ├── user-personas.md
+│   │   │   └── user-stories.md
+│   │   ├── 02-flows
+│   │   │   ├── admin-flow.md
+│   │   │   ├── auth-flow.md
+│   │   │   ├── backup-docs
+│   │   │   │   └── backend-flows-v2.zip
+│   │   │   ├── chatbot-ai-flow.md
+│   │   │   ├── checkout-flow.md
+│   │   │   ├── complaint-flow.md
+│   │   │   ├── edge-cases.md
+│   │   │   ├── human-takeover-flow.md
+│   │   │   ├── media-file-flow.md
+│   │   │   ├── order-fulfillment-flow.md
+│   │   │   ├── outlet-selection-flow.md
+│   │   │   ├── payment-flow.md
+│   │   │   ├── product-catalog-flow.md
+│   │   │   ├── README.md
+│   │   │   ├── telegram-commerce-flow.md
+│   │   │   └── webhook-message-flow.md
+│   │   ├── 03-business-rules
+│   │   │   ├── ai-agent-rules.md
+│   │   │   ├── audit-log-rules.md
+│   │   │   ├── backup-docs
+│   │   │   │   └── domain-rules.zip
+│   │   │   ├── cart-checkout-rules.md
+│   │   │   ├── complaint-rules.md
+│   │   │   ├── domain-rules.md
+│   │   │   ├── export-rules.md
+│   │   │   ├── generation-rules.md
+│   │   │   ├── human-takeover-rules.md
+│   │   │   ├── manifest.json
+│   │   │   ├── notification-rules.md
+│   │   │   ├── order-rules.md
+│   │   │   ├── outlet-access-rules.md
+│   │   │   ├── outlet-rules.md
+│   │   │   ├── payment-rules.md
+│   │   │   ├── permissions.md
+│   │   │   ├── product-catalog-rules.md
+│   │   │   ├── quota-rules.md
+│   │   │   ├── README.md
+│   │   │   ├── status-rules.md
+│   │   │   ├── storage-rules.md
+│   │   │   ├── telegram-commerce-rules.md
+│   │   │   ├── validations.md
+│   │   │   ├── webhook-rules.md
+│   │   │   └── workspace-tenant-rules.md
+│   │   ├── 04-tech-spec
+│   │   │   ├── ai-pipeline.md
+│   │   │   ├── architecture.md
+│   │   │   ├── backend-tech-spec-only-v2
+│   │   │   │   └── backend-tech-spec-only-v2.zip
+│   │   │   ├── background-jobs.md
+│   │   │   ├── coding-rules.md
+│   │   │   ├── database-access.md
+│   │   │   ├── decision-log.md
+│   │   │   ├── deployment.md
+│   │   │   ├── environment-config.md
+│   │   │   ├── folder-structure.md
+│   │   │   ├── observability.md
+│   │   │   ├── README.md
+│   │   │   ├── recommended-scalable-structure.md
+│   │   │   ├── rendering-export.md
+│   │   │   ├── runbook.md
+│   │   │   ├── storage-strategy.md
+│   │   │   └── tech-stack.md
+│   │   ├── 05-api-spec
+│   │   │   ├── agents-api.md
+│   │   │   ├── ai-actions-api.md
+│   │   │   ├── analytics-api.md
+│   │   │   ├── api-versioning.md
+│   │   │   ├── auth-api.md
+│   │   │   ├── backup-docs
+│   │   │   │   └── auth-api.zip
+│   │   │   ├── carts-api.md
+│   │   │   ├── chats-api.md
+│   │   │   ├── checkout-api.md
+│   │   │   ├── complaints-api.md
+│   │   │   ├── contacts-api.md
+│   │   │   ├── error-format.md
+│   │   │   ├── files-api.md
+│   │   │   ├── integrations-api.md
+│   │   │   ├── jobs-api.md
+│   │   │   ├── orders-api.md
+│   │   │   ├── outlet-access-api.md
+│   │   │   ├── outlets-api.md
+│   │   │   ├── overview.md
+│   │   │   ├── payments-api.md
+│   │   │   ├── platforms-api.md
+│   │   │   ├── products-api.md
+│   │   │   ├── rate-limits.md
+│   │   │   ├── README.md
+│   │   │   ├── settings-api.md
+│   │   │   ├── telegram-commerce-api.md
+│   │   │   ├── users-api.md
+│   │   │   └── webhooks-api.md
+│   │   ├── 06-data
+│   │   │   ├── ai-commerce-guardrails.md
+│   │   │   ├── ALL_DOCS_COMBINED.md
+│   │   │   ├── backup-docs
+│   │   │   │   ├── telegram-marketplace-data-migrations-v2
+│   │   │   │   ├── telegram-marketplace-data-migrations-v2.zip
+│   │   │   │   └── updated-data-database-docs.zip
+│   │   │   ├── database-schema.md
+│   │   │   ├── data-flow.md
+│   │   │   ├── entities.md
+│   │   │   ├── erd.md
+│   │   │   ├── implementation-checklist.md
+│   │   │   ├── import-script-spec.md
+│   │   │   ├── indexes.md
+│   │   │   ├── MANIFEST.json
+│   │   │   ├── marketplace-module.md
+│   │   │   ├── migration-plan.md
+│   │   │   ├── migrations
+│   │   │   │   ├── ALL_MIGRATIONS_COMBINED.md
+│   │   │   │   ├── checklists
+│   │   │   │   │   ├── marketplace-mvp-checklist.md
+│   │   │   │   │   ├── post-migration-checklist.md
+│   │   │   │   │   └── pre-migration-checklist.md
+│   │   │   │   ├── manifest.json
+│   │   │   │   ├── notes
+│   │   │   │   │   ├── cutover-plan.md
+│   │   │   │   │   ├── data-backfill-order.md
+│   │   │   │   │   ├── marketplace-schema-notes.md
+│   │   │   │   │   ├── mongo-to-postgres-mapping.md
+│   │   │   │   │   ├── payment-gateway-contract.md
+│   │   │   │   │   ├── repository-layer-contract.md
+│   │   │   │   │   └── telegram-commerce-flow.md
+│   │   │   │   ├── README.md
+│   │   │   │   └── sql
+│   │   │   │       ├── 001_extensions_and_enums.sql
+│   │   │   │       ├── 002_core_identity.sql
+│   │   │   │       ├── 003_platforms_agents.sql
+│   │   │   │       ├── 004_crm_chats_messages.sql
+│   │   │   │       ├── 005_orders_complaints_files.sql
+│   │   │   │       ├── 006_indexes.sql
+│   │   │   │       ├── 007_rls_policies.sql
+│   │   │   │       ├── 008_local_file_storage.sql
+│   │   │   │       ├── 009_migration_validation_queries.sql
+│   │   │   │       └── 009_multi_workspace_outlet_foundation.sql
+│   │   │   ├── payment-gateway.md
+│   │   │   ├── query-contracts.md
+│   │   │   ├── README.md
+│   │   │   ├── relationships.md
+│   │   │   ├── repository-layer-contract.md
+│   │   │   ├── rls-policies.md
+│   │   │   ├── seed-data.md
+│   │   │   ├── storage-model.md
+│   │   │   └── telegram-commerce-flow.md
+│   │   ├── 07-uiux
+│   │   │   ├── accessibility.md
+│   │   │   ├── admin-actions-matrix.md
+│   │   │   ├── ALL_UIUX_DOCS_COMBINED.md
+│   │   │   ├── backend-ui-contract.md
+│   │   │   ├── backup-docs
+│   │   │   │   └── backend-uiux-docs-v2.zip
+│   │   │   ├── btn-card-bdg-variants.md
+│   │   │   ├── btn-crd-bdg-variants.md
+│   │   │   ├── color-palette.md
+│   │   │   ├── components-backend-contract.md
+│   │   │   ├── components-list.md
+│   │   │   ├── darkmode-ui-component-style.md
+│   │   │   ├── data-table-actions.md
+│   │   │   ├── design.md
+│   │   │   ├── design-system.md
+│   │   │   ├── filters-search-sort.md
+│   │   │   ├── fontbrand-typography.md
+│   │   │   ├── forms-and-fields.md
+│   │   │   ├── inpt-txt-slct-tab-nav-variants.md
+│   │   │   ├── input-txt-slct-tab-nav-variants.md
+│   │   │   ├── manifest.json
+│   │   │   ├── mini-brand-guideline.md
+│   │   │   ├── mini-design-system.md
+│   │   │   ├── orders-page-multi-outlet.md
+│   │   │   ├── outlet-selector-pattern.md
+│   │   │   ├── outlet-ui-requirements.md
+│   │   │   ├── pages-backend-requirements.md
+│   │   │   ├── pages-list.md
+│   │   │   ├── payment-ui-requirements.md
+│   │   │   ├── README.md
+│   │   │   ├── responsive-admin-rules.md
+│   │   │   ├── telegram-bot-ux.md
+│   │   │   ├── ui-component-style.md
+│   │   │   ├── ui-states.md
+│   │   │   ├── visual-style.md
+│   │   │   └── workflow-buttons.md
+│   │   ├── 08-security
+│   │   │   ├── admin-dashboard-security.md
+│   │   │   ├── ai-action-security.md
+│   │   │   ├── ai-prompt-security.md
+│   │   │   ├── ALL_SECURITY_DOCS_COMBINED.md
+│   │   │   ├── api-security.md
+│   │   │   ├── asset-access-security.md
+│   │   │   ├── audit-logging-security.md
+│   │   │   ├── auth-authz.md
+│   │   │   ├── backup-docs
+│   │   │   │   └── backend-security-docs-v2.zip
+│   │   │   ├── backup-recovery-security.md
+│   │   │   ├── data-protection.md
+│   │   │   ├── dependency-supply-chain-security.md
+│   │   │   ├── file-storage-security.md
+│   │   │   ├── incident-response.md
+│   │   │   ├── manifest.json
+│   │   │   ├── meta-platform-security.md
+│   │   │   ├── outlet-access-security.md
+│   │   │   ├── payment-security.md
+│   │   │   ├── rate-limit-abuse.md
+│   │   │   ├── README.md
+│   │   │   ├── rls-security.md
+│   │   │   ├── secrets-env-policy.md
+│   │   │   ├── security-checklist.md
+│   │   │   ├── telegram-security.md
+│   │   │   ├── threat-model.md
+│   │   │   ├── vulnerability-management.md
+│   │   │   ├── webhook-security.md
+│   │   │   └── workspace-tenant-security.md
+│   │   ├── 09-ai-context
+│   │   │   ├── agent-evaluation.md
+│   │   │   ├── agent-response-format.md
+│   │   │   ├── ai-action-contract.md
+│   │   │   ├── ai-pipeline-rules.md
+│   │   │   ├── ALL_AI_CONTEXT_DOCS_COMBINED.md
+│   │   │   ├── backend-boundaries.md
+│   │   │   ├── backup-docs
+│   │   │   │   └── backend-ai-context-docs-v2.zip
+│   │   │   ├── coding-guidelines.md
+│   │   │   ├── commerce-agent-guardrails.md
+│   │   │   ├── context-packing.md
+│   │   │   ├── current-task.md
+│   │   │   ├── database-context.md
+│   │   │   ├── do-not-break.md
+│   │   │   ├── human-handoff-context.md
+│   │   │   ├── manifest.json
+│   │   │   ├── notification-context.md
+│   │   │   ├── outlet-context.md
+│   │   │   ├── payment-context.md
+│   │   │   ├── prompt-context.md
+│   │   │   ├── README.md
+│   │   │   ├── security-rules-for-ai.md
+│   │   │   ├── storage-context.md
+│   │   │   ├── telegram-bot-context.md
+│   │   │   ├── testing-expectations.md
+│   │   │   └── tool-calling-contract.md
+│   │   ├── 10-testing
+│   │   │   ├── acceptance-test-cases.md
+│   │   │   ├── ai-agent-evaluation.md
+│   │   │   ├── ai-output-qa-checklist.md
+│   │   │   ├── ALL_TESTING_DOCS_COMBINED.md
+│   │   │   ├── backup-docs
+│   │   │   │   ├── backend-testing-docs-v2
+│   │   │   │   └── testing.zip
+│   │   │   ├── ci-test-pipeline.md
+│   │   │   ├── e2e-test-plan.md
+│   │   │   ├── image-generation-qa-checklist.md
+│   │   │   ├── integration-test-plan.md
+│   │   │   ├── jobs-test-plan.md
+│   │   │   ├── local-storage-test-plan.md
+│   │   │   ├── manifest.json
+│   │   │   ├── manual-qa-cliproxy.md
+│   │   │   ├── migration-test-plan.md
+│   │   │   ├── observability-test-plan.md
+│   │   │   ├── outlet-test-plan.md
+│   │   │   ├── payment-test-plan.md
+│   │   │   ├── performance-test-plan.md
+│   │   │   ├── qa-process.md
+│   │   │   ├── README.md
+│   │   │   ├── regression-checklist.md
+│   │   │   ├── security-test-plan.md
+│   │   │   ├── smoke-test-checklist.md
+│   │   │   ├── tdd-rules.md
+│   │   │   ├── telegram-commerce-test-plan.md
+│   │   │   ├── test-data.md
+│   │   │   ├── test-strategy.md
+│   │   │   ├── unit-test-plan.md
+│   │   │   └── webhook-test-plan.md
+│   │   ├── 11-sprint
+│   │   │   ├── agent-response-format.md
+│   │   │   ├── backlog.md
+│   │   │   ├── backup-docs
+│   │   │   │   └── sprint.zip
+│   │   │   ├── current-sprint.md
+│   │   │   ├── definition-of-done.md
+│   │   │   ├── dependency-map.md
+│   │   │   ├── estimation-guide.md
+│   │   │   ├── implementation-status.md
+│   │   │   ├── milestones.md
+│   │   │   ├── multi-outlet-foundation-sprint.md
+│   │   │   ├── mvp-demo-script.md
+│   │   │   ├── progress-log.md
+│   │   │   ├── README.md
+│   │   │   ├── release-checklist.md
+│   │   │   ├── risk-log.md
+│   │   │   ├── sprint-0-stabilization.md
+│   │   │   ├── sprint-1-webhook-service-boundary.md
+│   │   │   ├── sprint-2-product-catalog.md
+│   │   │   ├── sprint-3-cart-telegram-commerce.md
+│   │   │   ├── sprint-4-checkout-payment.md
+│   │   │   ├── sprint-5-admin-ops.md
+│   │   │   ├── sprint-6-mvp-hardening.md
+│   │   │   ├── sprint-plan.md
+│   │   │   └── task-breakdown.md
+│   │   ├── 12-devops
+│   │   │   ├── ai-ops.md
+│   │   │   ├── ALL_OPS_DOCS_COMBINED.md
+│   │   │   ├── backup-docs
+│   │   │   │   └── backend-ops-docs-v2.zip
+│   │   │   ├── backup-restore-runbook.md
+│   │   │   ├── database-ops.md
+│   │   │   ├── deployment-runbook.md
+│   │   │   ├── disaster-recovery.md
+│   │   │   ├── environment-ops.md
+│   │   │   ├── health-checks.md
+│   │   │   ├── incident-response-runbook.md
+│   │   │   ├── job-ops.md
+│   │   │   ├── maintenance-window.md
+│   │   │   ├── manifest.json
+│   │   │   ├── migration-ops.md
+│   │   │   ├── monitoring-alerting.md
+│   │   │   ├── ops-checklists.md
+│   │   │   ├── ops-log.md
+│   │   │   ├── ops-overview.md
+│   │   │   ├── payment-ops.md
+│   │   │   ├── postmortem-template.md
+│   │   │   ├── production-readiness.md
+│   │   │   ├── README.md
+│   │   │   ├── release-runbook.md
+│   │   │   ├── rollback-runbook.md
+│   │   │   ├── security-ops.md
+│   │   │   ├── storage-ops.md
+│   │   │   ├── telegram-ops.md
+│   │   │   ├── troubleshooting.md
+│   │   │   └── webhook-ops.md
+│   │   ├── 12-ops
+│   │   │   ├── ai-ops.md
+│   │   │   ├── ALL_OPS_DOCS_COMBINED.md
+│   │   │   ├── backup-restore-runbook.md
+│   │   │   ├── database-ops.md
+│   │   │   ├── deployment-runbook.md
+│   │   │   ├── disaster-recovery.md
+│   │   │   ├── environment-ops.md
+│   │   │   ├── health-checks.md
+│   │   │   ├── incident-response-runbook.md
+│   │   │   ├── job-ops.md
+│   │   │   ├── maintenance-window.md
+│   │   │   ├── migration-ops.md
+│   │   │   ├── monitoring-alerting.md
+│   │   │   ├── ops-checklists.md
+│   │   │   ├── ops-log.md
+│   │   │   ├── ops-overview.md
+│   │   │   ├── payment-ops.md
+│   │   │   ├── postmortem-template.md
+│   │   │   ├── production-readiness.md
+│   │   │   ├── README.md
+│   │   │   ├── release-runbook.md
+│   │   │   ├── rollback-runbook.md
+│   │   │   ├── security-ops.md
+│   │   │   ├── storage-ops.md
+│   │   │   ├── telegram-ops.md
+│   │   │   ├── troubleshooting.md
+│   │   │   └── webhook-ops.md
+│   │   ├── ALL_MULTI_OUTLET_UPDATED_DOCS_COMBINED.md
+│   │   ├── brief
+│   │   │   ├── agent-handoff-brief.md
+│   │   │   ├── ai-agent-brief.md
+│   │   │   ├── ALL_BRIEFS_COMBINED.md
+│   │   │   ├── backup-docs
+│   │   │   │   └── backend-brief-docs-v2.zip
+│   │   │   ├── current-priority-brief.md
+│   │   │   ├── current-system-brief.md
+│   │   │   ├── data-migration-brief.md
+│   │   │   ├── folder-map-brief.md
+│   │   │   ├── implementation-priority-brief.md
+│   │   │   ├── manifest.json
+│   │   │   ├── mvp-brief.md
+│   │   │   ├── payment-brief.md
+│   │   │   ├── project-brief.md
+│   │   │   ├── quick-prompt-for-ai-agent.md
+│   │   │   ├── README.md
+│   │   │   ├── security-brief.md
+│   │   │   ├── target-system-brief.md
+│   │   │   ├── task-brief-template.md
+│   │   │   ├── Technical_Brief_v3.md
+│   │   │   ├── telegram-commerce-brief.md
+│   │   │   └── testing-brief.md
+│   │   ├── chatgpt-context
+│   │   │   ├── backend-docs-full-merged-multi-outlet-v3.zip
+│   │   │   ├── backup-docs.zip
+│   │   │   ├── PROJECT_CONTEXT_REPORT.md
+│   │   │   └── Untitled Document.txt
+│   │   ├── index.md
+│   │   ├── manifest.json
+│   │   ├── mvp-priority-checklist.md
+│   │   ├── mvp-priority.md
+│   │   ├── .obsidian
+│   │   │   ├── icons
+│   │   │   └── plugins
+│   │   │       └── obsidian-icon-folder
+│   │   └── READING-ORDER.md
+│   ├── frontend
+│   │   ├── codes
+│   │   │   ├── pages
+│   │   │   │   └── outlets
+│   │   │   │       ├── kalis-outlets-page
+│   │   │   │       │   ├── README.md
+│   │   │   │       │   └── src
+│   │   │   │       │       ├── App.jsx
+│   │   │   │       │       └── pages
+│   │   │   │       │           └── OutletsPage.jsx
+│   │   │   │       └── kalis-outlets-page.zip
+│   │   │   ├── selaluteh-frontend-mvp-page-design-docs-v1
+│   │   │   │   └── docs
+│   │   │   │       └── frontend
+│   │   │   │           ├── 00-foundation
+│   │   │   │           │   ├── design-alignment.md
+│   │   │   │           │   ├── multi-outlet-and-workspace-context.md
+│   │   │   │           │   └── shared-page-components.md
+│   │   │   │           ├── 01-pages
+│   │   │   │           │   ├── chat-center-page.md
+│   │   │   │           │   ├── connected-platforms-page.md
+│   │   │   │           │   ├── payments-page.md
+│   │   │   │           │   ├── products-page.md
+│   │   │   │           │   └── settings-page.md
+│   │   │   │           ├── 02-contracts
+│   │   │   │           │   ├── api-and-data-contracts.md
+│   │   │   │           │   ├── permissions-and-security.md
+│   │   │   │           │   ├── status-and-label-matrix.md
+│   │   │   │           │   └── ui-state-contract.md
+│   │   │   │           ├── 03-implementation
+│   │   │   │           │   ├── delivery-plan.md
+│   │   │   │           │   ├── frontend-module-map.md
+│   │   │   │           │   └── navigation-and-routes.md
+│   │   │   │           ├── 04-testing
+│   │   │   │           │   ├── acceptance-test-plan.md
+│   │   │   │           │   └── responsive-and-accessibility-checklist.md
+│   │   │   │           ├── ai-handoff
+│   │   │   │           │   └── MASTER_IMPLEMENTATION_PROMPT.md
+│   │   │   │           ├── ALL_FRONTEND_MVP_PAGE_DESIGN_DOCS.md
+│   │   │   │           ├── manifest.json
+│   │   │   │           └── README.md
+│   │   │   └── selaluteh-frontend-mvp-page-design-docs-v1.zip
+│   │   └── color-palette.png
+│   └── .obsidian
+│       ├── appearance.json
+│       ├── app.json
+│       ├── core-plugins.json
+│       └── workspace.json
+├── foto masalah
+│   ├── contoh-landing.jsx
+│   ├── image.png
+│   ├── inbox.jsx
+│   ├── inbox ui.jpg
+│   └── ui image.jpg
+├── .gitignore
+├── .openclaude
+│   └── settings.local.json
+├── package.json
+├── project-tree.txt
+├── README.md
+├── scripts
+│   └── dev.js
+├── server
+│   ├── change_role.js
+│   ├── check_owners.js
+│   ├── .env
+│   ├── fix_account.js
+│   ├── inspect_chat.js
+│   ├── inspect_users.js
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── scripts
+│   │   ├── audit.js
+│   │   ├── check_platforms.js
+│   │   ├── cleanup.js
+│   │   ├── cleanup_platforms.js
+│   │   ├── create-user.js
+│   │   ├── debug-instagram-messages.mjs
+│   │   ├── debug-platforms.mjs
+│   │   ├── fixPlatformType.js
+│   │   ├── fixUser.js
+│   │   ├── seed.js
+│   │   ├── test.js
+│   │   └── test_webhook_route.js
+│   ├── simulate_webhook.js
+│   ├── src
+│   │   ├── config
+│   │   │   ├── cors.js
+│   │   │   ├── env.js
+│   │   │   └── logger.js
+│   │   ├── db
+│   │   │   ├── mongo.js
+│   │   │   └── repositories
+│   │   │       ├── chats.repository.js
+│   │   │       ├── index.js
+│   │   │       ├── messages.repository.js
+│   │   │       ├── orders.repository.js
+│   │   │       ├── outlets.repository.js
+│   │   │       ├── products.repository.js
+│   │   │       └── webhook-events.repository.js
+│   │   ├── index.js
+│   │   ├── integrations
+│   │   │   ├── ai
+│   │   │   │   ├── gemini-client.js
+│   │   │   │   ├── openai-client.js
+│   │   │   │   └── prompts
+│   │   │   │       ├── commerce-assistant.prompt.js
+│   │   │   │       └── support-agent.prompt.js
+│   │   │   ├── meta
+│   │   │   │   ├── meta-client.js
+│   │   │   │   └── meta-parser.js
+│   │   │   ├── payments
+│   │   │   │   ├── midtrans-client.js
+│   │   │   │   ├── payment-provider.types.js
+│   │   │   │   └── xendit-client.js
+│   │   │   └── telegram
+│   │   │       ├── telegram-client.js
+│   │   │       ├── telegram-keyboards.js
+│   │   │       └── telegram-parser.js
+│   │   ├── middleware
+│   │   │   ├── auth.js
+│   │   │   ├── error-handler.js
+│   │   │   ├── rate-limit.js
+│   │   │   ├── request-id.js
+│   │   │   ├── validate.js
+│   │   │   └── workspaceContext.js
+│   │   ├── models
+│   │   │   ├── Agent.js
+│   │   │   ├── Chat.js
+│   │   │   ├── Complaint.js
+│   │   │   ├── Contact.js
+│   │   │   ├── Knowledge.js
+│   │   │   ├── Message.js
+│   │   │   ├── Order.js
+│   │   │   ├── OTP.js
+│   │   │   ├── Outlet.js
+│   │   │   ├── PasswordReset.js
+│   │   │   ├── Platform.js
+│   │   │   ├── Product.js
+│   │   │   ├── ProductOutletAvailability.js
+│   │   │   ├── Setting.js
+│   │   │   ├── User.js
+│   │   │   ├── UserOutletAccess.js
+│   │   │   ├── WebhookEvent.js
+│   │   │   └── Workspace.js
+│   │   ├── routes
+│   │   │   ├── agents.js
+│   │   │   ├── analytics.js
+│   │   │   ├── auth.js
+│   │   │   ├── billing.js
+│   │   │   ├── chats.js
+│   │   │   ├── complaints.js
+│   │   │   ├── contacts.js
+│   │   │   ├── integrations.js
+│   │   │   ├── orders.js
+│   │   │   ├── outletAccess.js
+│   │   │   ├── outlets.js
+│   │   │   ├── platforms.js
+│   │   │   ├── products.js
+│   │   │   ├── profile.js
+│   │   │   ├── settings.js
+│   │   │   ├── users.js
+│   │   │   └── webhooks
+│   │   │       ├── index.js
+│   │   │       ├── meta.js
+│   │   │       ├── metaTest.js
+│   │   │       ├── payments.js
+│   │   │       ├── telegram_buffer_helper.js
+│   │   │       └── telegram.js
+│   │   ├── services
+│   │   │   ├── access-control.service.js
+│   │   │   ├── aiClient.js
+│   │   │   ├── ai.service.js
+│   │   │   ├── chat-message.service.js
+│   │   │   ├── complaint.service.js
+│   │   │   ├── followups.service.js
+│   │   │   ├── mail.js
+│   │   │   ├── messageBuffer.js
+│   │   │   ├── order.service.js
+│   │   │   ├── outlet.service.js
+│   │   │   ├── product.service.js
+│   │   │   ├── sender.js
+│   │   │   └── webhook-idempotency.service.js
+│   │   ├── utils
+│   │   │   ├── dates.js
+│   │   │   ├── downloader.js
+│   │   │   ├── errors.js
+│   │   │   ├── fileMentions.js
+│   │   │   ├── ids.js
+│   │   │   ├── messageSplitter.js
+│   │   │   ├── money.js
+│   │   │   └── safe-json.js
+│   │   ├── validators
+│   │   │   ├── auth.schema.js
+│   │   │   ├── carts.schema.js
+│   │   │   ├── checkout.schema.js
+│   │   │   ├── orders.schema.js
+│   │   │   ├── payments.schema.js
+│   │   │   └── products.schema.js
+│   │   └── workers
+│   │       └── index.js
+│   ├── test
+│   │   ├── helpers
+│   │   │   └── mongoMemory.js
+│   │   ├── webhook-idempotency.integration.test.js
+│   │   └── workspace-isolation.security.test.js
+│   └── uploads
+│       ├── 1760322857296.pdf
+│       ├── 1760322871987.pdf
+│       ├── 1760324075471.pdf
+│       ├── 1760337060647.png
+│       ├── 1760343094763.png
+│       ├── 1760343101846.png
+│       ├── 1760946549814.png
+│       ├── 1761181713591.pdf
+│       ├── 1761181795053.pdf
+│       ├── 1761183958596.pdf
+│       ├── 1761184166977.pdf
+│       ├── 1761184224047.pdf
+│       ├── 1761185349154.pdf
+│       ├── 1761185566730-SURAT_DISPENSASI_SELVI.pdf
+│       ├── 1761186026727-SURAT_DISPENSASI_SELVI.pdf
+│       ├── 1761186102196-SURAT_DISPENSASI_SELVI.pdf
+│       ├── 1761186134344-SURAT_DISPENSASI_SELVI.pdf
+│       ├── 1761187398261-SURAT_DISPENSASI_SELVI.pdf
+│       ├── ChatGPT_Image_6_Agu_2025_15.01.54.png
+│       ├── SURAT_DISPENSASI_RAFIF.pdf
+│       └── SURAT_DISPENSASI_SELVI.pdf
+├── temp_meta.txt
+└── web
+    ├── .env
+    ├── .env.example
+    ├── eslint.config.js
+    ├── fix_sidebar.js
+    ├── index.html
+    ├── .openclaude
+    │   └── settings.local.json
+    ├── package.json
+    ├── package-lock.json
+    ├── .playwright-mcp
+    │   ├── console-2026-06-15T04-58-04-641Z.log
+    │   ├── console-2026-06-15T04-58-42-320Z.log
+    │   ├── console-2026-06-15T04-59-08-023Z.log
+    │   ├── console-2026-06-15T05-00-38-671Z.log
+    │   ├── console-2026-06-15T05-06-05-239Z.log
+    │   ├── console-2026-06-15T05-06-16-761Z.log
+    │   ├── console-2026-06-15T05-07-36-644Z.log
+    │   ├── console-2026-06-15T05-07-58-867Z.log
+    │   ├── console-2026-06-15T05-08-48-321Z.log
+    │   ├── console-2026-06-15T05-09-08-987Z.log
+    │   ├── console-2026-06-15T05-09-46-269Z.log
+    │   ├── console-2026-06-15T05-12-31-861Z.log
+    │   ├── console-2026-06-15T05-16-41-147Z.log
+    │   ├── console-2026-06-15T05-17-24-977Z.log
+    │   ├── console-2026-06-15T05-22-21-771Z.log
+    │   ├── page-2026-06-15T04-58-42-819Z.yml
+    │   ├── page-2026-06-15T04-58-53-447Z.png
+    │   ├── page-2026-06-15T04-59-05-441Z.yml
+    │   ├── page-2026-06-15T04-59-08-411Z.yml
+    │   ├── page-2026-06-15T04-59-12-001Z.png
+    │   ├── page-2026-06-15T05-00-39-019Z.yml
+    │   ├── page-2026-06-15T05-00-42-957Z.png
+    │   ├── page-2026-06-15T05-06-06-280Z.yml
+    │   ├── page-2026-06-15T05-06-15-154Z.yml
+    │   ├── page-2026-06-15T05-06-17-155Z.yml
+    │   ├── page-2026-06-15T05-06-22-005Z.png
+    │   ├── page-2026-06-15T05-07-36-886Z.yml
+    │   ├── page-2026-06-15T05-07-41-648Z.png
+    │   ├── page-2026-06-15T05-07-59-271Z.yml
+    │   ├── page-2026-06-15T05-08-03-108Z.png
+    │   ├── page-2026-06-15T05-08-21-394Z.png
+    │   ├── page-2026-06-15T05-08-48-720Z.yml
+    │   ├── page-2026-06-15T05-08-56-332Z.png
+    │   ├── page-2026-06-15T05-09-09-415Z.yml
+    │   ├── page-2026-06-15T05-09-18-644Z.png
+    │   ├── page-2026-06-15T05-09-46-706Z.yml
+    │   ├── page-2026-06-15T05-09-56-138Z.png
+    │   ├── page-2026-06-15T05-12-32-191Z.yml
+    │   ├── page-2026-06-15T05-12-36-061Z.png
+    │   ├── page-2026-06-15T05-16-41-514Z.yml
+    │   ├── page-2026-06-15T05-17-25-313Z.yml
+    │   ├── page-2026-06-15T05-17-36-868Z.png
+    │   ├── page-2026-06-15T05-22-22-122Z.yml
+    │   ├── page-2026-06-15T05-22-30-456Z.png
+    │   ├── page-2026-06-15T05-24-00-392Z.png
+    │   ├── page-2026-06-15T05-24-24-804Z.png
+    │   ├── page-2026-06-15T05-25-26-983Z.png
+    │   ├── page-2026-06-15T05-25-42-083Z.png
+    │   ├── page-2026-06-15T05-28-25-000Z.png
+    │   └── page-2026-06-15T05-28-40-225Z.png
+    ├── .prettierrc
+    ├── src
+    │   ├── app
+    │   │   ├── App.jsx
+    │   │   ├── config.js
+    │   │   ├── providers.jsx
+    │   │   ├── router.jsx
+    │   │   └── routes.jsx
+    │   ├── assets
+    │   │   ├── kalis_storefront.jpg
+    │   │   ├── logos
+    │   │   │   └── Brand.png
+    │   │   └── rina_avatar.jpg
+    │   ├── layouts
+    │   │   ├── AppLayout.jsx
+    │   │   ├── AuthLayout.jsx
+    │   │   ├── components
+    │   │   │   ├── OutletSelector.jsx
+    │   │   │   ├── Sidebar.jsx
+    │   │   │   ├── Topbar.jsx
+    │   │   │   ├── UserMenu.jsx
+    │   │   │   └── WorkspaceSwitcher.jsx
+    │   │   └── DashboardLayout.jsx
+    │   ├── main.jsx
+    │   ├── mocks
+    │   │   ├── demoState.js
+    │   │   ├── orders.mock.js
+    │   │   ├── outlets.mock.js
+    │   │   └── products.mock.js
+    │   ├── modules
+    │   │   ├── agents
+    │   │   │   ├── api
+    │   │   │   │   └── agentsApi.js
+    │   │   │   ├── components
+    │   │   │   │   ├── AgentDetail.jsx
+    │   │   │   │   ├── AgentForm.jsx
+    │   │   │   │   ├── AgentKnowledgeFiles.jsx
+    │   │   │   │   ├── AgentPromptEditor.jsx
+    │   │   │   │   ├── AgentSales.jsx
+    │   │   │   │   └── AgentsTable.jsx
+    │   │   │   ├── pages
+    │   │   │   │   └── AgentsPage.jsx
+    │   │   │   └── styles
+    │   │   │       └── agents.css
+    │   │   ├── analytics
+    │   │   │   ├── pages
+    │   │   │   │   └── AnalyticsPage.jsx
+    │   │   │   └── styles
+    │   │   │       └── analytics.css
+    │   │   ├── auth
+    │   │   │   ├── api
+    │   │   │   │   └── authApi.js
+    │   │   │   ├── auth.store.js
+    │   │   │   ├── hooks
+    │   │   │   │   └── useAuth.js
+    │   │   │   └── pages
+    │   │   │       ├── ForgotPasswordPage.jsx
+    │   │   │       ├── LoginPage.jsx
+    │   │   │       ├── RegisterPage.jsx
+    │   │   │       ├── ResetPasswordPage.jsx
+    │   │   │       └── VerifyPage.jsx
+    │   │   ├── billing
+    │   │   │   └── pages
+    │   │   │       └── BillingPage.jsx
+    │   │   ├── chats
+    │   │   │   ├── api
+    │   │   │   │   └── chatsApi.js
+    │   │   │   ├── components
+    │   │   │   │   ├── ChatContextPanel.jsx
+    │   │   │   │   ├── ChatList.jsx
+    │   │   │   │   ├── ChatPanel.jsx
+    │   │   │   │   ├── MessageBubble.jsx
+    │   │   │   │   ├── MessageComposer.jsx
+    │   │   │   │   ├── QuickActions.jsx
+    │   │   │   │   └── TakeoverButton.jsx
+    │   │   │   ├── hooks
+    │   │   │   │   ├── useChatPolling.js
+    │   │   │   │   ├── useChats.js
+    │   │   │   │   └── useMessages.js
+    │   │   │   ├── pages
+    │   │   │   │   └── ChatCenterPage.jsx
+    │   │   │   └── styles
+    │   │   │       ├── inbox-modern-backup.css
+    │   │   │       ├── inbox-modern.css
+    │   │   │       └── inbox-modern-test.css
+    │   │   ├── complaints
+    │   │   │   ├── api
+    │   │   │   │   └── complaintsApi.js
+    │   │   │   ├── components
+    │   │   │   │   ├── ComplaintDetailDrawer.jsx
+    │   │   │   │   └── ComplaintsTable.jsx
+    │   │   │   └── pages
+    │   │   │       └── ComplaintsPage.jsx
+    │   │   ├── contacts
+    │   │   │   ├── api
+    │   │   │   │   └── contactsApi.js
+    │   │   │   ├── components
+    │   │   │   │   ├── ContactDetailDrawer.jsx
+    │   │   │   │   ├── ContactPanel.jsx
+    │   │   │   │   └── ContactsTable.jsx
+    │   │   │   ├── pages
+    │   │   │   │   └── ContactsPage.jsx
+    │   │   │   └── styles
+    │   │   │       └── contacts.css
+    │   │   ├── dashboard
+    │   │   │   ├── api
+    │   │   │   │   └── dashboardApi.js
+    │   │   │   └── pages
+    │   │   │       ├── DashboardPage.jsx
+    │   │   │       └── LandingPage.jsx
+    │   │   ├── human-agents
+    │   │   │   └── pages
+    │   │   │       └── HumanAgentsPage.jsx
+    │   │   ├── orders
+    │   │   │   ├── api
+    │   │   │   │   └── ordersApi.js
+    │   │   │   ├── components
+    │   │   │   │   ├── OrderDetailDrawer.jsx
+    │   │   │   │   ├── OrderItemsList.jsx
+    │   │   │   │   ├── OrderQuickActions.jsx
+    │   │   │   │   ├── OrdersStatusTabs.jsx
+    │   │   │   │   ├── OrdersSummaryCards.jsx
+    │   │   │   │   ├── OrdersTable.jsx
+    │   │   │   │   ├── OrderStatusBadge.jsx
+    │   │   │   │   ├── OrdersToolbar.jsx
+    │   │   │   │   └── OrderTimeline.jsx
+    │   │   │   ├── hooks
+    │   │   │   │   ├── useOrderDetail.js
+    │   │   │   │   ├── useOrderFilters.js
+    │   │   │   │   └── useOrders.js
+    │   │   │   ├── orders.types.js
+    │   │   │   ├── pages
+    │   │   │   │   └── OrdersPage.jsx
+    │   │   │   └── utils
+    │   │   │       └── orderStatus.js
+    │   │   ├── outlets
+    │   │   │   └── pages
+    │   │   │       └── OutletsPage.jsx
+    │   │   ├── payments
+    │   │   │   ├── api
+    │   │   │   │   └── paymentsApi.js
+    │   │   │   ├── components
+    │   │   │   │   ├── PaymentDetailDrawer.jsx
+    │   │   │   │   ├── PaymentEventTimeline.jsx
+    │   │   │   │   ├── PaymentsSummaryCards.jsx
+    │   │   │   │   ├── PaymentsTable.jsx
+    │   │   │   │   ├── PaymentStatusBadge.jsx
+    │   │   │   │   └── PaymentsToolbar.jsx
+    │   │   │   ├── pages
+    │   │   │   │   └── PaymentsPage.jsx
+    │   │   │   └── styles
+    │   │   │       └── payments.css
+    │   │   ├── platforms
+    │   │   │   ├── api
+    │   │   │   │   └── platformsApi.js
+    │   │   │   ├── components
+    │   │   │   │   ├── PlatformCapabilitiesChecklist.jsx
+    │   │   │   │   ├── PlatformDetailDrawer.jsx
+    │   │   │   │   ├── PlatformForm.jsx
+    │   │   │   │   ├── PlatformPickerModal.jsx
+    │   │   │   │   ├── PlatformsTable.jsx
+    │   │   │   │   ├── PlatformStatusBadge.jsx
+    │   │   │   │   ├── WebhookHealthBadge.jsx
+    │   │   │   │   └── WebhookStatusCard.jsx
+    │   │   │   ├── pages
+    │   │   │   │   └── PlatformsPage.jsx
+    │   │   │   └── styles
+    │   │   │       └── platforms.css
+    │   │   ├── products
+    │   │   │   ├── api
+    │   │   │   │   └── .gitkeep
+    │   │   │   ├── components
+    │   │   │   │   └── .gitkeep
+    │   │   │   ├── hooks
+    │   │   │   │   └── .gitkeep
+    │   │   │   ├── pages
+    │   │   │   │   └── ProductsPage.jsx
+    │   │   │   ├── styles
+    │   │   │   │   └── .gitkeep
+    │   │   │   └── utils
+    │   │   │       └── .gitkeep
+    │   │   ├── profile
+    │   │   │   └── pages
+    │   │   │       └── ProfilePage.jsx
+    │   │   ├── reports
+    │   │   │   └── pages
+    │   │   │       └── ReportsPage.jsx
+    │   │   └── settings
+    │   │       ├── api
+    │   │       │   └── settingsApi.js
+    │   │       ├── components
+    │   │       │   ├── GeneralSettingsForm.jsx
+    │   │       │   ├── PaymentProviderSettingsForm.jsx
+    │   │       │   ├── SecretField.jsx
+    │   │       │   └── SettingsNavigation.jsx
+    │   │       └── pages
+    │   │           └── SettingsPage.jsx
+    │   ├── routes
+    │   │   ├── navigation.config.js
+    │   │   ├── privateRoutes.jsx
+    │   │   ├── publicRoutes.jsx
+    │   │   └── routeGuards.jsx
+    │   ├── shared
+    │   │   ├── api
+    │   │   │   ├── apiError.js
+    │   │   │   ├── endpoints.js
+    │   │   │   ├── httpClient.js
+    │   │   │   └── index.js
+    │   │   ├── components
+    │   │   │   ├── brand
+    │   │   │   │   └── BrandIcon.jsx
+    │   │   │   ├── feedback
+    │   │   │   │   └── Toast.jsx
+    │   │   │   └── ui
+    │   │   │       ├── ActiveFilterChips.jsx
+    │   │   │       ├── ConfirmDialog.jsx
+    │   │   │       ├── DetailDrawer.jsx
+    │   │   │       ├── EmptyState.jsx
+    │   │   │       ├── FileInput.jsx
+    │   │   │       ├── FilterPopup.jsx
+    │   │   │       ├── PageHeader.jsx
+    │   │   │       └── StatusBadge.jsx
+    │   │   └── styles
+    │   │       ├── globals.css
+    │   │       └── modal.css
+    │   └── stores
+    │       ├── authStore.js
+    │       ├── outletStore.js
+    │       ├── uiStore.js
+    │       └── workspaceStore.js
+    ├── vite.config.js
+    └── widen_sidebar.js
+
+187 directories, 862 files

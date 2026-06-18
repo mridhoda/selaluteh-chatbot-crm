@@ -1,14 +1,22 @@
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { env } from '../config/env.js';
 
-const openaiKey = process.env.OPENAI_API_KEY || '';
-const googleKey = process.env.GOOGLE_API_KEY || '';
+const openaiKey = env.openaiApiKey;
+const googleKey = env.googleApiKey;
 
 let openaiClient = null;
 let geminiClient = null;
 
 if (openaiKey) {
-  openaiClient = new OpenAI({ apiKey: openaiKey });
+  const defaultHeaders = {};
+  if (env.openaiReferer) defaultHeaders['HTTP-Referer'] = env.openaiReferer;
+  if (env.openaiAppName) defaultHeaders['X-Title'] = env.openaiAppName;
+  openaiClient = new OpenAI({
+    apiKey: openaiKey,
+    baseURL: env.openaiBaseUrl || undefined,
+    defaultHeaders,
+  });
 }
 if (googleKey) {
   geminiClient = new GoogleGenerativeAI(googleKey);

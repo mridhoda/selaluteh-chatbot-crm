@@ -20,9 +20,26 @@ chat_id
 5. Backend validates all products are available at outlet.
 6. Backend recalculates totals.
 7. Backend creates checkout.
-8. Backend creates order.
-9. Backend creates payment link.
-10. Backend sends payment link.
+8. Customer explicitly confirms checkout.
+9. Backend creates order exactly once.
+10. Backend creates payment attempt.
+11. Backend marks checkout/cart as converted.
+12. Backend sends payment link or manual/COD instruction.
+
+## Current MVP Runtime
+
+Telegram confirmation now performs:
+
+```txt
+confirm checkout
+→ create Order
+→ create Payment attempt
+→ mark checkout converted
+→ mark cart converted
+→ show payment instruction
+```
+
+When `PAYMENT_PROVIDER=manual`, the customer sees a manual/COD instruction instead of a provider URL.
 
 ## Failure Cases
 
@@ -31,3 +48,5 @@ chat_id
 - product unavailable
 - cart outlet mismatch
 - payment provider unavailable
+- amount mismatch between order total and payment request
+- duplicate checkout confirmation

@@ -54,7 +54,7 @@ platforms.account_id or phone_number_id
 Use unique external identity:
 
 ```txt
-workspace_id + platform_type + platform_account_id
+workspace_id + platform_id + external_id
 ```
 
 This prevents duplicate contacts for repeated webhooks from the same external user.

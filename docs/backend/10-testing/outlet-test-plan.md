@@ -10,9 +10,9 @@
 
 ## Telegram Tests
 
-- customer must choose outlet before product list
-- inactive outlet not shown
-- product list filtered by outlet availability
+- [x] customer must choose outlet before product list
+- [x] inactive outlet not shown
+- [x] product list filtered by outlet availability
 - switch outlet with active cart requires confirmation
 - cart cannot mix outlets
 

@@ -20,7 +20,7 @@ Checklist praktis untuk mengubah current Chatbot CRM menjadi Telegram-first Mark
 
 - [ ] Create repositories folder.
 - [ ] Add users/platforms/agents repositories.
-- [ ] Add contacts/chats/messages repositories.
+- [ ] Add contacts/chats/chat_messages repositories.
 - [ ] Add files/orders/complaints repositories.
 - [ ] Add products/carts/payments repositories.
 - [ ] Refactor routes to call repositories/services.
@@ -34,26 +34,26 @@ Checklist praktis untuk mengubah current Chatbot CRM menjadi Telegram-first Mark
 - [ ] Create identity tables.
 - [ ] Create integration tables.
 - [ ] Create files table.
-- [ ] Create agents and child tables.
+- [ ] Create agents table with embedded JSON.
+- [ ] Create agent_outlets mapping table.
 - [ ] Create CRM tables.
 - [ ] Create operations tables.
 - [ ] Create marketplace tables.
 - [ ] Create payment tables.
 - [ ] Create indexes/triggers/RLS.
 
-## Phase 3 — Migration Script
+## Phase 3 — Supabase Foundation and Seed Data
 
-- [ ] Implement Mongo connection.
 - [ ] Implement Supabase service role connection.
-- [ ] Generate ID maps.
-- [ ] Implement dry run.
-- [ ] Migrate workspaces/users/settings/platforms.
-- [ ] Migrate files metadata.
-- [ ] Migrate agents and child tables.
-- [ ] Migrate contacts/chats/messages.
-- [ ] Migrate orders/complaints.
-- [ ] Optional product backfill.
-- [ ] Generate reports.
+- [ ] Validate `DATA_SOURCE=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_DATABASE_URL`.
+- [ ] Add camelCase/snake_case mapping helpers.
+- [ ] Add repository conventions and error mapping.
+- [ ] Add transaction conventions.
+- [ ] Add workspace/outlet scoping conventions.
+- [ ] Add Supabase local or dedicated test project setup.
+- [ ] Seed workspaces/users/workspace_settings/outlets/platforms with fake credentials.
+- [ ] Seed products and outlet availability for dev/test.
+- [ ] Do not implement Mongo backfill, dual-write, or legacy reconciliation.
 
 ## Phase 4 — Supabase Runtime Switch
 
@@ -61,10 +61,25 @@ Checklist praktis untuk mengubah current Chatbot CRM menjadi Telegram-first Mark
 - [ ] Add Supabase client.
 - [ ] Switch auth/platform/agent repositories.
 - [ ] Switch contact/chat/message repositories.
+- [ ] Switch products/outlet availability repositories.
+- [ ] Switch carts/checkout repositories.
+- [ ] Switch orders/payments repositories.
+- [ ] Switch complaints/files/settings repositories.
 - [ ] Verify Telegram webhook.
 - [ ] Verify dashboard inbox.
 - [ ] Verify human takeover.
 - [ ] Verify AI reply.
+
+## Phase 4.5 — Remove MongoDB and Mongoose
+
+- [ ] Remove Mongo connection/bootstrap code.
+- [ ] Remove Mongoose models.
+- [ ] Remove Mongoose dependency.
+- [ ] Remove MongoMemoryServer and Mongo-specific test setup.
+- [ ] Remove `DATA_SOURCE=mongo` fallback.
+- [ ] Remove obsolete Mongo environment variables.
+- [ ] Run full regression/security tests.
+- [ ] Update affected docs/specs and regenerate generated bundles.
 
 ## Phase 5 — Product Catalog
 

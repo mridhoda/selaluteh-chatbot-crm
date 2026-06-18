@@ -44,3 +44,11 @@ Kamu memilih SelaluTeh Tenggarong ✅
 - No cart without outlet.
 - No checkout without outlet.
 - Switching outlet with non-empty cart requires confirmation.
+
+## Current Backend Implementation
+
+- Telegram callback data uses compact actions such as `act:outlet:<outlet_id>`.
+- `/start` shows active outlets when `chat.current_outlet_id` is missing.
+- Selecting an outlet updates `chats.current_outlet_id` and `contacts.last_outlet_id`.
+- Outlet selection is audited as AI action `select_outlet`.
+- Product list callback `act:prod:list` returns outlet selection if no outlet is active.

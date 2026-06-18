@@ -65,6 +65,10 @@ Unit tests verify isolated business logic without network, database, or provider
 - Disallowed actions are rejected.
 - `mark_order_paid` is never allowed from AI.
 - Product recommendation can only reference active products.
+- `workspace_id` is required for every AI action.
+- Commerce actions that mutate cart/checkout require outlet context.
+- Legacy order/complaint AI actions are audited before execution.
+- Failed AI action execution records failure state.
 
 ### Files
 

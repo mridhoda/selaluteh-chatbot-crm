@@ -11,11 +11,13 @@ MVP may use:
 ## Payment Operational Rules
 
 - Backend creates payment link.
+- With `PAYMENT_PROVIDER=manual`, backend creates manual/COD instruction and keeps payment pending.
 - User pays on provider page.
 - Provider webhook is authoritative.
 - AI/user text cannot mark payment paid.
 - Webhook must be signature-verified.
 - Duplicate webhook must be idempotent.
+- PaymentEvent timeline should be checked before manual correction.
 
 ## Payment Statuses
 
@@ -87,3 +89,24 @@ Action:
 - [ ] No payment/order mismatch.
 - [ ] Paid orders visible in admin.
 - [ ] Duplicate event count normal.
+
+## MVP Telegram QA Setup
+
+Required environment:
+
+```txt
+PAYMENT_PROVIDER=manual              # local/COD smoke test
+PAYMENT_PROVIDER=midtrans|xendit     # sandbox link smoke test
+PUBLIC_BASE_URL=https://<stable-or-tunnel-url>
+PAYMENT_WEBHOOK_SECRET=<provider secret when applicable>
+```
+
+Smoke sequence:
+
+1. Telegram customer confirms checkout.
+2. Verify order exists and `paymentStatus=pending`.
+3. Verify payment attempt exists.
+4. Verify Telegram message shows payment link or manual/COD instruction.
+5. For provider sandbox, send paid webhook.
+6. Verify payment/order become paid.
+7. Verify `GET /api/payments/:paymentId/events` shows processed event.

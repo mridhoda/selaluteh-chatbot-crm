@@ -68,13 +68,21 @@ status
 
 ```txt
 User clicks Browse Products
--> backend queries active products in workspace
+-> backend verifies active outlet context
+-> backend queries active products available in selected outlet
 -> bot sends category/product list
 -> user selects product
 -> bot shows product detail
 -> user chooses variant/quantity
 -> backend validates availability
 -> user can add item to cart
+```
+
+Current runtime rule:
+
+```txt
+Customer-facing Telegram product list requires outlet_id.
+Products are shown only when product_outlet_availability is active and available for the selected outlet.
 ```
 
 ## Product Detail Message

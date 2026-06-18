@@ -95,9 +95,9 @@ No data yet state.
 Recommended:
 
 - new
-- pending_payment
-- paid
-- processing
+- accepted
+- preparing
+- ready
 - completed
 - cancelled
 

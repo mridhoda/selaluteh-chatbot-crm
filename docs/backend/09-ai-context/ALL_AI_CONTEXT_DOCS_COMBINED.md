@@ -16,7 +16,7 @@ Dokumen di folder ini bukan pengganti `04-tech-spec`, `05-api-spec`, `06-data`, 
 
 ## Project Context
 
-Aplikasi saat ini adalah **Chatbot CRM multi-platform** dengan React/Vite frontend, Express backend, MongoDB/Mongoose runtime existing, Telegram/WhatsApp/Instagram webhook, OpenAI/Gemini AI reply, dashboard inbox, contact management, human takeover, orders, complaints, file upload lokal, dan rencana migrasi ke Supabase/Postgres.
+Aplikasi saat ini adalah **Chatbot CRM multi-platform** dengan React/Vite frontend, Express backend, Supabase/Postgres sebagai runtime aktif dan final end-state, Telegram/WhatsApp/Instagram webhook, OpenAI/Gemini AI reply, dashboard inbox, contact management, human takeover, orders, complaints, dan file upload lokal. MongoDB/Mongoose telah sepenuhnya dihapus dari codebase.
 
 Target baru adalah:
 
@@ -911,9 +911,9 @@ Dokumen ini memberi ringkasan data-layer context untuk AI coding agent.
 
 ## Current Runtime
 
-Current backend runtime masih MongoDB/Mongoose.
+Current backend runtime adalah Supabase/Postgres. MongoDB/Mongoose telah dihapus sepenuhnya.
 
-## Target Data Layer
+## Active Data Layer
 
 Target adalah Supabase/Postgres dengan:
 

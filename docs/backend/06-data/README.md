@@ -4,7 +4,18 @@ Dokumen ini adalah versi terbaru dari paket **data/database docs** untuk project
 
 ## Konteks Sistem Terbaru
 
-Project saat ini adalah Chatbot CRM multi-platform dengan Telegram/WhatsApp/Instagram webhook, AI agent, inbox, contact management, human takeover, order sederhana, complaint, analytics, dan local upload. Runtime lama masih memakai MongoDB/Mongoose. Target baru memakai Supabase PostgreSQL untuk structured data, sementara file/media besar tetap di local server storage.
+Project saat ini adalah Chatbot CRM multi-platform dengan Telegram/WhatsApp/Instagram webhook, AI agent, inbox, contact management, human takeover, order sederhana, complaint, analytics, dan local upload. Runtime target dan final end-state adalah Supabase/Postgres untuk structured data, sementara file/media besar tetap di local server storage. MongoDB/Mongoose telah dihapus sepenuhnya setelah seluruh domain runtime berhasil dipindahkan ke Supabase/Postgres.
+
+Keputusan cutover final:
+
+```txt
+Start fresh from Supabase.
+No Mongo backfill.
+No dual-write.
+No legacy data reconciliation.
+Custom backend auth remains.
+Supabase Auth deferred.
+```
 
 Versi docs ini memperluas desain lama agar mendukung commerce deterministic:
 
@@ -13,6 +24,22 @@ Product Catalog -> Cart -> Checkout -> Order -> Payment -> Payment Webhook -> Pa
 ```
 
 AI tetap dipakai sebagai **shopping assistant**, tetapi backend menjadi sumber kebenaran untuk product, price, cart, order, inventory, dan payment.
+
+## Keputusan Skema Kanonik
+
+Sumber kebenaran skema adalah `database-schema.md`; seluruh dokumen dan migration SQL harus mengikuti keputusan berikut:
+
+| Topik | Keputusan |
+|---|---|
+| Agent config | Embedded JSON di `agents`, bukan child config tables |
+| Agent outlets | `agent_outlets.outlet_id` FK ke `outlets.id` |
+| Settings | `workspace_settings`, bukan tabel `settings` |
+| Messages | `chat_messages`, bukan tabel `messages` |
+| Human takeover | `chats.taken_over_by_user_id`, bukan `takeover_by` |
+| Order status | `orders.status`, `orders.payment_status`, dan `orders.fulfillment_status` terpisah |
+| Checkout state | `chats.state` JSONB untuk state percakapan/checkout ringan |
+
+Operational tables wajib tersedia walaupun tidak semuanya punya halaman admin CRUD: `files`, `webhook_events`, `ai_actions`, dan `checkouts`.
 
 ## Dokumen Utama
 
@@ -28,8 +55,8 @@ AI tetap dipakai sebagai **shopping assistant**, tetapi backend menjadi sumber k
 | `rls-policies.md` | RLS policy design Supabase |
 | `storage-model.md` | Local storage + file metadata model |
 | `seed-data.md` | Seed data untuk dev dan demo marketplace MVP |
-| `migration-plan.md` | Strategi migrasi MongoDB/Mongoose ke Supabase/Postgres |
-| `import-script-spec.md` | Spesifikasi script import Mongo -> Supabase |
+| `migration-plan.md` | Strategi staged Supabase cutover dan penghapusan MongoDB/Mongoose |
+| `import-script-spec.md` | Deprecated historical import spec; not active guidance for current fresh-start cutover |
 | `marketplace-module.md` | Rancangan modul marketplace MVP |
 | `payment-gateway.md` | Rancangan payment gateway sandbox |
 | `telegram-commerce-flow.md` | UX/data flow Telegram commerce |
@@ -37,11 +64,13 @@ AI tetap dipakai sebagai **shopping assistant**, tetapi backend menjadi sumber k
 | `repository-layer-contract.md` | Kontrak repository layer untuk migrasi bertahap |
 | `implementation-checklist.md` | Checklist implementasi end-to-end |
 
+> Catatan bundle: `ALL_DOCS_COMBINED.md` dan `migrations/ALL_MIGRATIONS_COMBINED.md` adalah hasil regenerasi dari file individual. Jika ada konflik, gunakan file individual sebagai source of truth dan regenerate bundle.
+
 ## Prinsip Besar
 
 ### 1. Workspace-first multi-tenancy
 
-Semua data tenant-owned wajib punya `workspace_id`. Ini termasuk `messages`, `payments`, `payment_events`, `products`, `carts`, dan `order_items`.
+Semua data tenant-owned wajib punya `workspace_id`. Ini termasuk `chat_messages`, `payments`, `payment_events`, `products`, `carts`, dan `order_items`.
 
 ### 2. CRM behavior tidak boleh rusak
 

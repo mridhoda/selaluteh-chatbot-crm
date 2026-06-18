@@ -118,11 +118,12 @@ Admin opens Orders
 
 | From | To | Actor | Notes |
 |---|---|---|---|
-| pending_payment | paid | Payment webhook | Trusted gateway event |
-| paid | processing | Admin | Merchant starts preparation |
-| processing | completed | Admin | Order fulfilled |
-| pending_payment | cancelled | Admin/system | Expired or manually cancelled |
-| paid | cancelled/refunded | Admin/payment process | Requires policy and audit |
+| new | accepted | Payment webhook | Trusted gateway event sets payment_status paid |
+| accepted | preparing | Admin | Merchant starts preparation |
+| preparing | ready | Admin | Ready for pickup/delivery |
+| ready | completed | Admin | Order fulfilled |
+| new | cancelled | Admin/system | Expired or manually cancelled |
+| accepted | cancelled | Admin/payment process | Requires policy and audit |
 
 ## Admin Guardrails
 

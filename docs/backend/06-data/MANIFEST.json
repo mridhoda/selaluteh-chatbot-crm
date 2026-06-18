@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-06-11T08:34:09.870690",
-  "description": "Updated 13 original data/database docs plus additional docs for Telegram-first Marketplace MVP, Supabase/Postgres migration, local storage, deterministic commerce, and payment sandbox.",
+  "created_at": "2026-06-16T00:00:00.000000",
+  "description": "Canonical data/database docs for Telegram-first Marketplace MVP, aligned to database-schema.md with workspace_settings, chat_messages, embedded agent JSON config, agent_outlets FK, operational tables, and deterministic order/payment status.",
   "files": [
     "ALL_DOCS_COMBINED.md",
     "README.md",

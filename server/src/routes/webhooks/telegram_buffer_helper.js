@@ -1,12 +1,8 @@
 import express from 'express';
 import path from 'path';
 import { promises as fs } from 'fs';
-import Platform from '../../models/Platform.js';
-import Agent from '../../models/Agent.js';
-import Chat from '../../models/Chat.js';
-import Message from '../../models/Message.js';
-import Contact from '../../models/Contact.js';
-import { generateAIReply, findAndSendFile } from '../../services/ai.js';
+import { messagesSupabaseRepository } from '../../db/repositories/index.js';
+import { generateAIReply, findAndSendFile } from '../../services/ai.service.js';
 import { openaiClient, geminiClient } from '../../services/aiClient.js';
 import {
     tgSend,
@@ -61,13 +57,16 @@ async function processBufferedAIReply(chatId) {
                 console.error('[telegram] Failed to send text from fileResponse:', e);
             }
         }
-        await Message.create({
-            chatId: chat._id,
+        await messagesSupabaseRepository.create({
             workspaceId: platform.workspaceId,
-            from: 'ai',
-            text: replyText,
-            attachment: fileResponse.attachment || null,
-            createdAt: new Date(),
+            chatId: chat.id,
+            platformId: platform.id,
+            contactId: chat.contactId,
+            senderType: 'ai',
+            direction: 'outbound',
+            messageType: 'text',
+            content: replyText,
+            rawPayload: fileResponse.attachment ? { attachment: fileResponse.attachment } : undefined,
         });
         return;
     }
@@ -75,10 +74,7 @@ async function processBufferedAIReply(chatId) {
     // Generate AI reply
     let reply;
     try {
-        const history = await Message.find({ chatId: chat._id })
-            .sort({ createdAt: -1 })
-            .limit(10);
-        history.reverse();
+        const history = await messagesSupabaseRepository.listByChatId(chat.id, { limit: 10 });
 
         const system = agent?.behavior || 'You are a helpful assistant.';
         const prompt = agent?.prompt || '';
@@ -114,17 +110,20 @@ async function processBufferedAIReply(chatId) {
             console.error('[telegram] Failed to send database file:', e);
         }
 
-        await Message.create({
-            chatId: chat._id,
+        await messagesSupabaseRepository.create({
             workspaceId: platform.workspaceId,
-            from: 'ai',
-            text: caption,
-            attachment: {
+            chatId: chat.id,
+            platformId: platform.id,
+            contactId: chat.contactId,
+            senderType: 'ai',
+            direction: 'outbound',
+            messageType: 'text',
+            content: caption,
+            rawPayload: { attachment: {
                 url: `/files/${file.storedName}`,
                 filename: file.originalName || file.storedName,
                 storedName: file.storedName,
-            },
-            createdAt: new Date(),
+            }},
         });
     } else if (attachment && attachment.storedName) {
         const localFilePath = path.resolve('uploads', attachment.storedName);
@@ -134,13 +133,16 @@ async function processBufferedAIReply(chatId) {
             console.error('[telegram] Failed to send attachment:', e);
         }
 
-        await Message.create({
-            chatId: chat._id,
+        await messagesSupabaseRepository.create({
             workspaceId: platform.workspaceId,
-            from: 'ai',
-            text: replyText,
-            attachment,
-            createdAt: new Date(),
+            chatId: chat.id,
+            platformId: platform.id,
+            contactId: chat.contactId,
+            senderType: 'ai',
+            direction: 'outbound',
+            messageType: 'text',
+            content: replyText,
+            rawPayload: { attachment },
         });
     } else {
         try {
@@ -149,12 +151,15 @@ async function processBufferedAIReply(chatId) {
             console.error('[telegram] Failed to send text:', e);
         }
 
-        await Message.create({
-            chatId: chat._id,
+        await messagesSupabaseRepository.create({
             workspaceId: platform.workspaceId,
-            from: 'ai',
-            text: replyText,
-            createdAt: new Date(),
+            chatId: chat.id,
+            platformId: platform.id,
+            contactId: chat.contactId,
+            senderType: 'ai',
+            direction: 'outbound',
+            messageType: 'text',
+            content: replyText,
         });
     }
 }

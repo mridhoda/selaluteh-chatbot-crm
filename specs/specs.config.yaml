@@ -1,0 +1,156 @@
+# Specs Lifecycle Configuration
+#
+# Lokasi: specs/specs.config.yaml
+#
+# File ini adalah konfigurasi global untuk seluruh spec.
+# Hanya field yang benar-benar dipakai oleh script sync/check yang disimpan di sini,
+# agar tidak ada opsi yang terlihat aktif tetapi sebenarnya diabaikan.
+#
+# Script:
+#   scripts/specs/sync-spec-folders.mjs
+#
+# Commands:
+#   npm run specs:check
+#   npm run specs:sync
+#   npm run specs:sync:dry
+
+schema_version: 1
+config_version: 1.1.0
+
+root: specs
+spec_filename: spec.yaml
+
+# Field `status` di setiap spec.yaml menentukan folder fisik spec.
+status_folders:
+  backlog: backlog
+  active: active
+  completed: completed
+
+allowed_statuses:
+  - backlog
+  - active
+  - completed
+
+# Field `workflow_state` harus sesuai dengan bucket status.
+workflow_states:
+  backlog:
+    - draft
+    - review
+    - approved
+
+  active:
+    - in_progress
+    - blocked
+    - verifying
+
+  completed:
+    - done
+    - archived
+
+# Setiap folder spec wajib memiliki file-file ini.
+required_documents:
+  - spec.yaml
+  - requirements.md
+  - design.md
+  - tasks.md
+
+movement:
+  strategy: status-based
+
+  # Seluruh direktori spec dipindahkan, bukan hanya spec.yaml.
+  move_entire_spec_directory: true
+
+  # updated_at pada spec.yaml diperbarui ketika folder benar-benar dipindahkan.
+  update_timestamp_on_move: true
+
+  # Perpindahan lokal tidak terjadi otomatis saat file disimpan.
+  # Developer atau AI agent harus menjalankan `npm run specs:sync`.
+  manual_sync_required: true
+
+validation:
+  # Nama folder spec harus sama dengan field `id`.
+  require_folder_name_matches_id: true
+
+  # Spec berstatus completed ditolak jika masih ada required task yang belum dicentang.
+  reject_completed_with_open_required_tasks: true
+
+tasks:
+  # Pola required task yang belum selesai.
+  unchecked_pattern: '^\s*-\s*\[ \]'
+
+  # Baris task yang mengandung salah satu marker berikut dianggap optional
+  # dan tidak menghalangi status completed.
+  optional_markers:
+    - '- [ ]*'
+    - '[*]'
+    - optional
+    - post-mvp
+    - post mvp
+
+index:
+  # SPECS-INDEX.md dibuat/diperbarui oleh `npm run specs:sync`.
+  generate: true
+  path: specs/SPECS-INDEX.md
+
+current_task:
+  # Pointer eksplisit ke spec dan task yang sedang dikerjakan.
+  path: docs/backend/09-ai-context/current-task.md
+
+  # Script memeriksa bahwa:
+  # - file pointer tersedia;
+  # - active_spec.path tersedia;
+  # - spec yang ditunjuk berstatus active;
+  # - active_spec.id cocok;
+  # - active_task.source tersedia.
+  validate_pointer: true
+
+ignored_directories:
+  - _templates
+  - node_modules
+  - .git
+
+automation:
+  local:
+    check_command: npm run specs:check
+    sync_command: npm run specs:sync
+    dry_run_command: npm run specs:sync:dry
+
+    # `specs:sync` harus dijalankan secara sadar setelah status berubah.
+    automatic_on_save: false
+    automatic_folder_move: false
+
+  ci:
+    # CI hanya melakukan validasi dan tidak memindahkan atau commit file.
+    command: npm run specs:check
+    check_only: true
+    allow_file_mutation: false
+    allow_auto_commit: false
+
+lifecycle:
+  normal_flow:
+    - backlog
+    - active
+    - completed
+
+  allowed_status_transitions:
+    - from: backlog
+      to: active
+
+    - from: active
+      to: backlog
+
+    - from: active
+      to: completed
+
+    - from: completed
+      to: active
+
+  completion_requirements:
+    - required-tasks-completed
+    - definition-of-done-passed
+    - critical-tests-passed
+    - documentation-updated
+    - implementation-status-updated
+    - progress-log-updated
+    - current-task-pointer-updated
+    - specs-check-passed

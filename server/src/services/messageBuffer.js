@@ -2,18 +2,18 @@
 // Stores incoming messages and delays AI responses
 
 const messageBuffers = new Map();
-// Structure: chatId -> { messages: [], timer: timeoutId, agent: agentDoc, chat: chatDoc, platform: platformDoc }
+// Structure: chatId -> { messages: [], timer: timeoutId, agent, chat, platform }
 
 /**
  * Add a message to the buffer and reset the timer
- * @param {Object} chat - Chat document
+ * @param {Object} chat - Chat record
  * @param {String} messageText - Message text
- * @param {Object} agent - Agent document
- * @param {Object} platform - Platform document
+ * @param {Object} agent - Agent record
+ * @param {Object} platform - Platform record
  * @param {Function} processCallback - Function to call when timer fires
  */
 export function bufferMessage(chat, messageText, agent, platform, processCallback) {
-    const chatId = chat._id.toString();
+    const chatId = chat.id.toString();
 
     // Clear existing timer if any
     if (messageBuffers.has(chatId)) {

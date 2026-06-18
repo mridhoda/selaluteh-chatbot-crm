@@ -1,173 +1,139 @@
-# Mongo to Postgres Mapping — v2
+# Legacy Mongo to Supabase Mapping Reference
 
-This document maps the current MongoDB/Mongoose CRM schema to the updated Supabase/Postgres schema with marketplace support.
+This document is now historical/reference material only. The approved cutover mode is fresh Supabase data with no Mongo import.
 
-## Naming
+## Runtime Rule
 
-| Mongo | Postgres |
+```txt
+Current/final runtime target: Supabase/Postgres
+Legacy runtime: MongoDB + Mongoose until domain code is cut over
+Migration mode: staged domain-by-domain cutover
+Data mode: start fresh from Supabase
+Not allowed: Mongo backfill, dual-write, legacy reconciliation
+Auth phase 1: keep custom backend auth; Supabase Auth is deferred
+Supabase access phase 1: backend service role only; no frontend direct table access
+```
+
+## Why This Mapping Still Exists
+
+Use this file only to understand legacy shape differences while replacing code. Do not build a Mongo import/backfill pipeline from this document unless a separate historical-data import spec is approved later.
+
+## Naming Reference
+
+| Legacy/Mongoose | Supabase/Postgres |
 |---|---|
 | `_id` | `id` |
 | `workspaceId` | `workspace_id` |
-| `userId` | `owner_user_id` |
+| `userId` | `user_id` or `owner_user_id` depending context |
 | `platformId` | `platform_id` |
 | `agentId` | `agent_id` |
 | `contactId` | `contact_id` |
 | `chatId` | `chat_id` |
-| `takeoverBy` | `takeover_by` |
+| `outletId` | `outlet_id` |
+| `productId` | `product_id` |
+| `checkoutId` | `checkout_id` |
+| `orderId` | `order_id` |
+| `paymentId` | `payment_id` |
+| `takeoverBy` | `taken_over_by_user_id` |
 | `isEscalated` | `is_escalated` |
 | `lastMessageAt` | `last_message_at` |
 | `platformType` | `platform_type` |
-| `platformAccountId` | `platform_account_id` |
+| `platformAccountId` | `external_id` |
 | `platformMessageId` | `platform_message_id` |
-| `replyTo` | `reply_to` |
 | `createdAt` | `created_at` |
 | `updatedAt` | `updated_at` |
 
-## ID Strategy
+## Model Mapping Reference
 
-Do not reuse Mongo ObjectId strings as UUID.
-
-Use a deterministic mapping during import:
-
-```txt
-collection + mongo _id -> generated uuid
-```
-
-Persist the mapping as:
-
-```txt
-mongo-id-map.json
-```
-
-or temporary staging table:
-
-```txt
-mongo_id_map(collection text, mongo_id text, postgres_id uuid)
-```
-
-## Workspace Creation
-
-Current Mongo has no explicit `workspaces` collection.
-
-Build `workspaces` from distinct `users.workspaceId`.
-
-Owner rule:
-
-1. Prefer user with role `owner` in the workspace.
-2. If missing, pick earliest user and flag in migration report.
-3. Patch `workspaces.owner_user_id` after users are inserted.
-
-## Core Models
-
-| Mongoose Model | Target Table(s) | Notes |
+| Legacy Model | Target Table(s) | Notes |
 |---|---|---|
-| `User` | `users`, `workspaces` | Custom password auth preserved through `password_hash` |
-| `Platform` | `platforms` | Tokens should be rotated/encrypted after migration |
-| `Agent` | `agents` + child tables | Nested arrays are normalized |
-| `Contact` | `contacts` | Upsert key: `workspace_id + platform_type + platform_account_id` |
-| `Chat` | `chats` | Preserve `takeover_by`, `is_escalated`, `status`, `state` |
-| `Message` | `messages`, `files` | Preserve ordering via `created_at` |
-| `Order` | `orders` | Old AI orders become `source = ai_form` |
-| `Complaint` | `complaints` | Must become workspace scoped |
-| `Knowledge` | `knowledge_files`, `files` | Store file metadata only |
-| `OTP` | `otps` | Expired records may be skipped |
-| `PasswordReset` | `password_resets` | Expired records may be skipped |
-| `Setting` | `settings` | One per workspace |
+| `Workspace` | `workspaces` | Supabase is canonical after cutover. |
+| `User` | `users`, `user_workspace_memberships` | Preserve custom auth via `password_hash`. |
+| `UserWorkspaceMembership` | `user_workspace_memberships` | Canonical membership source. |
+| `UserOutletAccess` | `user_outlet_access` | Enforce outlet scope. |
+| `Outlet` | `outlets` | Preserve workspace ownership and outlet metadata. |
+| `Platform` | `platforms` | Secrets stay backend-only and redacted. |
+| `Contact` | `contacts` | `platformAccountId` maps to `external_id`. |
+| `Chat` | `chats` | Preserve current outlet, takeover, escalation, unread, and state semantics. |
+| `Message` | `chat_messages`, `files` | Store attachments as file metadata when normalized. |
+| `Agent` | `agents`, `agent_outlets` | JSONB config first, outlet mapping through `agent_outlets`. |
+| `Knowledge` | `files`, `agents.knowledge` JSONB | Store metadata only; binary remains local. |
+| `AIAction` | `ai_actions` | Preserve input/output/errors/status semantics. |
+| `Product` | `products`, `files` | Product catalog is Supabase canonical. |
+| `ProductOutletAvailability` | `product_outlet_availability` | Outlet-specific availability/price/stock. |
+| `Cart` | `carts`, `cart_items` | Normalize items into rows. |
+| `Checkout` | `checkouts`, `checkout_items` | Snapshot checkout items. |
+| `Order` | `orders`, `order_items`, `order_events` | Normalize items and lifecycle events. |
+| `Payment` | `payments`, `payment_events` | Provider webhook is payment authority. |
+| `PaymentEvent` | `payment_events` | Idempotent gateway event table. |
+| `WebhookEvent` | `webhook_events` | Provider/platform/external-event idempotency. |
+| `Complaint` | `complaints` | Preserve workspace/outlet/contact/chat references. |
+| `Setting` | `workspace_settings` | Secrets redacted in API responses. |
+| `OTP` | `otps` | Custom backend auth remains. |
+| `PasswordReset` | `password_resets` | Custom backend auth remains. |
 
-## Agent Nested Data
+## Enum Finalization
 
-| Mongo path | Target |
+Use code-compatible enums/checks for phase 1:
+
+```txt
+platform.type: telegram, whatsapp, instagram, facebook, custom
+platform.status: connected, disabled, pending_setup, needs_attention, disconnected
+platform.health: healthy, no_recent_events, verification_failed, delivery_errors, not_configured
+user.role legacy: owner, super, agent
+membership.role: owner, admin, outlet_manager, human_agent, viewer
+chat.status: open, resolved
+cart.status: active, converted, expired, cancelled
+checkout.status: pending, confirmed, converted, failed, expired
+order.status: new, accepted, preparing, ready, completed, cancelled
+order.payment_status: unpaid, pending, paid, failed, expired, refunded
+order.fulfillment_status: unfulfilled, preparing, ready, fulfilled, cancelled
+product_availability.status: active, inactive, sold_out, available, unavailable
+payment.provider: midtrans, xendit, manual
+payment.status: pending, paid, failed, expired, cancelled, refunded
+payment.reconciliation_status: pending, matched, missing_webhook, unmatched, amount_mismatch, duplicate, provider_paid_order_pending
+payment_event.processing_status: received, verified, processed, rejected, failed
+complaint.status: open, resolved, dismissed
+```
+
+## Embedded Data Decisions
+
+| Legacy Embedded Field | Target |
 |---|---|
-| `agent.knowledge[]` | `agent_knowledge` |
-| `agent.followUps[]` | `agent_followups` |
-| `agent.database[]` | `agent_database_files` + `files` |
-| `agent.complaintFields[]` | `agent_complaint_fields` |
-| `agent.outlets[]` | `agent_outlets` |
-| `agent.salesForms[]` | `agent_sales_forms` + child tables |
-| `agent.products[]` | `agent_products` legacy table; optionally copy into new `products` table |
-| `agent.payment` | `agents.payment_*` columns for legacy manual payment |
-| `agent.complaintNotification` | `agents.complaint_notification_*` columns |
+| `Cart.items[]` | `cart_items` relational rows |
+| `Checkout.items[]` | `checkout_items` relational snapshot rows |
+| `Order.items[]` | `order_items` relational snapshot rows |
+| `Order.timeline[]` | `order_events` relational rows |
+| `Payment.events[]` | `payment_events` rows |
+| `Agent.knowledge[]` | `agents.knowledge` JSONB phase 1 |
+| `Agent.followUps[]` | `agents.follow_ups` JSONB phase 1 |
+| `Agent.database[]` | `agents.database` JSONB + `files` when stored file exists |
+| `Agent.salesForms[]` | `agents.sales_forms` JSONB phase 1 |
+| `Agent.products[]` | Keep JSONB unless explicitly migrated to `products` after review |
+| `Complaint.formData` | JSONB |
+| `Chat.state` | JSONB |
+| `WebhookEvent.payload` | JSONB |
+| `PaymentEvent.raw` | JSONB |
 
-## Existing Orders
+## Auth Strategy
 
-Current AI-generated orders use flexible form data.
-
-Map them to:
-
-```txt
-orders.source = 'ai_form'
-orders.form_name = old form name
-orders.form_data = old formData
-orders.status = mapped old status
-orders.payment_proof_file_id = mapped file id if available
-orders.payment_proof_url = old proof URL if available
-```
-
-Do not create `order_items` for old AI form orders unless product/quantity can be confidently parsed.
-
-## Marketplace Products
-
-If current `agent.products[]` are used as sellable products, migrate them in two ways:
-
-1. Preserve raw data in `agent_products` for backward compatibility.
-2. Optionally create rows in `products` with:
+Phase 1 keeps current custom auth:
 
 ```txt
-name -> products.name
-price -> products.base_price
-image_url -> file metadata if local or public URL metadata
-status -> active
-source metadata -> { "from": "agent.products" }
+users.email
+users.password_hash
+password_resets
+JWT middleware unchanged
 ```
 
-## Message Attachment
+Supabase Auth migration is deferred. If enabled later, map `users.auth_user_id` to Supabase Auth UUID and rebuild RLS around `auth.uid()`.
 
-Current shape:
+## RLS Strategy
 
-```json
-{
-  "url": "/files/filename.ext",
-  "filename": "filename.ext"
-}
-```
+Phase 1 migration uses backend service role only.
 
-Target:
+Recommended RLS preparation:
 
-```txt
-files row
-messages.attachment_file_id
-messages.attachment legacy jsonb retained temporarily
-```
-
-File binary remains on local server storage.
-
-## Payment Data
-
-Old manual payment proof stays on orders:
-
-```txt
-orders.payment_proof_file_id
-orders.payment_proof_url
-```
-
-New gateway payment data uses:
-
-```txt
-payments
-payment_events
-webhook_events
-```
-
-## Webhook Idempotency
-
-Create `webhook_events` for incoming Telegram/Meta/payment events.
-
-Recommended external ids:
-
-| Provider | External Event ID |
-|---|---|
-| Telegram | `update_id` |
-| WhatsApp | message id or webhook object id + timestamp fallback |
-| Instagram | message id |
-| Midtrans | `order_id + transaction_id + transaction_status` fallback |
-| Xendit | event id from header/body |
+1. Keep `workspace_id` on every tenant-owned table.
+2. Keep `user_workspace_memberships` and `user_outlet_access` complete.
+3. Draft RLS policies, but do not enable frontend direct reads until auth strategy is finalized.
