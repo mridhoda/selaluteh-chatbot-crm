@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Filter, Plus, Search, X, Bot } from 'lucide-react'
 import BrandIcon from '../../../shared/components/brand/BrandIcon'
 
@@ -67,6 +67,10 @@ export default function ChatList({
   const [search, setSearch] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [assignmentTab, setAssignmentTab] = useState(filters.assignment || 'assigned')
+
+  useEffect(() => {
+    setAssignmentTab(filters.assignment || 'assigned')
+  }, [filters.assignment])
 
   const sorted = [...chats].sort((a, b) => {
     const ta = new Date(a.lastMessageAt || a.updatedAt || 0).getTime()

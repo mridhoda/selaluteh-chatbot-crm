@@ -29,13 +29,7 @@ router.get('/', authRequired, attachUser, async (req, res) => {
     const workspaceId = req.me.workspaceId;
     const userId = req.me.id;
 
-    // Build list options
     const opts = { workspaceId };
-
-    // Role-based filter: agents only see their taken-over chats
-    if (req.me.role === 'agent') {
-      opts.takenOverByUserId = userId;
-    }
 
     if (from) opts.dateFrom = new Date(from).toISOString();
     if (to) {
@@ -46,6 +40,11 @@ router.get('/', authRequired, attachUser, async (req, res) => {
 
     if (assignment === 'assigned') opts.assigned = true;
     else if (assignment === 'unassigned') opts.unassigned = true;
+
+    // Agents can see unassigned chats to claim them; assigned remains scoped to their own takeovers.
+    if (req.me.role === 'agent' && assignment !== 'unassigned') {
+      opts.takenOverByUserId = userId;
+    }
 
     let rows = await chatsSupabaseRepository.list(opts);
 

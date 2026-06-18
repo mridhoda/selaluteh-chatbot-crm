@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Copy, ExternalLink, Send, AlertCircle, Ticket, ShoppingBag, Filter, ChevronDown, Plus, User, UserPlus, Bot, Shield, CheckCircle, Clock, Calendar, LayoutGrid, ShoppingCart, Bookmark, Search, ArrowRight } from 'lucide-react'
+import { Copy, ExternalLink, Send, AlertCircle, Ticket, ShoppingBag, Filter, ChevronDown, Plus, User, UserPlus, Bot, Shield, CheckCircle, Clock, Calendar, LayoutGrid, ShoppingCart, Bookmark, Search, ArrowRight, X, Wallet, CheckCircle2, MinusCircle, MoreHorizontal, Trash2, Edit2, Coffee, Tag, Info, ChevronLeft, ChevronRight, MapPin, Check, Sparkles, AlertTriangle } from 'lucide-react'
 import { useToast } from '../../../shared/components/feedback/Toast'
 
 // ─── small helpers ─────────────────────────────────────────────────────────
@@ -90,6 +90,34 @@ function Divider() {
     />
   )
 }
+
+const OUTLETS = [
+  { id: 'ST_SMG', name: 'Selalu Teh - Semarang City', location: 'Semarang, Central Java', status: 'Active', initials: 'ST' },
+  { id: 'ST_BDO', name: 'Selalu Teh - Bandung', location: 'Bandung, West Java', status: 'Active', initials: 'SB' },
+  { id: 'ST_JKT', name: 'Selalu Teh - Jakarta', location: 'Jakarta, DKI Jakarta', status: 'Active', initials: 'SJ' },
+  { id: 'ST_SUB', name: 'Selalu Teh - Surabaya', location: 'Surabaya, East Java', status: 'Busy', initials: 'SS' },
+  { id: 'ST_YOG', name: 'Selalu Teh - Yogyakarta', location: 'Yogyakarta, DI Yogyakarta', status: 'Offline', initials: 'SY' },
+]
+
+const CONVERSATION_ORDERS = [
+  { id: 'ORD-1028', date: 'May 7, 2025', time: '10:15 AM', amount: 'Rp 111.000', payment: 'Paid', status: 'Completed', actions: ['Open', 'Duplicate'] },
+  { id: 'ORD-1027', date: 'May 7, 2025', time: '09:15 AM', amount: 'Rp 91.500', payment: 'Pending', status: 'Preparing', actions: ['Open', 'Resend'] },
+  { id: 'ORD-1026', date: 'May 6, 2025', time: '02:49 PM', amount: 'Rp 85.000', payment: 'Paid', status: 'Completed', actions: ['Open', 'Duplicate'] },
+  { id: 'ORD-1025', date: 'May 4, 2025', time: '11:42 AM', amount: 'Rp 65.000', payment: 'Paid', status: 'Completed', actions: ['Open', 'Duplicate'] },
+  { id: 'ORD-1024', date: 'May 2, 2025', time: '04:22 PM', amount: 'Rp 120.000', payment: 'Pending', status: 'Preparing', actions: ['Open', 'Resend'] },
+]
+
+const PRODUCTS = [
+  { id: 'p1', name: 'Matcha Latte', price: 'Rp 28.000', stock: 'In stock', badge: 'Bestseller' },
+  { id: 'p2', name: 'Lemon Tea', price: 'Rp 18.000', stock: 'In stock' },
+  { id: 'p3', name: 'Kopi Susu Gula Aren', price: 'Rp 24.000', stock: 'Low stock' },
+]
+
+const CART_ITEMS = [
+  { id: 'c1', name: 'Selkop Hoodie', variant: 'Navy / L', qty: 1, price: 'Rp 120.000', total: 'Rp 120.000' },
+  { id: 'c2', name: 'Selkop Tumbler', variant: 'White / 500ml', qty: 2, price: 'Rp 85.000', total: 'Rp 170.000' },
+  { id: 'c3', name: 'Selkop Tote Bag', variant: 'Canvas / Natural', qty: 1, price: 'Rp 65.000', total: 'Rp 65.000' },
+]
 
 // ─── tab panels ────────────────────────────────────────────────────────────
 
@@ -266,6 +294,22 @@ function OrderStepHeader({ num, title }) {
 function CommerceTab({ chat, onOpenOrder }) {
   const ctx = chat.commerceContext || {}
   const outlet = chat.outletName || ctx.outletName || null
+  const [selectedOutletId, setSelectedOutletId] = useState('ST_SMG')
+  const [isOutletDropdownOpen, setIsOutletDropdownOpen] = useState(false)
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
+  const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false)
+  const [ordersFilter, setOrdersFilter] = useState('all')
+  const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false)
+  const [isBrowseModalOpen, setIsBrowseModalOpen] = useState(false)
+  const [isViewCartModalOpen, setIsViewCartModalOpen] = useState(false)
+
+  const selectedOutlet = OUTLETS.find((item) => item.id === selectedOutletId) || OUTLETS[0]
+  const filteredOrders = CONVERSATION_ORDERS.filter((order) => {
+    if (ordersFilter === 'all') return true
+    if (ordersFilter === 'paid') return order.payment === 'Paid'
+    if (ordersFilter === 'pending') return order.payment === 'Pending'
+    return order.status.toLowerCase() === ordersFilter
+  })
 
   return (
     <div className="space-y-6 pb-6">
@@ -273,12 +317,48 @@ function CommerceTab({ chat, onOpenOrder }) {
       <div>
         <OrderStepHeader num="1" title="Outlet" />
         <div className="w-full mt-1.5 relative">
-          <select className="w-full appearance-none px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:border-[var(--brand-300)] focus:border-[var(--brand-500)] focus:ring-1 focus:ring-[var(--brand-500)] outline-none cursor-pointer transition-all shadow-sm">
-            <option>{outlet || 'Selalu Teh - Senayan City'}</option>
-            <option>Selalu Teh - Gandaria City</option>
-            <option>Selalu Teh - Grand Indonesia</option>
-          </select>
-          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <button
+            className={`chat-prism-commerce-select ${isOutletDropdownOpen ? 'open' : ''}`}
+            onClick={() => setIsOutletDropdownOpen((open) => !open)}
+          >
+            <span>{outlet || selectedOutlet.name}</span>
+            <ChevronDown size={14} className={isOutletDropdownOpen ? 'open' : ''} />
+          </button>
+
+          {isOutletDropdownOpen && (
+            <div className="chat-prism-outlet-dropdown">
+              <div className="chat-prism-outlet-search">
+                <Search size={14} />
+                <input type="text" placeholder="Search outlet..." />
+              </div>
+              <button
+                className="chat-prism-outlet-option current"
+                onClick={() => { setSelectedOutletId('ST_SMG'); setIsOutletDropdownOpen(false) }}
+              >
+                <span className="chat-prism-outlet-icon"><MapPin size={14} /></span>
+                <span className="chat-prism-outlet-copy"><strong>Use current outlet</strong><small>Selalu Teh - Semarang City</small></span>
+                {selectedOutletId === 'ST_SMG' && <CheckCircle2 size={16} />}
+              </button>
+              {OUTLETS.map((item) => {
+                const isSelected = selectedOutletId === item.id
+                return (
+                  <button
+                    key={item.id}
+                    className={`chat-prism-outlet-option ${isSelected ? 'selected' : ''}`}
+                    onClick={() => { setSelectedOutletId(item.id); setIsOutletDropdownOpen(false) }}
+                  >
+                    <span className="chat-prism-outlet-initials">{item.initials}</span>
+                    <span className="chat-prism-outlet-copy"><strong>{item.name}</strong><small>{item.location}</small></span>
+                    <em className={item.status.toLowerCase()}>{item.status}</em>
+                    {isSelected && <Check size={14} />}
+                  </button>
+                )
+              })}
+              <button className="chat-prism-manage-outlets">
+                Manage outlets <ExternalLink size={14} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -292,7 +372,7 @@ function CommerceTab({ chat, onOpenOrder }) {
             <span className="text-slate-300">•</span>
             <span>Rp 110.000</span>
           </div>
-          <button className="px-3 py-1.5 bg-[var(--brand-50)] text-[var(--brand-600)] border border-[var(--brand-100)] rounded-lg text-xs font-bold hover:bg-[var(--brand-100)] transition-colors cursor-pointer">
+          <button className="px-3 py-1.5 bg-[var(--brand-50)] text-[var(--brand-600)] border border-[var(--brand-100)] rounded-lg text-xs font-bold hover:bg-[var(--brand-100)] transition-colors cursor-pointer" onClick={() => setIsViewCartModalOpen(true)}>
             View cart
           </button>
         </div>
@@ -311,10 +391,10 @@ function CommerceTab({ chat, onOpenOrder }) {
             />
           </div>
           <div className="flex gap-2">
-            <button className="bg-gradient-to-r from-[var(--brand-500)] to-[var(--ai-500)] flex-1 py-2.5 text-white text-xs font-bold rounded-xl shadow-md hover:opacity-95 transition-all cursor-pointer border-none">
+            <button className="bg-gradient-to-r from-[var(--brand-500)] to-[var(--ai-500)] flex-1 py-2.5 text-white text-xs font-bold rounded-xl shadow-md hover:opacity-95 transition-all cursor-pointer border-none" onClick={() => setIsQuickAddModalOpen(true)}>
               Add item
             </button>
-            <button className="flex-1 py-2.5 bg-white text-[var(--brand-600)] border border-[var(--brand-200)] text-xs font-bold rounded-xl hover:bg-[var(--brand-50)] transition-colors shadow-sm cursor-pointer">
+            <button className="flex-1 py-2.5 bg-white text-[var(--brand-600)] border border-[var(--brand-200)] text-xs font-bold rounded-xl hover:bg-[var(--brand-50)] transition-colors shadow-sm cursor-pointer" onClick={() => setIsBrowseModalOpen(true)}>
               Browse
             </button>
           </div>
@@ -370,7 +450,7 @@ function CommerceTab({ chat, onOpenOrder }) {
           <div className="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-3 shadow-sm text-left">
             <div className="text-[11px] font-bold text-amber-700 mb-0.5">No payment gateway connected</div>
             <div className="text-[10px] text-amber-600/80 mb-2 leading-tight">Set up Midtrans or Xendit to send payment link.</div>
-            <button className="text-[10px] font-bold text-amber-700 flex items-center gap-1 hover:underline border-none bg-transparent cursor-pointer p-0">
+            <button className="text-[10px] font-bold text-amber-700 flex items-center gap-1 hover:underline border-none bg-transparent cursor-pointer p-0" onClick={() => setIsPaymentModalOpen(true)}>
               Set up now <ArrowRight size={10} className="group-hover:translate-x-0.5 transition-transform shrink-0" />
             </button>
           </div>
@@ -396,7 +476,7 @@ function CommerceTab({ chat, onOpenOrder }) {
         <div className="bg-white border border-slate-100 rounded-xl p-3.5 shadow-sm mt-1.5">
           <div className="flex items-center justify-between mb-3">
             <OrderStepHeader num="7" title="Conversation orders" />
-            <button className="text-[10px] font-bold text-[var(--ai-600)] hover:underline border-none bg-transparent cursor-pointer">View all</button>
+            <button className="text-[10px] font-bold text-[var(--ai-600)] hover:underline border-none bg-transparent cursor-pointer" onClick={() => setIsOrdersModalOpen(true)}>View all</button>
           </div>
           <div className="space-y-3">
             <div className="flex items-center justify-between group cursor-pointer" onClick={() => onOpenOrder && onOpenOrder('ORD-1028')}>
@@ -429,8 +509,277 @@ function CommerceTab({ chat, onOpenOrder }) {
           </div>
         </div>
       </div>
+      {isPaymentModalOpen && <PaymentSetupModal onClose={() => setIsPaymentModalOpen(false)} />}
+      {isOrdersModalOpen && (
+        <ConversationOrdersModal
+          orders={filteredOrders}
+          ordersFilter={ordersFilter}
+          setOrdersFilter={setOrdersFilter}
+          onClose={() => setIsOrdersModalOpen(false)}
+          onOpenOrder={onOpenOrder}
+        />
+      )}
+      {isQuickAddModalOpen && <QuickAddModal onClose={() => setIsQuickAddModalOpen(false)} />}
+      {isBrowseModalOpen && (
+        <BrowseProductsModal
+          onClose={() => setIsBrowseModalOpen(false)}
+          onViewCart={() => { setIsBrowseModalOpen(false); setIsViewCartModalOpen(true) }}
+        />
+      )}
+      {isViewCartModalOpen && <ViewCartModal onClose={() => setIsViewCartModalOpen(false)} />}
     </div>
   )
+}
+
+function CommerceModal({ title, subtitle, children, icon, onClose, size = 'md' }) {
+  return (
+    <div className="chat-prism-commerce-modal-root">
+      <button className="chat-prism-commerce-modal-backdrop" onClick={onClose} aria-label="Close modal" />
+      <div className={`chat-prism-commerce-modal ${size}`}>
+        <header>
+          <div>
+            <h2>{icon}{title}</h2>
+            {subtitle && <p>{subtitle}</p>}
+          </div>
+          <button onClick={onClose} aria-label="Close modal"><X size={20} /></button>
+        </header>
+        <div className="chat-prism-commerce-modal-body">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+function PaymentSetupModal({ onClose }) {
+  return (
+    <CommerceModal
+      title="Set Up Payment"
+      subtitle="Connect a payment gateway or use manual payment to start receiving payments."
+      icon={<Sparkles className="chat-prism-payment-title-icon" size={24} />}
+      onClose={onClose}
+      size="md"
+    >
+      <h3 className="chat-prism-payment-section-title">Payment Providers</h3>
+      <div className="chat-prism-payment-providers">
+        <PaymentProviderCard provider="midtrans" recommended title="Midtrans" description="Accept payments via VA, e-Wallet, Cards, and more." action="Connect Midtrans" />
+        <PaymentProviderCard provider="xendit" title="Xendit" description="Payments for Indonesia & SEA. Cards, VA, QRIS." action="Connect Xendit" />
+        <PaymentProviderCard provider="manual" title="Manual Payment" description="Confirm payments manually (bank transfer, cash, etc)." action="Set Up Manual" />
+      </div>
+
+      <div className="chat-prism-payment-bottom">
+        <div>
+          <h3>Payment Requirements</h3>
+          <p><CheckCircle2 size={16} /> Business information is complete</p>
+          <p><CheckCircle2 size={16} /> Bank account is added</p>
+          <p className="muted"><MinusCircle size={16} /> Upload identity document</p>
+        </div>
+        <div className="chat-prism-payment-warning">
+          <h3><AlertTriangle size={16} /> Environment keys are not configured</h3>
+          <p>You need to configure your Midtrans / Xendit environment keys to go live.</p>
+          <button>Go to Settings</button>
+        </div>
+      </div>
+
+      <div className="chat-prism-modal-actions">
+        <button onClick={onClose}>Not now</button>
+        <button className="primary">Continue Setup</button>
+      </div>
+    </CommerceModal>
+  )
+}
+
+function PaymentProviderCard({ action, description, provider, recommended, title }) {
+  const icon = provider === 'midtrans'
+    ? <span className="chat-prism-midtrans-mark"><i /><i /><i /></span>
+    : provider === 'xendit'
+      ? <span className="chat-prism-xendit-mark">{'</>'}</span>
+      : <Wallet size={24} strokeWidth={2.5} />
+
+  return (
+    <div className={`chat-prism-payment-provider ${recommended ? 'recommended' : ''}`}>
+      <div className={`chat-prism-payment-provider-icon ${provider || ''}`}>{icon}</div>
+      <div>
+        <strong>{title}</strong>
+        <p>{description}</p>
+      </div>
+      <div>
+        <span>{recommended ? 'Recommended' : 'Not Connected'}</span>
+        <button>{action}</button>
+      </div>
+    </div>
+  )
+}
+
+function ConversationOrdersModal({ orders, ordersFilter, setOrdersFilter, onClose, onOpenOrder }) {
+  return (
+    <CommerceModal title="Conversation Orders" onClose={onClose} size="lg">
+      <div className="chat-prism-order-filters">
+        {['all', 'pending', 'paid', 'completed'].map((filter) => (
+          <button key={filter} className={ordersFilter === filter ? 'active' : ''} onClick={() => setOrdersFilter(filter)}>
+            {filter}
+          </button>
+        ))}
+      </div>
+      <div className="chat-prism-orders-table-wrap">
+        <table className="chat-prism-orders-table">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Payment</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((order) => (
+              <tr key={order.id}>
+                <td><strong>{order.id}</strong></td>
+                <td><strong>{order.date}</strong><small>{order.time}</small></td>
+                <td><strong>{order.amount}</strong></td>
+                <td><span className={order.payment.toLowerCase()}>{order.payment}</span></td>
+                <td><span className={order.status.toLowerCase()}>{order.status}</span></td>
+                <td>
+                  <div className="chat-prism-table-actions">
+                    {order.actions.map((action) => (
+                      <button key={action} onClick={() => action === 'Open' && onOpenOrder?.(order.id)}>{action}</button>
+                    ))}
+                    <button><MoreHorizontal size={14} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="chat-prism-pagination-row">
+        <span>Showing 1 to {orders.length} of 18 orders</span>
+        <div><button><ChevronLeft size={14} /></button><button className="active">1</button><button>2</button><button>3</button><button><ChevronRight size={14} /></button></div>
+      </div>
+    </CommerceModal>
+  )
+}
+
+function QuickAddModal({ onClose }) {
+  return (
+    <CommerceModal title="Quick Add Item" onClose={onClose} size="lg">
+      <div className="chat-prism-quick-add-grid">
+        <aside>
+          <h3>Search & Add</h3>
+          <div className="chat-prism-modal-search"><Search size={14} /><input placeholder="Search product..." /></div>
+          <h3>Recent / Popular</h3>
+          {['Thai Tea (Original)', 'Lemon Tea', 'Milk Tea', 'Brown Sugar Milk'].map((item) => (
+            <button key={item}><Coffee size={14} /> {item}</button>
+          ))}
+        </aside>
+        <main>
+          <h3>Item Details</h3>
+          <CommerceField label="Product"><select><option>Thai Tea (Original)</option><option>Lemon Tea</option></select></CommerceField>
+          <CommerceField label="Variant"><select><option>Regular (16oz)</option><option>Large (22oz)</option></select></CommerceField>
+          <div className="chat-prism-modal-two-col">
+            <CommerceField label="Quantity"><QtyInput value="1" /></CommerceField>
+            <CommerceField label="Unit Price"><input readOnly value="Rp 25.000" /></CommerceField>
+          </div>
+          <div className="chat-prism-modal-two-col">
+            <CommerceField label="Discount"><input placeholder="0" /></CommerceField>
+            <CommerceField label="Notes"><input placeholder="Tambahkan catatan..." /></CommerceField>
+          </div>
+        </main>
+      </div>
+      <div className="chat-prism-custom-item-row">
+        <h3>Or add a custom item</h3>
+        <input placeholder="Item name" />
+        <QtyInput value="1" />
+        <input placeholder="Rp 0" />
+      </div>
+      <div className="chat-prism-modal-actions">
+        <button onClick={onClose}>Cancel</button>
+        <button className="primary">Add to Order</button>
+      </div>
+    </CommerceModal>
+  )
+}
+
+function BrowseProductsModal({ onClose, onViewCart }) {
+  return (
+    <CommerceModal title="Browse products" onClose={onClose} size="lg">
+      <div className="chat-prism-browse-head">
+        <span>Outlet: <b>Selalu Teh - Senayan City</b> <ChevronDown size={14} /></span>
+        <em>Open · Closes at 22:00</em>
+      </div>
+      <div className="chat-prism-product-toolbar">
+        <div>{['All', 'Tea', 'Coffee', 'Snacks', 'Toppings'].map((cat, idx) => <button key={cat} className={idx === 0 ? 'active' : ''}>{cat}</button>)}</div>
+        <div className="chat-prism-modal-search"><Search size={14} /><input placeholder="Search product..." /></div>
+      </div>
+      <div className="chat-prism-product-note"><Info size={16} /> Showing products available at this outlet. Some items may be out of stock.</div>
+      <div className="chat-prism-product-grid">
+        {PRODUCTS.map((product) => <ProductCard key={product.id} product={product} />)}
+      </div>
+      <div className="chat-prism-sticky-cart">
+        <div><ShoppingCart size={20} /><span><strong>2 items selected</strong><small>Subtotal Rp 46.000</small></span></div>
+        <div><button onClick={onViewCart}>View cart</button><button className="primary">Add to order</button></div>
+      </div>
+    </CommerceModal>
+  )
+}
+
+function ViewCartModal({ onClose }) {
+  return (
+    <CommerceModal title="View Cart" subtitle="You have 3 item(s) in your cart" onClose={onClose} size="sm">
+      <div className="chat-prism-cart-items">
+        {CART_ITEMS.map((item) => (
+          <div key={item.id} className="chat-prism-cart-card">
+            <div className="chat-prism-product-thumb"><ShoppingBag size={22} /></div>
+            <div>
+              <div className="chat-prism-cart-card-head"><strong>{item.name}</strong><button><Trash2 size={15} /></button></div>
+              <small>{item.variant}</small>
+              <b>{item.price}</b>
+              <div className="chat-prism-cart-card-foot"><QtyInput value={String(item.qty)} /><button><Edit2 size={14} /></button><strong>{item.total}</strong></div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="chat-prism-promo-row"><Tag size={16} /><input placeholder="Promo Code" /><button>Apply</button></div>
+      <OrderSummaryMini large />
+      <div className="chat-prism-free-shipping"><CheckCircle2 size={16} /><div><strong>Free shipping unlocked!</strong><span>Add Rp 78.615 more to get free shipping.</span></div></div>
+      <div className="chat-prism-modal-actions"><button onClick={onClose}>Continue Editing</button><button className="primary">Proceed to Order</button></div>
+    </CommerceModal>
+  )
+}
+
+function ProductCard({ product }) {
+  return (
+    <div className="chat-prism-product-card">
+      <div className="chat-prism-product-thumb"><Coffee size={30} /></div>
+      <div>
+        <strong>{product.name}</strong>
+        {product.badge ? <span><Sparkles size={9} /> {product.badge}</span> : <i />}
+        <b>{product.price}</b>
+        <small className={product.stock === 'Low stock' ? 'low' : ''}>{product.stock}</small>
+      </div>
+      <div><QtyInput value="1" /><button>Add</button></div>
+    </div>
+  )
+}
+
+function OrderSummaryMini({ large }) {
+  return (
+    <div className={`chat-prism-order-summary-mini ${large ? 'large' : ''}`}>
+      <p><span>Subtotal</span><b>Rp 100.000</b></p>
+      <p className="discount"><span>Discount</span><b>- Rp 10.000</b></p>
+      <p><span>Shipping</span><b>Rp 10.000</b></p>
+      <p><span>VAT (11%)</span><b>Rp 11.000</b></p>
+      <strong><span>Total</span><b>Rp 111.000</b></strong>
+    </div>
+  )
+}
+
+function CommerceField({ children, label }) {
+  return <label className="chat-prism-commerce-field"><span>{label}</span>{children}</label>
+}
+
+function QtyInput({ value }) {
+  return <div className="chat-prism-qty-input"><button>-</button><input readOnly value={value} /><button>+</button></div>
 }
 
 function AiTab({ chat }) {
