@@ -139,9 +139,9 @@ router.post('/:chatId/send', authRequired, attachUser, async (req, res) => {
 
     if (platform && contact) {
       let decryptedToken = '';
-      if (platform.token_encrypted) {
+      if (platform.tokenEncrypted) {
         try {
-          decryptedToken = decrypt(platform.token_encrypted);
+          decryptedToken = decrypt(platform.tokenEncrypted);
         } catch (e) {
           console.error('[CHATS] Decryption failed for platform token:', e);
         }
@@ -161,7 +161,7 @@ router.post('/:chatId/send', authRequired, attachUser, async (req, res) => {
           }
         }
 
-        if (platform.type === 'telegram' && contact.external_id) {
+        if (platform.type === 'telegram' && contact.externalId) {
           try {
             let tgResponse;
             if (attachment && attachment.url) {
@@ -169,12 +169,12 @@ router.post('/:chatId/send', authRequired, attachUser, async (req, res) => {
               const localFilePath = path.resolve('uploads', filename);
               const isImg = attachment.type === 'image' || filename.match(/\.(jpg|jpeg|png|gif|webp)$/i);
               if (isImg) {
-                tgResponse = await tgSendPhoto(decryptedToken, contact.external_id, localFilePath, messageText || '', replyToMessageId);
+                tgResponse = await tgSendPhoto(decryptedToken, contact.externalId, localFilePath, messageText || '', replyToMessageId);
               } else {
-                tgResponse = await tgSendDocument(decryptedToken, contact.external_id, localFilePath, messageText || '', replyToMessageId);
+                tgResponse = await tgSendDocument(decryptedToken, contact.externalId, localFilePath, messageText || '', replyToMessageId);
               }
             } else if (messageText) {
-              tgResponse = await tgSend(decryptedToken, contact.external_id, messageText, replyToMessageId);
+              tgResponse = await tgSend(decryptedToken, contact.externalId, messageText, replyToMessageId);
             }
 
             // Save platformMessageId from Telegram response to allow replies
@@ -184,17 +184,17 @@ router.post('/:chatId/send', authRequired, attachUser, async (req, res) => {
           } catch (e) {
             console.error('[CHATS] Failed to send message to Telegram:', e);
           }
-        } else if (platform.type === 'whatsapp' && contact.external_id) {
+        } else if (platform.type === 'whatsapp' && contact.externalId) {
           try {
             const serverUrl = process.env.PUBLIC_BASE_URL || `http://${req.headers.host}`;
             if (attachment && attachment.url) {
               const fullUrl = attachment.url.startsWith('http') ? attachment.url : `${serverUrl}${attachment.url}`;
-              await waSendDocument(decryptedToken, platform.phone_number_id, contact.external_id, fullUrl, attachment.filename || 'document');
+              await waSendDocument(decryptedToken, platform.phoneNumberId, contact.externalId, fullUrl, attachment.filename || 'document');
               if (messageText) {
-                await waSend(decryptedToken, platform.phone_number_id, contact.external_id, messageText);
+                await waSend(decryptedToken, platform.phoneNumberId, contact.externalId, messageText);
               }
             } else if (messageText) {
-              await waSend(decryptedToken, platform.phone_number_id, contact.external_id, messageText);
+              await waSend(decryptedToken, platform.phoneNumberId, contact.externalId, messageText);
             }
           } catch (e) {
             console.error('[CHATS] Failed to send message to WhatsApp:', e);

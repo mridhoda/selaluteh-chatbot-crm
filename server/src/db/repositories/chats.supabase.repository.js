@@ -98,7 +98,7 @@ export const chatsSupabaseRepository = {
     const client = getSupabaseServiceClient();
     const result = await client
       .from(TABLE)
-      .select('*, contacts(*), platforms(id, type, label), outlets(id, name), taken_over_by:users!taken_over_by_user_id(id, name)')
+      .select('*, contacts(*), platforms(*), outlets(id, name), taken_over_by:users!taken_over_by_user_id(id, name)')
       .eq('id', chatId)
       .maybeSingle();
     const row = extractSingle(result, 'chats.findByIdWithPlatformAndContact');
