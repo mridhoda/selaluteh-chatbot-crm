@@ -1,6 +1,17 @@
-# Pre-Migration Checklist — v3 Pre-MCP
+# Pre-Cutover Checklist — Supabase Fresh Start
 
-Use this before any Supabase MCP write or staging import. The current runtime remains MongoDB/Mongoose until a staged cutover is explicitly approved.
+Use this before switching any backend runtime domain from legacy Mongo/Mongoose to Supabase/Postgres.
+
+## Cutover Decisions
+
+- [ ] End state is full Supabase/Postgres backend runtime.
+- [ ] Cutover is staged domain-by-domain.
+- [ ] MongoDB/Mongoose is legacy-only and must not be used for new features.
+- [ ] No Mongo data backfill.
+- [ ] No dual-write.
+- [ ] No legacy data reconciliation.
+- [ ] Custom backend auth remains in this cutover.
+- [ ] Supabase Auth is deferred to a separate future spec.
 
 ## Code Safety
 
@@ -18,37 +29,22 @@ Use this before any Supabase MCP write or staging import. The current runtime re
 - [ ] Any exposed secret has been rotated.
 - [ ] Direct Mongoose access remaining outside repositories is documented for staged cutover.
 
-## Data Safety
-
-- [ ] Mongo backup exists.
-- [ ] Local `uploads` backup exists.
-- [ ] Database backup and uploads backup are from the same time window.
-- [ ] Distinct workspace ids are counted.
-- [ ] `mongo_id_map` strategy is approved and deterministic for every migrated collection.
-- [ ] Orphan chats are identified.
-- [ ] Orphan messages are identified.
-- [ ] Missing contact/platform/agent references are identified.
-- [ ] Legacy order statuses are mapped.
-- [ ] Cart, checkout, order, and payment embedded arrays are mapped to relational rows.
-- [ ] Payment embedded events are deduped against standalone `PaymentEvent` rows.
-- [ ] Manual payment proof files are mapped.
-- [ ] Sparse unique Mongo indexes are mapped to Postgres partial unique indexes.
-
 ## Supabase Readiness
 
 - [ ] Supabase project created.
-- [ ] SQL migrations run in staging.
-- [ ] SQL migrations reviewed but not applied to production.
+- [ ] SQL migrations run in Supabase local or dedicated non-production test project.
+- [ ] SQL migrations reviewed before production.
 - [ ] Phase 1 access model is backend service-role only.
 - [ ] RLS policies reviewed as future preparation, not required for frontend direct reads yet.
 - [ ] Service role key stored server-side only.
+- [ ] `SUPABASE_DATABASE_URL` stored server-side only.
 - [ ] Anon key is safe to expose only if frontend direct reads are intentionally enabled.
-- [ ] Supabase Auth migration is deferred or separately approved.
+- [ ] Supabase Auth migration is deferred.
 - [ ] Persistent local upload directory prepared.
 - [ ] Docker/server deployment will not wipe uploads.
 - [ ] Upload directory backup strategy prepared.
-- [ ] Import script tested on sample data.
-- [ ] `sql/009_migration_validation_queries.sql` tested.
+- [ ] Fresh dev/test seed data prepared.
+- [ ] `sql/009_migration_validation_queries.sql` tested after migrations and seed data.
 
 ## Marketplace Readiness Before Enabling Commerce
 
@@ -56,16 +52,16 @@ Use this before any Supabase MCP write or staging import. The current runtime re
 - [ ] Cart service is deterministic.
 - [ ] Checkout confirmation exists.
 - [ ] Order items are created from cart snapshot.
-- [ ] Checkout items are created from cart snapshot for migration parity.
+- [ ] Checkout items are created from cart snapshot where needed.
 - [ ] AI is prevented from directly creating paid orders.
 - [ ] Payment sandbox keys are configured server-side.
 - [ ] Payment webhook signature verification is implemented.
 - [ ] Telegram inline keyboard/callback idempotency is implemented.
 
-## Manual Decisions Required Before MCP Write
+## Testing Readiness
 
-- [ ] Confirm staging project target and credentials source.
-- [ ] Confirm platform secret strategy: encrypt before import or rotate after import.
-- [ ] Confirm whether optional missing outlet/contact/chat references are backfilled or rejected.
-- [ ] Confirm `payments.events[]` handling: migrate all deduped events or only canonical standalone events.
-- [ ] Confirm rollback window and whether writes are frozen during import.
+- [ ] Existing MongoMemory tests are retained only for legacy domains not yet cut over.
+- [ ] No new Mongo tests are added.
+- [ ] New repositories/features use Supabase tests.
+- [ ] Supabase tests use Supabase local or a dedicated Supabase test project, not production.
+- [ ] Each completed domain has repository tests, integration tests, and security/isolation tests.

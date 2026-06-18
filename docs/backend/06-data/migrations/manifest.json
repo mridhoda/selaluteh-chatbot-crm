@@ -9,7 +9,7 @@
     "checklists/post-migration-checklist.md",
     "checklists/pre-migration-checklist.md",
     "notes/cutover-plan.md",
-    "notes/data-backfill-order.md",
+    "notes/seed-data-order.md",
     "notes/marketplace-schema-notes.md",
     "notes/mongo-to-postgres-mapping.md",
     "notes/payment-gateway-contract.md",
@@ -29,7 +29,8 @@
   "notes": [
     "Supabase/Postgres structured data",
     "Local server filesystem for large media",
-    "CRM compatibility preserved",
+    "Fresh-start Supabase cutover with no Mongo backfill, no dual-write, and no legacy reconciliation",
+    "CRM behavior compatibility preserved during domain cutover",
     "Canonical names: workspace_settings, chat_messages, taken_over_by_user_id",
     "Marketplace MVP and operational tables added",
     "009_multi_workspace_outlet_foundation.sql is deprecated because its foundation is covered by 002/005",

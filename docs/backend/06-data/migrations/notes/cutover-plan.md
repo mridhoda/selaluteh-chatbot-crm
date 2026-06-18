@@ -1,25 +1,48 @@
-# Cutover Plan — v2
+# Cutover Plan — Supabase Fresh Start
 
 ## Goal
 
-Switch production backend reads/writes from MongoDB to Supabase/Postgres with minimal data loss risk while preparing the app for Telegram marketplace MVP.
+Switch backend reads/writes from legacy MongoDB/Mongoose to Supabase/Postgres domain-by-domain while preparing the app for Telegram marketplace MVP.
 
-## Recommended Cutover
+## Approved Mode
 
-1. Announce maintenance window.
-2. Stop webhook ingestion or point Telegram/Meta webhooks to a maintenance endpoint.
-3. Stop backend worker/follow-up scheduler.
-4. Disable AI auto-side-effects temporarily if still using `FILE_ORDER_JSON` flow.
-5. Run final Mongo export.
-6. Ensure local `uploads` are present on target server.
-7. Run import into Supabase/Postgres.
-8. Run validation queries from `sql/009_migration_validation_queries.sql`.
-9. Switch backend env to Supabase.
-10. Start backend.
-11. Re-enable webhooks.
-12. Run smoke tests.
-13. Re-enable AI and follow-up scheduler.
-14. Enable Telegram marketplace flow only after CRM smoke tests pass.
+```txt
+Full Supabase end-state
+Staged domain-by-domain cutover
+Start fresh from Supabase
+No Mongo backfill
+No dual-write
+No legacy data reconciliation
+Custom backend auth remains
+Supabase Auth deferred
+```
+
+## Domain Order
+
+1. Supabase foundation.
+2. Workspaces, users, memberships.
+3. Outlets and user outlet access.
+4. Platforms, integrations, webhook events.
+5. Contacts, chats, messages.
+6. Products and outlet availability.
+7. Carts and checkout sessions.
+8. Orders and order items.
+9. Payments and payment events.
+10. Complaints, files, settings.
+11. Agents, AI actions, knowledge.
+12. Remove MongoDB and Mongoose.
+
+## Per-Domain Cutover Steps
+
+1. Freeze repository contract and current behavior expectations.
+2. Implement Supabase repository and mapping.
+3. Add Supabase repository tests.
+4. Add integration tests for route/service paths.
+5. Add security/isolation tests for workspace and outlet scope.
+6. Switch service/route path to Supabase-backed repository.
+7. Remove direct Mongoose access for that domain.
+8. Run domain smoke tests.
+9. Monitor logs and error rates.
 
 ## Smoke Tests — Existing CRM
 
@@ -33,7 +56,7 @@ Switch production backend reads/writes from MongoDB to Supabase/Postgres with mi
 - Receive Telegram test webhook.
 - Verify duplicate Telegram update does not duplicate message.
 - Verify AI skip when `taken_over_by_user_id` exists.
-- Create/update legacy order.
+- Create/update order.
 - Create/update complaint.
 - Confirm local file URLs still resolve.
 
@@ -48,34 +71,21 @@ Switch production backend reads/writes from MongoDB to Supabase/Postgres with mi
 - User confirms checkout.
 - Backend creates pending order with order items.
 - Payment sandbox link is created.
-- Payment webhook updates payment and order status.
+- Payment webhook updates payment and order payment status.
 - Telegram user receives paid confirmation.
 
-## Rollback
+## Final Mongo Removal
 
-Rollback is only safe if:
+Only after every runtime domain is Supabase-backed and full regression/security tests pass:
 
-- Mongo writes were frozen during cutover.
-- Local uploads were not modified or lost during cutover.
-- Webhooks were not writing to Supabase only.
-- No new production data must be preserved from Supabase.
+1. Remove Mongo connection/bootstrap code.
+2. Remove Mongoose models.
+3. Remove Mongoose dependency and lockfile entries.
+4. Remove MongoMemoryServer and Mongo-specific test setup.
+5. Remove `DATA_SOURCE=mongo` fallback.
+6. Remove obsolete Mongo environment variables.
+7. Update affected docs/specs and regenerate generated bundles.
 
-If rollback is needed:
+## Rollback/Stop Plan
 
-1. Disable webhooks again.
-2. Stop backend.
-3. Restore Mongo env.
-4. Start old backend.
-5. Re-enable webhooks to old backend.
-6. Keep Supabase copy for postmortem.
-
-## No-Rollback Zone
-
-Once live Telegram marketplace orders/payments are written only to Supabase, rollback to Mongo requires data reconciliation.
-
-Before entering no-rollback zone, ensure:
-
-- Supabase backup is enabled.
-- Uploads backup is enabled.
-- Payment webhook logs are stored.
-- Order/payment reconciliation query is ready.
+During staged cutover, stop or revert only the current unreleased domain path. Do not use dual-write as rollback. After final Mongo removal, rollback is normal app/database restore around Supabase backups and deployment artifacts.

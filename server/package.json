@@ -6,12 +6,13 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "test": "NODE_ENV=test node --test \"test/**/*.test.js\"",
+    "test": "NODE_ENV=test DATA_SOURCE=mongo node --test \"test/**/*.test.js\"",
     "seed": "node scripts/seed.js",
     "cleanup": "node scripts/cleanup.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.23.0",
+    "@supabase/supabase-js": "^2.108.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

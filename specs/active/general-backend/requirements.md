@@ -94,8 +94,9 @@ Future production harus dapat mendukung:
 | Area | Current / Target Decision |
 |---|---|
 | Backend runtime | Node.js + Express |
-| Current database | MongoDB + Mongoose |
-| Database target direction | PostgreSQL/Supabase-ready repository abstraction |
+| Current database | Supabase/Postgres |
+| Legacy database | MongoDB + Mongoose, retained only for migration/reference until removed |
+| Database target direction | Supabase/Postgres-backed repository abstraction |
 | Frontend | React + Vite admin dashboard |
 | Primary commerce channel | Telegram |
 | Future commerce channel | WhatsApp |
@@ -107,7 +108,7 @@ Future production harus dapat mendukung:
 | AI role | Assistant and action proposer, not transaction authority |
 | Backend pattern | Route → Service → Repository → Model/Database |
 | External providers | `integrations/` adapter/client layer |
-| Migration approach | Incremental, no big-bang rewrite |
+| Migration approach | Full Supabase end-state with staged domain-by-domain cutover; start fresh from Supabase with no Mongo backfill, no dual-write, and no legacy reconciliation |
 
 ---
 
@@ -1340,7 +1341,7 @@ Future production harus dapat mendukung:
 9. THE Backend_System SHALL not delete related order/payment history.
 10. Resolution action SHALL store actor, note, and timestamp.
 11. THE Backend_System SHALL support opening related chat/order.
-12. THE Backend_System SHALL preserve legacy data compatibility during migration.
+12. THE Backend_System SHALL keep complaint behavior compatible while persistence is moved domain-by-domain to Supabase/Postgres.
 
 ---
 
@@ -1695,16 +1696,16 @@ Future production harus dapat mendukung:
 2. Repository method SHALL receive workspace scope.
 3. Outlet-scoped repository method SHALL receive allowed outlet scope.
 4. Repository SHALL not return HTTP response objects.
-5. Service SHALL not rely on Mongoose-specific details where avoidable.
-6. Route SHALL not directly access model for new/refactored domain.
-7. THE current runtime SHALL remain MongoDB/Mongoose until migration is approved.
-8. THE documentation SHALL not falsely claim PostgreSQL is active before cutover.
-9. Migration SHALL be incremental by domain/route.
+5. Service SHALL not rely on Mongoose-specific details.
+6. Route SHALL not directly access Mongoose models for new/refactored domain.
+7. THE current runtime target SHALL be Supabase/Postgres.
+8. THE documentation SHALL treat MongoDB/Mongoose as legacy-only until removed.
+9. Migration SHALL replace Mongoose access incrementally by domain/route without adding new Mongo dependencies.
 10. Migration sequence SHALL include:
     - contract freeze
     - current behavior tests
     - target schema
-    - backfill
+    - Supabase seed data
     - validation
     - repository implementation
     - staged cutover
@@ -1715,10 +1716,13 @@ Future production harus dapat mendukung:
 14. Destructive migration SHALL require backup and rollback/cutover plan.
 15. THE Backend_System SHALL maintain migration state.
 16. Validation query SHALL be separate from executable migration when appropriate.
-17. THE Backend_System SHALL support dual-read validation only when risk is controlled.
-18. Dual-write SHALL not be introduced without explicit consistency strategy.
-19. Data mapping SHALL document MongoDB IDs, references, timestamps, status enums, and nullable semantics.
-20. Repository contract tests SHALL be reusable across database implementations.
+17. THE Backend_System SHALL NOT implement Mongo backfill for this cutover because the approved mode is fresh Supabase data.
+18. THE Backend_System SHALL NOT introduce dual-write or legacy reconciliation during this cutover.
+19. THE Backend_System SHALL keep custom backend authentication during the database cutover and defer Supabase Auth to a separate spec.
+20. Repository contract tests SHALL be reusable across database implementations while Mongo legacy tests remain temporarily for uncut domains.
+21. New repositories and features SHALL use Supabase tests, not MongoMemory tests.
+22. Automated Supabase tests SHALL use Supabase local or a dedicated Supabase test project, never production.
+23. After all domains are Supabase-backed, THE Backend_System SHALL remove Mongo connection code, Mongoose models, Mongoose dependency, MongoMemoryServer, `DATA_SOURCE=mongo` fallback, and obsolete Mongo environment variables.
 
 ---
 

@@ -2,7 +2,7 @@
 schema_version: 2
 document_type: active-task-pointer
 status: active
-updated_at: 2026-06-17
+updated_at: 2026-06-18
 
 active_spec:
   id: general-backend
@@ -15,12 +15,12 @@ active_spec:
   tasks: specs/active/general-backend/tasks.md
 
 active_task:
-  id: "17.1"
-  title: Define message delivery service
-  priority: medium
-  phase: notifications
+  id: "24"
+  title: Supabase/Postgres cutover and legacy Mongo removal
+  priority: high
+  phase: supabase-cutover
   source: specs/active/general-backend/tasks.md
-  source_section: "17. Notifications and Delivery Orchestration"
+  source_section: "24. Supabase/Postgres Cutover and Legacy Mongo Removal"
   requirements:
     - R25
     - R35
@@ -45,17 +45,17 @@ lifecycle:
 
 # Current Task
 
-Notifications — Define message delivery service.
+Supabase/Postgres cutover — full Supabase end-state with staged domain-by-domain replacement of legacy Mongo/Mongoose repository implementations.
 
 ## Objective
 
-Active task pointer remains `17.1`. Sections 1-15 have been closed for MVP Telegram chatbot testing and documentation has been updated according to `docs/backend/READING-ORDER.md`.
+Supabase/Postgres is now the approved runtime target and final end-state. Sections 1-15 remain closed for MVP Telegram chatbot testing, but repository/runtime work must now prioritize replacing legacy Mongo/Mongoose access without Mongo data backfill or dual-write.
 
 ## Task Details
 
-Referensi: `specs/active/general-backend/tasks.md` task `17.1`.
+Referensi: `specs/active/general-backend/tasks.md` section `24`.
 
-Requirements: R25 (Notifications), R35 (Repository Layer).
+Requirements: R30 (Security), R35 (Repository Layer), R37 (Testing), R38 (Production Hardening).
 
 ## Completed Scope
 
@@ -65,8 +65,8 @@ Latest verification:
 
 ```txt
 npm --prefix server test
-142 tests, 25 suites, 142 pass, 0 fail
+143 tests, 26 suites, 143 pass, 0 fail
 npm run specs:check passed
 ```
 
-Current next task: 17.1 — Define message delivery service.
+Current next task: 24.1-24.6 — lock cutover decisions, finish Supabase foundation, freeze contracts, prepare fresh Supabase seed data, and establish Supabase testing baseline before domain cutover.

@@ -1,6 +1,17 @@
 # Repository Layer Contract
 
-Migration should not rewrite all routes at once. Add repository interfaces first, then switch implementation route-by-route.
+Supabase/Postgres is now the approved runtime target and final end-state. Cutover should still not rewrite all routes at once; freeze repository interfaces first, then switch implementation domain-by-domain.
+
+Approved cutover mode:
+
+```txt
+Start fresh from Supabase.
+No Mongo backfill.
+No dual-write.
+No legacy data reconciliation.
+Keep custom backend auth.
+Use Supabase tests for new repositories/features.
+```
 
 ## Recommended Folder
 
@@ -135,8 +146,10 @@ createPaymentForOrder({ workspaceId, orderId, provider })
 
 ## Migration Implementation Strategy
 
-1. Create repositories backed by Mongoose.
-2. Route code uses repositories only.
-3. Create Supabase implementation with same contract.
-4. Switch one route group at a time through env flag.
-5. Remove direct Mongoose access after full cutover.
+1. Complete Supabase foundation: client, env validation, mapping, error mapping, transaction conventions, scope conventions, and test database.
+2. Freeze current repository contracts and tests.
+3. Seed fresh Supabase dev/test data.
+4. Create Supabase implementation with the same contract.
+5. Switch one route/service group at a time to Supabase-backed repositories.
+6. Remove direct Mongoose access after each group is migrated.
+7. Remove Mongo connection, Mongoose models, Mongoose dependency, MongoMemoryServer, `DATA_SOURCE=mongo` fallback, and obsolete Mongo env variables after full cutover.

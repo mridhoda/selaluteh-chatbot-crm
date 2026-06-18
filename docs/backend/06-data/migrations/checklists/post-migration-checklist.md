@@ -1,27 +1,8 @@
-# Post-Migration Checklist — v3 Pre-MCP
+# Post-Cutover Checklist — Supabase Fresh Start
 
-## Data Counts
+## Runtime Smoke Tests
 
-- [ ] Users count matches expected.
-- [ ] Platforms count matches expected.
-- [ ] Agents count matches expected.
-- [ ] Contacts count matches expected.
-- [ ] Chats count matches expected.
-- [ ] Messages count matches expected.
-- [ ] Legacy orders count matches expected.
-- [ ] Order item count matches expected after normalizing embedded order items.
-- [ ] Checkout count and checkout item count match expected snapshots.
-- [ ] Cart count and cart item count match expected snapshots.
-- [ ] Payments count matches expected.
-- [ ] Payment events count matches expected after dedupe.
-- [ ] Complaints count matches expected.
-- [ ] Files metadata count matches migrated attachments.
-- [ ] Local media files exist on server.
-- [ ] Product catalog count matches expected if bootstrapped.
-
-## App Smoke Tests
-
-- [ ] Login works.
+- [ ] Login works with custom backend auth.
 - [ ] Billing loads.
 - [ ] Profile loads.
 - [ ] Platforms page loads.
@@ -34,7 +15,7 @@
 - [ ] Human reply sends and stores message.
 - [ ] AI reply works.
 - [ ] AI escalation sets `is_escalated`.
-- [ ] Legacy order status update works.
+- [ ] Order status update works.
 - [ ] Complaint status update works.
 - [ ] Local `/files` URLs resolve.
 
@@ -46,10 +27,11 @@
 - [ ] User cannot read another workspace's orders.
 - [ ] Agent role cannot see unassigned workspace chats unless intended.
 - [ ] Service role key is not exposed to frontend.
+- [ ] `SUPABASE_DATABASE_URL` is not exposed to frontend.
 - [ ] Payment webhook endpoint rejects invalid signature.
 - [ ] Telegram duplicate update does not create duplicate message/order.
 - [ ] Duplicate payment provider event does not create duplicate `payment_events` row.
-- [ ] Service-role key remains server-side only.
+- [ ] Platform and payment secrets are redacted in API responses and logs.
 
 ## Marketplace Smoke Tests
 
@@ -70,4 +52,16 @@
 
 - [ ] `sql/009_migration_validation_queries.sql` returns zero for orphan and cross-workspace mismatch queries.
 - [ ] Duplicate checks for checkout idempotency keys, order numbers, webhook events, and payment events return no rows.
-- [ ] `mongo_id_map` contains no rows with missing `target_uuid`.
+- [ ] Legacy `mongo_id_map` validation is ignored unless a separate historical import spec is opened.
+
+## Final Mongo Removal Gate
+
+- [ ] All runtime domains are Supabase-backed.
+- [ ] Full regression/security tests pass.
+- [ ] Mongo connection/bootstrap code removed.
+- [ ] Mongoose models removed.
+- [ ] Mongoose dependency removed.
+- [ ] MongoMemoryServer removed.
+- [ ] `DATA_SOURCE=mongo` fallback removed.
+- [ ] Obsolete Mongo environment variables removed.
+- [ ] Affected docs/specs updated and generated bundles regenerated.

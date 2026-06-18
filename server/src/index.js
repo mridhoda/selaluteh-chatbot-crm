@@ -3,6 +3,7 @@ import { env } from './config/env.js';
 import { corsMiddleware } from './config/cors.js';
 import { httpLogger } from './config/logger.js';
 import { connectMongo } from './db/mongo.js';
+import { connectSupabase } from './db/supabase.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { requestId } from './middleware/request-id.js';
 
@@ -73,8 +74,13 @@ app.use(errorHandler);
 let server;
 
 async function bootstrap() {
-  await connectMongo();
-  console.log('MongoDB connected');
+  if (env.dataSource === 'supabase') {
+    await connectSupabase();
+    console.log('Supabase connected');
+  } else {
+    await connectMongo();
+    console.log('MongoDB connected (legacy mode)');
+  }
 
   startFollowups();
   startCartExpiry();
@@ -109,6 +115,6 @@ function registerGracefulShutdown(server) {
 }
 
 bootstrap().catch((err) => {
-  console.error('Mongo connect error:', err.message);
+  console.error('Database connect error:', err.message);
   process.exit(1);
 });

@@ -27,7 +27,11 @@ function validate(config) {
 const raw = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: process.env.PORT || 5000,
+  dataSource: process.env.DATA_SOURCE || 'supabase',
   mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/chatbot_crm',
+  supabaseUrl: process.env.SUPABASE_URL || '',
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
   corsOrigin: process.env.CORS_ORIGIN || '*',
   publicBaseUrl: process.env.PUBLIC_BASE_URL || '',
   jwtSecret: process.env.JWT_SECRET || 'devsecret',
@@ -50,10 +54,27 @@ const raw = {
 };
 
 validate({
-  mongoUri: { value: raw.mongoUri, severity: CRITICAL, label: 'MONGODB_URI' },
   jwtSecret: { value: raw.jwtSecret, severity: CRITICAL, label: 'JWT_SECRET' },
   port: { value: raw.port, severity: CRITICAL, label: 'PORT' },
 });
+
+if (!['supabase', 'mongo'].includes(raw.dataSource)) {
+  console.error('DATA_SOURCE must be either "supabase" or "mongo".');
+  process.exit(1);
+}
+
+if (raw.dataSource === 'supabase') {
+  validate({
+    supabaseUrl: { value: raw.supabaseUrl, severity: CRITICAL, label: 'SUPABASE_URL' },
+    supabaseServiceRoleKey: { value: raw.supabaseServiceRoleKey, severity: CRITICAL, label: 'SUPABASE_SERVICE_ROLE_KEY' },
+  });
+}
+
+if (raw.dataSource === 'mongo') {
+  validate({
+    mongoUri: { value: raw.mongoUri, severity: CRITICAL, label: 'MONGODB_URI' },
+  });
+}
 
 const nodeEnv = raw.nodeEnv;
 const isProduction = nodeEnv === 'production';
@@ -78,9 +99,13 @@ if (raw.publicBaseUrl && raw.publicBaseUrl === '/') {
 
 export const env = {
   nodeEnv: raw.nodeEnv,
+  dataSource: raw.dataSource,
   isProduction: nodeEnv === 'production',
   port: parseInt(raw.port, 10) || 5000,
   mongoUri: raw.mongoUri,
+  supabaseUrl: raw.supabaseUrl,
+  supabaseServiceRoleKey: raw.supabaseServiceRoleKey,
+  supabaseAnonKey: raw.supabaseAnonKey,
   corsOrigin: raw.corsOrigin,
   corsOriginList: raw.corsOriginList,
   publicBaseUrl: raw.publicBaseUrl,
@@ -113,8 +138,12 @@ export function getAllowedCorsOrigins() {
 export function redactedConfig() {
   return {
     nodeEnv: env.nodeEnv,
+    dataSource: env.dataSource,
     port: env.port,
     mongoUri: redact(env.mongoUri),
+    supabaseUrl: env.supabaseUrl,
+    supabaseServiceRoleKey: env.supabaseServiceRoleKey ? 'configured' : '',
+    supabaseAnonKey: env.supabaseAnonKey ? 'configured' : '',
     corsOrigin: env.corsOrigin,
     publicBaseUrl: env.publicBaseUrl,
     jwtSecret: redact(env.jwtSecret),

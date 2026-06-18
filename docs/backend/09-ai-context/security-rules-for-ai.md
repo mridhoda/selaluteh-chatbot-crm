@@ -14,6 +14,8 @@ Jangan tampilkan atau commit:
 - JWT secret,
 - database URL dengan password.
 
+Supabase service role key and `SUPABASE_DATABASE_URL` are backend-only. They must not appear in frontend code, generated bundles, logs, committed docs, screenshots, or test fixtures with real values.
+
 ## Workspace Isolation
 
 Every tenant-owned operation must validate:

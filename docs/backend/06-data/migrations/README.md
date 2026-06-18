@@ -1,8 +1,8 @@
 # Data Migrations — Telegram Marketplace MVP v2
 
-Folder ini adalah versi baru dari migration pack Supabase/Postgres untuk project **KALIS.AI / eskala-bot**.
+Folder ini adalah migration pack Supabase/Postgres untuk project **KALIS.AI / eskala-bot**.
 
-Versi ini tetap mendukung migrasi dari MongoDB/Mongoose, tetapi skemanya sudah diperluas untuk rancangan terbaru:
+Keputusan cutover final adalah fresh-start Supabase/Postgres. MongoDB/Mongoose tidak diimport, tidak di-dual-write, dan tidak direkonsiliasi karena hanya berisi data testing legacy.
 
 ```txt
 Existing app:
@@ -30,7 +30,7 @@ migrations-v2/
     009_migration_validation_queries.sql
   notes/
     mongo-to-postgres-mapping.md
-    data-backfill-order.md
+    seed-data-order.md
     cutover-plan.md
     telegram-commerce-flow.md
     payment-gateway-contract.md
@@ -77,12 +77,12 @@ files, webhook_events, ai_actions, checkouts
 2. Run SQL files `001` to `008` on a fresh Supabase staging project.
 3. Use `009_migration_validation_queries.sql` only for manual validation, not as an automatic migration.
 4. Build repository layer so app routes can move from Mongoose to Supabase table-by-table.
-5. Run import script in dry-run mode first.
-6. Migrate old CRM data.
+5. Seed fresh Supabase development/testing data.
+6. Implement Supabase repositories domain-by-domain.
 7. Add marketplace data and Telegram commerce flow.
 8. Test with Telegram bot sandbox/test bot.
 9. Add Midtrans/Xendit sandbox payment flow.
-10. Cutover only after pre/post migration checklists pass.
+10. Remove Mongo/Mongoose only after every runtime domain is Supabase-backed and tests pass.
 
 ## Core Decisions
 
@@ -92,6 +92,8 @@ files, webhook_events, ai_actions, checkouts
 - AI can assist commerce but must not be the source of truth for order/payment state.
 - Cart, checkout, order, and payment must be deterministic backend flows.
 - Public webhooks write through backend service role, but provider validation and idempotency are mandatory.
+- Custom backend auth remains in place for this cutover; Supabase Auth is deferred.
+- Automated tests must use Supabase local or a dedicated Supabase test project, never production.
 
 ## New Marketplace Tables
 

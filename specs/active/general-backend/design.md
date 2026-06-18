@@ -30,7 +30,8 @@ Dokumen ini tidak menggantikan semua dokumen spesifik, tetapi menjadi **design a
 Sistem yang sudah tersedia:
 
 - Node.js + Express backend;
-- MongoDB + Mongoose sebagai runtime database saat ini;
+- Supabase/Postgres sebagai target runtime aktif dan final end-state;
+- MongoDB + Mongoose sebagai legacy data/testing layer sampai domain runtime selesai diganti;
 - React + Vite admin dashboard;
 - custom JWT/OTP authentication;
 - Telegram webhook;
@@ -113,8 +114,9 @@ many workspaces/accounts/franchise owners
 | Decision | Choice | Reason |
 |---|---|---|
 | Backend runtime | Node.js + Express | Mempertahankan existing system dan meminimalkan rewrite |
-| Current database | MongoDB + Mongoose | Existing runtime; tidak diganti secara big-bang |
-| Target database direction | PostgreSQL/Supabase-ready repository abstraction | Mendukung relational commerce, RLS, dan migration bertahap |
+| Current database | Supabase/Postgres | Supabase project dan schema sudah dibuat; runtime code harus dipindahkan dari legacy Mongo |
+| Legacy database | MongoDB + Mongoose | Dipertahankan sementara hanya untuk regression tests pada domain legacy sampai repository diganti |
+| Target database direction | Supabase/Postgres-backed repository abstraction | Mendukung relational commerce, RLS, dan migration bertahap |
 | Backend structure | `server/src` layer-based architecture | Umum, jelas, minim refactor, cocok untuk Express |
 | Tenant boundary | `workspace_id` | Workspace adalah akun bisnis/franchise owner |
 | Operational branch boundary | `outlet_id` | Outlet adalah cabang yang memproses operasi |
@@ -129,8 +131,8 @@ many workspaces/accounts/franchise owners
 | Auth context | JWT → workspace membership → outlet access | Isolasi tenant dan outlet harus server-side |
 | Background jobs MVP | In-process worker dengan boundary yang jelas | Cepat untuk MVP, tetapi tidak diklaim durable |
 | Future queue | Redis/BullMQ atau queue equivalent | Untuk retry, notification, reconciliation, dan scale |
-| Migration strategy | Incremental, route-by-route, repository-backed | Menghindari big-bang migration |
-| IDs | Existing Mongo ObjectId sekarang; UUID-ready logical contracts | Tidak memaksa rewrite runtime, tetapi API tidak bergantung pada tipe ID |
+| Migration strategy | Full Supabase end-state, staged domain-by-domain cutover, fresh Supabase data | Tidak ada Mongo backfill, dual-write, atau legacy reconciliation |
+| IDs | Supabase UUID contracts; legacy Mongo ObjectId must not leak into new runtime contracts | API tidak bergantung pada tipe ID legacy |
 | Timestamps | UTC di backend, ISO 8601 di API | Konsisten lintas outlet/timezone |
 
 ---
@@ -2160,13 +2162,13 @@ graph LR
     Route[Route]
     Service[Service]
     Repo[Repository Contract]
-    Mongo[Mongo Repository]
+    Mongo[Legacy Mongo Repository]
     PG[Postgres Repository]
 
     Route --> Service
     Service --> Repo
-    Repo --> Mongo
-    Repo -. future .-> PG
+    Repo -. legacy domains only .-> Mongo
+    Repo --> PG
 ```
 
 Migration sequence:
@@ -2175,12 +2177,14 @@ Migration sequence:
 2. move direct model access behind repository;
 3. add tests for current behavior;
 4. create target schema/migration;
-5. backfill data;
+5. seed fresh Supabase dev/test data;
 6. implement Postgres repository;
-7. dual-read validation where safe;
-8. switch one domain/route;
+7. switch one domain/route;
+8. add Supabase repository, integration, and security tests;
 9. monitor;
-10. decommission old path after confidence.
+10. remove Mongo/Mongoose path after all domains are Supabase-backed.
+
+This cutover explicitly does not import Mongo data, does not dual-write, and does not reconcile legacy Mongo data because Mongo contains only non-critical testing data.
 
 ### 16.4 Migration File Convention
 
@@ -2214,7 +2218,8 @@ migrations/
 - applied migration is never silently edited;
 - rollback is a new forward migration unless transaction rollback occurs before commit;
 - migration must document destructive changes;
-- backup and validation checklist are required.
+- backup and validation checklist are required for destructive database work;
+- Supabase service role key and database URL must stay backend-only and never appear in frontend bundles, Git, logs, or documentation with real secret values.
 
 ---
 

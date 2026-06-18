@@ -31,24 +31,23 @@ Bahasa implementasi utama:
 ```txt
 Node.js
 Express
-MongoDB
-Mongoose
+Supabase/Postgres
 React + Vite admin dashboard
 ```
 
-Current runtime database tetap:
+Current runtime database setelah Supabase project dibuat dan cutover disetujui:
 
 ```txt
-MongoDB + Mongoose
+Supabase/Postgres
 ```
 
-Target arsitektur database tetap disiapkan agar dapat dimigrasikan bertahap ke:
+MongoDB/Mongoose sekarang legacy dan hanya dipakai sebagai referensi migrasi sampai seluruh repository/service selesai diganti:
 
 ```txt
-PostgreSQL / Supabase
+MongoDB + Mongoose (legacy only)
 ```
 
-tanpa melakukan big-bang rewrite.
+Tidak boleh menambah dependensi Mongoose baru. Sisa akses Mongoose harus diganti lewat repository/service boundary domain-by-domain.
 
 Lokasi implementasi backend utama:
 
@@ -2062,86 +2061,172 @@ Task rules:
 
 ---
 
-## 24. MongoDB-to-PostgreSQL/Supabase Migration Preparation
+## 24. Supabase/Postgres Cutover and Legacy Mongo Removal
 
-- [ ] 24.1 Confirm migration is not current runtime cutover
-  - Docs and code must state MongoDB remains active.
+- [ ] 24.1 Lock final Supabase cutover decisions
+  - End state is full Supabase/Postgres backend runtime.
+  - Implementation remains staged domain-by-domain.
+  - MongoDB/Mongoose is legacy-only and must not be used for new features.
+  - Start fresh from Supabase: no Mongo data backfill, no dual-write, no legacy data reconciliation.
+  - Keep custom backend authentication during this database cutover.
+  - Defer Supabase Auth to a separate future spec.
+  - _Requirements: R35, R37, R38_
+
+- [ ] 24.2 Complete Supabase foundation
+  - Add/verify Supabase backend client setup.
+  - Validate `DATA_SOURCE=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_DATABASE_URL`.
+  - Keep `SUPABASE_SERVICE_ROLE_KEY` backend-only; never expose it to frontend, Git, logs, or docs containing real secrets.
+  - Apply SQL migrations to a non-production target first.
+  - Add camelCase app object to snake_case database row mapping helpers.
+  - Define repository conventions for inputs, return shapes, pagination, timestamps, null handling, and duplicate handling.
+  - Define database error mapping to app/service errors.
+  - Define transaction conventions; use RPC or direct Postgres transaction support where Supabase JS is insufficient.
+  - Enforce workspace and outlet scoping conventions for every tenant-owned query.
+  - Add Supabase local or dedicated Supabase test project setup; never use production for automated tests.
+  - _Requirements: R30, R35, R37, R38_
+
+- [ ] 24.3 Freeze repository/query contracts
+  - Define canonical return shapes independent of Mongoose documents and Supabase SDK response objects.
+  - Require `workspaceId` for tenant-owned operations.
+  - Require allowed outlet scope for outlet-scoped operations.
+  - Avoid adding new Mongoose imports or model access in new/refactored code.
+  - Document direct Mongoose usages that remain only because their domain has not been cut over yet.
   - _Requirements: R35_
 
-- [ ] 24.2 Freeze repository/query contracts
-  - Define canonical return shapes.
-  - Avoid Mongoose document leakage.
+- [ ] 24.4 Finalize and validate Supabase relational schema
+  - Workspaces, users, memberships, and custom auth persistence.
+  - Outlets and user outlet access.
+  - Platforms, integrations, and webhook events.
+  - Contacts, chats, and messages.
+  - Products and outlet availability.
+  - Carts and checkout sessions.
+  - Orders, order items, and order events.
+  - Payments and payment events.
+  - Complaints, files, and workspace settings.
+  - Agents, AI actions, and knowledge metadata.
+  - Indexes, constraints, triggers, partial unique indexes, and validation queries.
   - _Requirements: R35_
 
-- [ ] 24.3 Finalize target relational schema
-  - Workspace.
-  - Membership.
-  - Outlet access.
-  - Platforms.
-  - CRM.
-  - Catalog.
-  - Cart.
-  - Checkout.
-  - Orders.
-  - Payments.
-  - Inventory.
-  - Audit.
-  - _Requirements: R35_
-
-- [ ] 24.4 Resolve migration numbering
-  - Ensure unique monotonic files.
-  - Move validation query out of executable migration sequence if needed.
-  - _Requirements: R35_
-
-- [ ] 24.5 Update Mongo-to-Postgres mapping
-  - IDs.
-  - nested arrays.
-  - references.
-  - enums.
-  - timestamps.
-  - nullable/default semantics.
-  - _Requirements: R35_
-
-- [ ] 24.6 Implement idempotent backfill scripts
-  - Dry-run mode.
-  - Batch mode.
-  - Resume checkpoint.
-  - Error report.
-  - _Requirements: R35_
-
-- [ ] 24.7 Add migration validation queries
-  - Counts.
-  - orphan checks.
-  - uniqueness.
-  - totals.
-  - payment/order consistency.
-  - workspace/outlet consistency.
-  - _Requirements: R35_
-
-- [ ] 24.8 Add migration test environment
-  - Never use production as first test.
-  - Seed representative legacy data.
+- [ ] 24.5 Prepare fresh Supabase seed data
+  - Seed dev/test workspace, owner/admin users, memberships, outlets, outlet access, settings, platforms, products, and payment sandbox settings.
+  - Use safe fake provider credentials in seeds.
+  - Do not import Mongo data.
+  - Do not build Mongo backfill or reconciliation scripts.
+  - Keep `mongo_id_map` only as a schema artifact if already applied; it must not be required by runtime cutover.
   - _Requirements: R35, R37_
 
-- [ ] 24.9 Implement Postgres repositories domain-by-domain
-  - Start after contract tests exist.
-  - _Requirements: R35_
+- [ ] 24.6 Establish Supabase testing baseline
+  - Keep existing MongoMemory tests temporarily only as regression coverage for legacy domains that have not been moved.
+  - Do not add new Mongo tests.
+  - All new repositories and features must use Supabase tests.
+  - Add Supabase repository tests, integration tests, and security/isolation tests for each completed domain.
+  - Test against Supabase local or a dedicated Supabase test project, never production.
+  - _Requirements: R30, R35, R37_
 
-- [ ] 24.10 Implement staged cutover plan
-  - One domain/route at a time.
-  - Monitor and rollback.
-  - _Requirements: R35, R38_
+- [ ] 24.7 Cut over workspaces / users / memberships
+  - Move user, workspace, membership, OTP, and password reset persistence to Supabase repositories.
+  - Preserve custom login, password hashing, JWT/session behavior, and authorization flow.
+  - Do not migrate to Supabase Auth in this cutover.
+  - Add repository tests, auth integration tests, and workspace isolation/security tests.
+  - Remove direct Mongoose access for this domain after cutover.
+  - _Requirements: R1, R2, R3, R4, R30, R35, R37_
 
-- [ ]* 24.11 Implement controlled dual-read validation
-  - Only for low-risk comparison.
-  - Do not expose mixed results.
-  - _Requirements: R35_
+- [ ] 24.8 Cut over outlets / user outlet access
+  - Move outlet CRUD/listing and user outlet access persistence to Supabase repositories.
+  - Enforce workspace and outlet isolation in every query.
+  - Add repository tests, route/service integration tests, and outlet access security tests.
+  - Remove direct Mongoose access for this domain after cutover.
+  - _Requirements: R3, R5, R30, R35, R37_
 
-- [ ] 24.12 Migration checkpoint
-  - Backfill passes validation.
-  - No unresolved data mismatch.
-  - Rollback path tested.
-  - Approval required before production cutover.
+- [ ] 24.9 Cut over platforms / integrations / webhook events
+  - Move platform configuration and webhook event idempotency to Supabase repositories.
+  - Keep platform secrets server-only and redacted in logs/responses.
+  - Validate Telegram/Meta webhook lookup and duplicate handling through Supabase.
+  - Add repository tests, webhook integration tests, and secret exposure/security tests.
+  - Remove direct Mongoose access for this domain after cutover.
+  - _Requirements: R6, R7, R21, R22, R30, R35, R37_
+
+- [ ] 24.10 Cut over contacts / chats / messages
+  - Move contact upsert, chat lookup/state, inbox queries, message inserts, and unread/takeover state to Supabase repositories.
+  - Preserve contact identity key `workspace_id + platform_id + external_id`.
+  - Preserve message ordering and webhook message idempotency.
+  - Add repository tests, inbox/chat integration tests, and cross-workspace isolation tests.
+  - Remove direct Mongoose access for this domain after cutover.
+  - _Requirements: R8, R9, R10, R11, R30, R35, R37_
+
+- [ ] 24.11 Cut over products / outlet availability
+  - Move product, category, variant, and outlet availability persistence to Supabase repositories.
+  - Preserve slug/SKU partial uniqueness and outlet availability rules.
+  - Add repository tests, product API integration tests, and workspace/outlet isolation tests.
+  - Remove direct Mongoose access for this domain after cutover.
+  - _Requirements: R12, R13, R30, R35, R37_
+
+- [ ] 24.12 Cut over carts / checkout sessions
+  - Move carts, cart items, checkouts, checkout items, idempotency keys, and checkout state to Supabase repositories.
+  - Ensure cart totals and checkout snapshots are deterministic.
+  - Use transaction conventions for checkout mutation paths.
+  - Add repository tests, checkout integration tests, duplicate/idempotency tests, and isolation tests.
+  - Remove direct Mongoose access for this domain after cutover.
+  - _Requirements: R14, R15, R16, R30, R35, R37_
+
+- [ ] 24.13 Cut over orders / order items
+  - Move order creation, order item snapshots, lifecycle updates, order events, and order queries to Supabase repositories.
+  - Keep order lifecycle status separate from payment status and fulfillment status.
+  - Use transactions for order creation from checkout.
+  - Add repository tests, order integration tests, lifecycle tests, and workspace/outlet security tests.
+  - Remove direct Mongoose access for this domain after cutover.
+  - _Requirements: R17, R18, R30, R35, R37_
+
+- [ ] 24.14 Cut over payments / payment events
+  - Move payments, payment attempts if used, payment events, provider identifiers, and reconciliation status to Supabase repositories.
+  - Use provider webhook as payment authority.
+  - Enforce idempotency for duplicate provider events.
+  - Use transactions for payment webhook event insert, payment update, and order payment status update.
+  - Add repository tests, webhook integration tests, duplicate event tests, and security tests.
+  - Remove direct Mongoose access for this domain after cutover.
+  - _Requirements: R19, R20, R21, R30, R35, R37_
+
+- [ ] 24.15 Cut over complaints / files / settings
+  - Move complaints, file metadata, and workspace settings persistence to Supabase repositories.
+  - Keep binary files in local storage; store metadata/path only in Postgres.
+  - Protect settings secrets and return only redacted/configured state where appropriate.
+  - Add repository tests, upload/settings integration tests, and workspace isolation/security tests.
+  - Remove direct Mongoose access for this domain after cutover.
+  - _Requirements: R24, R26, R27, R28, R30, R35, R37_
+
+- [ ] 24.16 Cut over agents / AI actions / knowledge
+  - Move agents, agent outlet mapping, knowledge metadata, and AI action persistence to Supabase repositories.
+  - Preserve AI guardrails and ensure AI cannot become transaction/payment authority.
+  - Add repository tests, AI service integration tests, and workspace/outlet isolation tests.
+  - Remove direct Mongoose access for this domain after cutover.
+  - _Requirements: R23, R29, R30, R35, R37_
+
+- [ ] 24.17 Verify staged Supabase runtime end-to-end
+  - Run full backend regression tests.
+  - Run Supabase repository/integration/security test suites.
+  - Run Telegram marketplace E2E happy path against non-production Supabase.
+  - Verify login, platforms, inbox, human takeover, Telegram webhook, products, cart, checkout, orders, payments, complaints, files, settings, and AI actions.
+  - Verify no production Supabase project is used by automated tests.
+  - _Requirements: R30, R35, R37, R38_
+
+- [ ] 24.18 Remove MongoDB and Mongoose after all domains are Supabase-backed
+  - Remove Mongo connection/bootstrap code.
+  - Remove Mongoose models.
+  - Remove Mongoose dependency and lockfile entries.
+  - Remove MongoMemoryServer dependency and Mongo-specific test setup.
+  - Remove `DATA_SOURCE=mongo` fallback.
+  - Remove obsolete Mongo environment variables from runtime config and `.env.example`.
+  - Remove or archive obsolete Mongo migration/import docs that are no longer executable guidance.
+  - _Requirements: R35, R37, R38_
+
+- [ ] 24.19 Final cutover documentation and acceptance
+  - Update all affected docs/specs to reflect Supabase-only runtime.
+  - Regenerate generated combined docs instead of hand-editing bundles.
+  - Run full regression/security tests after Mongo removal.
+  - Run `npm run specs:check`.
+  - Confirm no new Mongo/Mongoose usage remains.
+  - Confirm backend credentials are placeholder-only in docs/examples and real secrets stay outside Git/logs/frontend.
+  - _Requirements: R30, R35, R37, R38_
 
 ---
 

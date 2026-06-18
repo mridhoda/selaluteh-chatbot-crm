@@ -6,7 +6,9 @@ Dokumen di folder ini bukan pengganti `04-tech-spec`, `05-api-spec`, `06-data`, 
 
 ## Project Context
 
-Aplikasi saat ini adalah **Chatbot CRM multi-platform** dengan React/Vite frontend, Express backend, MongoDB/Mongoose runtime existing, Telegram/WhatsApp/Instagram webhook, OpenAI/Gemini AI reply, dashboard inbox, contact management, human takeover, orders, complaints, file upload lokal, dan rencana migrasi ke Supabase/Postgres.
+Aplikasi saat ini adalah **Chatbot CRM multi-platform** dengan React/Vite frontend, Express backend, Supabase/Postgres sebagai target runtime aktif dan final end-state, Telegram/WhatsApp/Instagram webhook, OpenAI/Gemini AI reply, dashboard inbox, contact management, human takeover, orders, complaints, file upload lokal, dan MongoDB/Mongoose sebagai legacy regression layer sampai kode runtime selesai diganti.
+
+Keputusan cutover final: start fresh from Supabase, no Mongo backfill, no dual-write, no legacy reconciliation, custom backend auth tetap dipertahankan, dan Supabase Auth ditunda ke spec terpisah.
 
 Target baru adalah:
 

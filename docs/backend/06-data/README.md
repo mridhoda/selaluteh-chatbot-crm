@@ -4,7 +4,18 @@ Dokumen ini adalah versi terbaru dari paket **data/database docs** untuk project
 
 ## Konteks Sistem Terbaru
 
-Project saat ini adalah Chatbot CRM multi-platform dengan Telegram/WhatsApp/Instagram webhook, AI agent, inbox, contact management, human takeover, order sederhana, complaint, analytics, dan local upload. Runtime lama masih memakai MongoDB/Mongoose. Target baru memakai Supabase PostgreSQL untuk structured data, sementara file/media besar tetap di local server storage.
+Project saat ini adalah Chatbot CRM multi-platform dengan Telegram/WhatsApp/Instagram webhook, AI agent, inbox, contact management, human takeover, order sederhana, complaint, analytics, dan local upload. Runtime target dan final end-state adalah Supabase/Postgres untuk structured data, sementara file/media besar tetap di local server storage. MongoDB/Mongoose hanya legacy sementara sampai semua domain runtime selesai dipindahkan.
+
+Keputusan cutover final:
+
+```txt
+Start fresh from Supabase.
+No Mongo backfill.
+No dual-write.
+No legacy data reconciliation.
+Custom backend auth remains.
+Supabase Auth deferred.
+```
 
 Versi docs ini memperluas desain lama agar mendukung commerce deterministic:
 
@@ -44,8 +55,8 @@ Operational tables wajib tersedia walaupun tidak semuanya punya halaman admin CR
 | `rls-policies.md` | RLS policy design Supabase |
 | `storage-model.md` | Local storage + file metadata model |
 | `seed-data.md` | Seed data untuk dev dan demo marketplace MVP |
-| `migration-plan.md` | Strategi migrasi MongoDB/Mongoose ke Supabase/Postgres |
-| `import-script-spec.md` | Spesifikasi script import Mongo -> Supabase |
+| `migration-plan.md` | Strategi staged Supabase cutover dan penghapusan MongoDB/Mongoose |
+| `import-script-spec.md` | Deprecated historical import spec; not active guidance for current fresh-start cutover |
 | `marketplace-module.md` | Rancangan modul marketplace MVP |
 | `payment-gateway.md` | Rancangan payment gateway sandbox |
 | `telegram-commerce-flow.md` | UX/data flow Telegram commerce |

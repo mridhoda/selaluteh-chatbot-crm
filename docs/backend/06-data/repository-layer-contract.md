@@ -1,6 +1,6 @@
 # Repository Layer Contract
 
-Dokumen ini menjelaskan repository layer agar migrasi MongoDB/Mongoose ke Supabase/Postgres bisa dilakukan bertahap.
+Dokumen ini menjelaskan repository layer setelah Supabase/Postgres disetujui sebagai runtime target aktif dan final end-state. MongoDB/Mongoose adalah legacy implementation yang hanya boleh bertahan sementara untuk domain yang belum dipindahkan dan regression tests lama.
 
 ## Goal
 
@@ -42,6 +42,19 @@ Every repository method must:
 3. support transaction when needed
 4. map camelCase app object to snake_case DB row
 5. hide DB-specific API details
+6. avoid new Mongoose model usage
+7. use Supabase tests for new repositories and features
+
+## Cutover Decisions
+
+```txt
+End state: full Supabase/Postgres backend runtime
+Implementation: staged domain-by-domain cutover
+Data mode: start fresh from Supabase
+Not allowed: Mongo backfill, dual-write, legacy reconciliation
+Auth: keep custom backend auth; Supabase Auth deferred
+Testing: MongoMemory only for legacy regression until removed
+```
 
 ## Users Repository
 
@@ -185,12 +198,16 @@ If Supabase JS transaction is not enough, use Postgres RPC or `pg` transaction.
 ## Implementation Stages
 
 ```txt
-Stage 1: repositories wrap Mongoose
-Stage 2: DATA_SOURCE=mongo|supabase
-Stage 3: route-by-route switch to Supabase
-Stage 4: remove Mongoose
+Stage 0: Supabase foundation, env validation, mapping, errors, transactions, test DB
+Stage 1: freeze repository contracts and current behavior tests
+Stage 2: seed fresh Supabase dev/test data
+Stage 3: implement Supabase-backed repositories domain-by-domain
+Stage 4: switch route/service groups to Supabase repositories
+Stage 5: remove Mongo connection, Mongoose models, Mongoose dependency, MongoMemoryServer, and DATA_SOURCE=mongo fallback
 ```
 
 ## Tests
 
-Every repository should test workspace isolation, not found behavior, duplicate prevention, idempotency, and transaction consistency.
+Every Supabase repository should test workspace isolation, outlet isolation where relevant, not found behavior, duplicate prevention, idempotency, and transaction consistency.
+
+New repository and feature tests must use Supabase local or a dedicated Supabase test project. Production Supabase must never be used by automated tests.

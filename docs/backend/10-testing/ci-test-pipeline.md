@@ -13,7 +13,7 @@ Install dependencies
 -> type/static check if available
 -> unit tests
 -> integration tests with test database
--> migration dry run / SQL check
+-> Supabase migration/seed SQL check
 -> build server
 -> build web
 -> package artifact
@@ -47,12 +47,14 @@ DATABASE_URL=<test-database-url>
 LOCAL_UPLOAD_ROOT=/tmp/selaluteh-test-uploads
 ```
 
-### 4. Migration Checks
+### 4. Supabase Cutover Checks
 
 - Apply SQL migrations to fresh test DB.
 - Run validation queries.
 - Run seed data.
-- Run import script dry run if fixture Mongo dump exists.
+- Run Supabase repository/integration/security tests for cutover domains.
+- Do not run automated tests against production Supabase.
+- Do not add new Mongo tests.
 
 ### 5. Build
 
@@ -71,7 +73,7 @@ If backend is plain JS and has no build step, use lint/test as build gate.
 | Integration tests | Must pass before staging deploy |
 | Security tests | Must pass before production deploy |
 | E2E smoke | Must pass before release |
-| Migration dry run | Must pass before DB cutover |
+| Supabase migration/seed check | Must pass before DB cutover |
 
 ## Secrets in CI
 
