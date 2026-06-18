@@ -53,6 +53,9 @@ coverage/
 .jest-cache/
 .mocha-cache/
 
+# Playwright MCP generated artifacts
+web/.playwright-mcp/
+
 # Temporary files
 temp/
 tmp/
