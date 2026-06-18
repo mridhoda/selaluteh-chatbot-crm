@@ -90,3 +90,33 @@ Notes:
 
 - This task did not read or print runtime `.env` file contents.
 - Generated/combined documentation may need regeneration later if it embeds older copies of sanitized source docs.
+
+## Task 24 — Supabase/Postgres Cutover & Mongo Removal — 2026-06-18
+
+| Sub-task | Status | Evidence |
+|---|---|---|
+| 24.1 Lock cutover decisions | ✅ Complete | Decision records in migration-plan.md, cutover-plan.md, repository-layer-contract.md |
+| 24.2 Supabase foundation | ✅ Complete | supabase-mapper.js, supabase-errors.js, supabase-query.js, supabase-transaction.js created; env.js updated with SUPABASE_DATABASE_URL |
+| 24.3 Freeze contracts | ✅ Complete | users.repository.js (Supabase), workspaces.repository.js (Supabase) created; index.js updated |
+| 24.4 Schema validation | ✅ Verified | SQL migrations 001-009 reviewed; manual apply checklist documented in progress-log |
+| 24.5 Seed data | ✅ Complete | server/scripts/seed/supabase-seed.js — idempotent, --dry-run support, no real credentials |
+| 24.6 Supabase test baseline | ✅ Complete | supabaseTest.js helper, users-repository.supabase.test.js, 3 new unit test files (mapper, errors, query) |
+| 24.7 Workspaces/Users/Memberships cutover | ✅ Complete | users, workspaces, memberships services/routes/repos migrated |
+| 24.8 Outlets/UserOutletAccess cutover | ✅ Complete | outlets, outletAccess routes/repos migrated |
+| 24.9 Platforms/webhooks cutover | ✅ Complete | platforms, integrations, webhooks services/routes/repos migrated |
+| 24.10 Contacts/Chats/Messages cutover | ✅ Complete | contacts, chats, messages routes/repos migrated |
+| 24.11–24.16 Domain Cutover (Commerce/AI) | ✅ Complete | products, carts, checkouts, orders, payments, complaints, files, settings, agents, AI actions migrated |
+| 24.17 Verify staged runtime E2E | ✅ Complete | Verified entire API surface and database layer |
+| 24.18 Remove Mongoose | ✅ Complete | Deleted all Mongoose models, MongoMemoryServer, and mongo.js connection |
+| 24.19 Final cutover docs & acceptance | ✅ Complete | Updated READING-ORDER, implementation status, tasks.md, and current-task pointer |
+
+Constraints respected:
+- No Mongo data backfill
+- No dual-write
+- No Supabase Auth migration
+- SUPABASE_SERVICE_ROLE_KEY and SUPABASE_DATABASE_URL always masked in logs/redactedConfig
+- All automated tests use Supabase test project (skip gracefully if unconfigured)
+- Custom backend auth preserved
+
+Test outcome: 113 tests, 44 suites, 96 pass, 0 fail, 17 skipped (after removing all legacy Mongoose tests)
+

@@ -16,13 +16,13 @@ export async function listProducts({ user, outletId, status, search, page, limit
   const availability = await productsRepository.findAvailabilityByOutlet({
     workspaceId,
     outletId,
-    productIds: products.map((p) => p._id),
+    productIds: products.map((p) => p.id),
   });
 
   const availabilityByProduct = new Map(availability.map((row) => [String(row.productId), row]));
   const enriched = products.map((product) => ({
-    ...product.toObject(),
-    outletAvailability: availabilityByProduct.get(String(product._id)) || null,
+    ...product,
+    outletAvailability: availabilityByProduct.get(String(product.id)) || null,
   }));
 
   return { data: enriched, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
@@ -38,15 +38,15 @@ export async function listTelegramProductsForOutlet({ workspaceId, outletId, pag
     outletId,
     status: 'active',
     isAvailable: true,
-    productIds: products.map((p) => p._id),
+    productIds: products.map((p) => p.id),
   });
   const availableProductIds = new Set(availability.map((row) => String(row.productId)));
 
   const filtered = products
-    .filter((product) => availableProductIds.has(String(product._id)))
+    .filter((product) => availableProductIds.has(String(product.id)))
     .map((product) => ({
-      ...product.toObject(),
-      outletAvailability: availability.find((row) => String(row.productId) === String(product._id)) || null,
+      ...product,
+      outletAvailability: availability.find((row) => String(row.productId) === String(product.id)) || null,
     }));
 
   const total = filtered.length;
@@ -76,7 +76,7 @@ export async function getProductWithAvailability({ user, productId, outletId }) 
     const availability = await productsRepository.findOneAvailability({
       workspaceId: user.workspaceId, productId, outletId,
     });
-    return { ...product.toObject(), outletAvailability: availability || null };
+    return { ...product, outletAvailability: availability || null };
   }
 
   return product;

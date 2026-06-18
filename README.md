@@ -67,7 +67,10 @@ touch server/.env
 Isi minimal `server/.env`:
 
 ```env
-MONGODB_URI=mongodb://localhost:27017/chatbot_crm
+DATA_SOURCE=supabase
+SUPABASE_URL=https://hxeljduldgynligjioff.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<server-only-service-role-key>
+SUPABASE_DATABASE_URL=<server-only-postgres-connection-string>
 JWT_SECRET=change-me-dev-only
 PORT=5000
 CORS_ORIGIN=http://localhost:5173
@@ -121,8 +124,7 @@ npm run dev:server   # Jalankan backend saja
 npm run dev:web      # Jalankan frontend saja
 npm run build        # Build frontend
 npm run start        # Jalankan backend production mode
-npm run seed         # Seed data/user awal dari server/scripts/seed.js
-npm run cleanup      # Cleanup data dari server/scripts/cleanup.js
+npm run seed         # Seed data Supabase dari server/scripts/seed/supabase-seed.js
 ```
 
 Backend (`server/`):
@@ -131,7 +133,6 @@ Backend (`server/`):
 npm run dev
 npm start
 npm run seed
-npm run cleanup
 ```
 
 Frontend (`web/`):

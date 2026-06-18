@@ -12,7 +12,7 @@ Dokumen ini adalah versi terbaru dari paket **data/database docs** untuk project
 
 ## Konteks Sistem Terbaru
 
-Project saat ini adalah Chatbot CRM multi-platform dengan Telegram/WhatsApp/Instagram webhook, AI agent, inbox, contact management, human takeover, order sederhana, complaint, analytics, dan local upload. Runtime lama masih memakai MongoDB/Mongoose. Target baru memakai Supabase PostgreSQL untuk structured data, sementara file/media besar tetap di local server storage.
+Project saat ini adalah Chatbot CRM multi-platform dengan Telegram/WhatsApp/Instagram webhook, AI agent, inbox, contact management, human takeover, order sederhana, complaint, analytics, dan local upload. Runtime target dan final end-state adalah Supabase/Postgres untuk structured data, sementara file/media besar tetap di local server storage. MongoDB/Mongoose telah dihapus sepenuhnya setelah seluruh domain runtime berhasil dipindahkan ke Supabase/Postgres.
 
 Versi docs ini memperluas desain lama agar mendukung commerce deterministic:
 

@@ -9,7 +9,7 @@ export async function recordInboundMessage({
   replyTo = null,
 }) {
   const message = await messagesRepository.create({
-    chatId: chat._id,
+    chatId: chat.id,
     workspaceId,
     from: 'user',
     text,
@@ -19,7 +19,7 @@ export async function recordInboundMessage({
     createdAt: new Date(),
   });
 
-  await chatsRepository.markInboundActivity(chat._id);
+  await chatsRepository.markInboundActivity(chat.id);
 
   return message;
 }

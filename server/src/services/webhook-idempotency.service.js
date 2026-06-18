@@ -1,5 +1,12 @@
+/**
+ * webhook-idempotency.service.js — Supabase-backed (task 24.16)
+ *
+ * Idempotency layer for inbound webhooks (Telegram, Meta, payment providers).
+ * Migrated from Mongoose WebhookEvent model to webhookEventsSupabaseRepository.
+ */
+
 import crypto from 'crypto';
-import { webhookEventsRepository } from '../db/repositories/webhook-events.repository.js';
+import { webhookEventsSupabaseRepository } from '../db/repositories/index.js';
 
 export function hashPayload(payload = {}) {
   return crypto
@@ -46,15 +53,18 @@ export async function beginWebhookEvent({
 }) {
   const payloadHash = hashPayload(payload);
 
-  const existing = await webhookEventsRepository.findByProviderPlatformEvent({ provider, platformId, externalEventId });
+  const existing = await webhookEventsSupabaseRepository.findByProviderPlatformEvent({
+    provider,
+    platformId,
+    externalEventId,
+  });
   if (existing) {
-    const event = await webhookEventsRepository.incrementAttempt(existing._id);
-
+    const event = await webhookEventsSupabaseRepository.incrementAttempt(existing.id);
     return { event, duplicate: true };
   }
 
   try {
-    const event = await webhookEventsRepository.create({
+    const event = await webhookEventsSupabaseRepository.create({
       provider,
       eventType,
       externalEventId,
@@ -67,20 +77,30 @@ export async function beginWebhookEvent({
     });
     return { event, duplicate: false };
   } catch (err) {
-    if (err?.code !== 11000) throw err;
-
-    const event = await webhookEventsRepository.incrementAttemptByKey({ provider, platformId, externalEventId });
-
-    return { event, duplicate: true };
+    // Unique constraint violation (duplicate insert race)
+    if (err?.code === '23505' || err?.code === 11000) {
+      const event = await webhookEventsSupabaseRepository.findByProviderPlatformEvent({
+        provider,
+        platformId,
+        externalEventId,
+      });
+      if (event) {
+        const updated = await webhookEventsSupabaseRepository.incrementAttempt(event.id);
+        return { updated, duplicate: true };
+      }
+    }
+    throw err;
   }
 }
 
 export async function markWebhookProcessed(event) {
-  if (!event?._id) return null;
-  return webhookEventsRepository.markProcessed(event._id);
+  const id = event?.id;
+  if (!id) return null;
+  return webhookEventsSupabaseRepository.markProcessed(id);
 }
 
 export async function markWebhookFailed(event, err) {
-  if (!event?._id) return null;
-  return webhookEventsRepository.markFailed(event._id, err?.message || String(err));
+  const id = event?.id;
+  if (!id) return null;
+  return webhookEventsSupabaseRepository.markFailed(id, err?.message || String(err));
 }

@@ -1,93 +1,88 @@
+/**
+ * complaints.js — Supabase-backed
+ *
+ * Complaint management routes.
+ * Migrated from Mongoose Complaint/Chat models to complaintsSupabaseRepository.
+ */
+
 import express from 'express';
-import Complaint from '../models/Complaint.js';
-import Chat from '../models/Chat.js';
 import { authRequired, attachUser } from '../middleware/auth.js';
 import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
 import { buildOutletScopedQuery } from '../services/access-control.service.js';
+import { complaintsSupabaseRepository } from '../db/repositories/index.js';
 
 const router = express.Router();
 
 router.use(authRequired, attachUser, attachWorkspaceContext);
 
+/**
+ * Build a complaint query scope for the current user.
+ * Returns { workspaceId, outletId?, outletIds? }
+ */
+async function buildComplaintTenantQuery(user, outletId) {
+  // buildOutletScopedQuery returns { workspaceId, outletId } or { workspaceId, outletIds }
+  return buildOutletScopedQuery(user, outletId);
+}
+
 // GET all complaints
 router.get('/', async (req, res) => {
-    try {
-        const { status } = req.query;
-        const filter = await buildComplaintTenantQuery(req.me, req.query.outlet_id || req.query.outletId);
-        if (status) filter.status = status;
-
-        const complaints = await Complaint.find(filter)
-            .populate('contactId', 'name phone email')
-            .populate('agentId', 'name')
-            .sort({ createdAt: -1 });
-
-        res.json(complaints);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+  try {
+    const { status } = req.query;
+    const scope = await buildComplaintTenantQuery(req.me, req.query.outlet_id || req.query.outletId);
+    const complaints = await complaintsSupabaseRepository.list({
+      workspaceId: scope.workspaceId,
+      outletId: scope.outletId || null,
+      outletIds: scope.outletIds || null,
+      status: status || null,
+    });
+    res.json(complaints);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST create complaint
 router.post('/', async (req, res) => {
-    try {
-        // Expected body: { chatId, text, platformType, contactId, agentId }
-        // If coming from a chat context, these should be provided.
-        const complaint = await Complaint.create({
-            ...req.body,
-            workspaceId: req.me.workspaceId,
-            outletId: req.body.outletId || req.body.outlet_id || null,
-        });
-        res.json(complaint);
-    } catch (err) {
-        res.status(400).json({ error: err.message });
-    }
+  try {
+    const complaint = await complaintsSupabaseRepository.create({
+      ...req.body,
+      workspaceId: req.me.workspaceId,
+      outletId: req.body.outletId || req.body.outlet_id || null,
+    });
+    res.json(complaint);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 // DELETE complaint
 router.delete('/:id', async (req, res) => {
-    try {
-        const query = await buildComplaintTenantQuery(req.me);
-        query._id = req.params.id;
-        const result = await Complaint.deleteOne(query);
-        if (result.deletedCount === 0) return res.status(404).json({ error: 'Complaint not found' });
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+  try {
+    const deleted = await complaintsSupabaseRepository.deleteById({
+      workspaceId: req.me.workspaceId,
+      complaintId: req.params.id,
+    });
+    if (!deleted) return res.status(404).json({ error: 'Complaint not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// PUT update status
+// PUT update status / fields
 router.put('/:id', async (req, res) => {
-    try {
-        const { status } = req.body;
-        const query = await buildComplaintTenantQuery(req.me);
-        query._id = req.params.id;
-        const complaint = await Complaint.findOneAndUpdate(
-            query,
-            { status },
-            { new: true }
-        );
-        if (!complaint) return res.status(404).json({ error: 'Complaint not found' });
-        res.json(complaint);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+  try {
+    const { status, priority, resolutionNotes } = req.body;
+    const complaint = await complaintsSupabaseRepository.update({
+      workspaceId: req.me.workspaceId,
+      complaintId: req.params.id,
+      updates: { status, priority, resolutionNotes },
+    });
+    if (!complaint) return res.status(404).json({ error: 'Complaint not found' });
+    res.json(complaint);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;
-
-async function buildComplaintTenantQuery(user, outletId) {
-    const baseQuery = await buildOutletScopedQuery(user, outletId);
-    if (outletId) return baseQuery;
-
-    const workspaceChats = await Chat.find({ workspaceId: user.workspaceId }).select('_id');
-    return {
-        $or: [
-            baseQuery,
-            {
-                workspaceId: { $exists: false },
-                chatId: { $in: workspaceChats.map((chat) => chat._id) },
-            },
-        ],
-    };
-}

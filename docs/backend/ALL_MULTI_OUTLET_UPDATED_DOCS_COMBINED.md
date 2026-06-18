@@ -10,7 +10,7 @@ SelaluTeh Chatbot CRM is an existing AI Chatbot CRM being extended into a Telegr
 
 - Express backend
 - React/Vite admin dashboard
-- MongoDB/Mongoose runtime
+- Supabase/Postgres runtime
 - Telegram webhook
 - WhatsApp/Instagram/Meta webhook support
 - AI agents

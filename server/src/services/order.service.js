@@ -34,7 +34,7 @@ export async function createOrderFromCheckout({ workspaceId, checkout, user }) {
     workspaceId,
     outletId: checkout.outletId,
     outletNameSnapshot: checkout.fulfillmentSnapshot?.outletName || '',
-    checkoutId: checkout._id,
+    checkoutId: checkout.id,
     chatId: checkout.chatId,
     contactId: checkout.contactId,
     orderNumber,
@@ -59,9 +59,9 @@ export async function createOrderFromAI({ chat, agent, orderData, paymentProofUr
     workspaceId,
     outletId,
     outletNameSnapshot: resolveOutletName(orderData.formData),
-    chatId: chat._id,
+    chatId: chat.id,
     contactId: chat.contactId,
-    agentId: agent._id,
+    agentId: agent.id,
     orderNumber,
     formName: orderData.formName || 'General Order',
     formData: orderData.formData || {},
@@ -81,19 +81,19 @@ export async function listOrdersForUser({ user, status, outletId }) {
 
 export async function findOrderForUser({ user, orderId }) {
   const query = await buildOrderTenantQuery(user);
-  query._id = orderId;
+  query.orderId = orderId;
   return ordersRepository.findOne(query);
 }
 
 export async function updateOrderForUser({ user, orderId, update }) {
   const query = await buildOrderTenantQuery(user);
-  query._id = orderId;
-  return ordersRepository.updateOne(query, update);
+  query.orderId = orderId;
+  return ordersRepository.updateOne({ ...query, updates: update?.$set || update });
 }
 
 export async function deleteOrderForUser({ user, orderId }) {
   const query = await buildOrderTenantQuery(user);
-  query._id = orderId;
+  query.orderId = orderId;
   return ordersRepository.deleteOne(query);
 }
 
@@ -140,7 +140,7 @@ export async function workspaceGetOrder({ workspaceId, orderId }) {
 }
 
 export async function sendOrderStatusMessage({ order, messageText, from = 'human' }) {
-  const chatId = order.chatId?._id || order.chatId;
+  const chatId = order.chatId?.id || order.chatId;
   const chat = await chatsRepository.findByIdWithPlatformAndContact(chatId);
   if (!chat?.platformId || !chat?.contactId) return null;
 
@@ -160,7 +160,7 @@ export async function sendOrderStatusMessage({ order, messageText, from = 'human
   }
 
   await messagesRepository.create({
-    chatId: chat._id,
+    chatId: chat.id,
     workspaceId: chat.workspaceId,
     from,
     text: messageText,
@@ -178,11 +178,5 @@ export function resolveOutletName(formData = {}) {
 async function buildOrderTenantQuery(user, outletId) {
   const baseQuery = await buildOutletScopedQuery(user, outletId);
   if (outletId) return baseQuery;
-  const workspaceChats = await chatsRepository.findWorkspaceChatIds(user.workspaceId);
-  return {
-    $or: [
-      baseQuery,
-      { workspaceId: { $exists: false }, chatId: { $in: workspaceChats.map((chat) => chat._id) } },
-    ],
-  };
+  return baseQuery;
 }

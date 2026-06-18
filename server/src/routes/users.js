@@ -1,83 +1,109 @@
+/**
+ * routes/users.js — Supabase-backed (task 24.7)
+ *
+ * User management API for workspace owner/admin.
+ * Uses usersSupabaseRepository (Supabase-backed).
+ *
+ * REMOVED: /fix-my-account and /find-by-email diagnostic routes
+ * Supabase-backed user management routes.
+ */
+
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import User from '../models/User.js';
+import { usersSupabaseRepository } from '../db/repositories/users.repository.js';
+import { membershipsSupabaseRepository } from '../db/repositories/memberships.repository.js';
 import { authRequired, attachUser, requireRole } from '../middleware/auth.js';
+import { AppError } from '../utils/errors.js';
 
 const router = express.Router();
 
-// List human agents
-router.get('/', authRequired, attachUser, async (req, res) => {
-  const users = await User.find({ workspaceId: req.me.workspaceId }, 'name email role status createdAt').sort({ createdAt: -1 });
-  res.json(users);
-});
-
-router.post('/human', authRequired, attachUser, requireRole('owner','super'), async (req, res) => {
-  const { name, email, password, role } = req.body; // role: 'agent' or 'super'
-  if (!name || !email || !password) return res.status(400).json({ error: 'Missing fields' });
-  const r = ['agent','super'].includes(role) ? role : 'agent';
-  const exists = await User.findOne({ email });
-  if (exists) return res.status(400).json({ error: 'Email already used' });
-  const hash = await bcrypt.hash(password, 10);
-  const user = await User.create({ name, email, passwordHash: hash, role: r, verified: true, status: 'offline', workspaceId: req.me.workspaceId });
-  res.json({ ok: true, id: user._id });
-});
-
-// Delete human agent
-router.delete('/:id', authRequired, attachUser, requireRole('owner', 'super'), async (req, res) => {
-  const { id } = req.params;
-  // Prevent user from deleting themselves
-  if (req.me.id === id) {
-    return res.status(400).json({ error: 'You cannot delete yourself.' });
-  }
+/**
+ * GET /users
+ *
+ * List all users in the requesting user's workspace.
+ * Returns camelCase user objects (passwordHash excluded by the repository).
+ */
+router.get('/', authRequired, attachUser, async (req, res, next) => {
   try {
-    const deletedUser = await User.findOneAndDelete({ _id: id, workspaceId: req.me.workspaceId });
-    if (!deletedUser) {
+    const users = await usersSupabaseRepository.findByWorkspace(req.me.workspaceId);
+    // Strip passwordHash from response
+    const safe = users.map(({ passwordHash: _, ...u }) => u);
+    res.json(safe);
+  } catch (err) { next(err); }
+});
+
+/**
+ * POST /users/human
+ *
+ * Create a new human agent user for this workspace.
+ * Requires owner or super role.
+ */
+router.post('/human', authRequired, attachUser, requireRole('owner', 'super'), async (req, res, next) => {
+  try {
+    const { name, email, password, role } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Missing fields' });
+    }
+    const r = ['agent', 'super'].includes(role) ? role : 'agent';
+
+    const exists = await usersSupabaseRepository.findByEmail(email);
+    if (exists) return res.status(400).json({ error: 'Email already used' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const user = await usersSupabaseRepository.createUser({
+      workspaceId: req.me.workspaceId,
+      name,
+      email,
+      passwordHash: hash,
+      role: r,
+      verified: true,
+      status: 'offline',
+    });
+
+    // Create workspace membership for the new user
+    await membershipsSupabaseRepository.createMembership({
+      workspaceId: req.me.workspaceId,
+      userId: user.id,
+      role: r === 'super' ? 'admin' : 'human_agent',
+      status: 'active',
+    });
+
+    res.json({ ok: true, id: user.id });
+  } catch (err) { next(err); }
+});
+
+/**
+ * DELETE /users/:id
+ *
+ * Delete a user from the workspace.
+ * Cannot delete yourself.
+ * Requires owner or super role.
+ */
+router.delete('/:id', authRequired, attachUser, requireRole('owner', 'super'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (req.me.id === id) {
+      return res.status(400).json({ error: 'You cannot delete yourself.' });
+    }
+
+    const targetUser = await usersSupabaseRepository.findById(id);
+    if (!targetUser || targetUser.workspaceId !== req.me.workspaceId) {
       return res.status(404).json({ error: 'User not found.' });
     }
+
+    // Soft-disable membership instead of hard delete (preserves audit trail)
+    await membershipsSupabaseRepository.disableMembership({
+      userId: id,
+      workspaceId: req.me.workspaceId,
+    });
+
+    // Hard delete the user record
+    const client = (await import('../db/supabase.js')).getSupabaseServiceClient();
+    await client.from('users').delete().eq('id', id).eq('workspace_id', req.me.workspaceId);
+
     res.status(200).json({ ok: true, message: 'User deleted successfully.' });
-  } catch (error) {
-    res.status(500).json({ error: 'Server error during user deletion.' });
-  }
-});
-
-// TEMP: Fix user account missing workspaceId
-router.get('/fix-my-account', async (req, res) => {
-  const userEmail = 'hitleraniue@gmail.com';
-  try {
-    const user = await User.findOne({ email: userEmail });
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-    if (user.workspaceId) {
-      return res.json({ message: 'Account already has a workspaceId.', workspaceId: user.workspaceId });
-    }
-    const newWorkspaceId = new mongoose.Types.ObjectId();
-    user.workspaceId = newWorkspaceId;
-    await user.save();
-    res.json({ message: `Successfully added workspaceId to ${userEmail}.`, workspaceId: newWorkspaceId });
-  } catch (error) {
-    console.error('[FIX-ACCOUNT] Error:', error);
-    res.status(500).json({ error: 'An error occurred during the fix.' });
-  }
-});
-
-// DIAGNOSTIC: Find user by email
-router.get('/find-by-email', async (req, res) => {
-  const { email } = req.query;
-  if (!email) {
-    return res.status(400).json({ error: 'Please provide an email query parameter.' });
-  }
-  try {
-    console.log(`[DIAGNOSTIC] Searching for user with email: ${email}`);
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: `User with email ${email} not found.` });
-    }
-    res.json(user);
-  } catch (error) {
-    console.error('[DIAGNOSTIC] Error:', error);
-    res.status(500).json({ error: 'An error occurred during the search.' });
-  }
+  } catch (err) { next(err); }
 });
 
 export default router;

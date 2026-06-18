@@ -27,11 +27,10 @@ function validate(config) {
 const raw = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: process.env.PORT || 5000,
-  dataSource: process.env.DATA_SOURCE || 'supabase',
-  mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/chatbot_crm',
   supabaseUrl: process.env.SUPABASE_URL || '',
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+  supabaseDatabaseUrl: process.env.SUPABASE_DATABASE_URL || '',
   corsOrigin: process.env.CORS_ORIGIN || '*',
   publicBaseUrl: process.env.PUBLIC_BASE_URL || '',
   jwtSecret: process.env.JWT_SECRET || 'devsecret',
@@ -40,7 +39,12 @@ const raw = {
   metaAppSecret: process.env.META_APP_SECRET || '',
   metaAccessToken: process.env.META_ACCESS_TOKEN || '',
   openaiApiKey: process.env.OPENAI_API_KEY || '',
+  openaiBaseUrl: process.env.OPENAI_BASE_URL || '',
+  openaiModel: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+  openaiAppName: process.env.OPENAI_APP_NAME || 'SelaluTeh Chatbot CRM',
+  openaiReferer: process.env.OPENAI_REFERER || '',
   googleApiKey: process.env.GOOGLE_API_KEY || '',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   paymentProvider: process.env.PAYMENT_PROVIDER || 'manual',
   midtransServerKey: process.env.MIDTRANS_SERVER_KEY || '',
   midtransClientKey: process.env.MIDTRANS_CLIENT_KEY || '',
@@ -53,28 +57,16 @@ const raw = {
   corsOriginList: process.env.CORS_ORIGIN || '*',
 };
 
+const isTest = raw.nodeEnv === 'test';
+
 validate({
   jwtSecret: { value: raw.jwtSecret, severity: CRITICAL, label: 'JWT_SECRET' },
   port: { value: raw.port, severity: CRITICAL, label: 'PORT' },
+  // In test mode, Supabase creds are optional — tests that need Supabase check via isTestDbConfigured()
+  supabaseUrl: { value: raw.supabaseUrl, severity: isTest ? OPTIONAL : CRITICAL, label: 'SUPABASE_URL' },
+  supabaseServiceRoleKey: { value: raw.supabaseServiceRoleKey, severity: isTest ? OPTIONAL : CRITICAL, label: 'SUPABASE_SERVICE_ROLE_KEY' },
+  supabaseDatabaseUrl: { value: raw.supabaseDatabaseUrl, severity: isTest ? OPTIONAL : CRITICAL, label: 'SUPABASE_DATABASE_URL' },
 });
-
-if (!['supabase', 'mongo'].includes(raw.dataSource)) {
-  console.error('DATA_SOURCE must be either "supabase" or "mongo".');
-  process.exit(1);
-}
-
-if (raw.dataSource === 'supabase') {
-  validate({
-    supabaseUrl: { value: raw.supabaseUrl, severity: CRITICAL, label: 'SUPABASE_URL' },
-    supabaseServiceRoleKey: { value: raw.supabaseServiceRoleKey, severity: CRITICAL, label: 'SUPABASE_SERVICE_ROLE_KEY' },
-  });
-}
-
-if (raw.dataSource === 'mongo') {
-  validate({
-    mongoUri: { value: raw.mongoUri, severity: CRITICAL, label: 'MONGODB_URI' },
-  });
-}
 
 const nodeEnv = raw.nodeEnv;
 const isProduction = nodeEnv === 'production';
@@ -99,13 +91,13 @@ if (raw.publicBaseUrl && raw.publicBaseUrl === '/') {
 
 export const env = {
   nodeEnv: raw.nodeEnv,
-  dataSource: raw.dataSource,
-  isProduction: nodeEnv === 'production',
+  isProduction: raw.nodeEnv === 'production',
   port: parseInt(raw.port, 10) || 5000,
-  mongoUri: raw.mongoUri,
   supabaseUrl: raw.supabaseUrl,
   supabaseServiceRoleKey: raw.supabaseServiceRoleKey,
   supabaseAnonKey: raw.supabaseAnonKey,
+  // BACKEND-ONLY: never expose supabaseDatabaseUrl to frontend, logs, or docs
+  supabaseDatabaseUrl: raw.supabaseDatabaseUrl,
   corsOrigin: raw.corsOrigin,
   corsOriginList: raw.corsOriginList,
   publicBaseUrl: raw.publicBaseUrl,
@@ -115,7 +107,12 @@ export const env = {
   metaAppSecret: raw.metaAppSecret,
   metaAccessToken: raw.metaAccessToken,
   openaiApiKey: raw.openaiApiKey,
+  openaiBaseUrl: raw.openaiBaseUrl,
+  openaiModel: raw.openaiModel,
+  openaiAppName: raw.openaiAppName,
+  openaiReferer: raw.openaiReferer,
   googleApiKey: raw.googleApiKey,
+  geminiModel: raw.geminiModel,
   paymentProvider: raw.paymentProvider,
   midtransServerKey: raw.midtransServerKey,
   midtransClientKey: raw.midtransClientKey,
@@ -138,12 +135,12 @@ export function getAllowedCorsOrigins() {
 export function redactedConfig() {
   return {
     nodeEnv: env.nodeEnv,
-    dataSource: env.dataSource,
     port: env.port,
-    mongoUri: redact(env.mongoUri),
     supabaseUrl: env.supabaseUrl,
     supabaseServiceRoleKey: env.supabaseServiceRoleKey ? 'configured' : '',
     supabaseAnonKey: env.supabaseAnonKey ? 'configured' : '',
+    // BACKEND-ONLY: always masked in output
+    supabaseDatabaseUrl: env.supabaseDatabaseUrl ? 'configured' : '',
     corsOrigin: env.corsOrigin,
     publicBaseUrl: env.publicBaseUrl,
     jwtSecret: redact(env.jwtSecret),
@@ -152,7 +149,12 @@ export function redactedConfig() {
     metaAppSecret: env.metaAppSecret ? 'configured' : '',
     metaAccessToken: env.metaAccessToken ? 'configured' : '',
     openaiApiKey: env.openaiApiKey ? 'configured' : '',
+    openaiBaseUrl: env.openaiBaseUrl,
+    openaiModel: env.openaiModel,
+    openaiAppName: env.openaiAppName,
+    openaiReferer: env.openaiReferer,
     googleApiKey: env.googleApiKey ? 'configured' : '',
+    geminiModel: env.geminiModel,
     paymentProvider: env.paymentProvider,
     midtransServerKey: env.midtransServerKey ? 'configured' : '',
     midtransClientKey: env.midtransClientKey ? 'configured' : '',

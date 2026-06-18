@@ -1,14 +1,19 @@
-import Chat from '../models/Chat.js';
+/**
+ * human-takeover.service.js — Supabase-backed (task 24.10)
+ *
+ * Chat human takeover/release logic.
+ * Migrated from Mongoose Chat model to chatsSupabaseRepository.
+ */
+
+import { chatsSupabaseRepository } from '../db/repositories/index.js';
 import { AppError } from '../utils/errors.js';
 
 export async function acquireTakeover({ chatId, userId }) {
-  const chat = await Chat.findOneAndUpdate(
-    { _id: chatId, takeoverBy: null },
-    { $set: { takeoverBy: userId, isEscalated: true } },
-    { new: true },
-  );
+  // Try to acquire takeover (only if not already taken over)
+  const chat = await chatsSupabaseRepository.acquireTakeover({ chatId, userId });
   if (!chat) {
-    const existing = await Chat.findById(chatId);
+    // Check if the chat exists at all
+    const existing = await chatsSupabaseRepository.findByIdWithPlatformAndContact(chatId);
     if (!existing) throw new AppError('NOT_FOUND', 'Chat not found', 404);
     throw new AppError('TAKEOVER_CONFLICT', 'Chat is already taken over', 409);
   }
@@ -16,17 +21,13 @@ export async function acquireTakeover({ chatId, userId }) {
 }
 
 export async function releaseTakeover({ chatId, userId }) {
-  const chat = await Chat.findOneAndUpdate(
-    { _id: chatId, takeoverBy: userId },
-    { $set: { takeoverBy: null, isEscalated: false } },
-    { new: true },
-  );
+  const chat = await chatsSupabaseRepository.releaseTakeover({ chatId, userId });
   if (!chat) throw new AppError('NOT_FOUND', 'Chat not taken over by you', 404);
   return chat;
 }
 
 export function isTakeoverActive(chat) {
-  return !!chat?.takeoverBy;
+  return !!(chat?.takenOverByUserId || chat?.takeoverBy);
 }
 
 export function assertNoActiveTakeover(chat) {

@@ -199,7 +199,6 @@ function Inbox() {
   }
 
   const handleDeleteChat = async (chatId) => {
-    if (!confirm('Are you sure you want to delete this chat?')) return
     try {
       await api.delete(`/chats/${chatId}`)
       setChats((prev) => prev.filter((c) => c._id !== chatId))
@@ -220,6 +219,39 @@ function Inbox() {
       handleChatUpdate(updatedChat)
     } catch (err) {
       console.error('Failed to update status:', err)
+    }
+  }
+
+  const handleSendMessage = async (content, attachment) => {
+    if (!selected) return
+    const chatId = selected._id || selected.id
+    try {
+      const res = await api.post(`/chats/${chatId}/send`, { content, attachment })
+      const sentMsg = res.data
+      const updatedChat = {
+        ...selected,
+        messages: [...(selected.messages || []), sentMsg],
+      }
+      handleChatUpdate(updatedChat)
+    } catch (err) {
+      console.error('Failed to send message:', err)
+    }
+  }
+
+  const handleTakeover = async () => {
+    if (!selected) return
+    const chatId = selected._id || selected.id
+    const isAIActive = selected.aiEnabled !== false
+    try {
+      const endpoint = isAIActive ? 'takeover' : 'release'
+      const res = await api.post(`/chats/${chatId}/${endpoint}`)
+      const updatedChat = res.data?.data || res.data
+      if (!updatedChat.messages && selected.messages) {
+        updatedChat.messages = selected.messages
+      }
+      handleChatUpdate(updatedChat)
+    } catch (err) {
+      console.error('Takeover action failed:', err)
     }
   }
 
@@ -358,6 +390,10 @@ function Inbox() {
               onChatUpdate={handleChatUpdate}
               replyingTo={replyingTo}
               setReplyingTo={setReplyingTo}
+              onSendMessage={handleSendMessage}
+              onTakeover={handleTakeover}
+              onResolve={() => handleResolve(selected._id || selected.id)}
+              onDeleteChat={handleDeleteChat}
             />
           ) : (
             <div className='empty-chat-panel'>

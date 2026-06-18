@@ -57,7 +57,7 @@ export async function buildOutletSelectionMessage({ workspaceId }) {
     keyboard: createInlineKeyboard(
       outlets.map((outlet) => ([{
         text: outlet.name,
-        callback_data: `act:outlet:select:${outlet._id}:v${ver}`,
+        callback_data: `act:outlet:select:${outlet.id}:v${ver}`,
       }])),
     ),
   };
@@ -80,15 +80,15 @@ export async function selectOutletForChat({ workspaceId, chat, contact, agent, o
   const outlet = await findActiveWorkspaceOutlet({ workspaceId, outletId });
   const result = await executeAIAction({
     workspaceId,
-    chatId: chat._id,
+    chatId: chat.id,
     chatMessageId,
-    agentId: agent?._id || null,
+    agentId: agent?.id || null,
     actionType: 'select_outlet',
     input: { outletId },
     executor: async () => {
-      await chatsRepository.setCurrentOutlet(chat._id, outlet._id);
-      await contactsRepository.setLastOutlet(contact._id, outlet._id);
-      return { outletId: outlet._id, outletName: outlet.name };
+      await chatsRepository.setCurrentOutlet(chat.id, outlet.id);
+      await contactsRepository.setLastOutlet(contact.id, outlet.id);
+      return { outletId: outlet.id, outletName: outlet.name };
     },
   });
 
@@ -110,8 +110,8 @@ export async function buildProductDetailMessage({ workspaceId, outletId, product
   return {
     text: lines.join('\n'),
     keyboard: createInlineKeyboard([
-      [{ text: `Tambah ke Keranjang (+1)`, callback_data: `${buildCallbackKey('add', '1', product._id, ver)}` }],
-      [{ text: `Tambah 3`, callback_data: `${buildCallbackKey('add', '3', product._id, ver)}` }],
+      [{ text: `Tambah ke Keranjang (+1)`, callback_data: `${buildCallbackKey('add', '1', product.id, ver)}` }],
+      [{ text: `Tambah 3`, callback_data: `${buildCallbackKey('add', '3', product.id, ver)}` }],
       [{ text: 'Lihat Keranjang', callback_data: `${buildCallbackKey('cart', 'view', null, ver)}` }],
       [{ text: 'Kembali ke Produk', callback_data: `${buildCallbackKey('prod', 'list', String(page), ver)}` }],
     ]),
@@ -182,7 +182,7 @@ export async function buildProductListMessage({ workspaceId, outletId, page = 0 
 
   const productButtons = products.map((product) => ([{
     text: product.name,
-    callback_data: `${buildCallbackKey('prod', 'detail', String(product._id), ver)}`,
+    callback_data: `${buildCallbackKey('prod', 'detail', String(product.id), ver)}`,
   }]));
 
   const keyboardRows = [...productButtons];
@@ -226,7 +226,7 @@ export async function buildOrderStatusMessage({ workspaceId, contactId, chatId }
     const statusLabel = statusLabels[order.status] || order.status;
     const payLabel = payLabels[order.paymentStatus] || order.paymentStatus;
     const total = (order.totals?.total || 0).toLocaleString('id-ID');
-    lines.push(`${order.orderNumber || '#' + String(order._id).slice(-8)}`);
+    lines.push(`${order.orderNumber || '#' + String(order.id).slice(-8)}`);
     lines.push(`   Status: ${statusLabel} | ${payLabel}`);
     lines.push(`   Total: Rp ${total}`);
     if (order.items?.length) {
@@ -301,10 +301,10 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
     const result = await listTelegramProductsForOutlet({
       workspaceId, outletId: chat.currentOutletId, page, limit: 1000,
     });
-    const product = result.products.find((p) => String(p._id) === action.id);
+    const product = result.products.find((p) => String(p.id) === action.id);
     if (!product) return { text: 'Produk tidak tersedia lagi.', keyboard: null };
     return buildProductDetailMessage({
-      workspaceId, outletId: chat.currentOutletId, product, contactId: contact._id, chatId: chat._id, page,
+      workspaceId, outletId: chat.currentOutletId, product, contactId: contact.id, chatId: chat.id, page,
     });
   }
 
@@ -312,10 +312,10 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
     const result = await listTelegramProductsForOutlet({
       workspaceId, outletId: chat.currentOutletId, page: 0, limit: 1000,
     });
-    const product = result.products.find((p) => String(p._id) === action.id);
+    const product = result.products.find((p) => String(p.id) === action.id);
     if (!product) return { text: 'Produk tidak ditemukan.', keyboard: null };
     return buildProductDetailMessage({
-      workspaceId, outletId: chat.currentOutletId, product, contactId: contact._id, chatId: chat._id, page: 0,
+      workspaceId, outletId: chat.currentOutletId, product, contactId: contact.id, chatId: chat.id, page: 0,
     });
   }
 
@@ -327,16 +327,16 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
       const availableResult = await listTelegramProductsForOutlet({
         workspaceId, outletId: chat.currentOutletId, page: 0, limit: 1000,
       });
-      const productExists = availableResult.products.find((p) => String(p._id) === productId);
+      const productExists = availableResult.products.find((p) => String(p.id) === productId);
       if (!productExists) {
         return { text: 'Produk tidak tersedia di outlet ini.', keyboard: null };
       }
 
       await addItem({
-        workspaceId, outletId: chat.currentOutletId, contactId: contact._id, chatId: chat._id, platformType: 'telegram',
+        workspaceId, outletId: chat.currentOutletId, contactId: contact.id, chatId: chat.id, platformType: 'telegram',
         productId, quantity,
       });
-      const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId: contact._id, outletId: chat.currentOutletId });
+      const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId: contact.id, outletId: chat.currentOutletId });
       const summary = getCartSummary(cart);
       const ver = COMMERCE_VERSION;
       return {
@@ -352,13 +352,13 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
   }
 
   if (action.scope === 'cart' && action.action === 'view') {
-    return buildCartViewMessage({ workspaceId, contactId: contact._id, outletId: chat.currentOutletId, chatId: chat._id });
+    return buildCartViewMessage({ workspaceId, contactId: contact.id, outletId: chat.currentOutletId, chatId: chat.id });
   }
 
   if (action.scope === 'cart' && action.action === 'clear') {
-    const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId: contact._id, outletId: chat.currentOutletId });
+    const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId: contact.id, outletId: chat.currentOutletId });
     if (cart) {
-      await clearCart({ workspaceId, cartId: cart._id });
+      await clearCart({ workspaceId, cartId: cart.id });
     }
     const ver = COMMERCE_VERSION;
     return {
@@ -368,19 +368,19 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
   }
 
   if (action.scope === 'remove') {
-    const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId: contact._id, outletId: chat.currentOutletId });
+    const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId: contact.id, outletId: chat.currentOutletId });
     if (cart) {
-      await removeItem({ workspaceId, cartId: cart._id, productId: action.id });
+      await removeItem({ workspaceId, cartId: cart.id, productId: action.id });
     }
-    return buildCartViewMessage({ workspaceId, contactId: contact._id, outletId: chat.currentOutletId, chatId: chat._id });
+    return buildCartViewMessage({ workspaceId, contactId: contact.id, outletId: chat.currentOutletId, chatId: chat.id });
   }
 
   if (action.scope === 'checkout' && action.action === 'start') {
     if (!chat.currentOutletId) return buildOutletSelectionMessage({ workspaceId });
-    const idempotencyKey = `tg_checkout_${chat._id}_${Date.now()}`;
+    const idempotencyKey = `tg_checkout_${chat.id}_${Date.now()}`;
     try {
       const checkout = await createCheckout({
-        workspaceId, outletId: chat.currentOutletId, contactId: contact._id, chatId: chat._id,
+        workspaceId, outletId: chat.currentOutletId, contactId: contact.id, chatId: chat.id,
         idempotencyKey,
       });
       const lines = ['🛍️ Ringkasan Pesanan:\n'];
@@ -392,7 +392,7 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
       return {
         text: lines.join('\n'),
         keyboard: createInlineKeyboard([
-          [{ text: '✅ Konfirmasi Pesanan', callback_data: `${buildCallbackKey('checkout', 'confirm', String(checkout._id), ver)}` }],
+          [{ text: '✅ Konfirmasi Pesanan', callback_data: `${buildCallbackKey('checkout', 'confirm', String(checkout.id), ver)}` }],
           [{ text: 'Kembali ke Keranjang', callback_data: `${buildCallbackKey('cart', 'view', null, ver)}` }],
         ]),
       };
@@ -408,7 +408,7 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
       const order = await createOrderFromCheckout({ workspaceId, checkout: confirmed, user: { name: contact?.name || 'customer' } });
       const payment = await createPaymentForOrder({
         workspaceId,
-        orderId: order._id,
+        orderId: order.id,
         customer: {
           name: contact?.name || '',
           phone: contact?.phone || contact?.platformAccountId || '',
@@ -416,9 +416,9 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
         paymentMethod: 'manual',
       });
       await checkoutsRepository.updateStatus({ workspaceId, checkoutId, status: 'converted' });
-      const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId: contact._id, outletId: chat.currentOutletId });
+      const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId: contact.id, outletId: chat.currentOutletId });
       if (cart) {
-        await cartsRepository.setStatus({ workspaceId, cartId: cart._id, status: 'converted' });
+        await cartsRepository.setStatus({ workspaceId, cartId: cart.id, status: 'converted' });
       }
       const ver = COMMERCE_VERSION;
       const paymentInstruction = buildPaymentInstruction(payment);
@@ -435,7 +435,7 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
   }
 
   if (action.scope === 'order' && action.action === 'status') {
-    return buildOrderStatusMessage({ workspaceId, contactId: contact._id, chatId: chat._id });
+    return buildOrderStatusMessage({ workspaceId, contactId: contact.id, chatId: chat.id });
   }
 
   if ((action.scope === 'cart' || action.scope === 'checkout' || action.scope === 'add') && !chat.currentOutletId) {

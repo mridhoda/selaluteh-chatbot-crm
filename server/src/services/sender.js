@@ -162,12 +162,35 @@ export async function tgSendSticker(token, chatId, stickerUrl) {
   return j;
 }
 
+function getMimeType(filename) {
+  const ext = path.extname(filename).toLowerCase();
+  switch (ext) {
+    case '.png': return 'image/png';
+    case '.jpg':
+    case '.jpeg': return 'image/jpeg';
+    case '.gif': return 'image/gif';
+    case '.webp': return 'image/webp';
+    case '.mp4': return 'video/mp4';
+    case '.mov': return 'video/quicktime';
+    case '.avi': return 'video/x-msvideo';
+    case '.pdf': return 'application/pdf';
+    case '.doc': return 'application/msword';
+    case '.docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    case '.xls': return 'application/vnd.ms-excel';
+    case '.xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    case '.txt': return 'text/plain';
+    case '.zip': return 'application/zip';
+    default: return 'application/octet-stream';
+  }
+}
+
 export async function tgSendDocument(token, chatId, localFilePath, caption, replyToMessageId = null) {
   const url = `https://api.telegram.org/bot${token}/sendDocument`;
 
   const fileContent = await fs.readFile(localFilePath);
   const filename = path.basename(localFilePath);
-  const fileBlob = new Blob([fileContent]);
+  const mimeType = getMimeType(filename);
+  const fileBlob = new Blob([fileContent], { type: mimeType });
 
   const formData = new FormData();
   formData.append('chat_id', String(chatId));
@@ -194,7 +217,8 @@ export async function tgSendPhoto(token, chatId, localFilePath, caption, replyTo
 
   const fileContent = await fs.readFile(localFilePath);
   const filename = path.basename(localFilePath);
-  const fileBlob = new Blob([fileContent]);
+  const mimeType = getMimeType(filename);
+  const fileBlob = new Blob([fileContent], { type: mimeType });
 
   const formData = new FormData();
   formData.append('chat_id', String(chatId));
@@ -224,7 +248,8 @@ export async function tgSendVideo(token, chatId, localFilePath, caption, replyTo
 
   const fileContent = await fs.readFile(localFilePath);
   const filename = path.basename(localFilePath);
-  const fileBlob = new Blob([fileContent]);
+  const mimeType = getMimeType(filename);
+  const fileBlob = new Blob([fileContent], { type: mimeType });
 
   const formData = new FormData();
   formData.append('chat_id', String(chatId));

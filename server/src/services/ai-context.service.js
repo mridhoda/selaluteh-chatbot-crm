@@ -10,7 +10,7 @@ export function buildAIContext({ workspace, outlet, products = [], cart = null, 
   if (products.length > 0) {
     const productLines = products.slice(0, 20).map((p) => {
       const price = p.effectivePrice || p.basePrice;
-      return `- ${p.name} (ID: ${p._id}): ${price ? `Rp${price.toLocaleString('id-ID')}` : 'Price not set'}`;
+      return `- ${p.name} (ID: ${p.id}): ${price ? `Rp${price.toLocaleString('id-ID')}` : 'Price not set'}`;
     });
     parts.push(`Available products:\n${productLines.join('\n')}`);
     if (products.length > 20) parts.push(`... and ${products.length - 20} more products.`);
@@ -21,7 +21,7 @@ export function buildAIContext({ workspace, outlet, products = [], cart = null, 
   }
 
   if (order) {
-    parts.push(`Latest order: #${order.orderNumber || order._id} — status: ${order.status}, payment: ${order.paymentStatus || 'pending'}`);
+    parts.push(`Latest order: #${order.orderNumber || order.id} — status: ${order.status}, payment: ${order.paymentStatus || 'pending'}`);
   }
 
   if (takeoverActive) {

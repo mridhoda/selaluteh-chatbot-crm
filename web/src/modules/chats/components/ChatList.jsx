@@ -90,7 +90,7 @@ export default function ChatList({
     setAssignmentTab(value)
     onFilterChange?.({
       ...filters,
-      assignment: value === 'assigned' ? 'human' : value === 'unassigned' ? 'ai' : undefined,
+      assignment: value === 'assigned' || value === 'unassigned' ? value : undefined,
     })
   }
 

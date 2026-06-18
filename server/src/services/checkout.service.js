@@ -39,7 +39,7 @@ export async function createCheckout({ workspaceId, outletId, contactId, chatId,
   const checkout = await checkoutsRepository.create({
     workspaceId,
     outletId,
-    cartId: cart._id,
+    cartId: cart.id,
     contactId,
     chatId,
     status: 'pending',

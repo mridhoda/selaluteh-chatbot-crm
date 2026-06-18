@@ -1,4 +1,11 @@
-import Complaint from '../models/Complaint.js';
+/**
+ * complaint.service.js — Supabase-backed
+ *
+ * Complaint creation from AI flow.
+ * Migrated from Mongoose Complaint model to complaintsSupabaseRepository.
+ */
+
+import { complaintsSupabaseRepository } from '../db/repositories/index.js';
 
 export async function createComplaintFromAI({ chat, agent, complaintData }) {
   const workspaceId = chat.workspaceId || agent.workspaceId;
@@ -8,14 +15,14 @@ export async function createComplaintFromAI({ chat, agent, complaintData }) {
     throw err;
   }
 
-  return Complaint.create({
+  return complaintsSupabaseRepository.create({
     workspaceId,
     outletId: chat.currentOutletId || null,
-    chatId: chat._id,
-    contactId: chat.contactId,
-    agentId: agent._id,
-    platformType: chat.platformType,
-    text: complaintData.text || 'No description provided',
+    chatId: chat.id || null,
+    contactId: chat.contactId?.id || chat.contactId || null,
+    agentId: agent.id || null,
+    subject: complaintData.text || 'No description provided',
+    description: complaintData.text || null,
     formData: complaintData.formData || {},
     status: 'open',
   });

@@ -91,14 +91,14 @@ export async function executeAIAction({
   const proposal = await proposeAIAction({ workspaceId, chatId, chatMessageId, agentId, actionType, input });
   if (!proposal.valid) return proposal;
 
-  const action = await aiActionsRepository.markValidated(proposal.action._id);
+  const action = await aiActionsRepository.markValidated(proposal.action.id);
 
   try {
     const output = await executor();
-    const executedAction = await aiActionsRepository.markExecuted(action._id, serializeOutput(output));
+    const executedAction = await aiActionsRepository.markExecuted(action.id, serializeOutput(output));
     return { valid: true, action: executedAction, output };
   } catch (err) {
-    const failedAction = await aiActionsRepository.markFailed(action._id, err);
+    const failedAction = await aiActionsRepository.markFailed(action.id, err);
     return { valid: false, action: failedAction, validationErrors: [err.message], error: err };
   }
 }

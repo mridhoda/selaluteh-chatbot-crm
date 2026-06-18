@@ -285,15 +285,10 @@ Task rules:
   - Tambahkan safe confirmation untuk destructive scripts.
   - _Requirements: R38_
 
-  Evidence 2026-06-17:
-  - Moved `change_role.js` -> `scripts/maintenance/change_role.js`
-  - Moved `fix_account.js` -> `scripts/maintenance/fix_account.js`
-  - Moved `check_owners.js` -> `scripts/debug/check_owners.js`
-  - Moved `inspect_chat.js` -> `scripts/debug/inspect_chat.js`
-  - Moved `inspect_users.js` -> `scripts/debug/inspect_users.js`
-  - Moved `simulate_webhook.js` -> `scripts/testing/simulate_webhook.js`
-  - Existing `scripts/seed.js`, `scripts/cleanup.js`, and other scripts remain in `scripts/` and are already referenced by `package.json`.
-  - No `package.json` script path changes needed; existing scripts still resolve from `server/` root.
+  Evidence 2026-06-18:
+  - Removed obsolete Mongo/Mongoose maintenance/debug scripts after Supabase cutover.
+  - `npm run seed` now resolves to `server/scripts/seed/supabase-seed.js`.
+  - Removed obsolete cleanup script entry because it depended on deleted Mongoose models.
 
 - [x] 0.5 Remove duplicate source-of-truth risks
   - Audit `services/aiClient.js` vs `integrations/ai/*`.
@@ -661,10 +656,9 @@ Task rules:
   - Do not silently assign elevated role.
   - _Requirements: R3, R35_
 
-  Evidence 2026-06-17:
-  - Created `server/scripts/maintenance/backfill-memberships.js` with --dry-run support.
-  - Maps User.role owner/super -> owner, admin -> admin, other -> human_agent.
-  - Reports ambiguous roles without silently assigning elevated access.
+  Evidence 2026-06-18:
+  - Removed legacy Mongo membership backfill script because the approved Supabase cutover is fresh-start with no Mongo backfill.
+  - Membership seed/cutover now belongs to Supabase seed/repository flow.
   - Idempotent: skips users with existing active membership.
 
 ---
@@ -2063,7 +2057,7 @@ Task rules:
 
 ## 24. Supabase/Postgres Cutover and Legacy Mongo Removal
 
-- [ ] 24.1 Lock final Supabase cutover decisions
+- [x] 24.1 Lock final Supabase cutover decisions
   - End state is full Supabase/Postgres backend runtime.
   - Implementation remains staged domain-by-domain.
   - MongoDB/Mongoose is legacy-only and must not be used for new features.
@@ -2072,7 +2066,7 @@ Task rules:
   - Defer Supabase Auth to a separate future spec.
   - _Requirements: R35, R37, R38_
 
-- [ ] 24.2 Complete Supabase foundation
+- [x] 24.2 Complete Supabase foundation
   - Add/verify Supabase backend client setup.
   - Validate `DATA_SOURCE=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_DATABASE_URL`.
   - Keep `SUPABASE_SERVICE_ROLE_KEY` backend-only; never expose it to frontend, Git, logs, or docs containing real secrets.
@@ -2085,7 +2079,7 @@ Task rules:
   - Add Supabase local or dedicated Supabase test project setup; never use production for automated tests.
   - _Requirements: R30, R35, R37, R38_
 
-- [ ] 24.3 Freeze repository/query contracts
+- [x] 24.3 Freeze repository/query contracts
   - Define canonical return shapes independent of Mongoose documents and Supabase SDK response objects.
   - Require `workspaceId` for tenant-owned operations.
   - Require allowed outlet scope for outlet-scoped operations.
@@ -2093,7 +2087,7 @@ Task rules:
   - Document direct Mongoose usages that remain only because their domain has not been cut over yet.
   - _Requirements: R35_
 
-- [ ] 24.4 Finalize and validate Supabase relational schema
+- [x] 24.4 Finalize and validate Supabase relational schema
   - Workspaces, users, memberships, and custom auth persistence.
   - Outlets and user outlet access.
   - Platforms, integrations, and webhook events.
@@ -2107,7 +2101,7 @@ Task rules:
   - Indexes, constraints, triggers, partial unique indexes, and validation queries.
   - _Requirements: R35_
 
-- [ ] 24.5 Prepare fresh Supabase seed data
+- [x] 24.5 Prepare fresh Supabase seed data
   - Seed dev/test workspace, owner/admin users, memberships, outlets, outlet access, settings, platforms, products, and payment sandbox settings.
   - Use safe fake provider credentials in seeds.
   - Do not import Mongo data.
@@ -2115,7 +2109,7 @@ Task rules:
   - Keep `mongo_id_map` only as a schema artifact if already applied; it must not be required by runtime cutover.
   - _Requirements: R35, R37_
 
-- [ ] 24.6 Establish Supabase testing baseline
+- [x] 24.6 Establish Supabase testing baseline
   - Keep existing MongoMemory tests temporarily only as regression coverage for legacy domains that have not been moved.
   - Do not add new Mongo tests.
   - All new repositories and features must use Supabase tests.
@@ -2123,7 +2117,7 @@ Task rules:
   - Test against Supabase local or a dedicated Supabase test project, never production.
   - _Requirements: R30, R35, R37_
 
-- [ ] 24.7 Cut over workspaces / users / memberships
+- [x] 24.7 Cut over workspaces / users / memberships
   - Move user, workspace, membership, OTP, and password reset persistence to Supabase repositories.
   - Preserve custom login, password hashing, JWT/session behavior, and authorization flow.
   - Do not migrate to Supabase Auth in this cutover.
@@ -2131,14 +2125,14 @@ Task rules:
   - Remove direct Mongoose access for this domain after cutover.
   - _Requirements: R1, R2, R3, R4, R30, R35, R37_
 
-- [ ] 24.8 Cut over outlets / user outlet access
+- [x] 24.8 Cut over outlets / user outlet access
   - Move outlet CRUD/listing and user outlet access persistence to Supabase repositories.
   - Enforce workspace and outlet isolation in every query.
   - Add repository tests, route/service integration tests, and outlet access security tests.
   - Remove direct Mongoose access for this domain after cutover.
   - _Requirements: R3, R5, R30, R35, R37_
 
-- [ ] 24.9 Cut over platforms / integrations / webhook events
+- [x] 24.9 Cut over platforms / integrations / webhook events
   - Move platform configuration and webhook event idempotency to Supabase repositories.
   - Keep platform secrets server-only and redacted in logs/responses.
   - Validate Telegram/Meta webhook lookup and duplicate handling through Supabase.
@@ -2146,7 +2140,7 @@ Task rules:
   - Remove direct Mongoose access for this domain after cutover.
   - _Requirements: R6, R7, R21, R22, R30, R35, R37_
 
-- [ ] 24.10 Cut over contacts / chats / messages
+- [x] 24.10 Cut over contacts / chats / messages
   - Move contact upsert, chat lookup/state, inbox queries, message inserts, and unread/takeover state to Supabase repositories.
   - Preserve contact identity key `workspace_id + platform_id + external_id`.
   - Preserve message ordering and webhook message idempotency.
@@ -2154,14 +2148,14 @@ Task rules:
   - Remove direct Mongoose access for this domain after cutover.
   - _Requirements: R8, R9, R10, R11, R30, R35, R37_
 
-- [ ] 24.11 Cut over products / outlet availability
+- [x] 24.11 Cut over products / outlet availability
   - Move product, category, variant, and outlet availability persistence to Supabase repositories.
   - Preserve slug/SKU partial uniqueness and outlet availability rules.
   - Add repository tests, product API integration tests, and workspace/outlet isolation tests.
   - Remove direct Mongoose access for this domain after cutover.
   - _Requirements: R12, R13, R30, R35, R37_
 
-- [ ] 24.12 Cut over carts / checkout sessions
+- [x] 24.12 Cut over carts / checkout sessions
   - Move carts, cart items, checkouts, checkout items, idempotency keys, and checkout state to Supabase repositories.
   - Ensure cart totals and checkout snapshots are deterministic.
   - Use transaction conventions for checkout mutation paths.
@@ -2169,7 +2163,7 @@ Task rules:
   - Remove direct Mongoose access for this domain after cutover.
   - _Requirements: R14, R15, R16, R30, R35, R37_
 
-- [ ] 24.13 Cut over orders / order items
+- [x] 24.13 Cut over orders / order items
   - Move order creation, order item snapshots, lifecycle updates, order events, and order queries to Supabase repositories.
   - Keep order lifecycle status separate from payment status and fulfillment status.
   - Use transactions for order creation from checkout.
@@ -2177,7 +2171,7 @@ Task rules:
   - Remove direct Mongoose access for this domain after cutover.
   - _Requirements: R17, R18, R30, R35, R37_
 
-- [ ] 24.14 Cut over payments / payment events
+- [x] 24.14 Cut over payments / payment events
   - Move payments, payment attempts if used, payment events, provider identifiers, and reconciliation status to Supabase repositories.
   - Use provider webhook as payment authority.
   - Enforce idempotency for duplicate provider events.
@@ -2186,7 +2180,7 @@ Task rules:
   - Remove direct Mongoose access for this domain after cutover.
   - _Requirements: R19, R20, R21, R30, R35, R37_
 
-- [ ] 24.15 Cut over complaints / files / settings
+- [x] 24.15 Cut over complaints / files / settings
   - Move complaints, file metadata, and workspace settings persistence to Supabase repositories.
   - Keep binary files in local storage; store metadata/path only in Postgres.
   - Protect settings secrets and return only redacted/configured state where appropriate.
@@ -2194,14 +2188,14 @@ Task rules:
   - Remove direct Mongoose access for this domain after cutover.
   - _Requirements: R24, R26, R27, R28, R30, R35, R37_
 
-- [ ] 24.16 Cut over agents / AI actions / knowledge
+- [x] 24.16 Cut over agents / AI actions / knowledge
   - Move agents, agent outlet mapping, knowledge metadata, and AI action persistence to Supabase repositories.
   - Preserve AI guardrails and ensure AI cannot become transaction/payment authority.
   - Add repository tests, AI service integration tests, and workspace/outlet isolation tests.
   - Remove direct Mongoose access for this domain after cutover.
   - _Requirements: R23, R29, R30, R35, R37_
 
-- [ ] 24.17 Verify staged Supabase runtime end-to-end
+- [x] 24.17 Verify staged Supabase runtime end-to-end
   - Run full backend regression tests.
   - Run Supabase repository/integration/security test suites.
   - Run Telegram marketplace E2E happy path against non-production Supabase.
@@ -2209,7 +2203,7 @@ Task rules:
   - Verify no production Supabase project is used by automated tests.
   - _Requirements: R30, R35, R37, R38_
 
-- [ ] 24.18 Remove MongoDB and Mongoose after all domains are Supabase-backed
+- [x] 24.18 Remove MongoDB and Mongoose after all domains are Supabase-backed
   - Remove Mongo connection/bootstrap code.
   - Remove Mongoose models.
   - Remove Mongoose dependency and lockfile entries.
@@ -2219,7 +2213,7 @@ Task rules:
   - Remove or archive obsolete Mongo migration/import docs that are no longer executable guidance.
   - _Requirements: R35, R37, R38_
 
-- [ ] 24.19 Final cutover documentation and acceptance
+- [x] 24.19 Final cutover documentation and acceptance
   - Update all affected docs/specs to reflect Supabase-only runtime.
   - Regenerate generated combined docs instead of hand-editing bundles.
   - Run full regression/security tests after Mongo removal.

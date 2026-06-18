@@ -1,229 +1,239 @@
+/**
+ * chats.js — Supabase-backed (task 24.10)
+ *
+ * Chat and message routes.
+ * Migrated from Mongoose Chat/Message models to chatsSupabaseRepository +
+ * messagesSupabaseRepository.
+ */
+
 import express from 'express';
 import path from 'path';
-import Chat from '../models/Chat.js';
-import Message from '../models/Message.js';
 import { authRequired, attachUser } from '../middleware/auth.js';
 import { acquireTakeover, releaseTakeover } from '../services/human-takeover.service.js';
+import { chatsSupabaseRepository, messagesSupabaseRepository } from '../db/repositories/index.js';
+import { decrypt } from '../utils/encryption.js';
+import { tgSend, tgSendDocument, tgSendPhoto, waSend, waSendDocument } from '../services/sender.js';
 
 const router = express.Router();
 
 router.get('/', authRequired, attachUser, async (req, res) => {
-  const {
-    unreadOnly,
-    agentId,
-    from,
-    to,
-    tags = [],
-    search = '',
-    assignment,
-  } = req.query;
+  try {
+    const {
+      unreadOnly,
+      from,
+      to,
+      assignment,
+      search = '',
+    } = req.query;
 
-  const queryFilter = { workspaceId: req.me.workspaceId };
+    const workspaceId = req.me.workspaceId;
+    const userId = req.me.id;
 
-  // Debug logging
-  console.log('[CHATS] User:', req.me.email, 'Role:', req.me.role, 'Assignment:', assignment);
+    // Build list options
+    const opts = { workspaceId };
 
-  // Role-based filtering: agents only see chats assigned to them
-  if (req.me.role === 'agent') {
-    queryFilter.takeoverBy = req.me._id;
-    console.log('[CHATS] Agent filter applied, takeoverBy:', req.me._id);
-  }
-
-  if (unreadOnly === 'true') {
-    queryFilter.unread = { $gt: 0 };
-  }
-  if (agentId) {
-    queryFilter.agentId = agentId;
-  }
-  if (assignment === 'assigned') {
-    queryFilter.$or = [
-      { takeoverBy: { $ne: null } },
-      { isEscalated: true }
-    ];
-  } else if (assignment === 'unassigned') {
-    queryFilter.takeoverBy = null;
-    queryFilter.isEscalated = { $ne: true };
-  }
-
-  if (from || to) {
-    queryFilter.lastMessageAt = {};
-    if (from) {
-      queryFilter.lastMessageAt.$gte = new Date(from);
+    // Role-based filter: agents only see their taken-over chats
+    if (req.me.role === 'agent') {
+      opts.takenOverByUserId = userId;
     }
+
+    if (from) opts.dateFrom = new Date(from).toISOString();
     if (to) {
       const toDate = new Date(to);
       toDate.setHours(23, 59, 59, 999);
-      queryFilter.lastMessageAt.$lte = toDate;
+      opts.dateTo = toDate.toISOString();
     }
+
+    if (assignment === 'assigned') opts.assigned = true;
+    else if (assignment === 'unassigned') opts.unassigned = true;
+
+    let rows = await chatsSupabaseRepository.list(opts);
+
+    // Unread filter — in-memory since Supabase query would need count column
+    if (unreadOnly === 'true') {
+      rows = rows.filter((c) => (c.unread ?? 0) > 0);
+    }
+
+    // Attach last message for each chat
+    const withLastMsg = await Promise.all(rows.map(async (chat) => {
+      const lastMsg = await messagesSupabaseRepository.findLatestByChatId(chat.id);
+      return { ...chat, lastMessage: lastMsg?.content || '' };
+    }));
+
+    // Search filter — in-memory
+    const searchTerm = search.trim();
+    const searchRegex = searchTerm ? new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') : null;
+
+    const filtered = searchRegex
+      ? withLastMsg.filter((c) => searchRegex.test(c.contacts?.name || '') || searchRegex.test(c.lastMessage || ''))
+      : withLastMsg;
+
+    res.json(filtered);
+  } catch (err) {
+    console.error('[CHATS] GET / error:', err);
+    res.status(500).json({ error: 'Failed to load chats' });
   }
-
-  let tagList = [];
-  if (Array.isArray(tags)) {
-    tagList = tags;
-  } else if (typeof tags === 'string' && tags.length) {
-    tagList = tags.split(',').map((t) => t.trim()).filter(Boolean);
-  } else if (tags && typeof tags === 'object') {
-    tagList = Object.values(tags);
-  }
-
-  const contactPopulate = { path: 'contactId' };
-  if (tagList.length) {
-    contactPopulate.match = { tags: { $all: tagList } };
-  }
-
-  const requireContactMatch = !!tagList.length;
-
-  const rows = await Chat.find(queryFilter)
-    .populate(contactPopulate)
-    .populate('agentId')
-    .populate('takeoverBy')
-    .sort({ lastMessageAt: -1 })
-    .limit(200);
-
-  const populatedRows = await Promise.all(
-    rows.map(async (chat) => {
-      if (requireContactMatch && !chat.contactId) return null;
-      const lastMessage = await Message.findOne({ chatId: chat._id }).sort({
-        createdAt: -1,
-      });
-      return {
-        ...chat.toObject(),
-        lastMessage: lastMessage?.text || '',
-        platformType: chat.contactId?.platformType,
-      };
-    })
-  );
-
-  const regexSafe = (value) =>
-    value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const searchTerm = search.trim();
-  const searchRegex = searchTerm
-    ? new RegExp(regexSafe(searchTerm), 'i')
-    : null;
-
-  const filteredRows = populatedRows
-    .filter(Boolean)
-    .filter((chat) => {
-      if (!searchRegex) return true;
-      const nameMatches = searchRegex.test(chat.contactId?.name || '');
-      const messageMatches = searchRegex.test(chat.lastMessage || '');
-      return nameMatches || messageMatches;
-    });
-
-  res.json(filteredRows);
 });
 
 router.get('/:chatId/messages', authRequired, attachUser, async (req, res) => {
-  const { chatId } = req.params;
-  await Chat.updateOne({ _id: chatId, workspaceId: req.me.workspaceId }, { $set: { unread: 0 } });
-  const chat = await Chat.findOne({ _id: chatId, workspaceId: req.me.workspaceId });
-  if (!chat) {
-    return res.status(404).json({ error: 'Chat not found or access denied' });
+  try {
+    const { chatId } = req.params;
+    const workspaceId = req.me.workspaceId;
+
+    // Mark as read
+    await chatsSupabaseRepository.markRead({ workspaceId, chatId });
+
+    const chat = await chatsSupabaseRepository.findById({ workspaceId, chatId });
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found or access denied' });
+    }
+
+    const rows = await messagesSupabaseRepository.listByChatId(chatId, { limit: 500 });
+    res.json(rows);
+  } catch (err) {
+    console.error('[CHATS] GET /:chatId/messages error:', err);
+    res.status(500).json({ error: 'Failed to load messages' });
   }
-  const rows = await Message.find({ chatId })
-    .populate('replyTo')
-    .sort({ createdAt: 1 })
-    .limit(500);
-  res.json(rows);
 });
 
 router.post('/:chatId/send', authRequired, attachUser, async (req, res) => {
-  const { chatId } = req.params;
-  const { text, attachment, replyTo } = req.body;
-  if (!text && !attachment) return res.status(400).json({ error: 'Text or attachment required' });
+  try {
+    const { chatId } = req.params;
+    const { text, content, attachment, replyTo } = req.body;
+    const messageText = text || content;
+    if (!messageText && !attachment) return res.status(400).json({ error: 'Text or attachment required' });
 
-  const chat = await Chat.findOne({ _id: chatId, workspaceId: req.me.workspaceId }).populate('contactId').populate('platformId');
-  if (!chat) {
-    return res.status(404).json({ error: 'Chat not found' });
-  }
-
-  // Get platformMessageId for reply if replyTo is provided
-  let replyToMessageId = null;
-  if (replyTo) {
-    const originalMsg = await Message.findById(replyTo);
-    if (originalMsg && originalMsg.platformMessageId) {
-      replyToMessageId = originalMsg.platformMessageId;
+    const workspaceId = req.me.workspaceId;
+    const chat = await chatsSupabaseRepository.findByIdWithPlatformAndContact(chatId);
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
     }
-  }
 
-  // as human
-  const msg = await Message.create({
-    chatId,
-    from: 'human',
-    text: text || '',
-    attachment: attachment || null,
-    replyTo: replyTo || null,
-    workspaceId: req.me.workspaceId
-  });
-  await Chat.updateOne({ _id: chatId }, { $set: { lastMessageAt: new Date() } });
+    // Resolve messageType to match database enum chat_message_type
+    let messageType = 'text';
+    if (attachment) {
+      const isImg = attachment.type === 'image' || (attachment.filename && attachment.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i));
+      messageType = isImg ? 'image' : 'file';
+    }
 
-  // Send to client
-  if (chat.platformId && chat.contactId) {
-    if (chat.platformType === 'telegram') {
-      try {
-        let tgResponse;
-        if (attachment && attachment.url) {
-          const filename = path.basename(attachment.url);
-          const localFilePath = path.resolve('uploads', filename);
-          tgResponse = await tgSendDocument(chat.platformId.token, chat.contactId.platformAccountId, localFilePath, text || '', replyToMessageId);
-        } else if (text) {
-          tgResponse = await tgSend(chat.platformId.token, chat.contactId.platformAccountId, text, replyToMessageId);
+    // Save message
+    const msg = await messagesSupabaseRepository.create({
+      workspaceId,
+      chatId,
+      platformId: chat.platformId,
+      contactId: chat.contactId,
+      senderType: 'human',
+      userId: req.me.id,
+      direction: 'outbound',
+      messageType,
+      content: messageText || null,
+      rawPayload: attachment ? { attachment } : {},
+    });
+
+    // Update lastMessageAt
+    await chatsSupabaseRepository.update({ chatId, updates: { last_message_at: new Date().toISOString() } });
+
+    // Send to client platform (Telegram, WhatsApp, etc.)
+    const platform = chat.platforms;
+    const contact = chat.contacts;
+
+    if (platform && contact) {
+      let decryptedToken = '';
+      if (platform.token_encrypted) {
+        try {
+          decryptedToken = decrypt(platform.token_encrypted);
+        } catch (e) {
+          console.error('[CHATS] Decryption failed for platform token:', e);
         }
-
-        // Save platformMessageId from Telegram response
-        if (tgResponse && tgResponse.ok && tgResponse.result && tgResponse.result.message_id) {
-          await Message.updateOne(
-            { _id: msg._id },
-            { platformMessageId: String(tgResponse.result.message_id) }
-          );
-        }
-      } catch (e) {
-        console.error('Failed to send message to Telegram:', e);
       }
-    } else if (chat.platformType === 'whatsapp') {
-      // WhatsApp still needs a public URL
-      try {
-        const serverUrl = process.env.PUBLIC_BASE_URL || `http://${req.headers.host}`;
-        if (attachment && attachment.url) {
-          const fullUrl = attachment.url.startsWith('http') ? attachment.url : `${serverUrl}${attachment.url}`;
-          await waSendDocument(chat.platformId.token, chat.platformId.phoneNumberId, chat.contactId.platformAccountId, fullUrl, attachment.filename);
-          if (text) { // WA doesn't support caption with document, send separately
-            await waSend(chat.platformId.token, chat.platformId.phoneNumberId, chat.contactId.platformAccountId, text);
+
+      if (decryptedToken) {
+        // Resolve replyTo platformMessageId if provided
+        let replyToMessageId = null;
+        if (replyTo) {
+          try {
+            const originalMsg = await messagesSupabaseRepository.findById(replyTo);
+            if (originalMsg && originalMsg.platformMessageId) {
+              replyToMessageId = originalMsg.platformMessageId;
+            }
+          } catch (e) {
+            console.error('[CHATS] Failed to resolve replyTo message:', e);
           }
-        } else if (text) {
-          await waSend(chat.platformId.token, chat.platformId.phoneNumberId, chat.contactId.platformAccountId, text);
         }
-      } catch (e) {
-        console.error('Failed to send message to WhatsApp:', e);
+
+        if (platform.type === 'telegram' && contact.external_id) {
+          try {
+            let tgResponse;
+            if (attachment && attachment.url) {
+              const filename = path.basename(attachment.url);
+              const localFilePath = path.resolve('uploads', filename);
+              const isImg = attachment.type === 'image' || filename.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+              if (isImg) {
+                tgResponse = await tgSendPhoto(decryptedToken, contact.external_id, localFilePath, messageText || '', replyToMessageId);
+              } else {
+                tgResponse = await tgSendDocument(decryptedToken, contact.external_id, localFilePath, messageText || '', replyToMessageId);
+              }
+            } else if (messageText) {
+              tgResponse = await tgSend(decryptedToken, contact.external_id, messageText, replyToMessageId);
+            }
+
+            // Save platformMessageId from Telegram response to allow replies
+            if (tgResponse && tgResponse.ok && tgResponse.result && tgResponse.result.message_id) {
+              await messagesSupabaseRepository.updatePlatformMessageId(msg.id, String(tgResponse.result.message_id));
+            }
+          } catch (e) {
+            console.error('[CHATS] Failed to send message to Telegram:', e);
+          }
+        } else if (platform.type === 'whatsapp' && contact.external_id) {
+          try {
+            const serverUrl = process.env.PUBLIC_BASE_URL || `http://${req.headers.host}`;
+            if (attachment && attachment.url) {
+              const fullUrl = attachment.url.startsWith('http') ? attachment.url : `${serverUrl}${attachment.url}`;
+              await waSendDocument(decryptedToken, platform.phone_number_id, contact.external_id, fullUrl, attachment.filename || 'document');
+              if (messageText) {
+                await waSend(decryptedToken, platform.phone_number_id, contact.external_id, messageText);
+              }
+            } else if (messageText) {
+              await waSend(decryptedToken, platform.phone_number_id, contact.external_id, messageText);
+            }
+          } catch (e) {
+            console.error('[CHATS] Failed to send message to WhatsApp:', e);
+          }
+        }
       }
     }
-  }
 
-  res.json(msg);
+    res.json(msg);
+  } catch (err) {
+    console.error('[CHATS] POST /:chatId/send error:', err);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
 });
 
 router.post('/:chatId/takeover', authRequired, attachUser, async (req, res, next) => {
   try {
-    const chat = await acquireTakeover({ chatId: req.params.chatId, userId: req.me._id });
+    const chat = await acquireTakeover({ chatId: req.params.chatId, userId: req.me.id });
     res.json({ data: chat });
   } catch (err) { next(err); }
 });
 
 router.post('/:chatId/release', authRequired, attachUser, async (req, res, next) => {
   try {
-    const chat = await releaseTakeover({ chatId: req.params.chatId, userId: req.me._id });
+    const chat = await releaseTakeover({ chatId: req.params.chatId, userId: req.me.id });
     res.json({ data: chat });
   } catch (err) { next(err); }
 });
 
 router.delete('/:chatId', authRequired, attachUser, async (req, res) => {
-  const { chatId } = req.params;
-  const chat = await Chat.findOneAndDelete({ _id: chatId, workspaceId: req.me.workspaceId });
-  if (!chat) {
-    return res.status(404).json({ error: 'Chat not found' });
+  try {
+    const { chatId } = req.params;
+    const workspaceId = req.me.workspaceId;
+    await chatsSupabaseRepository.deleteById({ workspaceId, chatId });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[CHATS] DELETE /:chatId error:', err);
+    res.status(500).json({ error: 'Failed to delete chat' });
   }
-  await Message.deleteMany({ chatId, workspaceId: req.me.workspaceId });
-  res.json({ success: true });
 });
 
 export default router;

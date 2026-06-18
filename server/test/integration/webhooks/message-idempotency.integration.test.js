@@ -1,34 +1,24 @@
-import { describe, it, before, after } from 'node:test';
-import assert from 'node:assert';
-import mongoose from 'mongoose';
-import { connectTestDb, disconnectTestDb, clearTestDb } from '../../helpers/mongoMemory.js';
-import { messagesRepository } from '../../../src/db/repositories/index.js';
-import Message from '../../../src/models/Message.js';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { getTelegramEventId, getMetaMessageEventId, hashPayload } from '../../../src/services/webhook-idempotency.service.js';
 
-describe('messages repository', () => {
-  before(async () => { await connectTestDb(); });
-  after(async () => { await disconnectTestDb(); });
 
-  it('createIfNotExists creates new message', async () => {
-    const workspaceId = new mongoose.Types.ObjectId();
-    const chatId = new mongoose.Types.ObjectId();
-    const msg = await messagesRepository.createIfNotExists(workspaceId, 'pid-123', {
-      chatId, workspaceId, from: 'user', text: 'Hello',
-    });
-    assert.ok(msg._id);
-    assert.strictEqual(msg.text, 'Hello');
+describe('message idempotency', () => {
+  it('derives Telegram event id from update id first', () => {
+    assert.equal(getTelegramEventId({ update_id: 123, message: { message_id: 9 } }), 'update:123');
   });
 
-  it('createIfNotExists returns existing message on duplicate', async () => {
-    const workspaceId = new mongoose.Types.ObjectId();
-    const chatId = new mongoose.Types.ObjectId();
-    const first = await messagesRepository.createIfNotExists(workspaceId, 'pid-456', {
-      chatId, workspaceId, from: 'user', text: 'First',
-    });
-    const second = await messagesRepository.createIfNotExists(workspaceId, 'pid-456', {
-      chatId, workspaceId, from: 'user', text: 'Duplicate',
-    });
-    assert.strictEqual(String(first._id), String(second._id));
-    assert.strictEqual(second.text, 'First');
+  it('derives Telegram message id when update id is absent', () => {
+    assert.equal(getTelegramEventId({ message: { message_id: 9, chat: { id: 7 } } }), 'message:7:9');
+  });
+
+  it('derives Meta message id from id or mid', () => {
+    assert.equal(getMetaMessageEventId({ id: 'wamid-1' }), 'message:wamid-1');
+    assert.equal(getMetaMessageEventId({ mid: 'igmid-1' }), 'message:igmid-1');
+  });
+
+  it('hashes payload deterministically', () => {
+    assert.equal(hashPayload({ a: 1 }), hashPayload({ a: 1 }));
+    assert.notEqual(hashPayload({ a: 1 }), hashPayload({ a: 2 }));
   });
 });

@@ -10,7 +10,7 @@ import { useToast } from '../../../shared/components/feedback/Toast'
 
 export default function ChatCenterPage() {
   const [selectedChatId, setSelectedChatId] = useState(null)
-  const [chatFilters, setChatFilters] = useState({})
+  const [chatFilters, setChatFilters] = useState({ assignment: 'assigned' })
   const [contextOpen, setContextOpen] = useState(true)
 
   const {
@@ -28,10 +28,10 @@ export default function ChatCenterPage() {
 
   // ── actions ────────────────────────────────────────────────────────────
 
-  const handleSendMessage = async (content, replyTo) => {
+  const handleSendMessage = async (content, attachment, replyTo) => {
     if (!selectedChatId) return
     try {
-      await chatsApi.send(selectedChatId, { content, replyTo })
+      await chatsApi.send(selectedChatId, { content, attachment, replyTo })
     } catch (e) {
       toast.error('Failed to send message')
     }
@@ -39,12 +39,18 @@ export default function ChatCenterPage() {
 
   const handleTakeover = async () => {
     if (!selectedChatId) return
+    const isAIActive = selectedChat && selectedChat.aiEnabled !== false
     try {
-      await chatsApi.takeover(selectedChatId)
-      toast.success('You took over this conversation')
+      if (isAIActive) {
+        await chatsApi.takeover(selectedChatId)
+        toast.success('You took over this conversation')
+      } else {
+        await chatsApi.release(selectedChatId)
+        toast.success('AI Agent is now active')
+      }
       refetchChats()
     } catch (e) {
-      toast.error((e && e.message) || 'Takeover failed')
+      toast.error((e && e.message) || 'Action failed')
     }
   }
 
@@ -59,6 +65,17 @@ export default function ChatCenterPage() {
       refetchChats()
     } catch (e) {
       toast.error((e && e.message) || 'Action failed')
+    }
+  }
+
+  const handleDeleteChat = async (chatId) => {
+    try {
+      await chatsApi.delete(chatId)
+      toast.success('Chat berhasil dihapus')
+      setSelectedChatId(null)
+      refetchChats()
+    } catch (e) {
+      toast.error((e && e.message) || 'Gagal menghapus chat')
     }
   }
 
@@ -105,6 +122,7 @@ export default function ChatCenterPage() {
           onSendMessage={handleSendMessage}
           onTakeover={handleTakeover}
           onResolve={handleResolve}
+          onDeleteChat={handleDeleteChat}
         />
       </div>
 

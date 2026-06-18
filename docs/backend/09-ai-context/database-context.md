@@ -4,7 +4,7 @@ Dokumen ini memberi ringkasan data-layer context untuk AI coding agent.
 
 ## Current Runtime
 
-Current backend runtime target and final end-state is Supabase/Postgres. MongoDB/Mongoose is legacy only and must not be used for new runtime code or new tests.
+The backend runtime runs 100% on Supabase/Postgres. MongoDB/Mongoose has been completely removed from dependencies, config, tests, and source code.
 
 ## Active Data Layer
 

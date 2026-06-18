@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Check, MessageCircle, Bot, Search, MoreVertical, Plus, Image as ImageIcon, Smile, Keyboard, AlertCircle, Zap } from 'lucide-react'
+import { Send, Check, MessageCircle, Bot, Search, MoreVertical, Plus, Image as ImageIcon, Smile, Keyboard, AlertCircle, Zap, FileText, Video, ShoppingBag, Mic, X, Loader2, ChevronDown, Trash2, AlertTriangle } from 'lucide-react'
 import BrandIcon from '../../../shared/components/brand/BrandIcon'
+import api from '../../../shared/api/httpClient'
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -33,18 +34,26 @@ function sameDay(a, b) {
   return new Date(a).toDateString() === new Date(b).toDateString()
 }
 
+function getAttachmentUrl(url) {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  const base = import.meta.env.VITE_API_BASE || ''
+  return `${base.replace(/\/+$/, '')}${url}`
+}
+
 // ─── message bubble ────────────────────────────────────────────────────────
 
 function MessageBubble({ message }) {
-  const role = message.role || message.sender || message.from
-  const isUser = role === 'user' || role === 'customer'
+  const role = message.senderType || message.role || message.sender || message.from
+  const isUser = message.direction === 'inbound' || role === 'user' || role === 'customer'
   const isAi =
     role === 'ai' || role === 'assistant' || role === 'bot' || role === 'agent_ai'
   const isHuman =
     role === 'human' ||
     role === 'agent' ||
     role === 'human_agent' ||
-    role === 'staff'
+    role === 'staff' ||
+    role === 'admin'
   const isSystem = role === 'system' || role === 'event' || role === 'notification'
 
   const content = message.content || message.text || message.message || ''
@@ -75,31 +84,71 @@ function MessageBubble({ message }) {
     )
   }
 
+  const attachment = message.rawPayload?.attachment || null
+  const isImage = attachment && (attachment.type === 'image' || (attachment.filename && attachment.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)));
+  const hasCaption = !!content;
+
   return (
     <div className={`chat-prism-message-row ${isUser ? 'user' : 'agent'}`}>
       <div className="chat-prism-message-stack">
-        <div className={`chat-prism-bubble ${isUser ? 'user' : isHuman ? 'human' : 'ai'}`}>
-          {content}
-        </div>
-        <div className={`chat-prism-message-meta ${isUser ? 'user' : 'agent'}`}>
-          {isUser ? (
-            <>
-              <span>{formatTime(message.createdAt || message.timestamp)}</span>
-              <span className="chat-prism-meta-dot">•</span>
-              <span>Sent</span>
-            </>
-          ) : (
-            <>
-              <span>Read</span>
-              <span className="chat-prism-meta-dot">•</span>
-              <span>{formatTime(message.createdAt || message.timestamp)}</span>
-              <span className={isHuman ? 'chat-prism-agent-chip-badge human' : 'chat-prism-agent-chip-badge ai'}>
-                <Bot size={10} />
-                <span>{isHuman ? (message.agentName || 'Human Agent') : 'AI Agent'}</span>
-              </span>
-            </>
+        <div className={`chat-prism-bubble ${isUser ? 'user' : isHuman ? 'human' : 'ai'} ${isImage ? 'chat-prism-bubble-image-container' : ''} flex flex-col`}>
+          {attachment && (
+            isImage ? (
+              <div className="relative max-w-[280px] w-full bg-slate-900/5 overflow-hidden">
+                <img 
+                  src={getAttachmentUrl(attachment.url)} 
+                  alt={attachment.filename || 'Attached image'} 
+                  className="w-full h-auto max-h-[300px] object-cover block cursor-pointer hover:opacity-95 transition-opacity"
+                  onClick={() => window.open(getAttachmentUrl(attachment.url), '_blank')}
+                />
+                {!hasCaption && (
+                  <div className="absolute bottom-2 right-2 bg-black/55 backdrop-blur-[2px] px-2 py-0.5 rounded-full text-[9px] text-white flex items-center gap-1 font-semibold pointer-events-none select-none">
+                    <span>{formatTime(message.createdAt || message.timestamp)}</span>
+                    {!isUser && <Check size={10} className="text-white/80" />}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <a 
+                href={getAttachmentUrl(attachment.url)} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className={`flex items-center gap-2 p-2.5 m-2 border rounded-xl decoration-none no-underline text-xs max-w-[280px] ${isUser ? 'bg-white/10 border-white/20 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+              >
+                <FileText size={16} className={isUser ? 'text-white/80 shrink-0' : 'text-slate-500 shrink-0'} />
+                <span className="truncate flex-1 font-semibold">{attachment.filename || 'Download File'}</span>
+              </a>
+            )
+          )}
+          {content && (
+            <div className={isImage ? "px-4 py-2.5 text-[13px] leading-relaxed break-words" : ""}>
+              {content}
+            </div>
           )}
         </div>
+        {(!isImage || hasCaption) && (
+          <div className={`chat-prism-message-meta ${isUser ? 'user' : 'agent'}`}>
+            {isUser ? (
+              <span>{formatTime(message.createdAt || message.timestamp)}</span>
+            ) : (
+              <>
+                <span>
+                  {(() => {
+                    if (message.platformMessageId) return 'Sent';
+                    const ageMs = Date.now() - new Date(message.createdAt || message.timestamp).getTime();
+                    return ageMs < 8000 ? 'Sending...' : 'Sent';
+                  })()}
+                </span>
+                <span className="chat-prism-meta-dot">•</span>
+                <span>{formatTime(message.createdAt || message.timestamp)}</span>
+                <span className={isHuman ? 'chat-prism-agent-chip-badge human' : 'chat-prism-agent-chip-badge ai'}>
+                  <Bot size={10} />
+                  <span>{isHuman ? (message.agentName || 'Human Agent') : 'AI Agent'}</span>
+                </span>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -107,65 +156,166 @@ function MessageBubble({ message }) {
 
 // ─── main component ────────────────────────────────────────────────────────
 
-// Backward-compatible ChatPanel — supports both old DashboardPage Inbox API
-// (selected, onChatUpdate, replyingTo, setReplyingTo)
-// and new ChatCenterPage API (chat, messages, isLoading, onSendMessage, onTakeover, onResolve)
-
 export default function ChatPanel({ 
   // New API
-  chat: _chatNew, messages: _messagesNew, isLoading,
-  onSendMessage, onTakeover, onResolve,
+  chat: _chatNew, messages: _messagesNew, isLoading: _isLoadingNew,
+  onSendMessage, onTakeover, onResolve, onDeleteChat,
   // Old API (DashboardPage Inbox)
   selected, onChatUpdate, replyingTo: _replyingTo, setReplyingTo: _setReplyingTo
 }) {
-  // ─── Backward-compat: normalize old (DashboardPage selected) and new (ChatCenterPage chat) API
   const chat = _chatNew || selected || null
-  const messages = Array.isArray(_messagesNew) ? _messagesNew : (selected?.messages || [])
+  const chatId = chat?._id || chat?.id || null
 
+  const [localMessages, setLocalMessages] = useState([])
+  const [localLoading, setLocalLoading] = useState(false)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const scrollRef = useRef(null)
   const userScrolled = useRef(false)
   const textareaRef = useRef(null)
 
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false)
+  const [showEmojiMenu, setShowEmojiMenu] = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [attachment, setAttachment] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [showScrollButton, setShowScrollButton] = useState(false)
+
+  const attachmentMenuRef = useRef(null)
+  const emojiMenuRef = useRef(null)
+  const moreMenuRef = useRef(null)
+  const imageInputRef = useRef(null)
+  const docInputRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (attachmentMenuRef.current && !attachmentMenuRef.current.contains(event.target)) {
+        setShowAttachmentMenu(false)
+      }
+      if (emojiMenuRef.current && !emojiMenuRef.current.contains(event.target)) {
+        setShowEmojiMenu(false)
+      }
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
+        setShowMoreMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleFileUpload = async (file, type) => {
+    if (!file) return
+    setUploading(true)
+    setShowAttachmentMenu(false)
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const response = await api.post('/agents/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const { filePath, originalName } = response.data
+      setAttachment({
+        url: filePath,
+        filename: originalName,
+        type: type || (file.type.startsWith('image/') ? 'image' : 'document'),
+      })
+    } catch (error) {
+      console.error('File upload error:', error)
+      alert('Gagal mengunggah file. Silakan coba lagi.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleEmojiSelect = (emoji) => {
+    setText((prev) => prev + emoji)
+    if (textareaRef.current) {
+      textareaRef.current.focus()
+    }
+  }
+
+  useEffect(() => {
+    if (_messagesNew !== undefined) {
+      setLocalMessages(_messagesNew || [])
+      return
+    }
+    if (!chatId) {
+      setLocalMessages([])
+      return
+    }
+    setLocalLoading(true)
+    api.get(`/chats/${chatId}/messages`)
+      .then((res) => {
+        setLocalMessages(res.data || [])
+      })
+      .catch(console.error)
+      .finally(() => setLocalLoading(false))
+  }, [chatId, _messagesNew])
+
+  const messages = localMessages
+  const isLoading = _isLoadingNew !== undefined ? _isLoadingNew : localLoading
+
   const isResolved =
     chat && (chat.status === 'resolved' || chat.status === 'closed')
   const isHumanMode =
-    chat && (chat.mode === 'human' || !!chat.takenOverAt || !!chat.takenOverBy)
+    chat && chat.aiEnabled === false
 
-  // auto-scroll to bottom on new messages (unless user scrolled up)
+  const scrollToBottom = (behavior = 'smooth') => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior,
+      })
+    }
+  }
+
+  // Auto scroll on new messages
   useEffect(() => {
-    if (!userScrolled.current && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    if (messages.length > 0 && !userScrolled.current) {
+      setTimeout(() => scrollToBottom('smooth'), 50)
     }
   }, [messages])
 
-  // reset userScrolled when chat changes
+  // Instant scroll on chat switch
   useEffect(() => {
     userScrolled.current = false
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
-  }, [chat && (chat._id || chat.id)])
+    setShowScrollButton(false)
+    setTimeout(() => scrollToBottom('auto'), 50)
+  }, [chatId])
 
   const handleScroll = () => {
     const el = scrollRef.current
     if (!el) return
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
     userScrolled.current = !atBottom
+    setShowScrollButton(!atBottom)
   }
 
   const handleSend = async (e) => {
     e && e.preventDefault()
     const content = text.trim()
-    if (!content || sending || isResolved) return
+    if (!content && !attachment) return
+    if (sending || isResolved) return
     setSending(true)
     setText('')
+    const currentAttachment = attachment
+    setAttachment(null)
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
     try {
-      await onSendMessage(content)
+      if (onSendMessage) {
+        await onSendMessage(content, currentAttachment)
+      } else if (chatId) {
+        const res = await api.post(`/chats/${chatId}/send`, { text: content, attachment: currentAttachment })
+        setLocalMessages((prev) => [...prev, res.data])
+        if (onChatUpdate) {
+          onChatUpdate({ ...chat, lastMessage: content || '[Lampiran]', lastMessageAt: new Date().toISOString() })
+        }
+      }
+    } catch (err) {
+      console.error('Failed to send message:', err)
     } finally {
       setSending(false)
     }
@@ -183,7 +333,23 @@ export default function ChatPanel({
     el.style.height = Math.min(el.scrollHeight, 120) + 'px'
   }
 
-  // ── no chat selected ─────────────────────────────────────────────────────
+  const handleTakeoverClick = async () => {
+    if (onTakeover) {
+      await onTakeover()
+    } else if (chatId) {
+      try {
+        const isAIActive = chat && chat.aiEnabled !== false
+        const endpoint = isAIActive ? 'takeover' : 'release'
+        const res = await api.post(`/chats/${chatId}/${endpoint}`)
+        const updatedChat = res.data?.data || res.data
+        if (onChatUpdate) {
+          onChatUpdate(updatedChat)
+        }
+      } catch (err) {
+        console.error('Takeover action failed:', err)
+      }
+    }
+  }
 
   if (!chat) {
     return (
@@ -196,8 +362,6 @@ export default function ChatPanel({
     )
   }
 
-  // ── build timeline with date separators ──────────────────────────────────
-
   const timeline = []
   messages.forEach((msg, i) => {
     const prev = messages[i - 1]
@@ -208,8 +372,6 @@ export default function ChatPanel({
     }
     timeline.push({ type: 'msg', message: msg, key: msg._id || msg.id || 'msg-' + i })
   })
-
-  // ── render ───────────────────────────────────────────────────────────────
 
   return (
     <div className="chat-prism-panel">
@@ -235,18 +397,19 @@ export default function ChatPanel({
         </div>
 
         {/* Center: Mode Switch Action */}
-        <div className="chat-prism-header-center">
-          <button
-            className={isHumanMode ? 'chat-prism-ai-button active' : 'chat-prism-ai-button'}
-            onClick={onTakeover}
-            title={isHumanMode ? 'Return to AI' : 'Take over conversation from AI'}
-          >
-            <Bot size={16} />
-            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: '10px', opacity: 0.9, fontWeight: 700, lineHeight: 1 }}>Switch to</span>
-              <span style={{ fontSize: '12px', fontWeight: 800, lineHeight: 1.1, marginTop: '2px' }}>{isHumanMode ? 'AI Agent' : 'Human Mode'}</span>
-            </span>
-          </button>
+        <div className="chat-prism-header-center flex items-center gap-3">
+          {chat.aiEnabled !== false ? (
+            <div className="px-4 py-2 bg-[var(--ai-50)] text-[var(--ai-600)] border border-[var(--ai-100)] rounded-xl text-xs font-bold flex items-center gap-2 animate-pulse">
+              <Bot size={16} /> AI Active
+            </div>
+          ) : (
+            <button
+              onClick={handleTakeoverClick}
+              className="bg-gradient-to-r from-[var(--ai-500)] to-[var(--brand-500)] text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg shadow-[var(--brand-500)]/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 border-none cursor-pointer"
+            >
+              <Bot size={16} /> Switch to AI Agent
+            </button>
+          )}
         </div>
 
         {/* Right: Actions */}
@@ -258,9 +421,43 @@ export default function ChatPanel({
             <Search size={18} />
           </button>
           <div className="chat-prism-header-divider" />
-          <button className="chat-prism-header-icon" title="More options">
-            <MoreVertical size={18} />
-          </button>
+          
+          <div className="chat-prism-more-menu-container" ref={moreMenuRef}>
+            <button 
+              className={`chat-prism-header-icon ${showMoreMenu ? 'active' : ''}`} 
+              title="More options"
+              onClick={() => setShowMoreMenu(prev => !prev)}
+            >
+              <MoreVertical size={18} />
+            </button>
+
+            {showMoreMenu && (
+              <div className="chat-prism-more-menu">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMoreMenu(false)
+                    if (onResolve) onResolve()
+                  }}
+                  className="chat-prism-more-menu-item"
+                >
+                  <Check size={14} className="text-emerald-500 shrink-0" />
+                  <span>{isResolved ? 'Buka Kembali Chat' : 'Selesaikan Chat'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMoreMenu(false)
+                    setShowDeleteConfirm(true)
+                  }}
+                  className="chat-prism-more-menu-item danger"
+                >
+                  <Trash2 size={14} className="shrink-0" />
+                  <span>Hapus Chat</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -296,63 +493,293 @@ export default function ChatPanel({
         )}
       </div>
 
+      {/* Scroll to Bottom Button Overlay */}
+      {showScrollButton && (
+        <button
+          onClick={() => {
+            userScrolled.current = false
+            setShowScrollButton(false)
+            scrollToBottom('smooth')
+          }}
+          className="absolute bottom-28 left-1/2 -translate-x-1/2 z-30 bg-white/90 backdrop-blur-sm border border-slate-200 shadow-md w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-700 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+          title="Scroll to bottom"
+        >
+          <ChevronDown size={16} />
+        </button>
+      )}
+
       {/* ── Composer ────────────────────────────────────────────────────── */}
-      <div
-        className="chat-prism-composer-zone"
-      >
+      <div className="p-5 z-20 bg-gradient-to-t from-white via-white/80 to-transparent">
         {isResolved ? (
-          <div className="chat-prism-resolved-note">
+          <div className="chat-prism-resolved-note text-center py-2 text-slate-500 text-sm">
             This conversation is resolved.{' '}
             <button
-              className="chat-prism-inline-button"
+              className="chat-prism-inline-button text-[var(--brand-500)] border-none bg-transparent underline cursor-pointer font-bold"
               onClick={onResolve}
             >
               Reopen
             </button>{' '}
             to send messages.
           </div>
-        ) : !isHumanMode ? (
-          <div className="chat-prism-takeover-wrap">
-            <button className="chat-prism-takeover-button" onClick={onTakeover}>
-              <span className="chat-prism-takeover-icon"><Keyboard size={20} /></span>
-              <span>
-                <strong>Takeover Chat</strong>
-                <small>Switch to manual typing</small>
-              </span>
+        ) : (chat.aiEnabled !== false) ? (
+          // Takeover Button Mode
+          <div className="flex justify-center py-2.5">
+            <button
+              onClick={handleTakeoverClick}
+              className="flex items-center gap-3 px-6 py-2.5 bg-gradient-to-r from-[var(--ai-500)] to-[var(--brand-500)] text-white border-none rounded-full shadow-lg shadow-[var(--brand-500)]/20 hover:scale-105 active:scale-95 transition-all group cursor-pointer"
+            >
+              <div className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center group-hover:bg-white group-hover:text-[var(--brand-500)] transition-colors shrink-0">
+                <Keyboard size={15} />
+              </div>
+              <div className="text-left">
+                <div className="text-xs font-extrabold leading-tight">Takeover Chat</div>
+                <div className="text-[10px] text-white/80 font-medium leading-none mt-0.5">Switch to manual typing</div>
+              </div>
             </button>
           </div>
         ) : (
-          <div className="chat-prism-composer">
-            <button className="chat-prism-composer-icon" type="button">
-              <Plus size={20} />
-            </button>
-            <textarea
-              ref={textareaRef}
-              value={text}
+          // Standard Input Mode
+          <div className="relative flex flex-col gap-2 p-3 bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-slate-100 ring-1 ring-slate-50 focus-within:ring-2 focus-within:ring-[var(--brand-100)] focus-within:border-[var(--brand-200)] transition-all">
+            {/* Hidden Input Files */}
+            <input 
+              type="file" 
+              ref={imageInputRef} 
+              style={{ display: 'none' }} 
+              accept="image/*"
               onChange={(e) => {
-                setText(e.target.value)
-                autoResize(e.target)
+                if (e.target.files?.[0]) {
+                  handleFileUpload(e.target.files[0], 'image');
+                }
+                e.target.value = '';
               }}
-              onKeyDown={handleKeyDown}
-              placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
-              disabled={sending}
-              rows={1}
-              className="chat-prism-textarea"
             />
-            <div className="chat-prism-composer-tools">
-              <button className="chat-prism-tool-button" type="button"><ImageIcon size={18} /></button>
-              <button className="chat-prism-tool-button" type="button"><Smile size={18} /></button>
-            <button
-              className={`chat-prism-send-button ${text.trim() ? 'active' : ''}`}
-              onClick={handleSend}
-              disabled={!text.trim() || sending}
-            >
-              <Send size={18} />
-            </button>
+            <input 
+              type="file" 
+              ref={docInputRef} 
+              style={{ display: 'none' }} 
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
+              onChange={(e) => {
+                if (e.target.files?.[0]) {
+                  handleFileUpload(e.target.files[0], 'document');
+                }
+                e.target.value = '';
+              }}
+            />
+
+            {/* Plus / Attachment Menu */}
+            {showAttachmentMenu && (
+              <div 
+                ref={attachmentMenuRef} 
+                className="absolute left-2 bottom-full mb-3 bg-white/95 backdrop-blur-md border border-slate-100 rounded-2xl shadow-xl shadow-slate-100/30 p-2 flex flex-col gap-1 w-48 animate-in fade-in slide-in-from-bottom-2 duration-200 z-30"
+              >
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current.click()}
+                  className="flex items-center gap-3 w-full px-3 py-2 text-slate-600 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)]/50 rounded-xl border-none bg-transparent text-left cursor-pointer transition-all"
+                >
+                  <ImageIcon size={16} className="text-[var(--brand-500)]" />
+                  <span className="text-xs font-semibold">Image & Video</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => docInputRef.current.click()}
+                  className="flex items-center gap-3 w-full px-3 py-2 text-slate-600 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)]/50 rounded-xl border-none bg-transparent text-left cursor-pointer transition-all"
+                >
+                  <FileText size={16} className="text-blue-500" />
+                  <span className="text-xs font-semibold">Document</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    alert("Menautkan produk toko sedang dalam pengembangan!");
+                    setShowAttachmentMenu(false);
+                  }}
+                  className="flex items-center gap-3 w-full px-3 py-2 text-slate-600 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)]/50 rounded-xl border-none bg-transparent text-left cursor-pointer transition-all"
+                >
+                  <ShoppingBag size={16} className="text-emerald-500" />
+                  <span className="text-xs font-semibold">Product Link</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    alert("Perekam suara sedang dalam pengembangan!");
+                    setShowAttachmentMenu(false);
+                  }}
+                  className="flex items-center gap-3 w-full px-3 py-2 text-slate-600 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)]/50 rounded-xl border-none bg-transparent text-left cursor-pointer transition-all"
+                >
+                  <Mic size={16} className="text-amber-500" />
+                  <span className="text-xs font-semibold">Audio File</span>
+                </button>
+              </div>
+            )}
+
+            {/* Emoji Menu */}
+            {showEmojiMenu && (
+              <div 
+                ref={emojiMenuRef} 
+                className="absolute right-12 bottom-full mb-3 bg-white/95 backdrop-blur-md border border-slate-100 rounded-2xl shadow-xl shadow-slate-100/30 p-3 w-64 animate-in fade-in slide-in-from-bottom-2 duration-200 z-30"
+              >
+                <div className="text-[10px] font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider">Popular Emojis</div>
+                <div className="grid grid-cols-8 gap-1 max-h-40 overflow-y-auto pr-1 select-none">
+                  {['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', 
+                    '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', 
+                    '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', 
+                    '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', 
+                    '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', 
+                    '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', 
+                    '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', 
+                    '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', 
+                    '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', 
+                    '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', 
+                    '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '👍', 
+                    '👎', '👏', '🙌', '🙏', '❤️', '🔥', '✨', '🎉'].map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => handleEmojiSelect(emoji)}
+                      className="text-lg p-1 hover:bg-slate-100 active:scale-90 rounded transition-all cursor-pointer border-none bg-transparent flex items-center justify-center"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Uploading indicator */}
+            {uploading && (
+              <div className="flex items-center gap-2 pl-2 mb-2 text-slate-500 animate-pulse">
+                <Loader2 size={16} className="animate-spin text-[var(--brand-500)]" />
+                <span className="text-xs font-semibold">Uploading file...</span>
+              </div>
+            )}
+
+            {/* Attachment Preview (Inside the border) */}
+            {attachment && (
+              <div className="flex pl-1 mb-2 animate-in fade-in zoom-in-95 duration-200">
+                {attachment.type === 'image' ? (
+                  <div className="relative w-20 h-20 group">
+                    <img 
+                      src={getAttachmentUrl(attachment.url)} 
+                      alt="preview" 
+                      className="w-full h-full object-cover rounded-xl border border-slate-100 animate-fade-in" 
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setAttachment(null)}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-slate-900/80 hover:bg-slate-900 text-white rounded-full flex items-center justify-center border border-white cursor-pointer shadow-sm transition-all hover:scale-110"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative flex items-center gap-2 p-2 bg-slate-50 border border-slate-100 rounded-xl pr-8 max-w-[240px]">
+                    <div className="w-8 h-8 bg-[var(--brand-50)] text-[var(--brand-500)] rounded-lg flex items-center justify-center flex-shrink-0">
+                      <FileText size={16} />
+                    </div>
+                    <div className="min-w-0 text-left flex flex-col justify-center">
+                      <p className="text-xs font-bold text-slate-800 truncate m-0 leading-tight">{attachment.filename}</p>
+                      <p className="text-[10px] text-slate-400 capitalize m-0 mt-0.5 leading-none">{attachment.type}</p>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => setAttachment(null)}
+                      className="absolute top-1/2 -translate-y-1/2 right-2 w-5 h-5 hover:bg-slate-200 text-slate-500 rounded-full flex items-center justify-center border-none bg-transparent cursor-pointer transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Input Row */}
+            <div className="flex items-end gap-2 w-full">
+              <button 
+                onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
+                className="p-2.5 text-slate-400 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)] rounded-full border-none bg-transparent cursor-pointer transition-colors" 
+                type="button"
+              >
+                <Plus size={20} />
+              </button>
+              
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={(e) => {
+                  setText(e.target.value)
+                  autoResize(e.target)
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Type your message..." 
+                className="w-full bg-transparent border-none px-2 py-2.5 text-sm focus:ring-0 outline-none resize-none min-h-[36px] max-h-32 text-slate-700 placeholder-slate-400 font-medium self-center"
+                rows={1}
+                disabled={sending}
+              />
+              
+              <div className="flex items-center gap-1 pb-0.5 pr-0.5">
+                <button 
+                  onClick={() => imageInputRef.current.click()}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 border-none bg-transparent cursor-pointer rounded-full transition-colors" 
+                  type="button"
+                >
+                  <ImageIcon size={18} />
+                </button>
+                <button 
+                  onClick={() => setShowEmojiMenu(!showEmojiMenu)}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 border-none bg-transparent cursor-pointer rounded-full transition-colors" 
+                  type="button"
+                >
+                  <Smile size={18} />
+                </button>
+                <button 
+                  onClick={handleSend}
+                  disabled={(!text.trim() && !attachment) || sending || uploading}
+                  className={`${(text.trim() || attachment) && !uploading ? 'bg-gradient-to-r from-[var(--brand-500)] to-[var(--ai-500)] shadow-md cursor-pointer' : 'bg-slate-100 text-slate-300 cursor-not-allowed'} w-10 h-10 border-none rounded-full flex items-center justify-center transition-all duration-300 ml-1`}
+                >
+                  <Send size={18} className={(text.trim() || attachment) && !uploading ? 'text-white ml-0.5' : 'ml-0.5'} />
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="chat-prism-modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="chat-prism-modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="chat-prism-modal-icon-wrap">
+              <AlertTriangle size={28} />
+            </div>
+            <h3 className="chat-prism-modal-title">Hapus Chat?</h3>
+            <p className="chat-prism-modal-body text-center">
+              Apakah Anda yakin ingin menghapus chat dengan <strong>{chat.contactName || 'Unknown'}</strong> secara permanen?
+              Semua riwayat chat di database akan ikut terhapus dan tidak dapat dikembalikan.
+            </p>
+            <div className="chat-prism-modal-actions">
+              <button
+                type="button"
+                className="chat-prism-modal-btn cancel"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                className="chat-prism-modal-btn danger"
+                onClick={async () => {
+                  setShowDeleteConfirm(false)
+                  if (onDeleteChat) {
+                    await onDeleteChat(chatId)
+                  }
+                }}
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -7,7 +7,7 @@ export async function processPaymentWebhook({ workspaceId, provider, rawBody, he
   if (!valid || !event) return { processed: false, reason: 'invalid_signature' };
 
   const existingEvent = await paymentEventsRepository.findByProviderEventId(provider, event.providerTransactionId);
-  if (existingEvent) return { processed: false, reason: 'duplicate', existingEventId: existingEvent._id };
+  if (existingEvent) return { processed: false, reason: 'duplicate', existingEventId: existingEvent.id };
 
   const registered = await paymentEventsRepository.create({
     workspaceId, provider, providerEventId: event.providerTransactionId,
@@ -18,54 +18,51 @@ export async function processPaymentWebhook({ workspaceId, provider, rawBody, he
 
   const payment = await paymentsRepository.findByMerchantReference({ workspaceId, ref: event.merchantReference });
   if (!payment) {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered._id, status: 'rejected', verificationResult: 'no_payment_found' });
+    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'no_payment_found' });
     return { processed: false, reason: 'no_payment_found' };
   }
 
   await paymentEventsRepository.updateReferences({
-    eventId: registered._id,
-    paymentId: payment._id,
+    eventId: registered.id,
+    paymentId: payment.id,
     orderId: payment.orderId,
   });
 
   if (payment.status === 'paid') {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered._id, status: 'processed' });
+    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed' });
     return { processed: false, reason: 'already_paid', event };
   }
 
   if (event.status !== 'paid') {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered._id, status: 'processed' });
+    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed' });
     return { processed: true, event };
   }
 
   if (payment.amount !== event.amount) {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered._id, status: 'rejected', verificationResult: 'amount_mismatch' });
+    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'amount_mismatch' });
     return { processed: false, reason: 'amount_mismatch' };
   }
 
   if (payment.currency !== event.currency) {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered._id, status: 'rejected', verificationResult: 'currency_mismatch' });
+    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'currency_mismatch' });
     return { processed: false, reason: 'currency_mismatch' };
   }
 
   const updatedPayment = await paymentsRepository.atomicStatusUpdate({
-    paymentId: payment._id, expectedStatus: 'pending', newStatus: 'paid',
+    paymentId: payment.id, expectedStatus: 'pending', newStatus: 'paid',
   });
   if (!updatedPayment) return { processed: false, reason: 'concurrent_update' };
 
-  await paymentsRepository.addEvent({ paymentId: payment._id, event: {
+  await paymentsRepository.addEvent({ paymentId: payment.id, event: {
     providerEventId: event.providerTransactionId, eventType: 'settlement', status: 'paid',
     amount: event.amount, currency: event.currency, feeAmount: event.feeAmount || 0,
     netAmount: event.netAmount || event.amount, paymentMethod: event.paymentMethod, paidAt: new Date(),
   } });
 
-  const updatedOrder = await ordersRepository.updateOne(
-    { _id: payment.orderId, workspaceId },
-    { $set: { paymentStatus: 'paid' } },
-  );
+  const updatedOrder = await ordersRepository.updateOne({ workspaceId, orderId: payment.orderId, updates: { payment_status: 'paid' } });
 
-  await paymentsRepository.updatePayment(payment._id, { reconciliationStatus: 'matched' });
-  await paymentEventsRepository.updateProcessingStatus({ eventId: registered._id, status: 'processed', verificationResult: 'paid' });
+  await paymentsRepository.updatePayment(payment.id, { reconciliation_status: 'matched' });
+  await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: 'paid' });
 
   if (updatedOrder) {
     try {

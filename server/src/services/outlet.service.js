@@ -1,27 +1,36 @@
-import { outletsRepository } from '../db/repositories/index.js';
+/**
+ * outlet.service.js — Supabase-backed (task 24.8)
+ *
+ * Business logic for outlet management.
+ * Backed by outletsSupabaseRepository (Supabase/Postgres).
+ */
+
+import { outletsSupabaseRepository } from '../db/repositories/index.js';
 import { canManageWorkspace, getAllowedOutletIds } from './access-control.service.js';
 import { AppError } from '../utils/errors.js';
 
-export async function listOutlets({ user, status, search, page, limit, sort }) {
-  const query = { workspaceId: user.workspaceId };
-  if (status) query.status = status;
-  if (search) query.name = { $regex: search, $options: 'i' };
+export async function listOutlets({ user, status, search, page, limit }) {
+  const workspaceId = user.workspaceId;
 
+  let outlets = await outletsSupabaseRepository.list({ workspaceId, status, search, page, limit });
+
+  // If the user is not a workspace manager, filter to only their accessible outlets
   if (!canManageWorkspace(user)) {
-    query._id = { $in: await getAllowedOutletIds(user) };
+    const allowedIds = await getAllowedOutletIds(user);
+    const allowedSet = new Set(allowedIds.map((id) => String(id)));
+    outlets = outlets.filter((o) => allowedSet.has(String(o.id)));
   }
 
-  const outlets = await outletsRepository.list({ workspaceId: user.workspaceId, status, search, page, limit, sort });
-  const total = await outletsRepository.count({ workspaceId: user.workspaceId, status, search });
+  const total = await outletsSupabaseRepository.count({ workspaceId, status, search });
   return { data: outlets, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
 }
 
 export async function listActiveWorkspaceOutlets(workspaceId) {
-  return outletsRepository.findActiveByWorkspace(workspaceId);
+  return outletsSupabaseRepository.findActiveByWorkspace(workspaceId);
 }
 
 export async function findActiveWorkspaceOutlet({ workspaceId, outletId }) {
-  const outlet = await outletsRepository.findByWorkspaceAndId({ workspaceId, outletId });
+  const outlet = await outletsSupabaseRepository.findById({ workspaceId, outletId });
   if (!outlet || outlet.status !== 'active') {
     throw new AppError('OUTLET_NOT_FOUND', 'Outlet not found or inactive', 404);
   }
@@ -29,7 +38,7 @@ export async function findActiveWorkspaceOutlet({ workspaceId, outletId }) {
 }
 
 export async function getOutletDetail({ workspaceId, outletId }) {
-  const outlet = await outletsRepository.findByWorkspaceAndId({ workspaceId, outletId });
+  const outlet = await outletsSupabaseRepository.findById({ workspaceId, outletId });
   if (!outlet) throw new AppError('OUTLET_NOT_FOUND', 'Outlet not found', 404);
   return outlet;
 }
@@ -40,11 +49,11 @@ export async function createOutlet({ user, payload }) {
   }
 
   if (payload.code) {
-    const existing = await outletsRepository.findByCode({ workspaceId: user.workspaceId, code: payload.code });
+    const existing = await outletsSupabaseRepository.findByCode({ workspaceId: user.workspaceId, code: payload.code });
     if (existing) throw new AppError('DUPLICATE_CODE', 'Outlet code already exists in this workspace', 409);
   }
 
-  return outletsRepository.create({
+  return outletsSupabaseRepository.create({
     workspaceId: user.workspaceId,
     name: payload.name,
     code: payload.code,
@@ -73,13 +82,13 @@ export async function updateOutlet({ user, outletId, updates }) {
 
   if (safe.code) {
     safe.code = safe.code.toUpperCase();
-    const existing = await outletsRepository.findByCode({ workspaceId: user.workspaceId, code: safe.code });
-    if (existing && existing._id.toString() !== outletId) {
+    const existing = await outletsSupabaseRepository.findByCode({ workspaceId: user.workspaceId, code: safe.code });
+    if (existing && existing.id !== outletId) {
       throw new AppError('DUPLICATE_CODE', 'Outlet code already exists in this workspace', 409);
     }
   }
 
-  const outlet = await outletsRepository.update({ workspaceId: user.workspaceId, outletId, updates: safe });
+  const outlet = await outletsSupabaseRepository.update({ workspaceId: user.workspaceId, outletId, updates: safe });
   if (!outlet) throw new AppError('OUTLET_NOT_FOUND', 'Outlet not found', 404);
   return outlet;
 }
@@ -93,7 +102,7 @@ export async function updateOutletStatus({ user, outletId, status }) {
     throw new AppError('VALIDATION', 'Invalid status. Must be active, inactive, or archived', 400);
   }
 
-  const outlet = await outletsRepository.updateStatus({ workspaceId: user.workspaceId, outletId, status });
+  const outlet = await outletsSupabaseRepository.updateStatus({ workspaceId: user.workspaceId, outletId, status });
   if (!outlet) throw new AppError('OUTLET_NOT_FOUND', 'Outlet not found', 404);
   return outlet;
 }
@@ -104,12 +113,9 @@ export async function setUserOutletAccess({ user, targetUserId, outlets }) {
   }
 
   const rows = Array.isArray(outlets) ? outlets.map((item) => ({
-    workspaceId: user.workspaceId,
-    userId: targetUserId,
     outletId: item.outletId || item.outlet_id,
-    role: item.role || 'viewer',
-    status: 'active',
+    role: item.role || 'outlet_manager',
   })) : [];
 
-  return outletsRepository.replaceUserAccess({ workspaceId: user.workspaceId, userId: targetUserId, rows });
+  return outletsSupabaseRepository.replaceUserAccess({ workspaceId: user.workspaceId, userId: targetUserId, rows });
 }

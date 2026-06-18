@@ -50,6 +50,16 @@ const navigationIcons = {
   profile: faUser,
 }
 
+const activeNavigationKeys = new Set([
+  'orders',
+  'products',
+  'outlets',
+  'payments',
+  'chat',
+  'platforms',
+  'agents',
+])
+
 export default function Sidebar() {
   const [isExpanded, setIsExpanded] = useState(() => {
     try {
@@ -183,12 +193,13 @@ export default function Sidebar() {
               {group.items.map(({ key, label, path }) => {
                 const icon = navigationIcons[key]
                 const isOrders = key === 'orders'
+                const isInactive = !activeNavigationKeys.has(key)
                 return (
                   <NavLink
                     key={path}
                     to={path}
                     end={path === '/app'}
-                    className={({ isActive }) => `item ${isActive ? 'active' : ''}`}
+                    className={({ isActive }) => `item ${isActive ? 'active' : ''} ${isInactive ? 'item--inactive' : ''}`}
                     onClick={() => {
                       if (isExpanded && !isPinned) {
                         setIsExpanded(false)

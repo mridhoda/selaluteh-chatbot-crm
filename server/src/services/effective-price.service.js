@@ -7,7 +7,7 @@ export function resolveEffectivePrice(product, availability) {
   const currency = product.currency || 'IDR';
 
   return {
-    productId: product._id,
+    productId: product.id,
     productName: product.name,
     basePrice: product.basePrice,
     priceOverride: availability?.priceOverride || null,

@@ -43,16 +43,16 @@ export async function addItem({ workspaceId, outletId, contactId, chatId, platfo
     const newQty = existingItem.quantity + quantity;
     const newSubtotal = effectivePrice * newQty;
     const updated = await cartsRepository.updateItem({
-      workspaceId, cartId: cart._id, productId,
+      workspaceId, cartId: cart.id, productId,
       updates: { quantity: newQty, subtotal: newSubtotal },
     });
     const total = updated.items.reduce((sum, i) => sum + i.subtotal, 0);
-    await cartsRepository.update({ workspaceId, cartId: cart._id, updates: { total } });
+    await cartsRepository.update({ workspaceId, cartId: cart.id, updates: { total } });
     return cartsRepository.findActiveByContact({ workspaceId, contactId, outletId });
   }
 
   const item = {
-    productId: product._id,
+    productId: product.id,
     name: product.name,
     basePrice: product.basePrice,
     effectivePrice,
@@ -62,9 +62,9 @@ export async function addItem({ workspaceId, outletId, contactId, chatId, platfo
     subtotal,
   };
 
-  const updated = await cartsRepository.pushItem({ workspaceId, cartId: cart._id, item });
+  const updated = await cartsRepository.addItem({ workspaceId, cartId: cart.id, item });
   const total = updated.items.reduce((sum, i) => sum + i.subtotal, 0);
-  await cartsRepository.update({ workspaceId, cartId: cart._id, updates: { total } });
+  await cartsRepository.update({ workspaceId, cartId: cart.id, updates: { total } });
   return cartsRepository.findActiveByContact({ workspaceId, contactId, outletId });
 }
 
@@ -103,7 +103,7 @@ export async function clearCart({ workspaceId, cartId }) {
 export function getCartSummary(cart) {
   if (!cart) return null;
   return {
-    id: cart._id,
+    id: cart.id,
     outletId: cart.outletId,
     items: cart.items.map((i) => ({
       productId: i.productId,

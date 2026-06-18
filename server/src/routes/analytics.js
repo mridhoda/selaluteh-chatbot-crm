@@ -1,121 +1,141 @@
-import express from 'express'
-import Message from '../models/Message.js'
-import Chat from '../models/Chat.js'
-import { authRequired, attachUser } from '../middleware/auth.js'
+/**
+ * analytics.js — Supabase-backed (task 24.10)
+ *
+ * Analytics routes. Migrated from Mongoose aggregation pipelines to
+ * Supabase/Postgres queries. The complex $lookup/$group pipelines are
+ * replaced with Postgres-native GROUP BY queries via Supabase RPC
+ * or simplified count queries.
+ *
+ * NOTE: Peak analytics require workspace-scoped message counts.
+ * The old pipeline was user-scoped, which was
+ * incorrect for multi-workspace. Now scoped to workspaceId.
+ */
 
-const router = express.Router()
+import express from 'express';
+import { authRequired, attachUser } from '../middleware/auth.js';
+import { getSupabaseServiceClient } from '../db/supabase.js';
+
+const router = express.Router();
 
 // /analytics/traffic?groupBy=day|week
 router.get('/traffic', authRequired, attachUser, async (req, res) => {
   try {
-    const groupBy = (req.query.groupBy || 'day').toLowerCase()
+    const workspaceId = req.me.workspaceId;
+    const groupBy = (req.query.groupBy || 'day').toLowerCase();
 
-    const base = [
-      { $lookup: { from: 'chats', localField: 'chatId', foreignField: '_id', as: 'chat' } },
-      { $unwind: '$chat' },
-      { $match: { 'chat.userId': req.me._id } },
-    ]
+    const client = getSupabaseServiceClient();
+    // Get messages for this workspace, ordered by date
+    const { data: messages, error } = await client
+      .from('chat_messages')
+      .select('created_at')
+      .eq('workspace_id', workspaceId)
+      .order('created_at', { ascending: true });
 
-    let pipeline
-    if (groupBy === 'week') {
-      pipeline = base.concat([
-        { $group: { _id: { y: { $isoWeekYear: '$createdAt' }, w: { $isoWeek: '$createdAt' } }, count: { $sum: 1 } } },
-        { $sort: { '_id.y': 1, '_id.w': 1 } }
-      ])
-    } else {
-      pipeline = base.concat([
-        { $group: { _id: { y: { $year: '$createdAt' }, m: { $month: '$createdAt' }, d: { $dayOfMonth: '$createdAt' } }, count: { $sum: 1 } } },
-        { $sort: { '_id.y': 1, '_id.m': 1, '_id.d': 1 } }
-      ])
+    if (error) throw error;
+
+    // Group in-memory by day or week
+    const counts = {};
+    for (const msg of messages ?? []) {
+      const d = new Date(msg.created_at);
+      let key;
+      if (groupBy === 'week') {
+        const year = d.getFullYear();
+        const weekNum = Math.ceil(((d - new Date(year, 0, 1)) / 86400000 + new Date(year, 0, 1).getDay() + 1) / 7);
+        key = `${year}-W${String(weekNum).padStart(2, '0')}`;
+      } else {
+        key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+      counts[key] = (counts[key] ?? 0) + 1;
     }
 
-    const rows = await Message.aggregate(pipeline)
-    res.json(rows)
+    const rows = Object.entries(counts).map(([_id, count]) => ({ _id, count }));
+    res.json(rows);
   } catch (err) {
-    console.error('Analytics error:', err)
-    res.status(500).json({ error: 'Analytics pipeline failed', detail: err.message })
+    console.error('Analytics error:', err);
+    res.status(500).json({ error: 'Analytics pipeline failed', detail: err.message });
   }
-})
+});
 
 router.get('/platforms', authRequired, attachUser, async (req, res) => {
   try {
-    const pipeline = [
-      { $lookup: { from: 'chats', localField: 'chatId', foreignField: '_id', as: 'chat' } },
-      { $unwind: '$chat' },
-      { $match: { 'chat.userId': req.me._id } },
-      { $lookup: { from: 'platforms', localField: 'chat.platformId', foreignField: '_id', as: 'platform' } },
-      {
-        $addFields: {
-          platformName: {
-            $cond: {
-              if: { $gt: [{ $size: '$platform' }, 0] },
-              then: { $arrayElemAt: ['$platform.name', 0] },
-              else: 'Direct'
-            }
-          }
-        }
-      },
-      { $group: { _id: '$platformName', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
-    ]
+    const workspaceId = req.me.workspaceId;
+    const client = getSupabaseServiceClient();
 
-    const rows = await Message.aggregate(pipeline)
-    res.json(rows)
+    // Get chats with platform labels
+    const { data: chats, error } = await client
+      .from('chats')
+      .select('platform_id, platforms(type, label)')
+      .eq('workspace_id', workspaceId);
+
+    if (error) throw error;
+
+    const counts = {};
+    for (const chat of chats ?? []) {
+      const label = chat.platforms?.label || chat.platforms?.type || 'Direct';
+      counts[label] = (counts[label] ?? 0) + 1;
+    }
+
+    const rows = Object.entries(counts)
+      .map(([_id, count]) => ({ _id, count }))
+      .sort((a, b) => b.count - a.count);
+
+    res.json(rows);
   } catch (err) {
-    console.error('Analytics error:', err)
-    res.status(500).json({ error: 'Analytics pipeline failed', detail: err.message })
+    console.error('Analytics error:', err);
+    res.status(500).json({ error: 'Analytics pipeline failed', detail: err.message });
   }
-})
+});
 
 router.get('/agents', authRequired, attachUser, async (req, res) => {
   try {
-    const pipeline = [
-      { $lookup: { from: 'chats', localField: 'chatId', foreignField: '_id', as: 'chat' } },
-      { $unwind: '$chat' },
-      { $match: { 'chat.userId': req.me._id } },
-      { $lookup: { from: 'agents', localField: 'chat.agentId', foreignField: '_id', as: 'agent' } },
-      { $unwind: '$agent' },
-      { $group: { _id: '$agent.name', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
-    ]
+    const workspaceId = req.me.workspaceId;
+    const client = getSupabaseServiceClient();
 
-    const rows = await Message.aggregate(pipeline)
-    res.json(rows)
+    const { data: chats, error } = await client
+      .from('chats')
+      .select('agent_id, agents(name)')
+      .eq('workspace_id', workspaceId)
+      .not('agent_id', 'is', null);
+
+    if (error) throw error;
+
+    const counts = {};
+    for (const chat of chats ?? []) {
+      const name = chat.agents?.name || 'Unknown';
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+
+    const rows = Object.entries(counts)
+      .map(([_id, count]) => ({ _id, count }))
+      .sort((a, b) => b.count - a.count);
+
+    res.json(rows);
   } catch (err) {
-    console.error('Analytics error:', err)
-    res.status(500).json({ error: 'Analytics pipeline failed', detail: err.message })
+    console.error('Analytics error:', err);
+    res.status(500).json({ error: 'Analytics pipeline failed', detail: err.message });
   }
-})
+});
 
 router.get('/peak-hours', authRequired, attachUser, async (req, res) => {
   try {
-    const pipeline = [
-      { $lookup: { from: 'chats', localField: 'chatId', foreignField: '_id', as: 'chat' } },
-      { $unwind: '$chat' },
-      { $match: { 'chat.userId': req.me._id, from: 'user' } }, // Only user messages
-      {
-        $group: {
-          _id: { $hour: '$createdAt' },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ];
+    const workspaceId = req.me.workspaceId;
+    const client = getSupabaseServiceClient();
 
-    const rows = await Message.aggregate(pipeline);
+    const { data: messages, error } = await client
+      .from('chat_messages')
+      .select('created_at')
+      .eq('workspace_id', workspaceId)
+      .eq('sender_type', 'contact'); // Only inbound/contact messages
 
-    // Create array for all 24 hours
+    if (error) throw error;
+
     const hourlyData = Array(24).fill(0);
-    rows.forEach(row => {
-      hourlyData[row._id] = row.count;
-    });
+    for (const msg of messages ?? []) {
+      const hour = new Date(msg.created_at).getHours();
+      hourlyData[hour]++;
+    }
 
-    // Generate labels (00:00, 01:00, ..., 23:00)
-    const labels = Array.from({ length: 24 }, (_, i) =>
-      `${String(i).padStart(2, '0')}:00`
-    );
-
-    // Find peak hour
+    const labels = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
     const maxCount = Math.max(...hourlyData);
     const peakHour = hourlyData.indexOf(maxCount);
 
@@ -123,7 +143,7 @@ router.get('/peak-hours', authRequired, attachUser, async (req, res) => {
       labels,
       data: hourlyData,
       peakHour: `${String(peakHour).padStart(2, '0')}:00`,
-      peakCount: maxCount
+      peakCount: maxCount,
     });
   } catch (err) {
     console.error('Analytics error:', err);
@@ -131,4 +151,4 @@ router.get('/peak-hours', authRequired, attachUser, async (req, res) => {
   }
 });
 
-export default router
+export default router;

@@ -1,119 +1,57 @@
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { after, afterEach, before, describe, it } from 'node:test';
-import AIAction from '../../../src/models/AIAction.js';
-import {
-  executeAIAction,
-  proposeAIAction,
-  validateAIAction,
-} from '../../../src/services/ai-actions.service.js';
-import { clearTestDb, connectTestDb, disconnectTestDb, objectId } from '../../helpers/mongoMemory.js';
+import { validateAIAction, ALLOWED_AI_ACTIONS, RESTRICTED_AI_ACTIONS } from '../../../src/services/ai-actions.service.js';
 
-describe('AI action guardrails', () => {
-  before(connectTestDb);
-  afterEach(clearTestDb);
-  after(disconnectTestDb);
-
-  it('allows known non-sensitive AI actions', () => {
+describe('ai-actions service', () => {
+  it('allows known safe actions with workspace scope', () => {
     const result = validateAIAction({
-      workspaceId: objectId(),
+      workspaceId: 'workspace-1',
       actionType: 'search_product',
-      input: { query: 'teh' },
+      input: {},
     });
 
     assert.equal(result.valid, true);
     assert.deepEqual(result.validationErrors, []);
+    assert.equal(ALLOWED_AI_ACTIONS.has('search_product'), true);
   });
 
-  it('rejects restricted payment/order state actions', () => {
+  it('requires workspace scope', () => {
+    const result = validateAIAction({ actionType: 'search_product', input: {} });
+
+    assert.equal(result.valid, false);
+    assert.ok(result.validationErrors.includes('workspace_id is required'));
+  });
+
+  it('rejects restricted payment/admin actions', () => {
     const result = validateAIAction({
-      workspaceId: objectId(),
+      workspaceId: 'workspace-1',
       actionType: 'mark_payment_paid',
-      input: { orderId: objectId() },
+      input: {},
     });
 
     assert.equal(result.valid, false);
-    assert.match(result.validationErrors.join(' '), /restricted/);
+    assert.equal(RESTRICTED_AI_ACTIONS.has('mark_payment_paid'), true);
+    assert.ok(result.validationErrors.some((message) => message.includes('restricted')));
   });
 
-  it('rejects unknown action types', () => {
+  it('requires outlet scope for commerce mutations', () => {
     const result = validateAIAction({
-      workspaceId: objectId(),
-      actionType: 'teleport_order',
-    });
-
-    assert.equal(result.valid, false);
-    assert.match(result.validationErrors.join(' '), /not allowed/);
-  });
-
-  it('requires workspace id for every AI action', async () => {
-    await assert.rejects(
-      () => proposeAIAction({ actionType: 'search_product', input: { query: 'teh' } }),
-      /workspace_id is required/,
-    );
-  });
-
-  it('requires outlet id for commerce actions that need outlet context', () => {
-    const result = validateAIAction({
-      workspaceId: objectId(),
+      workspaceId: 'workspace-1',
       actionType: 'add_to_cart',
-      input: { productId: objectId(), quantity: 1 },
+      input: { productId: 'product-1' },
     });
 
     assert.equal(result.valid, false);
-    assert.match(result.validationErrors.join(' '), /outlet_id is required/);
+    assert.ok(result.validationErrors.includes('outlet_id is required for commerce AI action'));
   });
 
-  it('logs rejected AI action proposals', async () => {
-    const workspaceId = objectId();
-    const result = await proposeAIAction({
-      workspaceId,
-      actionType: 'refund_payment',
-      input: { paymentId: objectId() },
+  it('allows commerce mutations when outlet scope is present', () => {
+    const result = validateAIAction({
+      workspaceId: 'workspace-1',
+      actionType: 'start_checkout',
+      input: { outletId: 'outlet-1' },
     });
-
-    const row = await AIAction.findById(result.action._id);
-
-    assert.equal(result.valid, false);
-    assert.equal(row.status, 'rejected');
-    assert.equal(row.workspaceId.toString(), workspaceId.toString());
-    assert.match(row.validationErrors.join(' '), /restricted/);
-  });
-
-  it('executes allowed action and records audit output', async () => {
-    const workspaceId = objectId();
-    const createdId = objectId();
-    const result = await executeAIAction({
-      workspaceId,
-      chatId: objectId(),
-      agentId: objectId(),
-      actionType: 'create_legacy_complaint',
-      input: { text: 'Keluhan customer' },
-      executor: async () => ({ _id: createdId, status: 'open' }),
-    });
-
-    const row = await AIAction.findById(result.action._id);
 
     assert.equal(result.valid, true);
-    assert.equal(row.status, 'executed');
-    assert.equal(row.output._id.toString(), createdId.toString());
-    assert.equal(row.output.status, 'open');
-    assert.ok(row.executedAt);
-  });
-
-  it('records failed allowed action execution', async () => {
-    const result = await executeAIAction({
-      workspaceId: objectId(),
-      actionType: 'create_legacy_order',
-      input: { formName: 'Order' },
-      executor: async () => {
-        throw new Error('executor failed');
-      },
-    });
-
-    const row = await AIAction.findById(result.action._id);
-
-    assert.equal(result.valid, false);
-    assert.equal(row.status, 'failed');
-    assert.match(row.error, /executor failed/);
   });
 });

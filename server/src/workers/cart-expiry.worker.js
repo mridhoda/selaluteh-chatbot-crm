@@ -8,7 +8,7 @@ export async function expireCarts() {
   const expired = await cartsRepository.findExpired(now);
   if (expired.length === 0) return 0;
 
-  const ids = expired.map((c) => c._id);
+  const ids = expired.map((c) => c.id);
   await cartsRepository.expireMany(ids);
   return expired.length;
 }

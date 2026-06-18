@@ -1,8 +1,10 @@
+import dns from 'dns';
+dns.setDefaultResultOrder('ipv4first');
+
 import express from 'express';
 import { env } from './config/env.js';
 import { corsMiddleware } from './config/cors.js';
 import { httpLogger } from './config/logger.js';
-import { connectMongo } from './db/mongo.js';
 import { connectSupabase } from './db/supabase.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { requestId } from './middleware/request-id.js';
@@ -74,13 +76,8 @@ app.use(errorHandler);
 let server;
 
 async function bootstrap() {
-  if (env.dataSource === 'supabase') {
-    await connectSupabase();
-    console.log('Supabase connected');
-  } else {
-    await connectMongo();
-    console.log('MongoDB connected (legacy mode)');
-  }
+  await connectSupabase();
+  console.log('[db] Supabase connected');
 
   startFollowups();
   startCartExpiry();

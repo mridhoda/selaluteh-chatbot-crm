@@ -60,10 +60,7 @@ export async function createPayment({ workspaceId, outletId, orderId, customer, 
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
   });
 
-  await ordersRepository.updateOne(
-    { _id: orderId, workspaceId },
-    { $set: { paymentStatus: 'pending' } },
-  );
+  await ordersRepository.updateOne({ workspaceId, orderId, updates: { payment_status: 'pending' } });
 
   return payment;
 }
@@ -123,14 +120,14 @@ export async function syncPaymentWithProvider({ workspaceId, paymentId }) {
 async function processPaidPayment({ payment, providerEvent }) {
   const paidAmount = providerEvent.amount || payment.amount;
   const updated = await paymentsRepository.atomicStatusUpdate({
-    paymentId: payment._id,
+    paymentId: payment.id,
     expectedStatus: 'pending',
     newStatus: 'paid',
   });
   if (!updated) return; // concurrent update won
 
   await paymentsRepository.addEvent({
-    paymentId: payment._id,
+    paymentId: payment.id,
     event: {
       providerEventId: providerEvent.providerTransactionId || providerEvent.providerEventId,
       eventType: 'settlement',
@@ -144,10 +141,7 @@ async function processPaidPayment({ payment, providerEvent }) {
     },
   });
 
-  await ordersRepository.updateOne(
-    { _id: payment.orderId, workspaceId: payment.workspaceId },
-    { $set: { paymentStatus: 'paid' } },
-  );
+  await ordersRepository.updateOne({ workspaceId: payment.workspaceId, orderId: payment.orderId, updates: { payment_status: 'paid' } });
 }
 
 async function loadPaymentAdapter(provider) {

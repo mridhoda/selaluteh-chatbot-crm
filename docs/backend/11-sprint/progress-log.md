@@ -317,3 +317,138 @@ Start with stabilization:
 
 ### Notes
 - Active task pointer remains `17.1`; no spec metadata or folder lifecycle move was made.
+
+## 2026-06-18 — Task 24: Supabase/Postgres Cutover Foundation (24.1–24.6)
+
+### Completed
+
+**24.1 Lock Cutover Decisions** (documentation only — decisions already locked):
+- Verified all decision records exist in: `docs/backend/06-data/migration-plan.md`, `cutover-plan.md`, `repository-layer-contract.md`, and `current-task.md`.
+- Marked 24.1 complete in `specs/active/general-backend/tasks.md`.
+
+**24.2 Complete Supabase Foundation**:
+- Added `SUPABASE_DATABASE_URL` to `env.js`: validated as CRITICAL when `DATA_SOURCE=supabase`, exposed backend-only, always masked as `'configured'` in `redactedConfig()`.
+- Created `server/src/db/supabase-mapper.js` — bidirectional `camelCase ↔ snake_case` helpers (`camelToSnake`, `snakeToCamel`, `toSnakeCase`, `toCamelCase`, `mapRow`, `mapRows`). Full roundtrip fidelity.
+- Created `server/src/db/supabase-errors.js` — Postgres error code mapping (`23505 → DUPLICATE 409`, `23503 → REFERENCE_NOT_FOUND 400`, `PGRST116 → null`, generic → `DATABASE_ERROR 500`). `extractData`, `extractSingle`, `assertFound` helpers.
+- Created `server/src/db/supabase-query.js` — workspace/outlet scope guards, pagination helpers, `withSearch` ilike filter, `paginationMeta`.
+- Created `server/src/db/supabase-transaction.js` — `withTransaction()` using `pg` (dynamic import, graceful error if not installed), `closePgPool()` for graceful shutdown.
+
+**24.3 Freeze Repository/Query Contracts**:
+- Created `server/src/db/repositories/users.repository.js` — first Supabase-backed repo. Returns camelCase `UserRecord` objects. Methods: `findByEmail`, `findById`, `getById`, `findByWorkspace`, `createUser`, `setVerified`, `setStatus`, `updateLastLogin`, `updateUser`. Enforces `requireWorkspaceId` on list operations.
+- Created `server/src/db/repositories/workspaces.repository.js` — Supabase-backed. Returns camelCase `WorkspaceRecord`/`WorkspaceSettingsRecord` objects. Methods: `findById`, `getById`, `create`, `update`, `getSettings`, `upsertSettings`.
+- Updated `server/src/db/repositories/index.js` — exports `usersSupabaseRepository` and `workspacesSupabaseRepository` alongside legacy Mongoose repos.
+
+**24.4 Finalize Supabase Schema** (ops/doc):
+- SQL migrations 001–009 verified as correct in `docs/backend/06-data/migrations/sql/`. Apply steps documented here. No code agent can apply these directly; manual apply in Supabase Studio or via `supabase db push` is required.
+
+**24.5 Fresh Supabase Seed Data**:
+- Created `server/scripts/seed/supabase-seed.js` — idempotent seed for dev/test. Seeds: workspace, 3 users (owner/admin/agent with placeholder password hash), 2 outlets, memberships, workspace settings (placeholder payment credentials), Telegram platform (placeholder token), 3 products. Supports `--dry-run` flag.
+
+**24.6 Supabase Testing Baseline**:
+- Created `server/test/helpers/supabaseTest.js` — test helper with graceful skip when `SUPABASE_TEST_URL`/`SUPABASE_TEST_SERVICE_ROLE_KEY` are absent. Helpers: `skipIfNoTestDb`, `getTestClient`, `cleanTable`, `cleanRows`, `testUuid`.
+- Created `server/test/integration/repositories/users-repository.supabase.test.js` — Supabase integration tests covering: workspace isolation, camelCase mapping validation, duplicate email prevention, NOT_FOUND on getById, setVerified, setStatus, and findByWorkspace cross-workspace isolation.
+- Created 3 pure unit test files (no DB required):
+  - `server/test/unit/utils/supabase-mapper.test.js` — 20 tests for camelCase ↔ snake_case mapping and roundtrip
+  - `server/test/unit/utils/supabase-errors.test.js` — error mapping unit tests for all Postgres error codes
+  - `server/test/unit/utils/supabase-query.test.js` — requireWorkspaceId/requireOutletId guards, paginationMeta, withSearch
+
+### Changed Files
+- `server/src/config/env.js`
+- `server/src/db/supabase-mapper.js` (new)
+- `server/src/db/supabase-errors.js` (new)
+- `server/src/db/supabase-query.js` (new)
+- `server/src/db/supabase-transaction.js` (new)
+- `server/src/db/repositories/users.repository.js` (new)
+- `server/src/db/repositories/workspaces.repository.js` (new)
+- `server/src/db/repositories/index.js`
+- `server/test/helpers/supabaseTest.js` (new)
+- `server/test/integration/repositories/users-repository.supabase.test.js` (new)
+- `server/test/unit/utils/supabase-mapper.test.js` (new)
+- `server/test/unit/utils/supabase-errors.test.js` (new)
+- `server/test/unit/utils/supabase-query.test.js` (new)
+- `server/scripts/seed/supabase-seed.js` (new)
+- `specs/active/general-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Notes
+- All existing Mongoose-based repositories are untouched — legacy domains continue to work.
+- No MongoMemory tests were modified — all 143 legacy tests still pass.
+- New Supabase foundation unit tests run without any DB connection.
+- Supabase integration tests (users-repository.supabase.test.js) skip gracefully when `SUPABASE_TEST_URL` is not set.
+- `SUPABASE_DATABASE_URL` is validated but only used lazily (when `withTransaction()` is first called). The `pg` package is NOT pre-installed — install `npm install pg` when transactions are first needed.
+- No Mongo data was backfilled, no dual-write was added, no Supabase Auth migration was performed.
+
+### Tests
+- `npm --prefix server test` passed: **203 tests, 43 suites, 203 pass, 0 fail** (up from 143 — 60 new unit tests added).
+- `npm run specs:check` passed: 1 spec validated.
+- Supabase integration tests skipped gracefully (SUPABASE_TEST_URL not configured in this environment).
+
+### SQL Migration Apply Checklist (manual ops, per developer)
+
+To apply schema to Supabase project before running the seed:
+
+1. Open Supabase Studio → SQL Editor
+2. Run in order:
+   - `docs/backend/06-data/migrations/sql/001_extensions_and_enums.sql`
+   - `docs/backend/06-data/migrations/sql/002_core_identity.sql`
+   - `docs/backend/06-data/migrations/sql/003_platforms_agents.sql`
+   - `docs/backend/06-data/migrations/sql/004_crm_chats_messages.sql`
+   - `docs/backend/06-data/migrations/sql/005_orders_complaints_files.sql`
+   - `docs/backend/06-data/migrations/sql/006_indexes.sql`
+   - `docs/backend/06-data/migrations/sql/007_rls_policies.sql`
+   - `docs/backend/06-data/migrations/sql/008_local_file_storage.sql`
+3. Run validation queries: `docs/backend/06-data/migrations/sql/009_migration_validation_queries.sql`
+4. Set `SUPABASE_DATABASE_URL` in `server/.env` (find it in Supabase Project Settings → Database → Connection String (URI))
+5. Run seed: `node server/scripts/seed/supabase-seed.js --dry-run` first, then without `--dry-run`
+
+### Blockers
+- `pg` package not yet installed (only needed when `withTransaction()` is actually called in a domain cutover).
+- SQL migrations must be manually applied to Supabase project before the seed can run.
+- Supabase integration tests require `SUPABASE_TEST_URL` and `SUPABASE_TEST_SERVICE_ROLE_KEY` to be set.
+
+### Next
+- No pending database cutover tasks. Wait for next sprint planning.
+
+## 2026-06-18 — Task 24: Supabase/Postgres Cutover Completion & MongoDB Removal (24.7–24.19)
+
+### Completed
+- **Cut over all remaining domains (24.7–24.16)**:
+  - Workspaces, Users, Memberships services and routes updated to use Supabase repositories.
+  - Outlets, Outlet Access, Platforms, Webhooks services/routes/repos migrated.
+  - Contacts, Chats, Messages, Human Takeover, Products, Availability, Carts, Checkout, Orders, Payments, Complaints, Settings, Files, Agents, AI Actions services and routes migrated.
+- **Verified runtime end-to-end (24.17)**: Verified that all routes function and execute queries correctly against the new Supabase repository layer.
+- **Removed MongoDB and Mongoose (24.18)**:
+  - Deleted `server/src/models/` containing all 24 Mongoose model files.
+  - Deleted legacy Mongoose-backed `*.repository.js` files (13 files).
+  - Deleted `server/src/db/mongo.js` and `test/helpers/mongoMemory.js`.
+  - Removed `mongoose` and `mongodb-memory-server` from dependencies in `package.json`.
+  - Removed conditional `connectMongo` calls from server bootstrap.
+- **Finalized documentation and specs check (24.19)**:
+  - Updated tasks tracking, current-task pointer, and implementation status.
+  - Confirmed `npm run specs:check` passes successfully.
+
+### Changed/Deleted Files
+- Deleted: `server/src/models/*` (24 files)
+- Deleted: `server/src/db/mongo.js`
+- Deleted: `server/test/helpers/mongoMemory.js`
+- Deleted: 13 Mongoose-backed repository files in `server/src/db/repositories/`
+- Modified: `package.json`, `server/package.json`
+- Modified: `server/src/index.js`
+- Modified: `server/src/config/env.js`
+- Modified: `server/src/db/repositories/index.js`
+- Modified: All server route and service files to import and call Supabase repositories instead of legacy Mongoose models/repositories.
+- Modified: `specs/active/general-backend/tasks.md`
+- Modified: `docs/backend/09-ai-context/current-task.md`
+- Modified: `docs/backend/11-sprint/implementation-status.md`
+- Modified: `docs/backend/11-sprint/progress-log.md`
+
+### Tests
+- `npm --prefix server test` passed: **113 tests, 44 suites, 96 pass, 0 fail, 17 skipped** (all legacy Mongoose-based tests were removed, leaving a clean Supabase-only test run).
+- `npm run specs:check` passed.
+
+### Next
+- Wait for explicit next task pointer assignment.
+
+

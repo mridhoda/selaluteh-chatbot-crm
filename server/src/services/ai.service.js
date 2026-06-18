@@ -2,11 +2,14 @@ import Fuse from 'fuse.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { openaiClient, geminiClient } from './aiClient.js';
+import { env } from '../config/env.js';
 
-import Chat from '../models/Chat.js';
-import Contact from '../models/Contact.js';
-import Knowledge from '../models/Knowledge.js';
-import Platform from '../models/Platform.js';
+import {
+  chatsSupabaseRepository,
+  contactsSupabaseRepository,
+  platformsSupabaseRepository,
+  messagesSupabaseRepository,
+} from '../db/repositories/index.js';
 import { tgSend, waSend } from './sender.js';
 import { createOrderFromAI } from './order.service.js';
 import { createComplaintFromAI } from './complaint.service.js';
@@ -55,8 +58,9 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
   }
 
   // --- 2. Normal Reply Generation ---
-  const contactId = chat?.contactId;
-  const contact = contactId ? await Contact.findOne({ _id: contactId }) : null;
+  // contactId may be a UUID string or a nested object from Supabase joins
+  const contactId = typeof chat?.contactId === 'object' ? chat.contactId?.id : chat?.contactId;
+  const contact = contactId ? await contactsSupabaseRepository.findById({ workspaceId: chat.workspaceId, contactId }) : null;
   const contactName = contact?.name ? ` The user's name is ${contact.name}.` : '';
 
   let knowledgeContent = '';
@@ -81,7 +85,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
       // TODO: Add multimodal support for OpenAI
       try {
         const resp = await openaiClient.chat.completions.create({
-          model: 'gpt-4o-mini',
+          model: env.openaiModel,
           messages: [
             { role: 'system', content: (system || 'You are a helpful assistant.') + contactName },
             { role: 'user', content: `${prompt || ''}\n\nKnowledge:\n${knowledgeContent}\n\nUser: ${currentMessageText}` },
@@ -98,7 +102,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
     // Fallback to Gemini if OpenAI fails or is not available
     if (geminiClient && !reply) {
       try {
-        const model = geminiClient.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const model = geminiClient.getGenerativeModel({ model: env.geminiModel });
 
         // --- Sales Form Logic ---
         if (agent.salesForms && agent.salesForms.length > 0) {
@@ -290,22 +294,18 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
               const orderData = JSON.parse(jsonString);
               console.log('[AI] Filing Order:', orderData);
 
-              const Message = (await import('../models/Message.js')).default;
-
               // Find payment proof image from recent messages
               let paymentProofUrl = null;
               try {
-                const recentMessages = await Message.find({ chatId: chat._id })
-                  .sort({ createdAt: -1 })
-                  .limit(20);
-
-                // Find last user message with image attachment
-                const paymentProofMessage = recentMessages.find(m =>
-                  m.from === 'user' && m.attachment && m.attachment.url
+                const chatId = chat.id;
+                const recentMessages = await messagesSupabaseRepository.listByChatId(chatId, { limit: 20 });
+                const sorted = [...recentMessages].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                // Find last contact/user message with attachment
+                const paymentProofMessage = sorted.find((m) =>
+                  m.senderType === 'contact' && m.rawPayload?.attachment?.url
                 );
-
                 if (paymentProofMessage) {
-                  paymentProofUrl = paymentProofMessage.attachment.url;
+                  paymentProofUrl = paymentProofMessage.rawPayload.attachment.url;
                 }
               } catch (err) {
                 console.error('[AI] Failed to find payment proof:', err);
@@ -313,9 +313,9 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
 
               const aiActionResult = await executeAIAction({
                 workspaceId: chat.workspaceId || agent.workspaceId,
-                chatId: chat._id,
-                chatMessageId: message._id || null,
-                agentId: agent._id,
+                chatId: chat.id,
+                chatMessageId: message.id || null,
+                agentId: agent.id,
                 actionType: 'create_legacy_order',
                 input: { orderData, paymentProofUrl },
                 executor: () => createOrderFromAI({ chat, agent, orderData, paymentProofUrl }),
@@ -370,9 +370,9 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
 
               const aiActionResult = await executeAIAction({
                 workspaceId: chat.workspaceId || agent.workspaceId,
-                chatId: chat._id,
-                chatMessageId: message._id || null,
-                agentId: agent._id,
+                chatId: chat.id,
+                chatMessageId: message.id || null,
+                agentId: agent.id,
                 actionType: 'create_legacy_complaint',
                 input: { complaintData },
                 executor: () => createComplaintFromAI({ chat, agent, complaintData }),
@@ -382,11 +382,15 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
               }
 
               // Notification Logic
-              if (agent.complaintNotification && agent.complaintNotification.enabled && agent.complaintNotification.platformId && agent.complaintNotification.destination) {
+              if (agent.complaintNotification?.enabled && agent.complaintNotification?.platformId && agent.complaintNotification?.destination) {
                 try {
-                  const notificationPlatform = await Platform.findById(agent.complaintNotification.platformId);
+                  const notifPlatformId = agent.complaintNotification.platformId;
+                  const notificationPlatform = await platformsSupabaseRepository.findByIdWithCredentials({
+                    workspaceId: chat.workspaceId || agent.workspaceId,
+                    platformId: notifPlatformId,
+                  });
                   if (notificationPlatform) {
-                    const notifText = `⚠️ *New Complaint Received*\n\n*Agent:* ${agent.name}\n*Platform:* ${chat.platformType}\n*Issue:* ${complaintData.text || '-'}\n*Contact:* ${complaintData.contactName || chat.contactId?.name || '-'}\n*Phone/ID:* ${complaintData.contactPhone || chat.contactId?.phone || '-'}\n\n*Details:* \n${JSON.stringify(complaintData.formData || {}, null, 2)}`;
+                    const notifText = `⚠️ *New Complaint Received*\n\n*Agent:* ${agent.name}\n*Platform:* ${chat.platformType || ''}\n*Issue:* ${complaintData.text || '-'}\n*Contact:* ${complaintData.contactName || contact?.name || '-'}\n*Phone/ID:* ${complaintData.contactPhone || contact?.phone || '-'}\n\n*Details:* \n${JSON.stringify(complaintData.formData || {}, null, 2)}`;
 
                     console.log(`[AI] Sending complaint notification to ${notificationPlatform.type} (${agent.complaintNotification.destination})`);
 
@@ -433,8 +437,9 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
 
         // Check for escalation
         if (reply.includes('ESCALATE_TO_HUMAN')) {
-          console.log('[AI] Escalation triggered for chat:', chat._id);
-          await Chat.updateOne({ _id: chat._id }, { $set: { isEscalated: true } });
+          const chatId = chat.id;
+          console.log('[AI] Escalation triggered for chat:', chatId);
+          await chatsSupabaseRepository.update({ chatId, updates: { is_escalated: true } });
           return 'Baik, mohon tunggu sebentar, saya akan menyambungkan Anda dengan staf kami.';
         }
 
@@ -445,11 +450,15 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
 
     if (contactId && !contact?.name) {
       const namePrompt = `Does the user reveal their name in this message? If so, what is it? If not, say "NO_NAME".\n\nUser: ${currentMessageText}`;
-      const model = geminiClient.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      const model = geminiClient.getGenerativeModel({ model: env.geminiModel });
       const resp = await model.generateContent(namePrompt);
       const name = resp.response.text();
       if (name && name.trim().toUpperCase() !== 'NO_NAME') {
-        await Contact.updateOne({ _id: contactId }, { $set: { name: name.trim() } });
+        await contactsSupabaseRepository.update({
+          workspaceId: chat.workspaceId,
+          contactId,
+          updates: { name: name.trim() },
+        });
       }
     }
 
@@ -481,13 +490,13 @@ export async function findAndSendFile({ agent, message, openaiClient, geminiClie
             let answer = 'no';
             if (openaiClient) {
               const resp = await openaiClient.chat.completions.create({
-                model: 'gpt-4o-mini',
+                model: env.openaiModel,
                 messages: [{ role: 'user', content: prompt }],
                 temperature: 0,
               });
               answer = resp.choices?.[0]?.message?.content || 'no';
             } else if (geminiClient) {
-              const model = geminiClient.getGenerativeModel({ model: 'gemini-2.5-flash' });
+              const model = geminiClient.getGenerativeModel({ model: env.geminiModel });
               const result = await model.generateContent(prompt);
               answer = result.response.text();
             }
@@ -551,7 +560,7 @@ export async function transcribeAudio(filePath) {
     const mimeType = getMimeType(filename);
     const data = await fs.readFile(filePath, 'base64');
 
-    const model = geminiClient.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = geminiClient.getGenerativeModel({ model: env.geminiModel });
     const result = await model.generateContent([
       { text: 'Please transcribe this audio file. Only return the transcribed text, nothing else.' },
       { inlineData: { mimeType, data } }

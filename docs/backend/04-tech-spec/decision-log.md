@@ -83,3 +83,28 @@ Reason: ESM top-level await prevents module loading in some test/CI contexts. Ad
 Status: Accepted (enforced)
 
 Reason: No standard mark-paid API endpoint exists. Only `atomicStatusUpdate` from webhook processing or reconciliation can transition to `paid`.
+
+## Decision: Supabase/Postgres as the Sole Runtime Target
+
+Status: Accepted
+
+Reason: The backend runtime must fully transition to Supabase/Postgres to support transactional guarantees, relational schema consistency, and scalable multi-tenant isolation.
+
+## Decision: Fresh-Start Migration (No Mongo Data Backfill or Dual-Write)
+
+Status: Accepted
+
+Reason: MongoDB is legacy-only and contains test data. Starting fresh from Supabase avoids complex reconciliation scripts, dual-write sync bugs, and data backfill overhead.
+
+## Decision: Keep Custom Backend JWT Authentication
+
+Status: Accepted
+
+Reason: Custom JWT-based authentication is kept during the cutover. Migration to Supabase Auth is deferred to a future spec to minimize scope and prevent auth disruptions.
+
+## Decision: Domain-by-Domain Staged Cutover & Total MongoDB Removal
+
+Status: Accepted
+
+Reason: To ensure safety and preserve behavior, repository layers and routes were cut over staged domain-by-domain. Once all domains were migrated, MongoDB connection code, Mongoose models, and Mongoose test helpers (like `MongoMemoryServer`) were completely removed from the codebase to eliminate technical debt.
+

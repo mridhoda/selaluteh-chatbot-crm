@@ -1,38 +1,69 @@
-import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+/**
+ * middleware/auth.js — Supabase-backed (task 24.7)
+ *
+ * JWT verification and user attachment middleware.
+ * Resolves user from Supabase users table, not Mongoose.
+ *
+ * req.me shape (camelCase UserRecord):
+ *   id, workspaceId, name, email, role, verified, status,
+ *   plan, planExpiry, metadata, createdAt, updatedAt
+ *
+ * NOTE: req.me.id is a UUID string.
+ */
 
+import jwt from 'jsonwebtoken';
+import { usersSupabaseRepository } from '../db/repositories/users.repository.js';
+import { env } from '../config/env.js';
+
+/**
+ * Verify Bearer JWT and attach payload to req.user.
+ * Does NOT load user from DB — use attachUser for that.
+ */
 export function authRequired(req, res, next) {
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) {
-    console.log('[AuthDebug] No token provided in header:', req.headers);
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET || 'devsecret');
+    const payload = jwt.verify(token, env.jwtSecret);
     req.user = payload;
     next();
   } catch (err) {
-    console.log('[AuthDebug] Token verification failed:', err.message);
     return res.status(401).json({ error: 'Invalid token' });
   }
 }
 
+/**
+ * Load full user record from Supabase and attach to req.me.
+ * Requires authRequired to have run first.
+ *
+ * req.me is a camelCase UserRecord (id is UUID, not ObjectId).
+ */
 export async function attachUser(req, res, next) {
   if (!req.user?.id) {
-    console.log('[AuthDebug] No user ID in payload');
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  const user = await User.findById(req.user.id);
-  if (!user) {
-    console.log('[AuthDebug] User not found for ID:', req.user.id);
-    return res.status(401).json({ error: 'User not found' });
+  try {
+    const user = await usersSupabaseRepository.findById(req.user.id);
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    req.me = user;
+    next();
+  } catch (err) {
+    next(err);
   }
-  req.me = user;
-  next();
 }
 
+
+/**
+ * Role-based access guard.
+ * Requires attachUser to have run first.
+ *
+ * @param {...string} roles - allowed roles (e.g. 'owner', 'super', 'agent')
+ */
 export function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.me) return res.status(401).json({ error: 'Unauthorized' });
@@ -40,5 +71,5 @@ export function requireRole(...roles) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     next();
-  }
+  };
 }

@@ -12,8 +12,7 @@
     "specs:sync:dry": "node scripts/specs/sync-spec-folders.mjs --fix --dry-run",
     "specs:sync": "node scripts/specs/sync-spec-folders.mjs --fix",
     "specs:help": "node scripts/specs/sync-spec-folders.mjs --help",
-    "seed": "npm --prefix server run seed",
-    "cleanup": "npm --prefix server run cleanup"
+    "seed": "npm --prefix server run seed"
   },
   "devDependencies": {
     "yaml": "^2.9.0"

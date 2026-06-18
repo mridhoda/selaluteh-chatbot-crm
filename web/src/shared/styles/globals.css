@@ -560,6 +560,22 @@ body {
     color: var(--text-primary);
 }
 
+.sidebar .item.item--inactive {
+    color: var(--text-muted);
+}
+
+.sidebar .item.item--inactive .icon {
+    color: var(--text-muted);
+}
+
+.sidebar .item.item--inactive:hover {
+    color: var(--text-secondary);
+}
+
+.sidebar .item.item--inactive:hover .icon {
+    color: var(--text-secondary);
+}
+
 .sidebar .item.active {
     background: var(--brand-50) !important;
     color: var(--brand-600) !important;

@@ -1,4 +1,4 @@
-import { paymentsRepository, ordersRepository } from '../db/repositories/index.js';
+import { paymentsSupabaseRepository as paymentsRepository, ordersSupabaseRepository as ordersRepository } from '../db/repositories/index.js';
 import { AppError } from '../utils/errors.js';
 
 export function determineReconciliationStatus({ payment, order, providerStatus }) {
@@ -39,8 +39,8 @@ export async function batchReconcileByStatus({ workspaceId, status, newStatus })
     const order = payment.orderId ? await ordersRepository.workspaceFindById({ workspaceId, orderId: payment.orderId }) : null;
     const recStatus = determineReconciliationStatus({ payment, order, providerStatus: status });
     if (recStatus !== payment.reconciliationStatus) {
-      await paymentsRepository.updatePayment(payment._id, { reconciliationStatus: recStatus });
-      results.push({ paymentId: payment._id, oldStatus: payment.reconciliationStatus, newStatus: recStatus });
+      await paymentsRepository.updatePayment(payment.id, { reconciliation_status: recStatus });
+      results.push({ paymentId: payment.id, oldStatus: payment.reconciliationStatus, newStatus: recStatus });
     }
   }
   return results;
@@ -76,14 +76,14 @@ export async function retryPaymentProcessing({ workspaceId, paymentId }) {
 
 async function processPaidPaymentFromReconciliation({ payment, providerEvent }) {
   const updated = await paymentsRepository.atomicStatusUpdate({
-    paymentId: payment._id,
+    paymentId: payment.id,
     expectedStatus: 'pending',
     newStatus: 'paid',
   });
   if (!updated) return;
 
   await paymentsRepository.addEvent({
-    paymentId: payment._id,
+    paymentId: payment.id,
     event: {
       providerEventId: providerEvent.providerTransactionId,
       eventType: 'settlement',
@@ -97,10 +97,7 @@ async function processPaidPaymentFromReconciliation({ payment, providerEvent }) 
     },
   });
 
-  await ordersRepository.updateOne(
-    { _id: payment.orderId, workspaceId: payment.workspaceId },
-    { $set: { paymentStatus: 'paid' } },
-  );
+  await ordersRepository.updateOne({ workspaceId: payment.workspaceId, orderId: payment.orderId, updates: { payment_status: 'paid' } });
 }
 
 async function loadPaymentAdapter(provider) {

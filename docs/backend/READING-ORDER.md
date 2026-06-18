@@ -830,10 +830,9 @@ docs/backend/12-ops/migration-ops.md
 Invariant:
 
 ```text
-runtime sekarang MongoDB/Mongoose
-PostgreSQL belum aktif sebelum cutover
-migration incremental dan tervalidasi
-rollback/backfill harus terdokumentasi
+runtime sekarang Supabase/Postgres
+MongoDB/Mongoose telah dihapus sepenuhnya
+migration tervalidasi
 ```
 
 ## 9.13 Security

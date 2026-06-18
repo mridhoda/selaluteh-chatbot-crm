@@ -1,0 +1,216 @@
+/**
+ * orders.supabase.repository.js — Supabase-backed (task 24.14)
+ *
+ * Replaces Mongoose Order model.
+ * DB table: orders + order_items + order_events
+ *
+ * OrderRecord shape (camelCase):
+ *   id, workspaceId, outletId, contactId, platformId, chatId, agentId,
+ *   cartId, checkoutId, orderNumber, source, status, paymentStatus,
+ *   fulfillmentStatus, customerNameSnapshot, customerPhoneSnapshot,
+ *   channelSnapshot, customerSnapshot, fulfillmentSnapshot,
+ *   subtotalAmount, discountAmount, deliveryFee, totalAmount, currency,
+ *   paymentMethod, notes, formData, paidAt, metadata, createdAt, updatedAt
+ */
+
+import { getSupabaseServiceClient } from '../supabase.js';
+import { mapRow, mapRows } from '../supabase-mapper.js';
+import { extractData, extractSingle } from '../supabase-errors.js';
+import { requireWorkspaceId, applyPagination } from '../supabase-query.js';
+
+const TABLE = 'orders';
+const ITEMS_TABLE = 'order_items';
+const EVENTS_TABLE = 'order_events';
+
+function mapOrder(row) {
+  if (!row) return null;
+  const order = mapRow(row);
+  const rawItems = row.order_items || [];
+  order.items = rawItems.map((item) => ({
+    id: item.id,
+    productId: item.product_id,
+    variantId: item.variant_id,
+    name: item.product_name_snapshot,
+    productNameSnapshot: item.product_name_snapshot,
+    unitPrice: item.unit_price,
+    quantity: item.quantity,
+    subtotal: item.subtotal_amount,
+    subtotalAmount: item.subtotal_amount,
+    metadata: item.metadata || {},
+  }));
+  order.totals = {
+    subtotal: order.subtotalAmount,
+    discount: order.discountAmount,
+    deliveryFee: order.deliveryFee,
+    total: order.totalAmount,
+    currency: order.currency,
+  };
+  delete order.orderItems;
+  return order;
+}
+
+export const ordersSupabaseRepository = {
+  async create(data) {
+    requireWorkspaceId(data.workspaceId);
+    const client = getSupabaseServiceClient();
+    const insert = {
+      workspace_id: data.workspaceId,
+      outlet_id: data.outletId,
+      contact_id: data.contactId,
+      platform_id: data.platformId || null,
+      chat_id: data.chatId || null,
+      agent_id: data.agentId || null,
+      cart_id: data.cartId || null,
+      checkout_id: data.checkoutId || null,
+      source: data.source || 'telegram',
+      status: data.status || 'new',
+      payment_status: data.paymentStatus || 'unpaid',
+      fulfillment_status: data.fulfillmentStatus || 'unfulfilled',
+      customer_name_snapshot: data.customerNameSnapshot || data.customerName || '',
+      customer_phone_snapshot: data.customerPhoneSnapshot || data.customerPhone || null,
+      channel_snapshot: data.channelSnapshot || null,
+      customer_snapshot: data.customerSnapshot || {},
+      fulfillment_snapshot: data.fulfillmentSnapshot || {},
+      subtotal_amount: data.subtotalAmount ?? 0,
+      discount_amount: data.discountAmount ?? 0,
+      delivery_fee: data.deliveryFee ?? 0,
+      total_amount: data.totalAmount ?? 0,
+      currency: data.currency || 'IDR',
+      payment_method: data.paymentMethod || null,
+      notes: data.notes || null,
+      form_data: data.formData || {},
+      metadata: data.metadata || {},
+    };
+    const result = await client.from(TABLE).insert(insert).select().single();
+    const order = mapRow(extractSingle(result, 'orders.create'));
+    if (Array.isArray(data.items) && data.items.length > 0) {
+      await client.from(ITEMS_TABLE).insert(data.items.map((item) => ({
+        workspace_id: data.workspaceId,
+        order_id: order.id,
+        product_id: item.productId || null,
+        variant_id: item.variantId || null,
+        product_name_snapshot: item.productNameSnapshot || item.name || '',
+        unit_price: item.unitPrice ?? item.effectivePrice ?? 0,
+        quantity: item.quantity,
+        subtotal_amount: item.subtotalAmount ?? item.subtotal ?? (item.unitPrice ?? item.effectivePrice ?? 0) * item.quantity,
+        metadata: item.metadata || {},
+      })));
+    }
+    return this.workspaceFindById({ workspaceId: data.workspaceId, orderId: order.id });
+  },
+
+  async workspaceList({ workspaceId, outletId, status, paymentStatus, search, page = 1, limit = 50 }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    let q = client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
+    if (outletId) q = q.eq('outlet_id', outletId);
+    if (status) q = q.eq('status', status);
+    if (paymentStatus) q = q.eq('payment_status', paymentStatus);
+    if (search) q = q.or(`order_number.ilike.%${search}%,customer_name_snapshot.ilike.%${search}%`);
+    q = applyPagination(q, { page, limit });
+    const result = await q;
+    return (extractData(result, 'orders.workspaceList') ?? []).map(mapOrder);
+  },
+
+  async workspaceCount({ workspaceId, outletId, status, paymentStatus, search }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    let q = client.from(TABLE).select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId);
+    if (outletId) q = q.eq('outlet_id', outletId);
+    if (status) q = q.eq('status', status);
+    if (paymentStatus) q = q.eq('payment_status', paymentStatus);
+    if (search) q = q.or(`order_number.ilike.%${search}%,customer_name_snapshot.ilike.%${search}%`);
+    const result = await q;
+    return result.count ?? 0;
+  },
+
+  async workspaceFindById({ workspaceId, orderId }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status), chats(*), order_items(*)').eq('workspace_id', workspaceId).eq('id', orderId).maybeSingle();
+    const row = extractSingle(result, 'orders.workspaceFindById');
+    return row ? mapOrder(row) : null;
+  },
+
+  async findOne({ workspaceId, orderId, chatId }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    let q = client.from(TABLE).select('*, contacts(*), chats(*)').eq('workspace_id', workspaceId);
+    if (orderId) q = q.eq('id', orderId);
+    if (chatId) q = q.eq('chat_id', chatId);
+    const result = await q.maybeSingle();
+    const row = extractSingle(result, 'orders.findOne');
+    return row ? mapOrder(row) : null;
+  },
+
+  async findList({ workspaceId, chatId, contactId, status }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    let q = client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
+    if (chatId) q = q.eq('chat_id', chatId);
+    if (contactId) q = q.eq('contact_id', contactId);
+    if (status) q = q.eq('status', status);
+    const result = await q;
+    return (extractData(result, 'orders.findList') ?? []).map(mapOrder);
+  },
+
+  async updateOne({ workspaceId, orderId, updates }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client.from(TABLE).update(updates).eq('workspace_id', workspaceId).eq('id', orderId).select('*, contacts(*), chats(*)').maybeSingle();
+    const row = extractSingle(result, 'orders.updateOne');
+    return row ? mapOrder(row) : null;
+  },
+
+  async atomicStatusUpdate({ workspaceId, orderId, expectedStatus, newStatus }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client.from(TABLE).update({ status: newStatus }).eq('workspace_id', workspaceId).eq('id', orderId).eq('status', expectedStatus).select().maybeSingle();
+    const row = extractSingle(result, 'orders.atomicStatusUpdate');
+    return row ? mapOrder(row) : null;
+  },
+
+  async addTimelineEntry({ workspaceId, orderId, entry }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    await client.from(EVENTS_TABLE).insert({
+      workspace_id: workspaceId,
+      order_id: orderId,
+      event_type: entry.type || 'note',
+      label: entry.label || entry.type || 'event',
+      actor_type: entry.actor || 'system',
+      actor_user_id: entry.actorUserId || null,
+      metadata: entry.metadata || {},
+    });
+  },
+
+  async deleteOne({ workspaceId, orderId }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    await client.from(TABLE).delete().eq('workspace_id', workspaceId).eq('id', orderId);
+  },
+
+  /**
+   * Get recent orders for chat-scoped queries (for AI context building).
+   */
+  async findByChatId({ workspaceId, chatId }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client.from(TABLE).select('*, order_items(*)').eq('workspace_id', workspaceId).eq('chat_id', chatId).order('created_at', { ascending: false });
+    return (extractData(result, 'orders.findByChatId') ?? []).map(mapOrder);
+  },
+
+  async getNextOrderNumber(workspaceId) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .select('order_number')
+      .eq('workspace_id', workspaceId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const row = extractSingle(result, 'orders.getNextOrderNumber');
+    return row ? { orderNumber: row.order_number } : null;
+  },
+};
