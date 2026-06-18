@@ -27,7 +27,7 @@ export default function Complaints() {
         if (!confirm('Mark as resolved?')) return;
         try {
             const res = await api.put(`/complaints/${id}`, { status: 'resolved' });
-            setComplaints(complaints.map(c => c._id === id ? res.data : c));
+            setComplaints(complaints.map(c => (c.id || c._id) === id ? res.data : c));
         } catch (err) {
             alert('Failed to resolve');
         }
@@ -37,7 +37,7 @@ export default function Complaints() {
         if (!confirm('Delete this complaint?')) return;
         try {
             await api.delete(`/complaints/${id}`);
-            setComplaints(complaints.filter(c => c._id !== id));
+            setComplaints(complaints.filter(c => (c.id || c._id) !== id));
         } catch (err) {
             alert('Failed to delete');
         }
@@ -70,57 +70,60 @@ export default function Complaints() {
                                 </td>
                             </tr>
                         ) : (
-                            complaints.map(c => (
-                                <tr key={c._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                    <td style={{ padding: '12px 16px' }}>
-                                        <span className={`status-badge ${c.status}`} style={{
-                                            padding: '4px 8px',
-                                            borderRadius: '4px',
-                                            fontSize: '12px',
-                                            textTransform: 'uppercase',
-                                            fontWeight: '600',
-                                            backgroundColor: c.status === 'resolved' ? '#d1fae5' : '#fee2e2',
-                                            color: c.status === 'resolved' ? '#065f46' : '#991b1b'
-                                        }}>
-                                            {c.status}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: '12px 16px', fontSize: '0.9em', color: '#334155' }}>
-                                        {new Date(c.createdAt).toLocaleString()}
-                                    </td>
-                                    <td style={{ padding: '12px 16px' }}>
-                                        <div style={{ fontWeight: '500', color: '#0f172a' }}>{c.contactId?.name || 'Unknown'}</div>
-                                        <div style={{ fontSize: '0.8em', color: '#64748b' }}>{c.contactId?.phone || c.contactId?.email || ''}</div>
-                                    </td>
-                                    <td style={{ padding: '12px 16px', maxWidth: '300px', color: '#334155' }}>
-                                        <div>{c.text}</div>
-                                        {c.formData && Object.keys(c.formData).length > 0 && (
-                                            <div style={{ marginTop: 8, fontSize: '0.9em', color: '#64748b', background: '#f8fafc', padding: 8, borderRadius: 4 }}>
-                                                {Object.entries(c.formData).map(([k, v]) => (
-                                                    <div key={k}><strong>{k}:</strong> {v}</div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td style={{ padding: '12px 16px', textTransform: 'capitalize', color: '#334155' }}>
-                                        {c.platformType || '-'}
-                                    </td>
-                                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                                        {c.status !== 'resolved' && (
-                                            <button className="btn-icon" onClick={() => resolve(c._id)} title="Resolve" style={{
-                                                border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', marginRight: '8px'
+                            complaints.map(c => {
+                                const cid = c.id || c._id;
+                                return (
+                                    <tr key={cid} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                        <td style={{ padding: '12px 16px' }}>
+                                            <span className={`status-badge ${c.status}`} style={{
+                                                padding: '4px 8px',
+                                                borderRadius: '4px',
+                                                fontSize: '12px',
+                                                textTransform: 'uppercase',
+                                                fontWeight: '600',
+                                                backgroundColor: c.status === 'resolved' ? '#d1fae5' : '#fee2e2',
+                                                color: c.status === 'resolved' ? '#065f46' : '#991b1b'
                                             }}>
-                                                <FontAwesomeIcon icon={faCheckCircle} style={{ color: 'green' }} />
+                                                {c.status}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '12px 16px', fontSize: '0.9em', color: '#334155' }}>
+                                            {new Date(c.createdAt).toLocaleString()}
+                                        </td>
+                                        <td style={{ padding: '12px 16px' }}>
+                                            <div style={{ fontWeight: '500', color: '#0f172a' }}>{c.contactId?.name || 'Unknown'}</div>
+                                            <div style={{ fontSize: '0.8em', color: '#64748b' }}>{c.contactId?.phone || c.contactId?.email || ''}</div>
+                                        </td>
+                                        <td style={{ padding: '12px 16px', maxWidth: '300px', color: '#334155' }}>
+                                            <div>{c.text}</div>
+                                            {c.formData && Object.keys(c.formData).length > 0 && (
+                                                <div style={{ marginTop: 8, fontSize: '0.9em', color: '#64748b', background: '#f8fafc', padding: 8, borderRadius: 4 }}>
+                                                    {Object.entries(c.formData).map(([k, v]) => (
+                                                        <div key={k}><strong>{k}:</strong> {v}</div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: '12px 16px', textTransform: 'capitalize', color: '#334155' }}>
+                                            {c.platformType || '-'}
+                                        </td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                            {c.status !== 'resolved' && (
+                                                <button className="btn-icon" onClick={() => resolve(cid)} title="Resolve" style={{
+                                                    border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', marginRight: '8px'
+                                                }}>
+                                                    <FontAwesomeIcon icon={faCheckCircle} style={{ color: 'green' }} />
+                                                </button>
+                                            )}
+                                            <button className="btn-icon" onClick={() => remove(cid)} title="Delete" style={{
+                                                border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px'
+                                            }}>
+                                                <FontAwesomeIcon icon={faTrash} style={{ color: 'red' }} />
                                             </button>
-                                        )}
-                                        <button className="btn-icon" onClick={() => remove(c._id)} title="Delete" style={{
-                                            border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px'
-                                        }}>
-                                            <FontAwesomeIcon icon={faTrash} style={{ color: 'red' }} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
+                                        </td>
+                                    </tr>
+                                );
+                            })
                         )}
                     </tbody>
                 </table>

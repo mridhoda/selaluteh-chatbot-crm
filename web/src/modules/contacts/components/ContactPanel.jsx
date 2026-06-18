@@ -32,7 +32,7 @@ export default function ContactPanel({ selected, onUpdate, onDeleteChat }) {
     if (!contact) return
     setSaving(true)
     try {
-      const r = await api.put(`/contacts/${contact._id}`, { tags: currentTags, notes: currentNotes })
+      const r = await api.put(`/contacts/${contact.id || contact._id}`, { tags: currentTags, notes: currentNotes })
       onUpdate?.(r.data)
       // Only set tags/notes from backend response if successful
       setTags(r.data.tags || [])
@@ -89,7 +89,7 @@ export default function ContactPanel({ selected, onUpdate, onDeleteChat }) {
 
     // Optimistic update or just call parent update
     try {
-      const r = await api.post(`/chats/${selected._id}/takeover`, { userId: agentId });
+      const r = await api.post(`/chats/${selected.id || selected._id}/takeover`, { userId: agentId });
       onUpdate?.(r.data); // Update parent state
     } catch (err) {
       console.error('Failed to assign agent:', err);
@@ -237,7 +237,7 @@ export default function ContactPanel({ selected, onUpdate, onDeleteChat }) {
                 >
                   <option value="" disabled>Assign Agent...</option>
                   {humanAgents.map(agent => (
-                    <option key={agent._id} value={agent._id}>
+                    <option key={agent.id || agent._id} value={agent.id || agent._id}>
                       {agent.name}
                     </option>
                   ))}

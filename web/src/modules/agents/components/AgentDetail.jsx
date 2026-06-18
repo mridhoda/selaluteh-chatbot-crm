@@ -172,6 +172,14 @@ export default function AgentDetail() {
   const [database, setDatabase] = useState([])
   const [complaintFields, setComplaintFields] = useState([])
   const [complaintNotification, setComplaintNotification] = useState({ enabled: false, platformId: '', destination: '' })
+  const [aiSettings, setAiSettings] = useState({
+    provider: 'openai',
+    baseUrl: '',
+    apiKey: '',
+    model: '',
+    temperature: 0.7,
+    maxTokens: '',
+  })
   const [knowledgeTab, setKnowledgeTab] = useState('text')
   const [newUrl, setNewUrl] = useState('')
   const [newText, setNewText] = useState('')
@@ -285,7 +293,11 @@ export default function AgentDetail() {
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
   useEffect(() => {
-    ; (async () => {
+    if (!id || id === 'undefined' || id === 'null') {
+      setLoading(false);
+      return;
+    }
+    ;(async () => {
       try {
         const [a, p] = await Promise.all([
           api.get(`/agents/${id}`),
@@ -304,6 +316,7 @@ export default function AgentDetail() {
         setDatabase(Array.isArray(a.data.database) ? a.data.database : [])
         setComplaintFields(Array.isArray(a.data.complaintFields) ? a.data.complaintFields : [])
         setComplaintNotification(a.data.complaintNotification || { enabled: false, platformId: '', destination: '' })
+        setAiSettings(a.data.aiSettings || { provider: 'openai', baseUrl: '', apiKey: '', model: '', temperature: 0.7, maxTokens: '' })
         setPlatforms(p.data)
       } catch (error) {
         console.error('Error fetching agent data:', error)
@@ -329,6 +342,7 @@ export default function AgentDetail() {
         database,
         complaintFields,
         complaintNotification,
+        aiSettings,
       }
       const r = await api.put(`/agents/${id}`, payload)
       setAgent(r.data)
@@ -649,6 +663,7 @@ export default function AgentDetail() {
               setDatabase(Array.isArray(agent.database) ? agent.database : [])
               setComplaintFields(Array.isArray(agent.complaintFields) ? agent.complaintFields : [])
               setComplaintNotification(agent.complaintNotification || { enabled: false, platformId: '', destination: '' })
+              setAiSettings(agent.aiSettings || { provider: 'openai', baseUrl: '', apiKey: '', model: '', temperature: 0.7, maxTokens: '' })
             }} 
             className="bg-white text-slate-600 px-5 py-2.5 rounded-full font-semibold text-sm border border-slate-200 shadow-sm hover:bg-slate-50 transition"
           >
@@ -674,6 +689,7 @@ export default function AgentDetail() {
           { id: 'evaluation', label: 'Evaluation', icon: 'fa-chart-line' },
           { id: 'database', label: 'Files / Database', icon: 'fa-folder-open' },
           { id: 'complaints', label: 'Complaints', icon: 'fa-circle-exclamation' },
+          { id: 'ai-settings', label: 'AI Settings', icon: 'fa-microchip' },
           { id: 'sales', label: 'Sales', icon: 'fa-sack-dollar' },
         ].map((t) => (
           <button
@@ -1143,7 +1159,7 @@ export default function AgentDetail() {
                   >
                     <option value="">Select Platform</option>
                     {platforms.map((p) => (
-                      <option key={p._id} value={p._id}>
+                      <option key={p.id || p._id} value={p.id || p._id}>
                         {p.name || p.label} ({p.type})
                       </option>
                     ))}
@@ -1159,14 +1175,14 @@ export default function AgentDetail() {
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex items-center gap-4">
                       <div className="w-14 h-14 bg-sky-50 rounded-2xl flex items-center justify-center shadow-sm">
-                        <i className={`fa-brands fa-${platforms.find(p => p._id === platformId)?.type === 'whatsapp' ? 'whatsapp' : 'telegram'} text-3xl text-sky-500`}></i>
+                        <i className={`fa-brands fa-${platforms.find(p => (p.id || p._id) === platformId)?.type === 'whatsapp' ? 'whatsapp' : 'telegram'} text-3xl text-sky-500`}></i>
                       </div>
                       <div>
                         <h2 className="text-xl font-bold text-slate-800 capitalize">
-                          {platforms.find(p => p._id === platformId)?.type || 'Telegram'}
+                          {platforms.find(p => (p.id || p._id) === platformId)?.type || 'Telegram'}
                         </h2>
                         <p className="text-sm text-slate-500 flex items-center gap-2">
-                          Terhubung sebagai <span className="font-semibold text-slate-700">{platforms.find(p => p._id === platformId)?.name || 'Platform'}</span>
+                          Terhubung sebagai <span className="font-semibold text-slate-700">{platforms.find(p => (p.id || p._id) === platformId)?.name || 'Platform'}</span>
                         </p>
                       </div>
                     </div>
@@ -1183,11 +1199,11 @@ export default function AgentDetail() {
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 block">Webhook URL Platform</label>
                     <div className="flex gap-2">
                       <code className="flex-1 bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-mono text-slate-600 overflow-x-auto whitespace-nowrap flex items-center">
-                        {`${api.defaults.baseURL || window.location.origin}/webhook/${platforms.find(p => p._id === platformId)?.type || 'platform'}`}
+                        {`${api.defaults.baseURL || window.location.origin}/webhook/${platforms.find(p => (p.id || p._id) === platformId)?.type || 'platform'}`}
                       </code>
                       <button 
                         onClick={() => {
-                          navigator.clipboard.writeText(`${api.defaults.baseURL || window.location.origin}/webhook/${platforms.find(p => p._id === platformId)?.type || 'platform'}`)
+                          navigator.clipboard.writeText(`${api.defaults.baseURL || window.location.origin}/webhook/${platforms.find(p => (p.id || p._id) === platformId)?.type || 'platform'}`)
                           alert('Webhook URL copied!')
                         }}
                         className="bg-white text-slate-600 border border-slate-200 px-4 rounded-lg hover:bg-slate-100 transition hover:text-orange-500" 
@@ -1532,7 +1548,7 @@ export default function AgentDetail() {
                     >
                       <option value="">Select Platform</option>
                       {platforms.map(p => (
-                        <option key={p._id} value={p._id}>{p.name} ({p.type})</option>
+                        <option key={p.id || p._id} value={p.id || p._id}>{p.name} ({p.type})</option>
                       ))}
                     </select>
                   </div>
@@ -1551,6 +1567,217 @@ export default function AgentDetail() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB: AI SETTINGS */}
+          {tab === 'ai-settings' && (
+            <div className="space-y-6 animate-slide-up">
+              
+              {/* Header card */}
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 text-white shadow-xl">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <i className="fa-solid fa-microchip text-white"></i>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">AI Model Settings</h3>
+                    <p className="text-slate-400 text-sm">Konfigurasi model AI khusus untuk agent ini</p>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center gap-2 bg-slate-700/50 rounded-xl px-4 py-2.5 text-sm text-slate-300">
+                  <i className="fa-solid fa-circle-info text-orange-400"></i>
+                  <span>Pengaturan ini akan <strong className="text-white">menimpa konfigurasi global</strong> hanya untuk agent ini. Kosongkan jika ingin menggunakan pengaturan default sistem.</span>
+                </div>
+              </div>
+
+              {/* Provider Selection */}
+              <div className="bg-white rounded-2xl p-6 shadow-xl shadow-slate-200/60 border border-slate-100">
+                <h4 className="text-base font-bold text-slate-800 mb-1">AI Provider</h4>
+                <p className="text-xs text-slate-500 mb-4">Pilih provider AI yang akan digunakan untuk agent ini.</p>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { id: 'openai', label: 'OpenAI Compatible', icon: 'fa-robot', desc: 'OpenAI API atau provider yang kompatibel (LocalAI, Ollama, dll)' },
+                    { id: 'global', label: 'Gunakan Default Sistem', icon: 'fa-globe', desc: 'Gunakan konfigurasi AI global dari server' },
+                  ].map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setAiSettings(prev => ({ ...prev, provider: p.id }))}
+                      className={`flex flex-col items-start gap-2 p-4 rounded-xl border-2 transition-all text-left ${
+                        aiSettings.provider === p.id
+                          ? 'border-orange-400 bg-orange-50 shadow-md shadow-orange-100'
+                          : 'border-slate-200 hover:border-slate-300 bg-slate-50'
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                        aiSettings.provider === p.id ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'
+                      }`}>
+                        <i className={`fa-solid ${p.icon} text-sm`}></i>
+                      </div>
+                      <div>
+                        <div className={`font-semibold text-sm ${aiSettings.provider === p.id ? 'text-orange-700' : 'text-slate-700'}`}>{p.label}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">{p.desc}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* OpenAI Compatible Settings */}
+              {aiSettings.provider === 'openai' && (
+                <div className="bg-white rounded-2xl p-6 shadow-xl shadow-slate-200/60 border border-slate-100 space-y-5">
+                  <div>
+                    <h4 className="text-base font-bold text-slate-800 mb-1">OpenAI Compatible Configuration</h4>
+                    <p className="text-xs text-slate-500">Kompatibel dengan OpenAI API, LocalAI, Ollama (via OpenAI compat), LM Studio, Together AI, Groq, dan lainnya.</p>
+                  </div>
+
+                  {/* Base URL */}
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                      Base URL <span className="text-slate-400 font-normal">(endpoint API)</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                        <i className="fa-solid fa-link"></i>
+                      </span>
+                      <input
+                        type="url"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-3 text-sm focus:ring-2 focus:ring-orange-100 focus:border-orange-300 outline-none transition"
+                        placeholder="https://api.openai.com/v1 atau http://localhost:11434/v1"
+                        value={aiSettings.baseUrl || ''}
+                        onChange={(e) => setAiSettings(prev => ({ ...prev, baseUrl: e.target.value }))}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">Contoh: <code className="bg-slate-100 px-1 rounded">http://localhost:20128/v1</code> untuk LocalAI lokal</p>
+                  </div>
+
+                  {/* API Key */}
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                      API Key <span className="text-slate-400 font-normal">(opsional jika lokal)</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                        <i className="fa-solid fa-key"></i>
+                      </span>
+                      <input
+                        type="password"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-3 text-sm focus:ring-2 focus:ring-orange-100 focus:border-orange-300 outline-none transition font-mono"
+                        placeholder="sk-..."
+                        value={aiSettings.apiKey || ''}
+                        onChange={(e) => setAiSettings(prev => ({ ...prev, apiKey: e.target.value }))}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">Untuk server lokal, bisa diisi dengan nilai apapun (misal: <code className="bg-slate-100 px-1 rounded">local</code>)</p>
+                  </div>
+
+                  {/* Model Name */}
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                      Model Name
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                        <i className="fa-solid fa-brain"></i>
+                      </span>
+                      <input
+                        type="text"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-3 text-sm focus:ring-2 focus:ring-orange-100 focus:border-orange-300 outline-none transition font-mono"
+                        placeholder="gpt-4o-mini, llama3, mmf/mimo-auto, dll"
+                        value={aiSettings.model || ''}
+                        onChange={(e) => setAiSettings(prev => ({ ...prev, model: e.target.value }))}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">Nama model yang tersedia di provider Anda</p>
+                  </div>
+
+                  {/* Temperature & Max Tokens */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Temperature */}
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                        Temperature
+                        <span className="ml-2 text-orange-500 font-bold">{aiSettings.temperature ?? 0.7}</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.05"
+                        value={aiSettings.temperature ?? 0.7}
+                        onChange={(e) => setAiSettings(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
+                        className="w-full accent-orange-500"
+                      />
+                      <div className="flex justify-between text-xs text-slate-400 mt-1">
+                        <span>0 – Deterministik</span>
+                        <span>2 – Sangat Kreatif</span>
+                      </div>
+                    </div>
+
+                    {/* Max Tokens */}
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                        Max Tokens <span className="text-slate-400 font-normal">(opsional)</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                          <i className="fa-solid fa-hashtag"></i>
+                        </span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="32000"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-3 text-sm focus:ring-2 focus:ring-orange-100 focus:border-orange-300 outline-none transition"
+                          placeholder="Kosong = default model"
+                          value={aiSettings.maxTokens || ''}
+                          onChange={(e) => setAiSettings(prev => ({ ...prev, maxTokens: e.target.value ? parseInt(e.target.value) : '' }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Info Box */}
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
+                    <i className="fa-solid fa-circle-info text-blue-400 mt-0.5 shrink-0"></i>
+                    <div className="text-sm text-blue-700">
+                      <strong>Tips Kompatibilitas:</strong>
+                      <ul className="mt-1 space-y-0.5 text-blue-600 text-xs">
+                        <li>• <strong>LocalAI / LM Studio:</strong> Base URL <code className="bg-blue-100 px-1 rounded">http://localhost:PORT/v1</code></li>
+                        <li>• <strong>Ollama:</strong> Base URL <code className="bg-blue-100 px-1 rounded">http://localhost:11434/v1</code>, API Key <code className="bg-blue-100 px-1 rounded">ollama</code></li>
+                        <li>• <strong>Groq:</strong> Base URL <code className="bg-blue-100 px-1 rounded">https://api.groq.com/openai/v1</code></li>
+                        <li>• <strong>Together AI:</strong> Base URL <code className="bg-blue-100 px-1 rounded">https://api.together.xyz/v1</code></li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Global Default Info */}
+              {aiSettings.provider === 'global' && (
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 flex gap-4 items-start">
+                  <div className="w-10 h-10 bg-slate-200 rounded-xl flex items-center justify-center shrink-0">
+                    <i className="fa-solid fa-globe text-slate-500"></i>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-700 mb-1">Menggunakan Konfigurasi Default Sistem</h4>
+                    <p className="text-sm text-slate-500">Agent ini akan menggunakan model dan konfigurasi AI yang dikonfigurasi di file <code className="bg-slate-100 px-1 rounded">.env</code> server. Pergi ke menu <strong>Settings</strong> untuk mengubah konfigurasi global.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Save Button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={save}
+                  disabled={saving}
+                  className="bg-slate-900 text-white px-8 py-3 rounded-full font-bold text-sm shadow-lg shadow-slate-900/20 hover:bg-slate-800 hover:scale-[1.02] transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <i className="fa-solid fa-floppy-disk"></i>
+                  {saving ? 'Menyimpan...' : 'Simpan AI Settings'}
+                </button>
+              </div>
+
             </div>
           )}
 

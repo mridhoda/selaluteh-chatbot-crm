@@ -18,7 +18,7 @@ export default function AgentSales({ agent, onUpdate }) {
     const [newOutlet, setNewOutlet] = useState('');
 
     const startEditing = (form) => {
-        setCurrentFormId(form ? form._id : null);
+        setCurrentFormId(form ? (form.id || form._id) : null);
         setEditName(form ? form.name : '');
         setEditTriggers(form ? form.triggerKeywords.join(', ') : '');
         setEditFields(form ? form.fields.join(', ') : '');
@@ -40,14 +40,15 @@ export default function AgentSales({ agent, onUpdate }) {
 
         let updatedForms;
         if (currentFormId) {
-            updatedForms = forms.map(f => f._id === currentFormId ? { ...newFormObj, _id: f._id } : f);
+            updatedForms = forms.map(f => (f.id || f._id) === currentFormId ? { ...newFormObj, id: f.id, _id: f._id } : f);
         } else {
+            newFormObj.id = `form_${Date.now()}`;
             updatedForms = [...forms, newFormObj];
         }
 
         try {
-            const res = await api.put(`/agents/${agent._id}`, { salesForms: updatedForms });
-            setForms(res.data.salesForms);
+            const res = await api.put(`/agents/${agent.id || agent._id}`, { salesForms: updatedForms });
+            setForms(res.data.salesForms || []);
             onUpdate(res.data);
             setIsEditing(false);
             setCurrentFormId(null);
@@ -59,8 +60,8 @@ export default function AgentSales({ agent, onUpdate }) {
 
     const handleUpdateOutlets = async (updatedOutlets) => {
         try {
-            const res = await api.put(`/agents/${agent._id}`, { outlets: updatedOutlets });
-            setOutlets(res.data.outlets);
+            const res = await api.put(`/agents/${agent.id || agent._id}`, { outlets: updatedOutlets });
+            setOutlets(res.data.outlets || []);
             onUpdate(res.data);
             setNewOutlet('');
         } catch (err) {
@@ -70,10 +71,10 @@ export default function AgentSales({ agent, onUpdate }) {
 
     const handleDeleteForm = async (formId) => {
         if (!confirm('Delete this scenario?')) return;
-        const updatedForms = forms.filter(f => f._id !== formId);
+        const updatedForms = forms.filter(f => (f.id || f._id) !== formId);
         try {
-            const res = await api.put(`/agents/${agent._id}`, { salesForms: updatedForms });
-            setForms(res.data.salesForms);
+            const res = await api.put(`/agents/${agent.id || agent._id}`, { salesForms: updatedForms });
+            setForms(res.data.salesForms || []);
             onUpdate(res.data);
         } catch (err) {
             alert('Failed to delete scenario');
@@ -234,7 +235,7 @@ export default function AgentSales({ agent, onUpdate }) {
                             checked={agent.payment?.enabled || false}
                             onChange={async (e) => {
                                 try {
-                                    const res = await api.put(`/agents/${agent._id}`, {
+                                    const res = await api.put(`/agents/${agent.id || agent._id}`, {
                                         payment: { ...agent.payment, enabled: e.target.checked }
                                     });
                                     onUpdate(res.data);
@@ -254,10 +255,10 @@ export default function AgentSales({ agent, onUpdate }) {
                                 value={agent.payment?.bankInfo || ''}
                                 onChange={(e) => onUpdate({ ...agent, payment: { ...agent.payment, bankInfo: e.target.value } })}
                                 onBlur={async () => {
-                                    await api.put(`/agents/${agent._id}`, { payment: agent.payment });
+                                    await api.put(`/agents/${agent.id || agent._id}`, { payment: agent.payment });
                                 }}
                                 placeholder="Bank details..."
-                            />
+                             />
                         </div>
                         <div className="form-group" style={{ marginTop: 15 }}>
                             <label>QRIS Image</label>
@@ -267,7 +268,7 @@ export default function AgentSales({ agent, onUpdate }) {
                                     <div style={{ marginTop: 5 }}>
                                         <button className="btn ghost small" onClick={async () => {
                                             if (!confirm('Delete?')) return;
-                                            const res = await api.put(`/agents/${agent._id}`, { payment: { ...agent.payment, qrisUrl: '' } });
+                                            const res = await api.put(`/agents/${agent.id || agent._id}`, { payment: { ...agent.payment, qrisUrl: '' } });
                                             onUpdate(res.data);
                                         }}>Remove</button>
                                     </div>
@@ -279,7 +280,7 @@ export default function AgentSales({ agent, onUpdate }) {
                                             const formData = new FormData();
                                             formData.append('file', e.target.files[0]);
                                             const upRes = await api.post('/agents/upload', formData);
-                                            const res = await api.put(`/agents/${agent._id}`, { payment: { ...agent.payment, qrisUrl: upRes.data.filePath } });
+                                            const res = await api.put(`/agents/${agent.id || agent._id}`, { payment: { ...agent.payment, qrisUrl: upRes.data.filePath } });
                                             onUpdate(res.data);
                                         }
                                     }} />
@@ -302,21 +303,24 @@ export default function AgentSales({ agent, onUpdate }) {
             </div>
 
             <div className="sales-forms-grid">
-                {forms.map((form, idx) => (
-                    <div key={idx} className="card" style={{ padding: 15, marginBottom: 10, border: '1px solid #ddd' }}>
-                        <div className="row" style={{ justifyContent: 'space-between' }}>
-                            <strong>{form.name}</strong>
-                            <div className="actions">
-                                <button className="btn-icon" onClick={() => startEditing(form)}><FontAwesomeIcon icon={faEdit} /></button>
-                                <button className="btn-icon" onClick={() => handleDeleteForm(form._id)}><FontAwesomeIcon icon={faTrash} /></button>
+                {forms.map((form, idx) => {
+                    const formId = form.id || form._id || `idx-${idx}`;
+                    return (
+                        <div key={formId} className="card" style={{ padding: 15, marginBottom: 10, border: '1px solid #ddd' }}>
+                            <div className="row" style={{ justifyContent: 'space-between' }}>
+                                <strong>{form.name}</strong>
+                                <div className="actions">
+                                    <button className="btn-icon" onClick={() => startEditing(form)}><FontAwesomeIcon icon={faEdit} /></button>
+                                    <button className="btn-icon" onClick={() => handleDeleteForm(formId)}><FontAwesomeIcon icon={faTrash} /></button>
+                                </div>
+                            </div>
+                            <div style={{ fontSize: '0.9em', marginTop: 5, color: '#666' }}>
+                                <div>Triggers: {form.triggerKeywords.join(', ')}</div>
+                                <div>Products: {form.products?.length || 0} items</div>
                             </div>
                         </div>
-                        <div style={{ fontSize: '0.9em', marginTop: 5, color: '#666' }}>
-                            <div>Triggers: {form.triggerKeywords.join(', ')}</div>
-                            <div>Products: {form.products?.length || 0} items</div>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
                 {forms.length === 0 && <p className="muted">No scenarios defined.</p>}
             </div>
 

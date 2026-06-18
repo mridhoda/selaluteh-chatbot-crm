@@ -9,12 +9,12 @@ export default function ContactsPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10)
 
   useEffect(() => {
-    api.get('/contacts').then((r) => setContacts(r.data))
+    api.get('/contacts').then((r) => setContacts(r.data.data || r.data || []))
   }, [])
 
-  const filtered = contacts.filter((c) =>
+  const filtered = Array.isArray(contacts) ? contacts.filter((c) =>
     c.name?.toLowerCase().includes(q.toLowerCase())
-  )
+  ) : []
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage)
 
@@ -60,7 +60,7 @@ export default function ContactsPage() {
 
   const exportToExcel = () => {
     const ws = XLSX.utils.json_to_sheet(
-      contacts.map((c) => ({
+      (Array.isArray(contacts) ? contacts : []).map((c) => ({
         'Name': c.name,
         'ID / Phone': c.platformAccountId || c.phone || '-',
         'Waktu Awal Chat': new Date(c.createdAt).toLocaleString(),
@@ -98,7 +98,7 @@ export default function ContactsPage() {
 
       <div className='contacts-grid'>
         {paginatedContacts.map((c) => (
-          <div key={c._id} className='contact-card'>
+          <div key={c.id || c._id} className='contact-card'>
             <div className='contact-header'>
               <div className='contact-avatar'>
                 {c.name?.charAt(0).toUpperCase() || '?'}

@@ -471,7 +471,7 @@ function Agents() {
   const del = async (id) => {
     if (!confirm('Hapus agent ini?')) return
     await api.delete(`/agents/${id}`)
-    setRows(rows.filter((r) => r._id !== id))
+    setRows(rows.filter((r) => (r.id || r._id) !== id))
   }
   const copy = async (txt) => {
     try {
@@ -512,7 +512,7 @@ function Agents() {
   }
 
   const pfById = {}
-  platforms.forEach((p) => (pfById[p._id] = p))
+  platforms.forEach((p) => (pfById[p.id || p._id] = p))
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 20px' }}>
@@ -544,38 +544,41 @@ function Agents() {
 
       {/* Grid */}
       <div className='agents-grid'>
-        {filtered.map((a) => (
-          <div key={a._id} className='agent-card'>
-            <div className='agent-name'>{a.name}</div>
-            <div className='agent-avatar'>{initials(a.name)}</div>
-            <div className='agent-sub'>
-              {(a.prompt || a.welcomeMessage || '-').slice(0, 60) || '-'}
-            </div>
+        {filtered.map((a) => {
+          const agentId = a.id || a._id;
+          return (
+            <div key={agentId} className='agent-card'>
+              <div className='agent-name'>{a.name}</div>
+              <div className='agent-avatar'>{initials(a.name)}</div>
+              <div className='agent-sub'>
+                {(a.prompt || a.welcomeMessage || '-').slice(0, 60) || '-'}
+              </div>
 
-            <div className='agent-actions'>
-              <button
-                className='agent-action-btn'
-                onClick={() => navigate(`/app/agents/${a._id}`)}
-              >
-                Settings
-              </button>
-              <button
-                className='agent-action-btn icon-only'
-                title='Copy ID'
-                onClick={() => copy(a._id)}
-              >
-                <FontAwesomeIcon icon={faCopy} />
-              </button>
-              <button
-                className='agent-action-btn icon-only'
-                title='Delete'
-                onClick={() => del(a._id)}
-              >
-                <FontAwesomeIcon icon={faTrash} />
-              </button>
+              <div className='agent-actions'>
+                <button
+                  className='agent-action-btn'
+                  onClick={() => navigate(`/app/agents/${agentId}`)}
+                >
+                  Settings
+                </button>
+                <button
+                  className='agent-action-btn icon-only'
+                  title='Copy ID'
+                  onClick={() => copy(agentId)}
+                >
+                  <FontAwesomeIcon icon={faCopy} />
+                </button>
+                <button
+                  className='agent-action-btn icon-only'
+                  title='Delete'
+                  onClick={() => del(agentId)}
+                >
+                  <FontAwesomeIcon icon={faTrash} />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Create New Card */}
         <div className='agent-card create-new' onClick={openCreate}>
@@ -713,7 +716,7 @@ function Humans() {
     if (!confirm('Hapus pengguna ini?')) return
     try {
       await api.delete(`/users/${id}`)
-      setRows(rows.filter((r) => r._id !== id))
+      setRows(rows.filter((r) => (r.id || r._id) !== id))
     } catch (err) {
       alert(err.response?.data?.error || 'Gagal menghapus pengguna')
     }
@@ -777,40 +780,43 @@ function Humans() {
 
       {/* Grid */}
       <div className='agents-grid'>
-        {filtered.map((u) => (
-          <div key={u._id} className='agent-card'>
-            <div className='agent-name'>{u.name}</div>
-            <div className='agent-avatar'>{initials(u.name)}</div>
-            <div className='agent-sub'>
-              {(u.email || '-').slice(0, 60) || '-'}
-            </div>
+        {filtered.map((u) => {
+          const userId = u.id || u._id;
+          return (
+            <div key={userId} className='agent-card'>
+              <div className='agent-name'>{u.name}</div>
+              <div className='agent-avatar'>{initials(u.name)}</div>
+              <div className='agent-sub'>
+                {(u.email || '-').slice(0, 60) || '-'}
+              </div>
 
-            {/* Role Badge */}
-            <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center' }}>
-              <span style={{
-                padding: '4px 12px',
-                borderRadius: 12,
-                fontSize: 11,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                background: u.role === 'owner' ? '#EF4444' : u.role === 'super' ? '#F59E0B' : '#3B82F6',
-                color: 'white'
-              }}>
-                {u.role || 'agent'}
-              </span>
-            </div>
+              {/* Role Badge */}
+              <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center' }}>
+                <span style={{
+                  padding: '4px 12px',
+                  borderRadius: 12,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  background: u.role === 'owner' ? '#EF4444' : u.role === 'super' ? '#F59E0B' : '#3B82F6',
+                  color: 'white'
+                }}>
+                  {u.role || 'agent'}
+                </span>
+              </div>
 
-            <div className='agent-actions'>
-              <button
-                className='btn ghost'
-                title='Delete'
-                onClick={() => del(u._id)}
-              >
-                <FontAwesomeIcon icon={faTrash} />
-              </button>
+              <div className='agent-actions'>
+                <button
+                  className='btn ghost'
+                  title='Delete'
+                  onClick={() => del(userId)}
+                >
+                  <FontAwesomeIcon icon={faTrash} />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Create New Card */}
         {canManage && (
@@ -1030,13 +1036,13 @@ function Contacts() {
   const [itemsPerPage, setItemsPerPage] = useState(10)
 
   useEffect(() => {
-    api.get('/contacts').then((r) => setContacts(r.data))
+    api.get('/contacts').then((r) => setContacts(r.data.data || r.data || []))
   }, [])
 
   // Filter contacts
-  const filtered = contacts.filter((c) =>
+  const filtered = Array.isArray(contacts) ? contacts.filter((c) =>
     c.name?.toLowerCase().includes(q.toLowerCase())
-  )
+  ) : []
 
   // Pagination Logic
   const totalPages = Math.ceil(filtered.length / itemsPerPage)
@@ -1080,7 +1086,7 @@ function Contacts() {
 
   const exportToExcel = () => {
     const ws = XLSX.utils.json_to_sheet(
-      contacts.map((c) => ({
+      (Array.isArray(contacts) ? contacts : []).map((c) => ({
         'Name': c.name,
         'ID / Phone': c.platformAccountId || c.phone || '-',
         'Waktu Awal Chat': new Date(c.createdAt).toLocaleString(),
@@ -1119,7 +1125,7 @@ function Contacts() {
       {/* Grid */}
       <div className='contacts-grid'>
         {paginatedContacts.map((c) => (
-          <div key={c._id} className='contact-card'>
+          <div key={c.id || c._id} className='contact-card'>
             <div className='contact-header'>
               <div className='contact-avatar'>
                 {c.name?.charAt(0).toUpperCase() || '?'}

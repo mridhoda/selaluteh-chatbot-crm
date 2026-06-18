@@ -49,7 +49,10 @@ export const agentsSupabaseRepository = {
       .eq('id', agentId)
       .maybeSingle();
     const row = extractSingle(result, 'agents.findById');
-    return row ? mapRow(row) : null;
+    if (!row) return null;
+    const mapped = mapRow(row);
+    if (mapped.metadata?.aiSettings) mapped.aiSettings = mapped.metadata.aiSettings;
+    return mapped;
   },
 
   /**
@@ -63,7 +66,10 @@ export const agentsSupabaseRepository = {
       .eq('id', agentId)
       .maybeSingle();
     const row = extractSingle(result, 'agents.findByIdRaw');
-    return row ? mapRow(row) : null;
+    if (!row) return null;
+    const mapped = mapRow(row);
+    if (mapped.metadata?.aiSettings) mapped.aiSettings = mapped.metadata.aiSettings;
+    return mapped;
   },
 
   /**
@@ -99,6 +105,8 @@ export const agentsSupabaseRepository = {
 
   /**
    * Update agent fields. Supports full or partial updates.
+   * NOTE: aiSettings is stored inside metadata.aiSettings until the
+   * ai_settings column migration is applied to the database.
    */
   async update({ workspaceId, agentId, updates }) {
     requireWorkspaceId(workspaceId);
@@ -110,12 +118,29 @@ export const agentsSupabaseRepository = {
       tools: 'tools', knowledge: 'knowledge', followUps: 'follow_ups',
       database: 'database', complaintFields: 'complaint_fields',
       complaintNotification: 'complaint_notification', salesForms: 'sales_forms',
-      payment: 'payment', status: 'status', metadata: 'metadata',
+      payment: 'payment', status: 'status',
       platformId: 'platform_id',
     };
     for (const [k, v] of Object.entries(updates)) {
       if (fieldMap[k] !== undefined) set[fieldMap[k]] = v;
     }
+
+    // Store aiSettings inside metadata.aiSettings until dedicated column is migrated
+    if (updates.aiSettings !== undefined || updates.metadata !== undefined) {
+      const current = await client
+        .from(TABLE)
+        .select('metadata')
+        .eq('workspace_id', workspaceId)
+        .eq('id', agentId)
+        .maybeSingle();
+      const existingMeta = current?.data?.metadata || {};
+      if (updates.aiSettings !== undefined) {
+        set.metadata = { ...existingMeta, aiSettings: updates.aiSettings };
+      } else {
+        set.metadata = { ...existingMeta, ...updates.metadata };
+      }
+    }
+
     const result = await client
       .from(TABLE)
       .update(set)
@@ -124,7 +149,13 @@ export const agentsSupabaseRepository = {
       .select()
       .maybeSingle();
     const row = extractSingle(result, 'agents.update');
-    return row ? mapRow(row) : null;
+    if (!row) return null;
+    const mapped = mapRow(row);
+    // Expose aiSettings at top level for service layer consumption
+    if (mapped.metadata?.aiSettings) {
+      mapped.aiSettings = mapped.metadata.aiSettings;
+    }
+    return mapped;
   },
 
   /**

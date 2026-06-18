@@ -35,8 +35,30 @@ function getMimeType(filename = '') {
 export async function generateAIReply({ system, prompt, message, knowledge, agent, chat, history = [] }) {
   const currentMessageText = message.text || (message.attachment ? '[Attachment]' : '');
 
+  // --- Per-agent AI settings override ---
+  // If the agent has its own aiSettings configured, those take priority over global env
+  let effectiveOpenaiClient = openaiClient;
+  let effectiveOpenaiModel = env.openaiModel;
+  let effectiveTemperature = 0.6;
+  let effectiveMaxTokens = undefined;
+
+  if (agent?.aiSettings && agent.aiSettings.provider === 'openai') {
+    const s = agent.aiSettings;
+    if (s.apiKey) {
+      const OpenAI = (await import('openai')).default;
+      effectiveOpenaiClient = new OpenAI({
+        apiKey: s.apiKey,
+        baseURL: s.baseUrl || undefined,
+        defaultHeaders: s.referer ? { 'HTTP-Referer': s.referer } : {},
+      });
+    }
+    if (s.model) effectiveOpenaiModel = s.model;
+    if (typeof s.temperature === 'number') effectiveTemperature = s.temperature;
+    if (s.maxTokens) effectiveMaxTokens = Number(s.maxTokens);
+  }
+
   // Fallback echo
-  if (!openaiClient && !geminiClient) {
+  if (!effectiveOpenaiClient && !geminiClient) {
     return `Echo: ${currentMessageText}`;
   }
 
@@ -80,18 +102,19 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
 
   try {
     let reply = '';
-    // Prioritize OpenAI if available
-    if (openaiClient) {
-      // TODO: Add multimodal support for OpenAI
+    // Prioritize OpenAI (or per-agent override) if available
+    if (effectiveOpenaiClient) {
       try {
-        const resp = await openaiClient.chat.completions.create({
-          model: env.openaiModel,
+        const createParams = {
+          model: effectiveOpenaiModel,
           messages: [
             { role: 'system', content: (system || 'You are a helpful assistant.') + contactName },
             { role: 'user', content: `${prompt || ''}\n\nKnowledge:\n${knowledgeContent}\n\nUser: ${currentMessageText}` },
           ],
-          temperature: 0.6,
-        });
+          temperature: effectiveTemperature,
+        };
+        if (effectiveMaxTokens) createParams.max_tokens = effectiveMaxTokens;
+        const resp = await effectiveOpenaiClient.chat.completions.create(createParams);
         reply = resp.choices?.[0]?.message?.content || '...';
         console.log('OpenAI reply:', reply);
       } catch (e) {
