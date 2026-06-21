@@ -1,0 +1,1561 @@
+# SelaluTeh AI Agent Architecture Specification
+#
+# Spec ini khusus untuk AI Agent Architecture.
+# Spec ini tidak menggantikan atau menggabungkan spec backend marketplace.
+# Domain commerce tetap dimiliki oleh backend domain services dan hanya
+# diakses oleh AI melalui Tool Gateway serta kontrak yang terotorisasi.
+#
+schema_version: 2
+spec_version: 1.0.0
+
+id: selaluteh-ai-agent-architecture
+title: SelaluTeh AI Agent Architecture
+description: >-
+  Requirements-first specification khusus untuk membangun arsitektur AI Agent
+  SelaluTeh / KALIS.AI yang memiliki conversation context, persistent memory,
+  rolling summary, RAG, configurable agents, local-first model routing,
+  structured tool calling, Tool Gateway, human takeover, AI observability,
+  evaluation, dan integration boundary yang aman terhadap product, cart,
+  order, complaint, notification, serta Xendit payment. Spec ini tidak
+  mendesain ulang domain backend marketplace dan tidak memberikan AI
+  kewenangan transaction authority.
+
+type: feature
+workflow: requirements-first
+
+status: active
+workflow_state: in_progress
+priority: high
+
+created_at: '2026-06-19'
+updated_at: '2026-06-19'
+
+owners:
+  product_owner: Humble Breads
+  technical_owner: project-maintainer
+  implementation_actor: coding-agent
+  review_required: true
+
+tags:
+  - ai-agent
+  - conversational-ai
+  - memory
+  - rag
+  - tool-calling
+  - local-llm
+  - telegram
+  - whatsapp
+  - customer-service
+  - commerce-assistant
+  - tdd
+  - security
+
+lifecycle:
+  config: docs/specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: docs/specs/active/selaluteh-ai-agent-architecture
+  move_entire_spec_directory: true
+  repository_root_relative_paths: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    check_command: npm run specs:check
+    sync_command: npm run specs:sync
+    dry_run_command: npm run specs:sync:dry
+    automatic_on_file_save: false
+    automatic_local_folder_move: false
+    manual_sync_required_after_status_change: true
+    ci_check_only: true
+    ci_must_not_move_or_commit_files: true
+    index_path: docs/specs/SPECS-INDEX.md
+
+  completion_requirements:
+    - all-required-tasks-completed
+    - definition-of-done-passed
+    - unit-tests-passed
+    - repository-integration-tests-passed
+    - api-integration-tests-passed
+    - security-tests-passed
+    - critical-e2e-tests-passed
+    - critical-evaluation-tests-passed
+    - concurrency-tests-passed
+    - payment-boundary-tests-passed
+    - human-takeover-tests-passed
+    - documentation-updated
+    - implementation-status-updated
+    - progress-log-updated
+    - current-task-pointer-updated
+    - specs-check-passed
+
+spec_registry:
+  root: docs/specs
+  config: docs/specs/specs.config.yaml
+  index: docs/specs/SPECS-INDEX.md
+  template: docs/specs/_templates/feature
+
+  buckets:
+    backlog: docs/specs/backlog
+    active: docs/specs/active
+    completed: docs/specs/completed
+
+  required_files:
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+
+  global_reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md
+  current_sprint: docs/backend/11-sprint/current-sprint.md
+  backlog: docs/backend/11-sprint/backlog.md
+  definition_of_done: docs/backend/11-sprint/definition-of-done.md
+  release_checklist: docs/backend/11-sprint/release-checklist.md
+
+document_authority:
+  spec:
+    path: spec.yaml
+    purpose: identity-status-scope-lifecycle-boundaries-and-control
+
+  requirements:
+    path: requirements.md
+    purpose: what-the-ai-agent-system-must-do
+
+  design:
+    path: design.md
+    purpose: how-the-ai-agent-system-is-designed
+
+  tasks:
+    path: tasks.md
+    purpose: tdd-implementation-order-dependencies-checkpoints-and-verification
+
+  current_task:
+    path: docs/backend/09-ai-context/current-task.md
+    purpose: explicit-active-spec-and-active-task-pointer
+
+  implementation_status:
+    path: docs/backend/11-sprint/implementation-status.md
+    purpose: actual-current-implementation-state-not-target-design
+
+  precedence:
+    - latest-approved-ai-architecture-decision
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+    - current-task
+    - ai-specific-domain-docs
+    - implementation-status-for-current-reality
+    - legacy-or-generated-combined-docs
+
+  conflict_rules:
+    - requirements-controls-what
+    - design-controls-how
+    - tasks-controls-order-and-verification
+    - current-task-controls-immediate-scope
+    - implementation-status-controls-actual-reality
+    - backend-domain-spec-controls-commerce-internals
+    - ai-spec-controls-ai-model-memory-rag-routing-and-tools
+    - source-docs-override-generated-combined-or-backup-docs
+    - newer-approved-decision-overrides-stale-document
+
+product:
+  name: SelaluTeh Marketplace
+  project_context: KALIS.AI / SelaluTeh Marketplace
+  area: ai-agent-architecture
+  stage: mvp
+  delivery_method: incremental-test-driven-modernization
+
+  customer_channels:
+    - telegram
+    - whatsapp
+
+  admin_surface:
+    - react-vite-dashboard
+    - ai-agent-settings
+    - chat-dashboard
+    - ai-run-inspection
+    - knowledge-management
+    - feedback-and-evaluation
+
+  current_primary_model:
+    provider_type: local-openai-compatible
+    status: active-direction
+    exact_model: environment-configured
+
+  target_product:
+    - configurable-customer-service-agents
+    - commerce-capable-ai-assistant
+    - persistent-conversation-context
+    - controlled-customer-memory
+    - workspace-scoped-rag
+    - deterministic-tool-execution
+    - safe-order-and-payment-assistance
+    - human-supervised-ai
+
+scope:
+  included:
+    - telegram-ai-inbound-normalization
+    - whatsapp-ai-inbound-normalization
+    - stable-contact-and-chat-resolution
+    - message-idempotency
+    - conversation-sessions
+    - greeting-continuity
+    - bounded-recent-message-context
+    - rolling-conversation-summary
+    - durable-customer-preferences
+    - customer-memory-correction
+    - customer-memory-forgetting
+    - memory-retention
+    - configurable-ai-agents
+    - immutable-agent-versions
+    - agent-assignment
+    - lightweight-agent-router
+    - semantic-intent-router
+    - local-model-provider-adapter
+    - task-based-model-router
+    - optional-provider-fallback-contract
+    - bounded-custom-ai-orchestrator
+    - structured-model-output
+    - native-tool-function-calling
+    - tool-registry
+    - tool-gateway
+    - confirmation-policy
+    - tool-idempotency
+    - tool-result-redaction
+    - knowledge-source-management
+    - knowledge-versioning
+    - knowledge-ingestion
+    - semantic-chunking
+    - embedding-provider-adapter
+    - supabase-pgvector
+    - hybrid-rag-retrieval
+    - workspace-rag-isolation
+    - outlet-rag-isolation
+    - agent-rag-isolation
+    - grounded-no-answer-policy
+    - live-commerce-data-through-tools
+    - outlet-selection-conversation-guard
+    - single-active-cart-ai-guard
+    - final-order-confirmation-guard
+    - pickup-only-ai-behavior
+    - xendit-payment-link-tool-boundary
+    - payment-status-read-only-ai
+    - complaint-ticket-assistance
+    - human-handoff
+    - human-takeover-silence
+    - five-minute-safe-auto-resume
+    - proactive-transactional-messaging
+    - controlled-follow-up
+    - ai-runs
+    - ai-tool-traces
+    - redacted-context-debugging
+    - ai-feedback
+    - versioned-evaluation-dataset
+    - prompt-injection-defense
+    - ai-rate-limits
+    - background-jobs
+    - reliability-controls
+    - test-driven-development
+    - unit-testing
+    - component-testing
+    - repository-integration-testing
+    - api-integration-testing
+    - channel-integration-testing
+    - security-testing
+    - end-to-end-testing
+    - evaluation-testing
+    - property-based-testing
+    - concurrency-testing
+    - failure-injection-testing
+    - performance-testing
+
+  deferred:
+    - active-multi-specialist-agent-runtime
+    - langgraph-workflows
+    - autonomous-agent-to-agent-planning
+    - external-model-fallback-activation
+    - advanced-cross-encoder-reranking
+    - durable-distributed-queue
+    - redis-backed-distributed-locking
+    - marketing-campaign-automation
+    - agent-ab-testing
+    - automated-prompt-optimization
+    - website-chat-token-streaming
+    - voice-note-transcription
+    - multimodal-product-understanding
+    - advanced-memory-relevance-model
+    - knowledge-conflict-dashboard
+    - distributed-tracing-at-production-scale
+
+  excluded:
+    - backend-marketplace-redesign
+    - workspace-domain-redesign
+    - outlet-domain-redesign
+    - product-domain-redesign
+    - inventory-domain-redesign
+    - cart-domain-redesign
+    - checkout-domain-redesign
+    - order-domain-redesign
+    - payment-domain-redesign
+    - complaint-domain-redesign
+    - notification-domain-redesign
+    - xendit-webhook-implementation-internals
+    - manual-payment
+    - cash-on-delivery
+    - ai-mark-payment-paid
+    - ai-refund
+    - ai-price-change
+    - ai-stock-change
+    - ai-permission-change
+    - ai-knowledge-auto-publish
+    - delivery-address-memory
+    - autonomous-unbounded-agent-loop
+    - multi-agent-swarm
+    - redis-only-memory
+    - langchain-only-memory
+    - n8n-as-transaction-authority
+    - microservices-rewrite
+    - generated-code-execution-by-ai
+
+mvp_context:
+  primary_language: id
+  default_tone:
+    - friendly
+    - warm
+    - semi-formal
+    - gen-z
+    - concise
+
+  conversation_model:
+    permanent_chat_per_channel: true
+    session_inactivity_threshold_hours: 24
+    recent_message_default_min: 20
+    recent_message_default_max: 30
+    rolling_summary_enabled: true
+    raw_message_retention_days: 90
+
+  customer_memory:
+    allowed:
+      - display-name
+      - preferred-language
+      - last-outlet
+      - favorite-outlet
+      - favorite-products
+      - taste-preferences
+      - communication-preferences
+      - customer-tags
+      - order-derived-preferences
+    forbidden:
+      - address
+      - otp
+      - password
+      - card-data
+      - payment-credential
+      - provider-secret
+      - api-key
+      - unnecessary-sensitive-data
+
+  commerce_assistance:
+    outlet_confirmation_required: true
+    last_outlet_is_suggestion_only: true
+    max_active_cart_per_customer_per_workspace: 1
+    cart_is_single_outlet: true
+    final_order_confirmation_required: true
+    fulfillment_mode: pickup
+    delivery_enabled: false
+
+  payment_assistance:
+    provider: xendit
+    customer_payment_methods:
+      - xendit-payment-link
+    ai_can_create_payment_link: true
+    ai_can_resend_payment_link: true
+    ai_can_read_payment_status: true
+    ai_can_set_payment_status: false
+    ai_can_mark_paid: false
+    paid_authority: verified-backend-xendit-processing
+
+  human_takeover:
+    ai_customer_reply_disabled_when_active: true
+    manual_resume_supported: true
+    automatic_resume_enabled: true
+    automatic_resume_after_customer_inactivity_minutes: 5
+    pinned_takeover_supported: true
+
+  agent_topology:
+    current: lightweight-router-plus-one-selected-configurable-agent
+    future: router-plus-specialist-agents
+
+  persistence:
+    engine: postgresql
+    platform: supabase
+    vector_extension: pgvector
+
+  development_method:
+    name: test-driven-development
+    cycle:
+      - red
+      - green
+      - refactor
+      - verify
+
+affected_projects:
+  - path: server
+    role: primary-ai-runtime-and-domain-integration-host
+
+  - path: web
+    role: ai-agent-settings-knowledge-feedback-and-trace-consumer
+
+  - path: docs/specs
+    role: requirements-first-spec-registry
+
+  - path: docs/backend
+    role: global-reading-order-current-task-and-cross-domain-contract-reference
+
+runtime:
+  language: javascript
+  platform: nodejs
+  framework: express
+  architecture_style: modular-monolith
+
+  ai_runtime:
+    orchestration: custom-bounded-orchestrator
+    tool_calling: native-structured-function-calling
+    primary_provider: local-openai-compatible
+    provider_adapter_required: true
+    model_router_required: true
+    max_tool_calls_default: 8
+    max_iterations_default: 10
+    turn_timeout_ms_default: 15000
+
+  persistence:
+    engine: postgresql
+    platform: supabase
+    vector_search: pgvector
+    repository_boundary_required: true
+
+  optional_supporting_frameworks:
+    langchain:
+      status: optional
+      allowed_uses:
+        - document-loaders
+        - text-splitters
+        - retrieval-composition
+        - prompt-helpers
+        - structured-output-helpers
+        - evaluation
+      forbidden_uses:
+        - sole-authoritative-memory
+        - cart-source-of-truth
+        - order-source-of-truth
+        - payment-source-of-truth
+        - authorization-boundary
+
+    langgraph:
+      status: deferred
+      adoption_requires_approved_design_change: true
+
+    redis:
+      status: optional
+      allowed_uses:
+        - cache
+        - distributed-lock
+        - rate-limit
+        - queue
+        - circuit-breaker
+        - short-lived-typing-state
+      forbidden_uses:
+        - sole-message-store
+        - sole-customer-memory-store
+        - cart-source-of-truth
+        - order-source-of-truth
+        - payment-source-of-truth
+        - knowledge-source-of-truth
+
+    n8n:
+      status: optional-non-critical-only
+      allowed_uses:
+        - internal-reporting
+        - admin-notification
+        - non-critical-automation
+        - prototype-workflows
+      forbidden_uses:
+        - payment-authority
+        - cart-authority
+        - order-authority
+        - permission-authority
+        - webhook-verification-authority
+        - core-conversation-state
+
+source_locations:
+  proposed_ai_root: server/src/ai
+
+  orchestration:
+    - server/src/ai/orchestration
+    - server/src/ai/prompts
+
+  memory:
+    - server/src/ai/memory
+
+  rag:
+    - server/src/ai/rag
+
+  tools:
+    - server/src/ai/tools
+
+  evaluation:
+    - server/src/ai/evaluation
+
+  provider_integrations:
+    - server/src/integrations/ai
+
+  channel_integrations:
+    - server/src/integrations/telegram
+    - server/src/integrations/meta
+
+  repositories:
+    - server/src/db/repositories
+
+  services:
+    - server/src/services
+
+  routes:
+    - server/src/routes
+
+  workers:
+    - server/src/workers
+
+  tests:
+    root: server/test
+    unit: server/test/unit/ai
+    component: server/test/component/ai
+    integration: server/test/integration/ai
+    security: server/test/security/ai
+    e2e: server/test/e2e/ai
+    evaluation: server/test/evaluation/ai
+    property: server/test/property/ai
+    concurrency: server/test/concurrency/ai
+    performance: server/test/performance/ai
+    resilience: server/test/resilience/ai
+
+architecture:
+  primary_flow:
+    - verified-channel-event
+    - normalized-inbound-message
+    - contact-and-chat-resolution
+    - message-persistence-and-idempotency
+    - human-takeover-eligibility
+    - conversation-session-resolution
+    - agent-routing
+    - context-building
+    - optional-rag-retrieval
+    - model-routing
+    - bounded-ai-orchestration
+    - structured-tool-calling
+    - tool-gateway-validation
+    - backend-domain-service-execution
+    - assistant-message-persistence
+    - outbound-channel-delivery
+    - redacted-trace-and-metrics
+
+  components:
+    - channel-adapter
+    - contact-chat-resolver
+    - ai-eligibility-service
+    - conversation-session-service
+    - context-builder
+    - recent-message-loader
+    - rolling-summary-service
+    - customer-memory-service
+    - knowledge-source-service
+    - knowledge-ingestion-service
+    - embedding-provider-adapter
+    - hybrid-rag-retriever
+    - agent-router
+    - semantic-router
+    - model-router
+    - ai-provider-adapter
+    - ai-orchestrator
+    - tool-registry
+    - tool-gateway
+    - confirmation-policy
+    - tool-idempotency-service
+    - result-redactor
+    - human-takeover-policy
+    - follow-up-service
+    - ai-trace-service
+    - feedback-service
+    - evaluation-runner
+    - background-workers
+
+  layer_rules:
+    - channel-adapter-normalizes-provider-events
+    - channel-adapter-does-not-own-ai-policy
+    - orchestrator-does-not-own-domain-business-rules
+    - orchestrator-does-not-call-database-directly-when-repository-or-service-contract-exists
+    - orchestrator-does-not-call-xendit-directly
+    - tool-gateway-is-the-only-ai-action-boundary
+    - tool-gateway-derives-workspace-scope-server-side
+    - domain-service-remains-transaction-authority
+    - persistent-memory-lives-in-supabase
+    - rag-content-is-untrusted-evidence-not-system-instruction
+    - agent-instruction-cannot-override-platform-safety
+    - routes-remain-thin
+    - external-provider-contract-lives-in-provider-adapter
+    - frameworks-remain-replaceable-through-adapters
+
+external_contracts:
+  dependency_spec:
+    id: selaluteh-backend-marketplace
+    relationship: external-domain-contract-provider
+    merge_authority: false
+    implementation_reality_must_be_verified_at_preflight: true
+
+  required_backend_capabilities:
+    - verified-workspace-context
+    - outlet-access-validation
+    - contact-resolution
+    - chat-resolution
+    - message-persistence
+    - human-takeover-state
+    - platform-connection-state
+    - product-search
+    - product-detail
+    - product-availability
+    - outlet-status
+    - active-cart
+    - cart-mutations
+    - checkout-or-order-creation
+    - order-status
+    - xendit-payment-link-creation
+    - payment-status-read
+    - complaint-ticket-creation
+    - outbound-notification
+
+  integration_rule:
+    - ai-spec-references-contracts-only
+    - ai-spec-does-not-redesign-domain-internals
+    - missing-domain-contract-marks-ai-task-blocked
+    - ai-must-not-create-shadow-domain-implementation
+
+domain_boundaries:
+  owned_by_this_spec:
+    - ai-agent-configuration
+    - agent-versioning
+    - agent-routing
+    - semantic-routing
+    - provider-adapters
+    - model-routing
+    - ai-orchestration
+    - context-building
+    - conversation-sessions
+    - rolling-summaries
+    - durable-customer-memory
+    - memory-privacy-operations
+    - knowledge-source-lifecycle
+    - knowledge-ingestion
+    - embeddings
+    - rag-retrieval
+    - tool-registry
+    - tool-gateway
+    - ai-confirmation-policy
+    - ai-run-tracing
+    - ai-tool-tracing
+    - ai-feedback
+    - ai-evaluation
+    - ai-retention-workers
+
+  referenced_not_owned:
+    - workspace
+    - outlet
+    - platform-connection
+    - contact
+    - chat
+    - message
+    - product
+    - product-availability
+    - cart
+    - checkout
+    - order
+    - payment
+    - payment-event
+    - complaint
+    - notification
+    - file-storage
+
+data_authority:
+  ai_authoritative_for:
+    - agent-configuration
+    - agent-version
+    - ai-run-state
+    - ai-tool-call-trace
+    - conversation-session
+    - rolling-summary
+    - approved-customer-memory
+    - knowledge-source-lifecycle
+    - knowledge-chunks
+    - retrieval-metadata
+    - ai-feedback
+    - evaluation-result
+
+  backend_domain_authoritative_for:
+    - workspace
+    - membership
+    - outlet
+    - permission
+    - product
+    - price
+    - stock
+    - availability
+    - cart
+    - checkout
+    - order
+    - payment
+    - fulfillment
+    - complaint-status
+    - notification-state
+
+  model_not_authoritative_for:
+    - identity-linking
+    - workspace-access
+    - outlet-access
+    - price
+    - stock
+    - availability
+    - cart-state
+    - order-state
+    - payment-state
+    - paid-status
+    - refund
+    - fulfillment-state
+    - knowledge-publish-state
+    - permission
+    - human-takeover-state
+
+  payment_paid_authority: verified-backend-xendit-processing
+  notification_authority: committed-backend-event
+  customer-memory-authority: memory-service-after-policy-validation
+
+core_invariants:
+  - same-workspace-platform-and-external-conversation-resolves-same-chat
+  - duplicate-platform-message-produces-at-most-one-ai-run
+  - current-customer-message-appears-once-in-model-context
+  - full-agent-introduction-occurs-only-on-first-assistant-message-in-new-chat
+  - context-is-bounded-without-removing-mandatory-safety
+  - persistent-memory-is-workspace-and-contact-scoped
+  - forgotten-memory-is-not-injected-again
+  - address-is-not-stored-as-durable-customer-memory
+  - rag-never-crosses-workspace-boundary
+  - outlet-scoped-rag-requires-matching-confirmed-outlet
+  - agent-only-retrieves-permitted-knowledge
+  - price-stock-order-and-payment-use-backend-tools
+  - every-ai-action-passes-tool-gateway
+  - tool-gateway-validates-schema-permission-scope-and-confirmation
+  - important-mutations-are-idempotent
+  - customer-confirms-outlet-for-each-new-order-flow
+  - one-customer-has-at-most-one-active-cart-per-workspace
+  - one-cart-belongs-to-one-outlet
+  - final-order-creation-requires-explicit-customer-confirmation
+  - mvp-fulfillment-is-pickup-only
+  - ai-never-has-mark-paid-capability
+  - paid-response-requires-backend-paid-state
+  - payment-and-fulfillment-status-remain-separate
+  - human-takeover-disables-customer-facing-ai
+  - auto-resume-rechecks-new-message-and-pinned-state
+  - ai-loop-is-bounded
+  - agent-version-is-recorded-on-every-run
+  - secrets-never-appear-in-prompt-response-trace-or-normal-log
+  - success-response-is-sent-only-after-required-backend-commit
+  - langchain-langgraph-redis-and-n8n-are-not-security-or-data-authority
+  - tests-are-written-before-behavior-implementation
+
+security:
+  immutable_platform_policy:
+    - workspace-isolation
+    - outlet-isolation
+    - tool-authority
+    - payment-read-only-ai
+    - human-takeover
+    - secret-confidentiality
+    - prompt-injection-defense
+    - live-commerce-data-authority
+    - bounded-autonomy
+
+  untrusted_inputs:
+    - customer-message
+    - uploaded-document
+    - rag-chunk
+    - external-content
+    - tool-returned-free-text
+    - custom-agent-instruction
+
+  forbidden_capabilities:
+    - mark-payment-paid
+    - set-payment-status
+    - force-payment-paid
+    - refund-payment
+    - change-product-price
+    - override-stock
+    - grant-permission
+    - publish-knowledge
+    - reveal-system-secret
+    - execute-generated-code
+    - bypass-human-takeover
+
+  secret_categories:
+    - supabase-service-role
+    - xendit-secret
+    - webhook-verification-token
+    - jwt-secret
+    - provider-api-key
+    - authorization-header
+    - password
+    - otp
+    - payment-token
+
+  release_blockers:
+    - cross-workspace-data-leak
+    - cross-outlet-retrieval-leak
+    - ai-mark-paid-capability
+    - false-payment-paid-response
+    - ai-response-during-human-takeover
+    - duplicate-message-duplicate-mutation
+    - secret-exposure
+    - unbounded-tool-loop
+    - prompt-injection-tool-escalation
+    - current-message-duplicated-in-context
+
+memory_policy:
+  layers:
+    - recent-messages
+    - rolling-summary
+    - durable-customer-memory
+    - structured-commerce-state
+
+  recent_messages:
+    default_min: 20
+    default_max: 30
+    chronological_order: ascending
+    persistent_source_required: true
+
+  summary:
+    enabled: true
+    default_new_message_threshold: 12
+    generated_on:
+      - message-threshold
+      - context-token-threshold
+      - session-close
+      - human-takeover
+
+  durable_memory:
+    model_may_propose_candidate: true
+    model_may_write_directly: false
+    policy_validation_required: true
+    source_and_confidence_required: true
+    correction_supported: true
+    forgetting_supported: true
+
+  retention:
+    raw_messages_days: 90
+    summaries_days_after_last_activity: 90
+    ai_prompt_and_result_trace_days: 30
+    ai_tool_trace_days: 90
+    durable_preferences: until-deleted-expired-or-superseded
+    commerce_records: controlled-by-backend-domain-retention
+
+rag_policy:
+  vector_store: supabase-pgvector
+  retrieval_mode: hybrid-vector-and-full-text
+  human_publish_required: true
+  ai_auto_publish_allowed: false
+
+  knowledge_sources:
+    - faq
+    - sop
+    - product-description
+    - promotion-rule
+    - refund-policy
+    - payment-instruction
+    - complaint-procedure
+    - opening-hours
+    - brand-tone
+    - uploaded-file
+    - structured-record
+
+  required_filters:
+    - workspace-id
+    - published-status
+    - agent-permission
+    - outlet-scope-when-applicable
+    - visibility
+    - validity-window
+
+  not_authoritative_for:
+    - live-price
+    - live-stock
+    - live-availability
+    - active-promotion
+    - outlet-open-state
+    - cart
+    - order
+    - payment
+
+  no_result_behavior:
+    - do-not-hallucinate
+    - clarify
+    - use-live-tool-when-applicable
+    - offer-human-handoff
+
+agent_policy:
+  agent_name_is_configurable: true
+  language_default: id
+  multiple_agents_supported: true
+  published_versions_immutable: true
+  publish_requires_authorization: true
+  rollback_supported: true
+  inactive-agent-not-routable: true
+
+  routing_priority:
+    - explicit-chat-assignment
+    - outlet-or-channel-rule
+    - platform-default-agent
+    - workspace-default-agent
+
+  custom_instruction_cannot:
+    - remove-platform-safety
+    - grant-new-tool
+    - change-payment-authority
+    - bypass-human-takeover
+    - access-other-workspace
+    - reveal-secret
+
+tool_policy:
+  registry_is_backend_controlled: true
+  gateway_is_only_ai_action_boundary: true
+  workspace_scope_is_server_derived: true
+  structured_input_validation_required: true
+  permission_check_required: true
+  confirmation_check_required_when-configured: true
+  idempotency_required_for-mutations: true
+  normalized-redacted-result-required: true
+  tool-trace-required: true
+
+  read_tools:
+    - get-outlets
+    - search-products
+    - get-product-details
+    - get-product-availability
+    - get-outlet-status
+    - get-active-cart
+    - get-cart-summary
+    - get-order-status
+    - get-payment-status
+    - get-contact-profile
+    - search-knowledge
+
+  mutation_tools:
+    - select-outlet
+    - add-cart-item
+    - update-cart-item
+    - remove-cart-item
+    - clear-cart
+    - switch-cart-outlet
+    - create-order
+    - create-payment-link
+    - resend-payment-link
+    - cancel-unpaid-order
+    - create-complaint-ticket
+    - handover-to-human
+    - save-customer-preference
+    - forget-customer-memory
+    - schedule-followup
+
+  permanently_forbidden_tools:
+    - mark-payment-paid
+    - set-payment-status
+    - force-payment-paid
+    - refund-payment
+    - change-product-price
+    - override-stock
+    - grant-permission
+    - publish-knowledge
+
+human_takeover_policy:
+  modes:
+    - ai-active
+    - human-active
+    - human-pinned
+
+  checks_required:
+    - before-run
+    - before-model-call
+    - before-tool-mutation
+    - before-final-persistence
+    - before-outbound-send
+
+  automatic_resume:
+    enabled: true
+    inactivity_minutes: 5
+    reset_on_new_customer_message: true
+    compare-and-set-required: true
+    pinned-mode-excluded: true
+
+testing:
+  methodology: test-driven-development
+
+  cycle:
+    - red
+    - green
+    - refactor
+    - verify
+
+  deterministic_ci_default: true
+  production-data-prohibited: true
+  production-secret-prohibited: true
+  production-supabase-prohibited: true
+
+  layers:
+    unit:
+      path: server/test/unit/ai
+      required: true
+
+    component:
+      path: server/test/component/ai
+      required: true
+
+    repository_integration:
+      path: server/test/integration/ai/repositories
+      required: true
+      database: supabase-local-or-dedicated-test
+
+    api_integration:
+      path: server/test/integration/ai/api
+      required: true
+
+    channel_integration:
+      path: server/test/integration/ai/channels
+      required: true
+
+    security:
+      path: server/test/security/ai
+      required: true
+
+    e2e:
+      path: server/test/e2e/ai
+      required: true
+
+    evaluation:
+      path: server/test/evaluation/ai
+      required: true
+
+    property:
+      path: server/test/property/ai
+      required_for-critical-invariants: true
+
+    concurrency:
+      path: server/test/concurrency/ai
+      required: true
+
+    performance:
+      path: server/test/performance/ai
+      required_before-production: true
+
+    resilience:
+      path: server/test/resilience/ai
+      required: true
+
+    manual_sandbox:
+      required_before-real-channel-release: true
+      targets:
+        - local-model-endpoint
+        - telegram-test-bot
+        - whatsapp-test-number
+        - xendit-test-mode
+        - pgvector-embedding-flow
+
+  critical_scenarios:
+    - repeated-introduction-regression
+    - current-message-once
+    - stable-chat-identity
+    - duplicate-message-idempotency
+    - rolling-summary
+    - forgotten-memory-absent
+    - address-not-persisted
+    - rag-workspace-isolation
+    - rag-outlet-isolation
+    - rag-agent-isolation
+    - live-price-through-tool
+    - tool-permission
+    - confirmation-snapshot
+    - single-active-cart
+    - order-final-confirmation
+    - no-ai-mark-paid
+    - fake-payment-proof-rejected
+    - payment-paid-after-backend-state
+    - human-takeover-silence
+    - five-minute-auto-resume-race
+    - secret-redaction
+    - bounded-loop
+    - provider-timeout
+    - duplicate-follow-up-dedupe
+
+  release_gate_commands:
+    spec_check: npm run specs:check
+    ai_unit: npm run test:ai:unit
+    ai_integration: npm run test:ai:integration
+    ai_security: npm run test:ai:security
+    ai_e2e: npm run test:ai:e2e
+    ai_evaluation: npm run test:ai:evaluation
+    ai_all: npm run test:ai:all
+
+  skipped_test_policy:
+    reason_required: true
+    owner_required: true
+    followup_task_required: true
+
+  flaky_test_policy:
+    accepted_as_baseline: false
+    must_be_fixed_or_quarantined_with-expiry: true
+
+current_implementation_baseline:
+  known_problem:
+    - ai-repeatedly-introduces-itself-because-conversation-context-is-not-reliably-loaded
+
+  known_target_runtime:
+    - local-openai-compatible-model
+    - telegram-channel
+    - whatsapp-channel
+    - existing-ai-agent-settings
+    - existing-human-takeover
+    - existing-crm-chat-surface
+
+  must_preserve:
+    - existing-authentication
+    - existing-workspace-context
+    - existing-telegram-provider-verification
+    - existing-whatsapp-provider-verification
+    - existing-contact-and-chat-behavior
+    - existing-human-takeover
+    - existing-ai-agent-settings
+    - existing-commerce-domain-authority
+    - existing-xendit-payment-authority
+    - existing-local-file-storage-contract
+
+  preflight_verification_required:
+    - exact-chat-resolution-key
+    - current-message-persistence-order
+    - historical-message-load
+    - role-mapping
+    - current-model-request-format
+    - message-buffer-behavior
+    - human-takeover-checkpoints
+    - existing-agent-schema
+    - existing-supabase-readiness
+    - existing-domain-tool-contracts
+
+implementation:
+  current_phase: spec-and-tdd-readiness
+  task_source: tasks.md
+  active_task_pointer: docs/backend/09-ai-context/current-task.md
+  recommended_first_task: 0.1-confirm-ai-spec-isolation
+
+  phases:
+    - id: 0
+      name: spec-and-tdd-readiness
+      task_sections:
+        - 0
+
+    - id: 1
+      name: immediate-context-bug-fix
+      task_sections:
+        - 1
+
+    - id: 2
+      name: ai-persistence-and-inbound-foundation
+      task_sections:
+        - 2
+        - 3
+        - 4
+
+    - id: 3
+      name: context-and-memory
+      task_sections:
+        - 5
+        - 6
+        - 7
+
+    - id: 4
+      name: knowledge-and-rag
+      task_sections:
+        - 8
+        - 9
+        - 10
+
+    - id: 5
+      name: agent-and-model-runtime
+      task_sections:
+        - 11
+        - 12
+        - 13
+        - 14
+
+    - id: 6
+      name: tool-safety
+      task_sections:
+        - 15
+
+    - id: 7
+      name: commerce-payment-and-support
+      task_sections:
+        - 16
+        - 17
+        - 18
+        - 19
+
+    - id: 8
+      name: followup-observability-and-quality
+      task_sections:
+        - 20
+        - 21
+        - 22
+
+    - id: 9
+      name: security-reliability-and-performance
+      task_sections:
+        - 23
+        - 24
+        - 25
+        - 26
+
+    - id: 10
+      name: future-readiness-and-administration
+      task_sections:
+        - 27
+        - 28
+
+    - id: 11
+      name: comprehensive-validation-and-release
+      task_sections:
+        - 29
+        - 30
+
+  checkpoints:
+    - context-continuity
+    - persistent-memory
+    - rag
+    - agent-runtime
+    - tool-safety
+    - commerce-and-payment
+    - human-control
+    - production-readiness
+
+  release_gates:
+    - stable-chat-identity-tests-pass
+    - message-idempotency-tests-pass
+    - repeated-introduction-regression-pass
+    - current-message-once-test-pass
+    - rolling-summary-tests-pass
+    - memory-forgetting-tests-pass
+    - address-non-persistence-test-pass
+    - rag-isolation-tests-pass
+    - tool-authorization-tests-pass
+    - order-confirmation-tests-pass
+    - payment-read-only-ai-tests-pass
+    - false-paid-response-tests-pass
+    - human-takeover-tests-pass
+    - safe-auto-resume-race-tests-pass
+    - secret-redaction-tests-pass
+    - bounded-loop-tests-pass
+    - telegram-e2e-pass
+    - whatsapp-e2e-pass
+    - critical-evaluation-suite-pass
+    - no-tracked-secrets
+    - documentation-updated
+    - specs-check-passed
+
+  task_closure_updates:
+    - tasks.md
+    - docs/backend/11-sprint/implementation-status.md
+    - docs/backend/11-sprint/progress-log.md
+    - docs/backend/09-ai-context/current-task.md
+
+  final_validation_command: npm run specs:check
+
+requirements_registry:
+  prefix: AIA-R
+  total: 34
+
+  groups:
+    conversation_foundation:
+      - AIA-R1
+      - AIA-R2
+      - AIA-R3
+      - AIA-R4
+      - AIA-R5
+      - AIA-R6
+      - AIA-R7
+
+    memory:
+      - AIA-R8
+      - AIA-R9
+      - AIA-R10
+
+    knowledge_and_rag:
+      - AIA-R11
+      - AIA-R12
+      - AIA-R13
+      - AIA-R14
+
+    agents_and_models:
+      - AIA-R15
+      - AIA-R16
+      - AIA-R17
+      - AIA-R18
+
+    tools_and_commerce_safety:
+      - AIA-R19
+      - AIA-R20
+      - AIA-R21
+      - AIA-R22
+
+    support_and_human_control:
+      - AIA-R23
+      - AIA-R24
+      - AIA-R25
+
+    observability_and_quality:
+      - AIA-R26
+      - AIA-R27
+
+    security_reliability_and_scale:
+      - AIA-R28
+      - AIA-R29
+      - AIA-R30
+      - AIA-R31
+      - AIA-R32
+      - AIA-R33
+      - AIA-R34
+
+pending_decisions:
+  - id: strict-business-domain-scope-guard
+    status: saved-for-future-discussion
+    incorporated_into_requirements: false
+    incorporated_into_design: false
+    incorporated_into_tasks: false
+    summary: >-
+      Pertimbangkan strict business-domain scope guard agar customer-facing AI
+      hanya melayani produk, penjualan, outlet, cart, order, Xendit payment,
+      pickup, complaint, dan customer service. Kandidat desain meliputi domain
+      classifier, explicit out_of_scope route, fixed refusal template, no RAG
+      and no tools for off-topic requests, serta adversarial evaluation tests.
+    decision_required_before_implementation: true
+
+risks:
+  - id: risk-context-not-persisted
+    severity: critical
+    mitigation:
+      - stable-chat-resolution
+      - persistent-message-history
+      - repeated-introduction-regression-tests
+
+  - id: risk-cross-workspace-leak
+    severity: critical
+    mitigation:
+      - workspace-scoped-repositories
+      - rag-filters
+      - tool-gateway-authorization
+      - security-tests
+
+  - id: risk-model-hallucinates-live-commerce
+    severity: critical
+    mitigation:
+      - live-data-tools
+      - structured-commerce-context
+      - grounded-response-policy
+      - evaluation-tests
+
+  - id: risk-ai-payment-mutation
+    severity: critical
+    mitigation:
+      - no-mark-paid-tool
+      - backend-payment-authority
+      - security-release-gate
+
+  - id: risk-human-and-ai-send-concurrently
+    severity: critical
+    mitigation:
+      - takeover-checkpoints
+      - per-chat-run-lock
+      - delayed-response-cancellation
+      - race-tests
+
+  - id: risk-rag-prompt-injection
+    severity: high
+    mitigation:
+      - untrusted-data-wrapping
+      - immutable-platform-policy
+      - tool-authorization-outside-model
+      - adversarial-tests
+
+  - id: risk-framework-lock-in
+    severity: medium
+    mitigation:
+      - provider-and-retriever-adapters
+      - custom-orchestrator
+      - optional-langchain
+      - deferred-langgraph
+
+  - id: risk-in-process-job-loss
+    severity: medium
+    mitigation:
+      - explicit-mvp-limitation
+      - idempotent-jobs
+      - durable-queue-trigger-criteria
+
+assumptions:
+  - existing-backend-provides-workspace-context
+  - existing-channel-verification-will-be-preserved
+  - existing-domain-services-remain-authoritative
+  - supabase-is-approved-for-new-ai-persistence
+  - local-model-supports-or-can-be-adapted-to-structured-tool-calling
+  - xendit-test-mode-is-used-for-payment-development
+  - customer-facing-language-is-bahasa-indonesia
+  - pickup-is-the-only-mvp-fulfillment-mode
+
+constraints:
+  - no-big-bang-backend-rewrite
+  - no-new-mongoose-ai-persistence
+  - no-production-data-in-tests
+  - no-production-secret-in-tests-or-docs
+  - no-ai-direct-database-credential
+  - no-ai-direct-xendit-secret-call
+  - no-autonomous-unbounded-loop
+  - no-domain-shadow-implementation
+  - no-framework-adoption-without-demonstrated-value
+  - implementation-reality-must-be-reported-honestly
+
+status_workflow:
+  initial_status: backlog
+  initial_workflow_state: draft
+
+  folder_statuses:
+    backlog:
+      folder: docs/specs/backlog
+      workflow_states:
+        - draft
+        - review
+        - approved
+
+    active:
+      folder: docs/specs/active
+      workflow_states:
+        - in_progress
+        - blocked
+        - verifying
+
+    completed:
+      folder: docs/specs/completed
+      workflow_states:
+        - done
+        - archived
+
+  normal_state_transitions:
+    - from: draft
+      to: review
+    - from: review
+      to: approved
+    - from: approved
+      to: in_progress
+    - from: in_progress
+      to: verifying
+    - from: verifying
+      to: done
+    - from: done
+      to: archived
+
+  exceptional_state_transitions:
+    - from: approved
+      to: blocked
+    - from: in_progress
+      to: blocked
+    - from: verifying
+      to: blocked
+    - from: blocked
+      to: in_progress
+    - from: done
+      to: in_progress
+
+  allowed_folder_transitions:
+    - from: backlog
+      to: active
+    - from: active
+      to: backlog
+    - from: active
+      to: completed
+    - from: completed
+      to: active
+
+  folder_move_rule: edit-status-then-run-npm-run-specs-sync
+  completed_guard: required-unchecked-tasks-must-be-zero
+
+references:
+  ai_spec:
+    - docs/specs/active/selaluteh-ai-agent-architecture/requirements.md
+    - docs/specs/active/selaluteh-ai-agent-architecture/design.md
+    - docs/specs/active/selaluteh-ai-agent-architecture/tasks.md
+
+  global_entry:
+    - docs/backend/READING-ORDER.md
+    - docs/backend/09-ai-context/current-task.md
+
+  backend_contracts:
+    - docs/backend/02-flows/chatbot-ai-flow.md
+    - docs/backend/02-flows/human-takeover-flow.md
+    - docs/backend/02-flows/complaint-flow.md
+    - docs/backend/02-flows/telegram-commerce-flow.md
+    - docs/backend/02-flows/payment-flow.md
+    - docs/backend/03-business-rules/ai-agent-rules.md
+    - docs/backend/03-business-rules/human-takeover-rules.md
+    - docs/backend/03-business-rules/payment-rules.md
+    - docs/backend/03-business-rules/permissions.md
+    - docs/backend/04-tech-spec/ai-pipeline.md
+    - docs/backend/04-tech-spec/background-jobs.md
+    - docs/backend/04-tech-spec/observability.md
+    - docs/backend/05-api-spec/agents-api.md
+    - docs/backend/05-api-spec/ai-actions-api.md
+    - docs/backend/05-api-spec/chats-api.md
+    - docs/backend/05-api-spec/payments-api.md
+    - docs/backend/05-api-spec/complaints-api.md
+    - docs/backend/06-data/ai-commerce-guardrails.md
+    - docs/backend/08-security/ai-action-security.md
+    - docs/backend/08-security/ai-prompt-security.md
+    - docs/backend/08-security/rate-limit-abuse.md
+    - docs/backend/09-ai-context/ai-system-context.md
+    - docs/backend/09-ai-context/tool-calling-contract.md
+    - docs/backend/10-testing/ai-agent-test-plan.md
+    - docs/backend/10-testing/ai-tool-calling-test-plan.md
+    - docs/backend/10-testing/ai-evaluation-test-plan.md
+
+metadata:
+  generated_for: selaluteh-ai-agent-architecture
+  generated_at: '2026-06-19'
+  based_on:
+    - selaluteh-ai-agent-architecture-requirements-v1
+    - selaluteh-ai-agent-architecture-design-v1
+    - selaluteh-ai-agent-architecture-tasks-v1
+    - specs-lifecycle-config-v1.1
+  notes:
+    - This spec intentionally remains separate from the backend marketplace spec.
+    - Backend domain documents are references and contracts, not merged authority.
+    - The strict business-domain scope guard is recorded as a pending decision only.

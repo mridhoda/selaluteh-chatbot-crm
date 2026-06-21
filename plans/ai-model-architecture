@@ -1,0 +1,284 @@
+Benar—**`design.md` sebelumnya terlalu melebar** karena masih mencampurkan AI architecture dengan keseluruhan backend marketplace, database migration, product, inventory, order, dan payment implementation. Padahal file baru ini seharusnya menjadi design authority untuk **spec khusus AI Agent Architecture**. 
+
+Aku sudah buat ulang dari nol sebagai dokumen terpisah:
+
+[Download design.md — AI Agent Architecture](sandbox:/mnt/data/selaluteh-ai-agent-architecture-design.md)
+
+Dokumen baru memiliki sekitar **2.809 baris** dan tidak lagi mendesain ulang seluruh backend marketplace.
+
+## Penilaian dua saran tadi
+
+### Saran pertama: paling cocok sebagai fondasi MVP
+
+Bagian yang bagus:
+
+* native function/tool calling;
+* custom orchestrator;
+* `pgvector` karena kamu memakai Supabase;
+* RAG untuk FAQ, SOP, dan knowledge;
+* system prompt yang jelas;
+* tidak langsung memakai LangGraph untuk flow sederhana.
+
+Bagian yang perlu dikoreksi:
+
+* **Redis tidak boleh menyimpan cart, order, dan memory sebagai satu-satunya sumber data.** Redis hanya cocok untuk cache, lock, rate limit, dan queue. State authoritative tetap di Supabase.
+* TTL 24 jam tidak cocok untuk permanent chat dan customer memory.
+* GPT/Claude bukan default karena kamu memakai local OpenAI-compatible model.
+* Fonnte/Wablas/Baileys tidak perlu dijadikan fondasi arsitektur jika WhatsApp-mu menggunakan integrasi Meta.
+* Payment tidak cukup hanya “generate link”; payment status harus berasal dari backend yang memproses verified Xendit event.
+
+### Saran kedua: konsepnya bagus, tooling-nya terlalu agresif
+
+Bagian yang bagus:
+
+* Agent Orchestrator;
+* short-term dan long-term memory;
+* RAG;
+* semantic router;
+* guardrails;
+* tool calling;
+* persona engineering;
+* quality feedback.
+
+Bagian yang perlu dikoreksi:
+
+* LangChain bukan kewajiban.
+* LangGraph belum diperlukan untuk satu commerce agent.
+* n8n tidak cocok menjadi core runtime order/payment.
+* microservices belum diperlukan; modular monolith lebih tepat.
+* SSE streaming tidak terlalu relevan untuk Telegram dan WhatsApp.
+* long-term memory harus minimal dan tidak terasa “creepy”.
+* memory harus bisa dilihat, dikoreksi, dan dihapus oleh customer.
+
+## Arsitektur final yang kupilih
+
+```text
+Telegram / WhatsApp
+→ verified inbound event
+→ contact dan permanent chat resolution
+→ message persistence + deduplication
+→ human takeover policy
+→ agent router
+→ context builder
+   ├── recent messages
+   ├── rolling summary
+   ├── durable customer memory
+   ├── RAG knowledge
+   └── structured commerce state
+→ local-first model router
+→ bounded custom orchestrator
+→ native structured tool calling
+→ Tool Gateway
+→ backend domain services
+→ Supabase authoritative state
+→ channel response
+→ trace, feedback, dan evaluation
+```
+
+### Stack yang diputuskan
+
+```text
+Custom Node.js AI Orchestrator
+Native function/tool calling
+Local OpenAI-compatible model
+Supabase/PostgreSQL
+pgvector
+Optional LangChain adapter untuk RAG
+LangGraph ditunda
+Redis opsional untuk cache/lock/job
+n8n bukan core transaction runtime
+```
+
+## Scope dokumen baru
+
+Dokumen baru hanya mencakup:
+
+* AI Orchestrator;
+* model router;
+* semantic router;
+* configurable agents;
+* future specialist agents;
+* memory architecture;
+* RAG;
+* knowledge ingestion;
+* context builder;
+* prompt architecture;
+* native tool calling;
+* Tool Gateway;
+* human takeover;
+* complaint routing;
+* proactive messaging;
+* AI tracing;
+* feedback dan evaluation;
+* AI-specific persistence;
+* correctness properties;
+* testing;
+* implementation phases.
+
+Dokumen ini **tidak lagi mendefinisikan secara lengkap**:
+
+```text
+product database
+inventory architecture
+order domain internals
+payment database internals
+workspace membership
+outlet API
+backend folder keseluruhan
+Supabase cutover seluruh domain
+```
+
+AI hanya berinteraksi dengan domain-domain tersebut melalui contract dan backend tools.
+
+## Keputusan penting yang sudah dimasukkan
+
+### Memory
+
+```text
+Recent messages: 20–30
+Raw messages: 90 hari
+Rolling summary: aktif
+Customer memory: Supabase
+Address memory: tidak disimpan
+Cross-channel profile: digabung
+Chat history: tetap per channel
+```
+
+### LangChain
+
+```text
+Boleh:
+document loading
+chunking
+retrieval composition
+prompt helper
+evaluation
+
+Tidak boleh:
+menjadi authoritative memory
+menyimpan cart/order/payment
+menentukan permission
+menguasai seluruh agent runtime
+```
+
+### LangGraph
+
+Ditunda sampai:
+
+```text
+specialist agents benar-benar aktif
+workflow butuh checkpoint
+flow bercabang kompleks
+approval nodes diperlukan
+pause/resume agent diperlukan
+```
+
+### Redis
+
+Boleh digunakan untuk:
+
+```text
+cache
+distributed lock
+rate limiting
+job queue
+circuit breaker
+typing state
+```
+
+Tidak boleh menjadi satu-satunya penyimpanan:
+
+```text
+messages
+memory
+cart
+order
+payment
+agent settings
+knowledge
+```
+
+### AI dan payment
+
+AI hanya mendapat tools:
+
+```text
+create_payment_link
+resend_payment_link
+get_payment_status
+```
+
+AI tidak mendapat:
+
+```text
+mark_payment_paid
+set_payment_status
+refund_payment
+```
+
+### Human takeover
+
+```text
+human takeover aktif
+→ AI tidak membalas customer
+
+admin Resume AI
+atau
+5 menit tidak ada pesan customer
+→ AI dapat aktif kembali
+
+pinned takeover
+→ tidak auto-resume
+```
+
+### Configurable agents
+
+Setiap agent dapat memiliki:
+
+```text
+nama berbeda
+persona berbeda
+instruction berbeda
+model berbeda
+knowledge scope berbeda
+tool permissions berbeda
+memory policy berbeda
+follow-up policy berbeda
+```
+
+Namun custom instruction tidak dapat menambahkan tool yang tidak diizinkan backend.
+
+Gunakan file baru sebagai:
+
+```text
+docs/specs/active/selaluteh-ai-agent-architecture/design.md
+```
+
+Spec ini sebaiknya memiliki folder tersendiri:
+
+```text
+docs/specs/active/selaluteh-ai-agent-architecture/
+├── spec.yaml
+├── requirements.md
+├── design.md
+└── tasks.md
+```
+
+Jangan menaruhnya sebagai pengganti design backend marketplace lama, karena keduanya sekarang mempunyai authority yang berbeda:
+
+```text
+selaluteh-backend-marketplace
+→ backend dan commerce architecture
+
+selaluteh-ai-agent-architecture
+→ AI model, memory, RAG, agents, dan tool orchestration
+```
+
+Setelah file ditempatkan dan metadata spec dibuat:
+
+```bash
+npm run specs:sync:dry
+npm run specs:sync
+npm run specs:check
+```
+
