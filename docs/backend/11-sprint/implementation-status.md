@@ -37,12 +37,20 @@
 | Manual/COD payment policy | Implemented |
 | Payment event timeline API | Implemented |
 | Paid notification after webhook | Implemented |
+| Xendit Test Mode Payment Session adapter | Implemented, mocked tests |
+| Xendit Payment Session webhook verification | Implemented, not live-verified |
+| Xendit hosted checkout URL API | Implemented, not live-verified |
+| Xendit reading-order documentation coverage | Updated |
 | Webhook parser normalization | Implemented |
 | Webhook rate limit/safe logging | Implemented |
 | Cart outlet binding | Implemented |
 | Checkout outlet binding | Implemented |
 | Orders outlet UI | Not Started |
 | Outlet access tests | Partial |
+| AI Agent settings interface (welcome/system prompts, custom models) | Implemented |
+| AI Agent dynamic OpenAI Compatible provider overrides | Implemented |
+| Supabase mapping & key fixes (`_id` -> `id` in UI) | Implemented |
+| Contacts list paging array crash fix | Implemented |
 
 ## Baseline — 2026-06-17 Task 0.1
 
@@ -120,3 +128,146 @@ Constraints respected:
 
 Test outcome: 113 tests, 44 suites, 96 pass, 0 fail, 17 skipped (after removing all legacy Mongoose tests)
 
+## AI Agent Architecture — Phase 0 & 1 — 2026-06-19
+
+| Module | Status | Evidence |
+|---|---|---|
+| Spec lifecycle activation | Implemented | Folder/files renamed; moved to `specs/active/selaluteh-ai-agent-architecture/`; `npm run specs:check` passes |
+| Task 0.1 Spec isolation | Confirmed | Scope documented; no backend task copied; dependency boundaries identified |
+| Task 0.2 Baseline | Captured | All AI runtime files inspected; current behaviors recorded (isNewChat 2s window, 10-msg limit, no greeting flags, no session concepts) |
+| Task 0.3 Test structure | Implemented | 11 AI test directories created; 6 npm scripts added; sample tests verified per runner |
+| Task 0.4 Test factories/fakes | Implemented | 14 factory types, 5 fakes (provider, tool executor, embedding, Telegram, WhatsApp), FixedClock; 29 factory tests pass |
+| Task 0.5 Test environment contract | Documented | `docs/backend/10-testing/ai-test-environment.md` created |
+| Task 0.6 Release gates | Documented | `docs/backend/09-ai-context/release-gates.md` created |
+| Task 1.1 RED regression | Observed | `isNewChat` bug reproduced; 1 failing assertion confirmed |
+| Task 1.2 Chat resolution audit | Stable | Key = `workspace_id + platform_id + contact_id`; no external message ID used as chat identity |
+| Task 1.3 Message order audit | Stable | Inbound persisted before AI; history includes current message; no duplication |
+| Task 1.4 Greeting flags | Implemented | `computeGreetingFlags()` in `server/src/ai/context/greeting-flags.js`; 3 flags computed from persistent messages |
+| Task 1.5 Bounded history | Implemented | `loadRecentMessages()` in `server/src/ai/context/recent-messages.js`; default 25, filters noise |
+| Task 1.6 Context fix | Applied | `buildContext()` assembled; integrated into Telegram webhook; `isNewChat` removed |
+| Task 1.7-1.8 Checkpoint | Verified | All unit tests pass; human takeover, idempotency, greetings all verified |
+| Full test suite (Phase 0-1) | 239 pass, 0 fail | 51 new AI tests; all existing backend tests retained |
+
+## AI Agent Architecture — Phase 2-28 — 2026-06-20
+
+| Module | Status | Evidence |
+|---|---|---|
+| Task 2.1-2.10 AI Schema & Repos | Implemented | `011_ai_memory_knowledge_trace.sql` (9 tables, pgvector, 6 enums); 8 repositories with 47 methods; contract tests pass |
+| Task 3.1-3.7 Inbound Pipeline | Implemented | inbound-event schema, Telegram adapter, WhatsApp adapter, eligibility service, run lock, orchestrator |
+| Task 4.1-4.5 Session Service | Implemented | session service (6 methods), cleanup worker (15-min interval), inbound orchestrator integration |
+| Task 5.1-5.7 Context Builder | Implemented | token estimator, source loaders, allocateTokenBudget, composeContext with all source types |
+| Task 6.1-6.4 Rolling Summary | Implemented | summary validator, shouldSummarize, buildSummary, context integration |
+| Task 7.1-7.9 Durable Memory | Implemented | memory policy matrix, extraction service, CRUD service, 5 memory tools, context injection, retention worker |
+| Task 8.1-8.5 Knowledge Sources | Implemented | lifecycle management (draft→published), 11 types, 4 scopes, transition validation |
+| Task 9.1-9.8 Ingestion | Implemented | semantic chunker (300-700 tokens, heading preservation, overlap), ingestion service |
+| Task 10.1-10.4 RAG Retrieval | Implemented | hybridRetrieve (vector + full-text merge), pgvector match function, workspace isolation |
+| Task 11.1-11.5 Agent Config | Implemented | agent-schema validation, agent-versioning (publish/rollback), admin API routes |
+| Task 12.1-12.6 Model Adapter | Implemented | provider-adapter, circuit breaker (threshold + recovery), Ollama embedding adapter |
+| Task 13.1-13.5 Semantic Router | Implemented | classifyIntent (10 intent patterns with confidence, tools, handoff detection) |
+| Task 14.1-14.7 Orchestrator | Implemented | turn state machine (12 states, 11 transitions), orchestrator with tool loop, specialist router (5 roles) |
+| Task 15.1-15.9 Tool Gateway | Implemented | 13 commerce tools, confirmation service, idempotency service, result redactor |
+| Task 16-18 Commerce Flows | Implemented | outlet, cart, order, payment, complaint flows with confirmation policy + read-only payment |
+| Task 19-20 Follow-up | Implemented | canSendProactive, scheduleFollowup, cancelFollowup, consent policy, quiet hours, dedupe |
+| Task 21 AI Trace | Implemented | trace-service (startTrace, completeTrace, failTrace, traceToolCall), retention cleanup |
+| Task 22 Feedback | Implemented | validateFeedback, submitFeedback (rating 1-5, 8 reason codes) |
+| Task 23 Security | Implemented | immutable safety policy (8 rules), prompt injection test corpus (10 scenarios) |
+| Task 24 Job Envelope | Implemented | createJob, claimJob, completeJob, failJob (retry 3x, exponential backoff, lock) |
+| Task 25 Performance | Implemented | benchmarkOperation, time budget (consumeModel/Tool Budget, resetBudget) |
+| Task 26 LangChain Boundary | Implemented | adapter contract (status='unconfigured', all core interfaces framework-neutral) |
+| Task 27 Multi-Agent | Implemented | specialist router (5 roles: commerce, support, order_status, copilot, recommendation) |
+| Task 28 Admin API Routes | Implemented | knowledge CRUD (GET/POST sources, chunks), AI traces (runs, tool-calls, feedback), agent API (CRUD, publish, archive, health, versions, test) |
+| **Full test suite** | **426 pass, 0 fail** | **59 AI test files across all layers** |
+
+## Webhook Reliability — 2026-06-20
+
+| Module | Status | Evidence |
+|---|---|---|
+| `fetchWithIPv4()` di sender.js | Implemented | DNS resolve4 paksa IPv4 + https.request, retry 2x, timeout 10s |
+| `webhook-manager.worker.js` | Implemented | Auto-check webhook tiap 5 menit, auto-renew saat error/URL mismatch |
+| `NODE_OPTIONS` di dev script | Implemented | `--dns-result-order=ipv4first` |
+| Webhook auto-set di startup | Implemented | `createTelegramWebhookManager().start()` di `index.js` bootstrap |
+
+## Location Intelligence — Preflight (Section 0) — 2026-06-20
+
+| Module | Status | Evidence |
+|---|---|---|
+| Spec activation | Complete | Moved from backlog to active folder; `npm run specs:check` passes |
+| Spec isolation confirmed | Complete | No AISS-R/AIA-R ownership introduced; scope boundaries documented |
+| Runtime paths audited | Complete | Telegram/WhatsApp inbound, Scope Security, Tool Gateway, outlet repository, opening hours (JSONB), cart policy, PostGIS (unavailable) all identified |
+| Test harness | Complete | `server/test/helpers/location/` with FixedClock, 7 factory builders, fake provider (6 scenarios), fake URL redirect client, 6 spy types |
+| Location test scripts | Complete | 9 npm scripts (`test:location:{unit,component,integration,security,property,concurrency,resilience,performance,all}`) in `server/package.json` |
+| Release blockers | Defined | 11 conditions documented in tasks.md |
+| Unit tests | 49 pass, 0 fail | test-helpers (17), fake-provider (14), fake-url-redirect (7), spies (11) |
+
+## Location Intelligence — Implementation (Sections 1-25) — 2026-06-20
+
+| Section | Source Files | Tests |
+|---|---|---|
+| 1 — Core Domain Contracts (8 files) | flow-status, resolution-status, outlet-location-status, coordinate, location-input, location-candidate, nearest-outlet-result, errors | 198 |
+| 2 — Temporary Location Flow (6 files) | pending-location-context, location-parser, completeness-evaluator, context-merge, cancellation-detector, clarification-mapper | 252 |
+| 3 — Supported Outlet Cities | supported-city.js | 303 |
+| 4 — Provider Interface + Fake | fake-provider.js (6 scenarios) | 303 |
+| 5 — Query Normalizer + Strategy Selector | query-normalizer, strategy-selector | 303 |
+| 6 — Shared Coordinates Input | coordinate-normalizer | 357 |
+| 7 — Secure URL Resolver (SSRF) | secure-url-resolver | 357 |
+| 8 — Admin Outlet Resolver | admin-resolver | 357 |
+| 9 — Outlet Location Record | outlet-location-record | 357 |
+| 10 — Verification Classifier | verification-classifier | 357 |
+| 11 — Outlet Eligibility | outlet-eligibility | 376 |
+| 12 — Haversine + Nearest Engine | haversine, nearest-outlet-service | 376 |
+| 13 — Open Preference | nearest-outlet-service (3km tolerance) | 376 |
+| 14 — Service Radius | nearest-outlet-service (25km default) | 376 |
+| 15 — Maps Link Builder | maps-link-builder | 376 |
+| 16 — Composite Tool Schema | composite-tool-schema | 410 |
+| 17 — Confirmation Service | confirmation-service | 410 |
+| 19 — Cache Service | cache-service (7 namespaces) | 410 |
+| 20 — Rate Limiting | rate-limit-service (3 profiles) | 410 |
+| 21 — Privacy Redactor | privacy-redactor | 410 |
+| 24 — Trace Service | trace-service | 410 |
+| 25 — Failure Handler | failure-handler (13 behaviors) | 410 |
+| **Total** | **22 source files + 27 test files** | **410 pass, 0 fail** |
+
+## Location Intelligence — Final (All Sections) — 2026-06-20
+
+| Section | Source Files | Tests |
+|---|---|---|
+| 0 — Preflight & Test Harness | 6 helper files + scripts | 49 |
+| 1 — Core Domain Contracts (8 files) | flow-status, resolution-status, outlet-location-status, coordinate, location-input, location-candidate, nearest-outlet-result, errors | 198 |
+| 2 — Temp Location Flow (7 files) | pending-context, parser, completeness, merge, **flow-repository**, cancellation, clarification | 252 |
+| 3 — Supported Cities | supported-city | 303 |
+| 4 — Provider Interface + Fake + Google Adapter | fake-provider (6 scenarios), **google-adapter (mock)** | 310 |
+| 5 — Text Resolution (5 files) | query-normalizer, strategy-selector, **confidence-normalizer**, **resolution-service**, **nominatim-adapter** | 325 |
+| 6 — Shared Coordinates | coordinate-normalizer | 357 |
+| 7 — Secure URL Resolver (2 files) | secure-url-resolver (SSRF guard), **url-resolution-service** | 364 |
+| 8 — Admin Resolver | admin-resolver (preview, confirm, optimistic concurrency) | 372 |
+| 9 — Outlet Location Record | outlet-location-record | 379 |
+| 10 — Verification Classifier | verification-classifier | 384 |
+| 11 — Outlet Eligibility | outlet-eligibility | 390 |
+| 12 — Haversine + Nearest Engine | haversine, nearest-outlet-service | 396 |
+| 13 — Open Preference | nearest-outlet-service (3km tolerance) | 400 |
+| 14 — Service Radius | nearest-outlet-service (25km default) | 405 |
+| 15 — Maps Link Builder | maps-link-builder | 410 |
+| 16 — Composite Tool + Flow Coordinator | composite-tool-schema, **flow-coordinator** | 417 |
+| 17 — Confirmation + Input Mapper | confirmation-service, **confirmation-input-mapper** | 432 |
+| 19 — Cache Service | cache-service (7 namespaces) | 437 |
+| 20 — Rate Limiting | rate-limit-service (3 profiles) | 442 |
+| 21 — Privacy Redactor | privacy-redactor | 447 |
+| 24 — Trace Service | trace-service | 451 |
+| 25 — Failure Handler + Resilience | failure-handler, **resilience-tests** | 459 |
+| 26 — Security Matrix | security-matrix (21 SSRF + isolation scenarios) | 480 |
+| 27 — Performance Tests | performance-tests (Haversine, cache, no-route) | 486 |
+| 28 — Evaluation Matrix | evaluation-matrix (happy paths, ranking, eligibility) | 504 |
+| 29 — Docs & CI | location-flow.md, location-data-model.md, location-admin-api.md, location-security.md, location-test-plan.md, location-intelligence-rules.md, READING-ORDER.md update | 513 |
+| **Final Total** | **41 source files + 52 test/helper/docs files** | **513 pass, 0 fail** |
+
+## Location Intelligence — Infrastructure
+
+| Item | Status | Notes |
+|---|---|---|
+| Supabase migration `010_outlet_locations` | Applied | 2 tables + 6 indexes |
+| `outlet-locations` repository | Created | CRUD + history |
+| `location-admin` routes | Created + mounted | resolve, confirm, refresh, get, history |
+| `location-internal` routes | Created + mounted | nearest-outlet |
+| `find_nearest_outlet` AI tool | Registered | In domain-tools.js |
+| `googleMapsApiKey` env config | Added | Fallback only (default = Nominatim) |
+| Default provider | Nominatim | Gratis, tanpa API key |

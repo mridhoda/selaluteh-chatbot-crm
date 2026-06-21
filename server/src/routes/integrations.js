@@ -1,10 +1,18 @@
 import express from 'express';
+import { env } from '../config/env.js';
 import { authRequired, attachUser } from '../middleware/auth.js';
 import { platformsSupabaseRepository } from '../db/repositories/index.js';
 
 const router = express.Router();
 
 const cleanBaseUrl = (baseUrl = '') => baseUrl.replace(/\/+$/, '');
+const isHttpsUrl = (value = '') => {
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
 
 // Instagram Business Login OAuth redirect target
 // This endpoint is used only as a redirect landing page so the
@@ -53,11 +61,18 @@ router.post('/telegram/:id/setWebhook', authRequired, attachUser, async (req, re
       return res.status(400).json({ error: 'Token Telegram belum diset' });
     }
 
-    if (!process.env.PUBLIC_BASE_URL) {
+    if (!env.publicBaseUrl) {
       return res.status(400).json({ error: 'PUBLIC_BASE_URL belum diset di backend' });
     }
 
-    const baseUrl = cleanBaseUrl(process.env.PUBLIC_BASE_URL);
+    if (!isHttpsUrl(env.publicBaseUrl)) {
+      return res.status(400).json({
+        error: 'PUBLIC_BASE_URL untuk Telegram webhook harus HTTPS',
+        detail: 'Gunakan domain HTTPS publik, misalnya https://crm-dev.incretlabs.my.id',
+      });
+    }
+
+    const baseUrl = cleanBaseUrl(env.publicBaseUrl);
     const webhookUrl = `${baseUrl}/webhook/telegram`;
 
     const response = await fetch(`https://api.telegram.org/bot${platform.token}/setWebhook`, {

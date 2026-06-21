@@ -73,4 +73,74 @@ router.delete('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.post('/:id/test', async (req, res, next) => {
+  try {
+    if (!isValidUUID(req.params.id)) throw new AppError('VALIDATION', 'Invalid platform id', 400);
+    const platform = await platformsSupabaseRepository.findByIdWithCredentials({
+      workspaceId: req.me.workspaceId,
+      platformId: req.params.id,
+    });
+    if (!platform) throw new AppError('NOT_FOUND', 'Platform not found', 404);
+
+    let ok = false;
+    let message = '';
+
+    try {
+      if (platform.type === 'telegram') {
+        if (!platform.token) throw new AppError('VALIDATION', 'Telegram token is missing', 400);
+        const resp = await fetch(`https://api.telegram.org/bot${platform.token}/getMe`);
+        const data = await resp.json();
+        if (data.ok) {
+          ok = true;
+          message = `Connected to Telegram bot: @${data.result.username}`;
+        } else {
+          message = `Telegram error: ${data.description}`;
+        }
+      } else if (platform.type === 'whatsapp') {
+        if (!platform.token || !platform.phoneNumberId) {
+          throw new AppError('VALIDATION', 'WhatsApp token or Phone Number ID is missing', 400);
+        }
+        const resp = await fetch(`https://graph.facebook.com/v19.0/${platform.phoneNumberId}`, {
+          headers: { Authorization: `Bearer ${platform.token}` }
+        });
+        const data = await resp.json();
+        if (!data.error) {
+          ok = true;
+          message = `Connected to WhatsApp Number: ${data.display_phone_number || platform.phoneNumberId}`;
+        } else {
+          message = `Meta error: ${data.error.message}`;
+        }
+      } else if (platform.type === 'instagram') {
+        if (!platform.token || !platform.pageId) {
+          throw new AppError('VALIDATION', 'Instagram token or Page ID is missing', 400);
+        }
+        const resp = await fetch(`https://graph.facebook.com/v19.0/${platform.pageId}?fields=name`, {
+          headers: { Authorization: `Bearer ${platform.token}` }
+        });
+        const data = await resp.json();
+        if (!data.error) {
+          ok = true;
+          message = `Connected to Instagram Page: ${data.name}`;
+        } else {
+          message = `Meta error: ${data.error.message}`;
+        }
+      } else {
+        return res.json({ supported: false });
+      }
+    } catch (fetchErr) {
+      if (fetchErr instanceof AppError) throw fetchErr;
+      ok = false;
+      message = `Connection failed: ${fetchErr.message}`;
+    }
+
+    if (ok) {
+      res.json({ supported: true, ok: true, message });
+    } else {
+      res.status(400).json({ supported: true, ok: false, error: message });
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

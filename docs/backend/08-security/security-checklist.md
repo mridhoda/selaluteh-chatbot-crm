@@ -20,9 +20,13 @@
 ## Payment
 
 - [ ] Webhook signature verified.
+- [ ] Xendit `x-callback-token` verified for Payment Session webhook.
 - [ ] Webhook idempotency implemented.
 - [ ] Payment maps to correct order/outlet.
 - [ ] Amount verified.
+- [ ] Currency and merchant reference verified.
+- [ ] Paid payment cannot be downgraded by stale provider event.
+- [ ] Payment provider secrets are server-only and never exposed to frontend or AI.
 
 ## AI
 

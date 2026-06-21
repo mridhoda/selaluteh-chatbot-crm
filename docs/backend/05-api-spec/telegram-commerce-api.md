@@ -93,7 +93,7 @@ This endpoint should only be callable by trusted webhook handler, not public das
 | `update_quantity` | Increment/decrement cart item |
 | `start_checkout` | Ask customer info/confirm order |
 | `confirm_checkout` | Create order, payment attempt, and payment instruction |
-| `create_payment` | Create payment link or manual/COD instruction |
+| `create_payment` | Create/reuse Xendit Test Mode payment link or manual/COD instruction |
 | `check_order_status` | Show latest order status |
 | `talk_to_human` | Escalate/takeover path |
 
@@ -103,6 +103,7 @@ This endpoint should only be callable by trusted webhook handler, not public das
 - Product detail should include price, availability, and add-to-cart button.
 - Cart summary must show total before checkout.
 - Payment link or manual/COD instruction should be shown only after order is created.
+- Xendit Test Mode payment link should be clearly presented as hosted checkout, without exposing credentials.
 - Checkout confirmation must be explicit.
 - Product list must be paginated.
 - Order status action shows recent orders for the Telegram contact/chat.
@@ -116,6 +117,8 @@ Callback query may be resent/retried. Backend must prevent duplicate:
 - payment creations
 
 Current implementation also reuses existing pending/paid payment attempts for the same order.
+
+For Xendit Payment Session, repeated `create_payment` must reuse active pending session or return the same result for the same idempotency key. It must not create another Xendit session just because Telegram resends a callback.
 
 Use:
 

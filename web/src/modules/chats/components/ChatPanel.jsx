@@ -41,9 +41,22 @@ function getAttachmentUrl(url) {
   return `${base.replace(/\/+$/, '')}${url}`
 }
 
+function normalizeMessageAttachment(message) {
+  const attachment = message.rawPayload?.attachment || message.raw_payload?.attachment || message.attachment || null
+  if (!attachment) return null
+  const normalized = { ...attachment }
+  if (!normalized.url && normalized.storedName) normalized.url = `/files/${normalized.storedName}`
+  if (!normalized.type) {
+    const filename = normalized.filename || normalized.url || ''
+    normalized.type = message.messageType === 'image' || message.message_type === 'image' || /\.(jpg|jpeg|png|gif|webp)$/i.test(filename) ? 'image' : 'document'
+  }
+  return normalized
+}
+
 // ─── message bubble ────────────────────────────────────────────────────────
 
 function MessageBubble({ message }) {
+  const [imageShape, setImageShape] = useState('standard')
   const role = message.senderType || message.role || message.sender || message.from
   const isUser = message.direction === 'inbound' || role === 'user' || role === 'customer'
   const isAi =
@@ -84,9 +97,22 @@ function MessageBubble({ message }) {
     )
   }
 
-  const attachment = message.rawPayload?.attachment || null
+  const attachment = normalizeMessageAttachment(message)
   const isImage = attachment && (attachment.type === 'image' || (attachment.filename && attachment.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)));
   const hasCaption = !!content;
+
+  const handleImageLoad = (event) => {
+    const { naturalWidth, naturalHeight } = event.currentTarget
+    if (!naturalWidth || !naturalHeight) return
+    const ratio = naturalWidth / naturalHeight
+    if (ratio >= 1.45) {
+      setImageShape('landscape')
+    } else if (ratio <= 0.8) {
+      setImageShape('portrait')
+    } else {
+      setImageShape('standard')
+    }
+  }
 
   return (
     <div className={`chat-prism-message-row ${isUser ? 'user' : 'agent'}`}>
@@ -94,11 +120,12 @@ function MessageBubble({ message }) {
         <div className={`chat-prism-bubble ${isUser ? 'user' : isHuman ? 'human' : 'ai'} ${isImage ? 'chat-prism-bubble-image-container' : ''} flex flex-col`}>
           {attachment && (
             isImage ? (
-              <div className="relative max-w-[280px] w-full bg-slate-900/5 overflow-hidden">
+              <div className={`chat-prism-image-preview ${imageShape}`}>
                 <img 
                   src={getAttachmentUrl(attachment.url)} 
                   alt={attachment.filename || 'Attached image'} 
-                  className="w-full h-auto max-h-[300px] object-cover block cursor-pointer hover:opacity-95 transition-opacity"
+                  className="chat-prism-image-preview-img"
+                  onLoad={handleImageLoad}
                   onClick={() => window.open(getAttachmentUrl(attachment.url), '_blank')}
                 />
                 {!hasCaption && (

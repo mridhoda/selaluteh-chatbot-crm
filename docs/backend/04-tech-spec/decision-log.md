@@ -84,6 +84,14 @@ Status: Accepted (enforced)
 
 Reason: No standard mark-paid API endpoint exists. Only `atomicStatusUpdate` from webhook processing or reconciliation can transition to `paid`.
 
+## Decision: Xendit Test Mode Payment Session for MVP
+
+Status: Accepted
+
+Reason: Xendit Payment Session provides a hosted checkout URL through `POST /sessions`, supports Test Mode, and keeps card/payment collection outside SelaluTeh UI. MVP uses one Xendit Test Mode business account for all outlets, `session_type=PAY`, `mode=PAYMENT_LINK`, `capture_method=AUTOMATIC`, and `allow_save_payment_method=DISABLED`.
+
+Constraints: Live Mode is not allowed in this MVP task. Legacy Invoice API must not be used unless Payment Session is unavailable and fallback is explicitly approved. Payment success remains authoritative only after verified Xendit webhook or server-side provider refresh.
+
 ## Decision: Supabase/Postgres as the Sole Runtime Target
 
 Status: Accepted
@@ -108,3 +116,38 @@ Status: Accepted
 
 Reason: To ensure safety and preserve behavior, repository layers and routes were cut over staged domain-by-domain. Once all domains were migrated, MongoDB connection code, Mongoose models, and Mongoose test helpers (like `MongoMemoryServer`) were completely removed from the codebase to eliminate technical debt.
 
+## Decision: Ollama nomic-embed-text for Local Embeddings
+
+Status: Accepted
+
+Reason: Embedding model untuk RAG dipilih `nomic-embed-text` via Ollama karena gratis, open source (274MB), 768-dimension, dan bisa jalan offline. Vektor column `knowledge_chunks.embedding` diubah dari `vector(384)` ke `vector(768)`.
+
+## Decision: Greeting Flags dari Database, Bukan Heuristic Waktu
+
+Status: Accepted (enforced)
+
+Reason: Heuristic `isNewChat = createdAt > now - 2s` tidak reliable dan menyebabkan AI berulang kali introduce diri. Diganti dengan `computeGreetingFlags()` yang membaca `isFirstAssistantMessageInChat` dari jumlah pesan AI yang sudah terkirim di database. `senderType: 'ai'` dan `'assistant'` keduanya dihitung.
+
+## Decision: Tool Gateway sebagai Satu-Satunya AI Action Boundary
+
+Status: Accepted (enforced)
+
+Reason: AI tidak boleh memanggil backend langsung. Semua aksi commerce (cart, order, payment) harus melalui tool gateway yang memvalidasi schema, permission, scope, dan confirmation. Tool `mark_payment_paid` secara permanen dilarang.
+
+## Decision: In-Memory untuk MVP, Redis untuk Production
+
+Status: Accepted
+
+Reason: Confirmation token, idempotency store, job envelope, dan per-chat run lock menggunakan in-memory Map untuk MVP. Redis akan ditambahkan di fase production untuk persistence dan distributed locking.
+
+## Decision: Full-Text Search Fallback untuk RAG
+
+Status: Accepted (enforced)
+
+Reason: `hybridRetrieve()` menggunakan full-text search via `ilike` multi-term sebagai fallback ketika embedding tidak tersedia atau vector search gagal. Supaya RAG tetap berfungsi meski Ollama embedding offline.
+
+## Decision: IPv4-Only Fetch untuk Telegram API
+
+Status: Accepted (enforced)
+
+Reason: Node.js 24 built-in `fetch()` (undici) kadang ignore `dns.setDefaultResultOrder('ipv4first')` dan timeout konek ke `api.telegram.org` via IPv6 (`ETIMEDOUT`). Solusi: `fetchWithIPv4()` di `sender.js` yang paksa DNS resolve ke IPv4 via `dns.resolve4()` + kirim request via `https.request()` langsung. Juga ditambahkan `NODE_OPTIONS="--dns-result-order=ipv4first"` di dev script dan `webhook-manager.worker.js` untuk auto-renew webhook tiap 5 menit.

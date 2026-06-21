@@ -1601,6 +1601,77 @@ Task rules:
 
 ---
 
+## 16A. Xendit Test Mode Payment Session Integration
+
+- [x] [!] 16A.1 Preflight Xendit Test Mode implementation scope
+  - Verify active spec/task alignment.
+  - Inspect existing payment, order, webhook, Supabase, Telegram, and frontend/sidebar implementation.
+  - Verify current official Xendit Payment Session documentation before coding provider client changes.
+  - Produce preflight report before implementation.
+  - _Requirements: R20, R21, R22, R23, R30, R37_
+
+- [x] [!] 16A.2 Configure backend-only Xendit Test Mode environment
+  - Add placeholders and validation for Xendit Test Mode Payment Session settings.
+  - Ensure secrets are server-only and redacted.
+  - Do not fail startup for Xendit settings when Xendit provider is disabled.
+  - _Requirements: R2, R6, R20, R30, R38_
+
+- [x] [!] 16A.3 Implement Xendit Payment Session provider adapter
+  - Use Xendit Test Mode and hosted checkout Payment Session API.
+  - Implement create session, get session, webhook verification, webhook parsing, and status mapping behind provider-neutral contract.
+  - Do not use legacy Invoice API without documented approval.
+  - _Requirements: R20, R21, R22, R30_
+
+- [x] [!] 16A.4 Persist payment session attempts in Supabase
+  - Store provider session ID, reference, attempt number, payment link URL, expiry, amount, currency, workspace, outlet, and order identifiers.
+  - Reuse existing payment tables/repositories where they satisfy the contract.
+  - Add migrations only when required and avoid duplicate payment tables.
+  - _Requirements: R20, R21, R34, R35_
+
+- [x] [!] 16A.5 Implement authenticated create/get/refresh payment session APIs
+  - Add or adapt create session endpoint for order payment links.
+  - Enforce workspace and outlet access.
+  - Use backend-authoritative order amount and currency.
+  - Implement create-session idempotency and safe refresh reconciliation.
+  - _Requirements: R18, R20, R22, R29, R30_
+
+- [x] [!] 16A.6 Implement Xendit Payment Session webhook endpoint
+  - Add public Xendit payment-session webhook route.
+  - Verify callback token using documented header.
+  - Persist webhook/payment events idempotently before processing.
+  - Validate provider session ID, reference, amount, currency, and monotonic status transition.
+  - Prevent paid downgrade and duplicate side effects.
+  - _Requirements: R7, R20, R21, R25, R30_
+
+- [x] 16A.7 Integrate Telegram payment link and paid notification behavior
+  - Ensure authorized commerce flow can send or resend Xendit Test Mode payment link.
+  - Ensure verified paid webhook sends one customer success notification.
+  - Respect human takeover rules and avoid duplicate messages.
+  - _Requirements: R10, R23, R25, R30_
+
+- [x] 16A.8 Integrate Orders sidebar payment state
+  - Expose safe payment gateway state for Xendit Test Mode.
+  - Show separate payment and order statuses.
+  - Reuse active sessions instead of creating duplicates.
+  - _Requirements: R18, R20, R21, R29, R30_
+
+- [x] [!] 16A.9 Add Xendit payment tests and documentation
+  - Add unit, integration, security, webhook, Telegram, Supabase, and frontend-related tests where applicable.
+  - Update payment, webhook, API, data, security, testing, operations, sprint, and active spec documentation.
+  - Provide manual Xendit dashboard setup checklist without secrets.
+  - Run relevant tests and final `npm run specs:check`.
+  - _Requirements: R20, R21, R22, R23, R25, R30, R37, R38_
+
+  Evidence 2026-06-18:
+  - Implemented Xendit Test Mode Payment Session adapter using official `POST /sessions` and `GET /sessions/{session_id}` contracts.
+  - Implemented webhook verification with documented `x-callback-token` and events `payment_session.completed` / `payment_session.expired`.
+  - Added authenticated create session endpoint `POST /api/orders/:orderId/payments/xendit/session`, refresh endpoint `POST /api/payments/:paymentId/refresh`, and public webhook endpoint `/api/webhooks/xendit/payment-sessions`.
+  - Payment attempts are stored in existing Supabase `payments` table with provider session ID, reference, payment link, expiry, amount, currency, attempt number, and safe metadata.
+  - Paid transition validates provider session, reference, amount, and currency, and stale events cannot downgrade paid payments.
+  - Added Xendit adapter unit tests and updated docs/status/progress. Backend tests passed; live Test Mode dashboard/webhook verification remains manual and was not claimed.
+
+---
+
 ## 17. Notifications and Delivery Orchestration
 
 - [ ] 17.1 Define message delivery service

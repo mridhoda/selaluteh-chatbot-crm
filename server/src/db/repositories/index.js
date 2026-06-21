@@ -69,3 +69,16 @@ export { agentsSupabaseRepository as agentsRepository } from './agents.supabase.
 // ─── Complaints ───────────────────────────────────────────────────────────────
 export { complaintsSupabaseRepository } from './complaints.supabase.repository.js';
 export { complaintsSupabaseRepository as complaintsRepository } from './complaints.supabase.repository.js';
+
+// ─── AI Agent Architecture — Sessions, Summaries, Memories, Knowledge, Traces ─
+export { conversationSessionsRepository } from './conversation-sessions.supabase.repository.js';
+export { conversationSummariesRepository } from './conversation-summaries.supabase.repository.js';
+export { contactMemoriesRepository } from './contact-memories.supabase.repository.js';
+export { knowledgeSourcesRepository } from './knowledge-sources.supabase.repository.js';
+export { knowledgeChunksRepository } from './knowledge-chunks.supabase.repository.js';
+export { aiRunsRepository } from './ai-runs.supabase.repository.js';
+export { aiToolCallsRepository } from './ai-tool-calls.supabase.repository.js';
+export { aiFeedbackRepository } from './ai-feedback.supabase.repository.js';
+
+// ─── Location Intelligence (Sections 9.3, 25.4) ─────────────────────────────
+export { outletLocationsRepository } from './outlet-locations.supabase.repository.js';

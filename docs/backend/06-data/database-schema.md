@@ -28,6 +28,7 @@ Rules:
 2. Outlet-operational commerce data must include `outlet_id`.
 3. Snapshot fields are required on transactional rows so historical orders/payments remain stable even if product/customer data changes.
 4. AI must not be the source of truth for product price, cart total, order status, or payment status.
+5. Xendit provider IDs and merchant references are reconciliation keys, not authorization sources.
 
 ---
 
@@ -479,6 +480,15 @@ created_at
 
 Stores payment provider settings shown in Settings UI.
 
+For the current Xendit Test Mode MVP, sensitive provider values are server environment variables, not frontend-editable records:
+
+```txt
+XENDIT_SECRET_API_KEY
+XENDIT_WEBHOOK_VERIFICATION_TOKEN
+```
+
+The UI may receive only safe state such as provider, environment, and configured boolean.
+
 Suggested fields:
 
 ```txt
@@ -533,6 +543,22 @@ created_at
 updated_at
 ```
 
+For Xendit Payment Session:
+
+```txt
+provider = xendit
+provider_transaction_id = Xendit payment_session_id
+merchant_reference = Xendit reference_id
+payment_url/payment_link = Xendit payment_link_url
+expires_at = session expiry
+metadata.provider_payment_request_id = Xendit payment_request_id when supplied
+metadata.provider_payment_id = Xendit payment_id when supplied
+metadata.environment = test
+metadata.idempotency_key = application create-session idempotency key
+```
+
+Payment and order statuses remain separate. Payment webhook updates `orders.payment_status`, not fulfillment lifecycle completion.
+
 ### payment_attempts
 
 Represents retry/attempt history for one payment.
@@ -586,7 +612,9 @@ created_at
 updated_at
 ```
 
-Current MongoDB runtime embeds payment event snapshots inside `payments.events` and also stores canonical webhook timeline rows in `payment_events` for `GET /payments/:paymentId/events`.
+Current Supabase runtime stores canonical payment timeline rows in `payment_events` for `GET /payments/:paymentId/events`.
+
+For Xendit Payment Session events, store normalized event type (`payment_session.completed` or `payment_session.expired`), provider event key, provider status, amount, currency, processing status, and safe provider payload. Do not store API keys, callback token headers, or Authorization headers.
 
 ---
 

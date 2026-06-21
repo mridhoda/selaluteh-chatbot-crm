@@ -10,7 +10,7 @@ import { useToast } from '../../../shared/components/feedback/Toast'
 
 export default function ChatCenterPage() {
   const [selectedChatId, setSelectedChatId] = useState(null)
-  const [chatFilters, setChatFilters] = useState({ assignment: 'unassigned' })
+  const [chatFilters, setChatFilters] = useState({ assignment: 'all' })
   const [contextOpen, setContextOpen] = useState(true)
 
   const {

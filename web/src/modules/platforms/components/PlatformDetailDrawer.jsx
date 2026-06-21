@@ -7,6 +7,7 @@ import BrandIcon from '../../../shared/components/brand/BrandIcon'
 import PlatformCapabilitiesChecklist from './PlatformCapabilitiesChecklist'
 import WebhookHealthBadge from './WebhookHealthBadge'
 import PlatformStatusBadge from './PlatformStatusBadge'
+import api from '../../../shared/api/httpClient'
 
 function Section({ title, children }) {
   return (
@@ -75,6 +76,25 @@ function formatDateTime(d) {
   })
 }
 
+function getApiErrorMessage(e, fallback = 'Request failed') {
+  const data = e?.response?.data
+  const detail = data?.detail
+  const detailMessage =
+    detail?.description ||
+    detail?.message ||
+    detail?.error ||
+    (typeof detail === 'string' ? detail : '')
+
+  return (
+    data?.error?.message ||
+    data?.message ||
+    data?.error ||
+    detailMessage ||
+    e?.message ||
+    fallback
+  )
+}
+
 export default function PlatformDetailDrawer({
   platform,
   agents = [],
@@ -110,9 +130,9 @@ export default function PlatformDetailDrawer({
       (platform.credentials.phoneNumberId || platform.credentials.pageId)) ||
     null
 
-  const webhookUrl =
-    platform.webhookUrl ||
-    window.location.origin + '/webhook/telegram/' + pid
+  const apiBaseUrl = api.defaults.baseURL || window.location.origin
+  const webhookPath = platform.type === 'whatsapp' || platform.type === 'instagram' ? 'meta' : platform.type
+  const webhookUrl = platform.webhookUrl || `${apiBaseUrl}/webhook/${webhookPath}`
 
   const copyText = (text, label) => {
     navigator.clipboard.writeText(text).then(
@@ -128,10 +148,10 @@ export default function PlatformDetailDrawer({
       if (result && result.data && result.data.supported === false) {
         toast.info('Connection test not supported for this platform type')
       } else {
-        toast.success('Connection test passed')
+        toast.success(result.data?.message || 'Connection test passed')
       }
     } catch (e) {
-      toast.error(e.message || 'Test failed')
+      toast.error(getApiErrorMessage(e, 'Test failed'))
     } finally {
       setTesting(false)
     }
@@ -143,7 +163,7 @@ export default function PlatformDetailDrawer({
       await onSetWebhook(pid)
       toast.success('Webhook configured successfully')
     } catch (e) {
-      toast.error(e.message || 'Failed to set webhook')
+      toast.error(getApiErrorMessage(e, 'Failed to set webhook'))
     } finally {
       setSettingWebhook(false)
     }
@@ -157,7 +177,9 @@ export default function PlatformDetailDrawer({
 
   const titleEl = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <BrandIcon name={platform.type} size={20} />
+      <div className={`chat-prism-avatar-wrap ${platform.type || 'custom'}`} style={{ width: 24, height: 24, marginTop: 0 }}>
+        <BrandIcon type={platform.type} size={12} color="#ffffff" />
+      </div>
       <span>{platform.label || platform.type || 'Platform'}</span>
     </div>
   )
@@ -288,6 +310,11 @@ export default function PlatformDetailDrawer({
                   <Copy size={11} />
                 </button>
               </div>
+              {webhookUrl.includes('localhost') && (
+                <div style={{ fontSize: 11, color: 'var(--warning-600)', marginTop: 5, lineHeight: 1.4 }}>
+                  ⚠️ Ganti <strong>localhost:5000</strong> dengan URL Cloudflare Tunnel (misal: <code>https://frequent-managing-dietary-mud.trycloudflare.com/webhook/{webhookPath}</code>) saat didaftarkan di portal eksternal.
+                </div>
+              )}
             </div>
             <DataRow
               label="Verification"

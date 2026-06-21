@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import api from "../../../shared/api/httpClient";
+import { isDemoMode } from "../../../mocks/demoState";
 import kalisStorefront from "../../../assets/kalis_storefront.jpg";
 import rinaAvatar from "../../../assets/rina_avatar.jpg";
 import {
@@ -48,7 +50,7 @@ const C = {
 };
 
 /* ─── Dummy data ───────────────────────────────────────────── */
-const outlets = [
+const dummyOutlets = [
   {
     id: 1,
     name: "Samarinda Central",
@@ -846,7 +848,31 @@ function DetailMetric({ label, value, trend, suffix = "%", inverse = false }) {
 
 /* ─── Right Detail Panel ───────────────────────────────────── */
 function DetailPanel({ outlet, onClose, mobile = false }) {
-  if (!outlet) return null;
+  if (!outlet) {
+    return (
+      <aside className="h-full bg-white flex flex-col items-center justify-center text-center p-6 text-[#667085] relative">
+        <div className="absolute top-4 right-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-8 w-8 place-items-center text-[#98A2B3] transition hover:text-[#11182E]"
+            title="Hide outlet details"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-12 h-12 rounded-full bg-[#F6F8FB] flex items-center justify-center text-[#667085] mb-2 border border-dashed border-[#E1E6EF] text-lg">
+            🏪
+          </div>
+          <div className="text-sm font-semibold text-[#11182E]">No Outlet Selected</div>
+          <div className="text-xs text-[#667085] max-w-[240px]">
+            Click on any outlet in the table to view its full details here.
+          </div>
+        </div>
+      </aside>
+    );
+  }
 
   return (
     <aside
@@ -1036,8 +1062,75 @@ export default function OutletsPage() {
   const [channel, setChannel] = useState("All Channels");
   const [activeTab, setActiveTab] = useState("All");
   const [sort, setSort] = useState("Default");
-  const [selectedOutlet, setSelectedOutlet] = useState(outlets[0]);
+  const [outlets, setOutlets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedOutlet, setSelectedOutlet] = useState(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(true);
+
+  useEffect(() => {
+    loadOutlets();
+  }, []);
+
+  const loadOutlets = async () => {
+    setLoading(true);
+    try {
+      if (isDemoMode()) {
+        setOutlets(dummyOutlets);
+      } else {
+        const res = await api.get('/outlets');
+        const rawOutlets = Array.isArray(res.data) 
+          ? res.data 
+          : (res.data && Array.isArray(res.data.data) ? res.data.data : []);
+        
+        const mappedOutlets = rawOutlets.map((o, idx) => ({
+          id: o.id || o._id,
+          _id: o.id || o._id,
+          name: o.name,
+          city: o.city || 'Makassar',
+          region: o.region || 'Sulawesi',
+          status: o.status === 'active' ? 'Active' : (o.status === 'needs_attention' ? 'Needs Attention' : (o.status === 'coming_soon' ? 'Coming Soon' : 'Paused')),
+          manager: o.manager || 'Agus',
+          orders: o.orders || 0,
+          revenue: o.revenue || 0,
+          rating: o.rating || 4.5,
+          staff: o.staff || 5,
+          sync: o.updated_at ? new Date(o.updated_at).toLocaleTimeString() : 'Just now',
+          image: o.image || `/images/outlets/outlet-${(idx % 4) + 1}.png`,
+          channels: o.channels || ['whatsapp', 'telegram'],
+          address: o.address || '-',
+          phone: o.phone || '-',
+          salesTrend: o.salesTrend || [0, 0, 0, 0, 0, 0],
+          reconciliationStatus: o.reconciliationStatus || 'Reconciled',
+          discrepancyCount: o.discrepancyCount || 0,
+          hours: (o.opening_hours && Object.keys(o.opening_hours).length > 0) 
+            ? Object.entries(o.opening_hours) 
+            : [
+              ["Mon - Fri", "08:00 - 22:00"],
+              ["Saturday", "08:00 - 23:00"],
+              ["Sunday", "08:00 - 22:00"],
+            ],
+          activity: o.activity || [
+            ["sync", "Menu sync completed", "15 min ago"],
+            ["printer", "Printer online", "Just now"]
+          ],
+          orderTrend: o.orderTrend || [22, 43, 29, 54, 28, 21, 55, 30, 25, 38, 20, 40, 30, 50, 30, 50, 42],
+          trendLabels: o.trendLabels || ["May 9", "May 10", "May 11", "May 12", "May 13", "May 14", "May 15"]
+        }));
+        setOutlets(mappedOutlets);
+      }
+    } catch (err) {
+      console.error('Failed to load outlets:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (outlets.length > 0 && !selectedOutlet) {
+      setSelectedOutlet(outlets[0]);
+    }
+  }, [outlets]);
 
   const counts = useMemo(
     () => ({
@@ -1047,7 +1140,7 @@ export default function OutletsPage() {
       "Coming Soon": outlets.filter((o) => o.status === "Coming Soon").length,
       Paused: outlets.filter((o) => o.status === "Paused").length,
     }),
-    []
+    [outlets]
   );
 
   const filteredOutlets = useMemo(() => {
@@ -1068,10 +1161,11 @@ export default function OutletsPage() {
       if (sort === "Revenue") return b.revenue - a.revenue;
       return 0;
     });
-  }, [search, region, status, channel, activeTab, sort]);
+  }, [search, region, status, channel, activeTab, sort, outlets]);
 
   const chooseOutlet = (outlet) => {
     setSelectedOutlet(outlet);
+    setIsDetailOpen(true);
     setMobileDetailOpen(true);
   };
 
@@ -1094,7 +1188,7 @@ export default function OutletsPage() {
       <div
         className={cx(
           "flex-1 min-w-0 h-full overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 transition-[margin] duration-200",
-          selectedOutlet ? "xl:mr-[440px]" : ""
+          isDetailOpen ? "xl:mr-[440px]" : ""
         )}
       >
         <div className="mx-auto max-w-[1300px] pb-12">
@@ -1108,6 +1202,17 @@ export default function OutletsPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2 shrink-0">
+              {!isDetailOpen && selectedOutlet && (
+                <button
+                  type="button"
+                  onClick={() => setIsDetailOpen(true)}
+                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#D6DCE8] bg-white px-3 text-sm font-bold text-[#11182E] transition hover:border-[#F43F70] hover:text-[#F43F70] active:scale-[0.98]"
+                  title="Show outlet details"
+                >
+                  <Info size={16} />
+                  <span>{selectedOutlet.name}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={exportCsv}
@@ -1299,9 +1404,9 @@ export default function OutletsPage() {
       </div>
 
       {/* ── Desktop fixed sidebar ── */}
-      {selectedOutlet && (
+      {isDetailOpen && (
         <div className="fixed inset-y-0 right-0 z-[80] hidden xl:flex flex-col w-[440px] h-[100dvh] bg-white border-l border-[#E1E6EF] overflow-hidden shadow-[-4px_0_18px_rgba(17,24,46,0.04)]">
-          <DetailPanel outlet={selectedOutlet} onClose={() => setSelectedOutlet(null)} />
+          <DetailPanel outlet={selectedOutlet} onClose={() => setIsDetailOpen(false)} />
         </div>
       )}
 

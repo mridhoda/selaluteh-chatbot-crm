@@ -51,6 +51,22 @@ findPayments({
 
 If requestedOutletId is not allowed, return 403.
 
+For Xendit Test Mode, payment list/detail rows may expose safe fields only:
+
+```txt
+provider
+environment
+status
+amount
+currency
+paymentLinkUrl
+expiresAt
+attemptNumber
+referenceId
+```
+
+Never expose provider secret key, webhook verification token, Authorization header, or raw provider response through payment queries.
+
 ---
 
 ## Frontend MVP Query Contracts
@@ -280,6 +296,40 @@ Rules:
 payment.workspace_id must match workspaceId
 payment.outlet_id must be in allowedOutletIds unless user has all-outlet access
 ```
+
+## Xendit Session Create Query
+
+Used by authenticated admin/chat commerce flow.
+
+```txt
+createXenditPaymentSessionForOrder({
+  user,
+  workspaceId,
+  orderId,
+  idempotencyKey
+})
+```
+
+Rules:
+
+```txt
+workspaceId comes from authenticated context
+order must belong to workspaceId
+user must have access to order.outlet_id
+amount and currency come from order only
+existing active pending session is reused
+paid order rejects new session
+idempotencyKey may return prior result for same order/workspace
+```
+
+Provider lookup contract:
+
+```txt
+findByProviderTransactionId(providerSessionId)
+findByMerchantReferenceGlobal(referenceId)
+```
+
+Global provider reference lookup is allowed only inside verified webhook processing and must immediately resolve to the internal payment row's workspace/outlet/order scope.
 
 ## Workspace Settings Query
 

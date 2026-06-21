@@ -73,6 +73,25 @@ function formatRelativeDate(d) {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+function getApiErrorMessage(e, fallback = 'Request failed') {
+  const data = e?.response?.data
+  const detail = data?.detail
+  const detailMessage =
+    detail?.description ||
+    detail?.message ||
+    detail?.error ||
+    (typeof detail === 'string' ? detail : '')
+
+  return (
+    data?.error?.message ||
+    data?.message ||
+    data?.error ||
+    detailMessage ||
+    e?.message ||
+    fallback
+  )
+}
+
 // ─── sub-components ────────────────────────────────────────────────────────
 
 function SummaryCard({ label, value, color }) {
@@ -402,7 +421,7 @@ export default function PlatformsPage() {
           } catch (webhookErr) {
             toast.error(
               'Platform connected, but webhook setup failed: ' +
-                (webhookErr.message || 'unknown error')
+                getApiErrorMessage(webhookErr, 'unknown error')
             )
           }
         }
@@ -410,11 +429,7 @@ export default function PlatformsPage() {
       await fetchPlatforms()
       closeConnect()
     } catch (e) {
-      toast.error(
-        (e && e.response && e.response.data && e.response.data.message) ||
-          (e && e.message) ||
-          'Save failed'
-      )
+      toast.error(getApiErrorMessage(e, 'Save failed'))
     } finally {
       setSaving(false)
     }
@@ -429,11 +444,7 @@ export default function PlatformsPage() {
         setDrawerOpen(false)
       }
     } catch (e) {
-      toast.error(
-        (e && e.response && e.response.data && e.response.data.message) ||
-          (e && e.message) ||
-          'Delete failed'
-      )
+      toast.error(getApiErrorMessage(e, 'Delete failed'))
     } finally {
       setConfirmDelete(null)
     }
@@ -680,7 +691,9 @@ export default function PlatformsPage() {
                             gap: 10,
                           }}
                         >
-                          <BrandIcon name={platform.type} size={24} />
+                          <div className={`chat-prism-avatar-wrap ${platform.type || 'custom'}`} style={{ width: 28, height: 28, marginTop: 0 }}>
+                            <BrandIcon type={platform.type} size={14} color="#ffffff" />
+                          </div>
                           <div>
                             <div
                               style={{
@@ -854,7 +867,9 @@ export default function PlatformsPage() {
                         setConnectStep(2)
                       }}
                     >
-                      <BrandIcon name={type} size={30} />
+                      <div className={`chat-prism-avatar-wrap ${type || 'custom'}`} style={{ width: 32, height: 32, marginTop: 0 }}>
+                        <BrandIcon type={type} size={16} color="#ffffff" />
+                      </div>
                       <div>
                         <div
                           style={{

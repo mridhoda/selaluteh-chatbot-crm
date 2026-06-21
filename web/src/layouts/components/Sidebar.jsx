@@ -80,13 +80,13 @@ export default function Sidebar() {
   const [ordersCount, setOrdersCount] = useState(128)
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
 
-  // Fetch real order count if available
   useEffect(() => {
     api.get('/orders')
       .then((res) => {
-        if (res.data && Array.isArray(res.data)) {
-          setOrdersCount(res.data.length)
-        }
+        const rawOrders = Array.isArray(res.data) 
+          ? res.data 
+          : (res.data && Array.isArray(res.data.data) ? res.data.data : []);
+        setOrdersCount(rawOrders.length);
       })
       .catch((err) => {
         // Fallback to default count in case of API failure or offline mode

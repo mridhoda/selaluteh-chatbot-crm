@@ -15,7 +15,10 @@ import {
   igSendDocument,
   waSend,
   waSendDocument,
+  waSendImage,
+  waSendSticker,
 } from '../../services/sender.js';
+import { findDatabaseFileMention } from '../../utils/fileMentions.js';
 import {
   beginWebhookEvent,
   getMetaMessageEventId,
@@ -25,6 +28,90 @@ import {
 import { recordInboundMessage, recordOutboundMessage } from '../../services/chat-message.service.js';
 
 const router = express.Router();
+
+function getPublicFileUrl(storedName) {
+  const base = process.env.PUBLIC_FILES_BASE_URL || `${process.env.PUBLIC_BASE_URL || 'http://localhost:5000'}/files`;
+  return `${base.replace(/\/$/, '')}/${storedName}`;
+}
+
+function isImageFile(filename = '') {
+  return /\.(png|jpe?g|gif|webp)$/i.test(filename);
+}
+
+function isWhatsappStickerFile(filename = '') {
+  return /\.webp$/i.test(filename);
+}
+
+function resolveMessageType(filename = '', format = null) {
+  if (format === 'image' || isImageFile(filename)) return 'image';
+  return 'file';
+}
+
+function extractDatabaseAttachment(replyText, agent) {
+  const mention = findDatabaseFileMention(replyText, agent);
+  if (!mention?.file?.storedName) return null;
+  const cleanedText = (replyText || '').replace(mention.token, mention.altText || '').trim();
+  const filename = mention.file.originalName || mention.file.storedName;
+  return {
+    text: cleanedText || mention.altText || '',
+    messageType: resolveMessageType(filename, mention.format),
+    attachment: {
+      url: getPublicFileUrl(mention.file.storedName),
+      filename,
+      storedName: mention.file.storedName,
+      type: resolveMessageType(filename, mention.format) === 'image' ? 'image' : 'document',
+      format: mention.format || null,
+    },
+  };
+}
+
+async function sendWhatsappTextOrAttachment({ platform, fromPhoneNumberId, to, text, agent }) {
+  let replyText = text || '';
+  let messageType = 'text';
+  let attachment = null;
+  const databaseAttachment = extractDatabaseAttachment(replyText, agent);
+  if (databaseAttachment) {
+    replyText = databaseAttachment.text;
+    messageType = databaseAttachment.messageType || 'file';
+    attachment = databaseAttachment.attachment;
+  }
+
+  if (attachment?.url) {
+    if (attachment.format === 'sticker' && isWhatsappStickerFile(attachment.filename || attachment.url)) {
+      await waSendSticker(platform.token, fromPhoneNumberId, to, attachment.url);
+      if (replyText) await waSend(platform.token, fromPhoneNumberId, to, replyText);
+    } else if (attachment.format === 'image' || isImageFile(attachment.filename || attachment.url)) {
+      await waSendImage(platform.token, fromPhoneNumberId, to, attachment.url, replyText || '');
+    } else {
+      await waSendDocument(platform.token, fromPhoneNumberId, to, attachment.url, attachment.filename);
+      if (replyText) await waSend(platform.token, fromPhoneNumberId, to, replyText);
+    }
+  } else if (replyText) {
+    await waSend(platform.token, fromPhoneNumberId, to, replyText);
+  }
+
+  return { text: replyText, messageType, attachment };
+}
+
+async function sendInstagramTextOrAttachment({ platform, to, text, agent }) {
+  let replyText = text || '';
+  let messageType = 'text';
+  let attachment = null;
+  const databaseAttachment = extractDatabaseAttachment(replyText, agent);
+  if (databaseAttachment) {
+    replyText = databaseAttachment.text;
+    messageType = databaseAttachment.messageType || 'file';
+    attachment = databaseAttachment.attachment;
+  }
+
+  if (attachment?.url) {
+    await igSendDocument(platform.token, to, attachment.url, replyText);
+  } else if (replyText) {
+    await igSend(platform.token, to, replyText);
+  }
+
+  return { text: replyText, messageType, attachment };
+}
 
 router.get('/', (req, res) => {
   const mode = req.query['hub.mode'];
@@ -104,12 +191,19 @@ async function handleWhatsapp(data) {
 
       const fromPhoneNumberId = value.metadata?.phone_number_id;
       const platformAccountId = entry.id;
-      const platform = await platformsSupabaseRepository.findByAccountId({ accountId: platformAccountId, type: 'whatsapp' });
+      let platform = await platformsSupabaseRepository.findByAccountId({ accountId: platformAccountId, type: 'whatsapp' });
+
+      if (!platform && fromPhoneNumberId) {
+        console.log('[meta] whatsapp platform not found by accountId, attempting lookup by phone_number_id:', fromPhoneNumberId);
+        platform = await platformsSupabaseRepository.findByPhoneNumberId({ phoneNumberId: fromPhoneNumberId, type: 'whatsapp' });
+      }
 
       if (!platform) {
         console.warn(
           '[meta] whatsapp platform not found for accountId:',
           platformAccountId,
+          'or phone_number_id:',
+          fromPhoneNumberId
         );
         continue;
       }
@@ -206,12 +300,20 @@ async function handleWhatsapp(data) {
 
         if (isNewChat) {
           const processedWelcome = welcome.replace('{{name}}', contact.name);
-          await waSend(platform.token, fromPhoneNumberId, from, processedWelcome);
+          const sentWelcome = await sendWhatsappTextOrAttachment({
+            platform,
+            fromPhoneNumberId,
+            to: from,
+            text: processedWelcome,
+            agent,
+          });
           await recordOutboundMessage({
             chatId: chat.id,
             workspaceId: platform.workspaceId,
             from: 'ai',
-            text: processedWelcome,
+            text: sentWelcome.text,
+            attachment: sentWelcome.attachment,
+            messageType: sentWelcome.messageType,
           });
         }
 
@@ -233,33 +335,34 @@ async function handleWhatsapp(data) {
             reply = { text: `Echo: ${userMessage.text}` };
           }
 
-          const replyText = typeof reply === 'string' ? reply : reply.text;
-          const attachment =
-            typeof reply === 'object' && reply.attachment
-              ? reply.attachment
-              : null;
+          let replyText = typeof reply === 'string' ? reply : reply.text;
+          let attachment = typeof reply === 'object' && reply.attachment ? reply.attachment : null;
+          let sentReply = { text: replyText, attachment, messageType: attachment ? resolveMessageType(attachment.filename || attachment.url) : 'text' };
 
-          if (attachment && attachment.url) {
-            await waSendDocument(
-              platform.token,
-              fromPhoneNumberId,
-              from,
-              attachment.url,
-              attachment.filename,
-            );
-            if (replyText) {
-              await waSend(platform.token, fromPhoneNumberId, from, replyText);
+          if (attachment?.url) {
+            if (isImageFile(attachment.filename || attachment.url)) {
+              await waSendImage(platform.token, fromPhoneNumberId, from, attachment.url, replyText || '');
+            } else {
+              await waSendDocument(platform.token, fromPhoneNumberId, from, attachment.url, attachment.filename);
+              if (replyText) await waSend(platform.token, fromPhoneNumberId, from, replyText);
             }
           } else {
-            await waSend(platform.token, fromPhoneNumberId, from, replyText);
+            sentReply = await sendWhatsappTextOrAttachment({
+              platform,
+              fromPhoneNumberId,
+              to: from,
+              text: replyText,
+              agent,
+            });
           }
 
           await recordOutboundMessage({
             chatId: chat.id,
             workspaceId: platform.workspaceId,
             from: 'ai',
-            text: replyText,
-            attachment,
+            text: sentReply.text,
+            attachment: sentReply.attachment,
+            messageType: sentReply.messageType,
           });
         }
         await markWebhookProcessed(webhookEvent);
@@ -389,12 +492,19 @@ async function handleInstagram(data) {
 
       if (isNewChat && (text || incomingAttachment)) {
         const processedWelcome = welcome.replace('{{name}}', contact.name);
-        await igSend(platform.token, platform.accountId, from, processedWelcome);
+        const sentWelcome = await sendInstagramTextOrAttachment({
+          platform,
+          to: from,
+          text: processedWelcome,
+          agent,
+        });
         await recordOutboundMessage({
           chatId: chat.id,
           workspaceId: platform.workspaceId,
           from: 'ai',
-          text: processedWelcome,
+          text: sentWelcome.text,
+          attachment: sentWelcome.attachment,
+          messageType: sentWelcome.messageType,
         });
       }
 
@@ -416,21 +526,28 @@ async function handleInstagram(data) {
           reply = { text: `Echo: ${userMessage.text}` };
         }
 
-        const replyText = typeof reply === 'string' ? reply : (reply.text || '');
-        const attachment = typeof reply === 'object' && reply.attachment ? reply.attachment : null;
+        let replyText = typeof reply === 'string' ? reply : (reply.text || '');
+        let attachment = typeof reply === 'object' && reply.attachment ? reply.attachment : null;
+        let sentReply = { text: replyText, attachment, messageType: attachment ? resolveMessageType(attachment.filename || attachment.url) : 'text' };
 
-        if (attachment && attachment.url) {
-          await igSendDocument(platform.token, platform.accountId, from, attachment.url, replyText);
-        } else if (replyText) {
-          await igSend(platform.token, platform.accountId, from, replyText);
+        if (attachment?.url) {
+          await igSendDocument(platform.token, from, attachment.url, replyText);
+        } else {
+          sentReply = await sendInstagramTextOrAttachment({
+            platform,
+            to: from,
+            text: replyText,
+            agent,
+          });
         }
 
         await recordOutboundMessage({
           chatId: chat.id,
           workspaceId: platform.workspaceId,
           from: 'ai',
-          text: replyText,
-          attachment,
+          text: sentReply.text,
+          attachment: sentReply.attachment,
+          messageType: sentReply.messageType,
         });
       }
       await markWebhookProcessed(webhookEvent);

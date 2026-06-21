@@ -1,5 +1,5 @@
 import express from 'express';
-import { processPaymentWebhook } from '../../services/payment-webhook.service.js';
+import { processPaymentWebhook, processXenditPaymentSessionWebhook } from '../../services/payment-webhook.service.js';
 
 const router = express.Router();
 
@@ -20,6 +20,26 @@ router.post('/xendit', async (req, res, next) => {
     const result = await processPaymentWebhook({
       workspaceId: req.query.workspace_id || req.body?.workspace_id,
       provider: 'xendit',
+      rawBody: req.body,
+      headers: req.headers,
+    });
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+router.post('/xendit/payment-sessions', async (req, res, next) => {
+  try {
+    const result = await processXenditPaymentSessionWebhook({
+      rawBody: req.body,
+      headers: req.headers,
+    });
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+router.post('/payment-sessions', async (req, res, next) => {
+  try {
+    const result = await processXenditPaymentSessionWebhook({
       rawBody: req.body,
       headers: req.headers,
     });

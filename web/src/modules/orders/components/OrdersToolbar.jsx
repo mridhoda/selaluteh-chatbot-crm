@@ -11,8 +11,11 @@ import {
   faCheckCircle,
   faTimes,
   faChevronDown,
-  faTableColumns
+  faTableColumns,
+  faToggleOn,
+  faToggleOff
 } from '@fortawesome/free-solid-svg-icons';
+import { isDemoMode, setDemoMode, clearDemoMode, getDemoToken, getDemoUser } from '../../../mocks/demoState';
 
 const filterOptions = {
   outlet: [
@@ -99,6 +102,20 @@ export default function OrdersToolbar({
   isOrderDetailOpen = true,
   onShowOrderDetail
 }) {
+  const isDemoActive = isDemoMode();
+
+  const handleToggleDemo = () => {
+    if (isDemoActive) {
+      clearDemoMode();
+    } else {
+      setDemoMode(true);
+      sessionStorage.setItem('token', getDemoToken());
+      localStorage.setItem('token', getDemoToken());
+      sessionStorage.setItem('user', JSON.stringify(getDemoUser()));
+    }
+    window.location.reload();
+  };
+
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({
       ...prev,
@@ -109,7 +126,7 @@ export default function OrdersToolbar({
   const clearAllFilters = () => {
     setFilters({
       outlet: 'all',
-      date: 'today',
+      date: 'all',
       channel: 'all',
       paymentStatus: 'all',
       orderStatus: 'all',
@@ -119,7 +136,7 @@ export default function OrdersToolbar({
 
   const hasActiveFilters =
     filters.outlet !== 'all' ||
-    filters.date !== 'today' ||
+    filters.date !== 'all' ||
     filters.channel !== 'all' ||
     filters.paymentStatus !== 'all' ||
     filters.orderStatus !== 'all' ||
@@ -142,7 +159,22 @@ export default function OrdersToolbar({
             <FontAwesomeIcon icon={faDownload} className="text-xs text-[var(--text-muted)]" />
             <span>Export</span>
           </button>
-          <div className="last-updated flex shrink-0 items-center text-xs font-medium text-[var(--text-muted)] xl:border-l xl:border-[var(--border-subtle)] xl.pl-3">
+          <button
+            type="button"
+            onClick={handleToggleDemo}
+            className={`flex h-10 shrink-0 items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition duration-200 focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)] ${
+              isDemoActive
+                ? 'border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 hover:border-orange-300'
+                : 'border-[var(--border-subtle)] bg-[var(--surface-primary)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:bg-[var(--surface-secondary)]'
+            }`}
+          >
+            <FontAwesomeIcon 
+              icon={isDemoActive ? faToggleOn : faToggleOff} 
+              className={`text-sm ${isDemoActive ? 'text-orange-500' : 'text-[var(--text-muted)]'}`} 
+            />
+            <span>Demo Mode: {isDemoActive ? 'ON' : 'OFF'}</span>
+          </button>
+          <div className="last-updated flex shrink-0 items-center text-xs font-medium text-[var(--text-muted)] xl:border-l xl:border-[var(--border-subtle)] xl:pl-3">
             <span>Last updated: {lastUpdated}</span>
           </div>
           <button
@@ -235,9 +267,11 @@ export default function OrdersToolbar({
           <span className="text-[var(--brand-400)]">·</span>
           <span>Date:</span>
           <span className="text-[var(--text-primary)] font-bold">
-            {filters.date === 'today' ? '16 May 2025 (Today)' :
-             filters.date === 'yesterday' ? '15 May 2025 (Yesterday)' :
-             filters.date === '7days' ? 'Last 7 Days' : 'All Time'}
+            {filters.date === 'today'
+              ? (isDemoActive ? '16 May 2025 (Today)' : `${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} (Today)`)
+              : filters.date === 'yesterday'
+                ? (isDemoActive ? '15 May 2025 (Yesterday)' : `${new Date(Date.now() - 86400000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} (Yesterday)`)
+                : filters.date === '7days' ? 'Last 7 Days' : 'All Time'}
           </span>
           {filters.channel !== 'all' && (
             <>

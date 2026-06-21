@@ -2,49 +2,47 @@
 
 ## Sprint Name
 
-Sprint 1.5 — Multi-Outlet Foundation & Backend Structure
+Sprint 2.0 — AI Agent Architecture Implementation
 
 ## Goal
 
-Complete the multi-outlet backend foundation started in Sprint 1, then prepare the codebase for Cart/Checkout domain implementation.
+Complete all 28 phases of the `selaluteh-ai-agent-architecture` spec — from context bug fix through durable memory, RAG, tool gateway, orchestrator, admin API, and security hardening.
 
 ## Why This Sprint
 
-Sprint 0 (Stabilize Legacy CRM) is complete. The multi-outlet models, webhook idempotency, AI guardrails, and Telegram outlet selection have been partially implemented. This sprint hardens the backend structure, completes outlet access controls, finishes repository contracts, and stabilizes the product/availability domain before Cart implementation.
+Sprint 1.5 (Multi-Outlet Foundation) completed the backend structure. The AI Agent Architecture was designed to run on top of it — with conversation context, persistent memory, rolling summary, RAG knowledge, configurable agents, tool gateway, and safe commerce/payment assistance.
 
-## Tasks (from specs/active/general-backend/tasks.md)
+## Tasks (from specs/active/selaluteh-ai-agent-architecture/tasks.md)
 
-### Completed in Prior Work
-- [x] 0.1-0.8 Baseline, Safety, Hygiene
-- [x] 1.1 Confirm server/src runtime
-- [x] 4.1-4.2 Outlet model audit and extension
-- [x] 4.5 UserOutletAccess audit
-- [x] 5.5-5.6 Webhook event model and idempotency
-- [x] 6.8 Outlet context on chat
-- [x] 7.4 AI commerce guardrails
-- [x] 8.1-8.3 Product model, extension, indexes
-- [x] 9.1-9.3 ProductOutletAvailability model and unique constraint
-- [x] 10.2-10.3 Telegram /start and outlet selection
+### Completed
+- [x] Phase 0: Spec lifecycle, baseline, test harness, factories/fakes
+- [x] Phase 1: Context bug fix (greeting flags, bounded history, context builder)
+- [x] Phase 2: AI schema (011 migration) + 8 repositories
+- [x] Phase 3: Normalized inbound (Telegram/WhatsApp adapters, eligibility, run lock)
+- [x] Phase 4: Session service + orchestrator + cleanup worker
+- [x] Phase 5: Context builder (token budget, source loaders, ordering)
+- [x] Phase 6: Rolling summary service
+- [x] Phase 7: Durable memory (policy, extraction, service, tools, retention)
+- [x] Phase 8-10: Knowledge/RAG (service, chunker, ingestion, hybrid retrieval)
+- [x] Phase 11-14: Agent/model router + semantic router + orchestrator + turn state machine
+- [x] Phase 15: Tool Gateway (commerce x13, confirmation, idempotency, redaction)
+- [x] Phase 16-18: Commerce flows (outlet, cart, order, payment, complaint)
+- [x] Phase 19-24: Follow-up, trace, feedback, safety policy, job envelope
+- [x] Phase 25-28: Performance, LangChain boundary, specialist router, admin API routes
 
-### In Progress (Partial)
-- [~] 1.2-1.6 Backend structure rules and contracts
-- [~] 2.8 Request context
-- [~] 3.1-3.5 Workspace membership and access control foundation
-- [~] 3.8 Workspace isolation tests
-- [~] 4.3-4.10 Outlet repository, service, APIs, access, security tests
-- [~] 5.7-5.11 Telegram parsing, webhook security, idempotency tests
-- [~] 7.2-7.7 AI action contract, validation, guardrail tests
-- [~] 8.4-8.9 Product repository, service, routes, tests
-- [~] 9.4-9.9 Availability repository, effective price, catalog API, tests
-- [~] 10.1-10.7 Telegram commerce state, product browsing, tests
-
-### Next Focus Area
-- [ ] 11.1-11.11 Cart Domain (model, repository, service, Telegram integration, tests)
+### Infrastructure Applied
+- Migration `011_ai_memory_knowledge_trace.sql` (9 tables, pgvector, RLS)
+- Supabase vector search function `match_knowledge_chunks()`
+- 5 knowledge sources seeded + embedded with Ollama `nomic-embed-text`
+- Telegram `@selkoporder_bot` live with context builder
 
 ## Acceptance Criteria
 
-- All Task 0 items are checked complete.
-- Workspace/outlet security tests pass.
-- Catalog endpoint returns correct outlet-scoped products.
-- Telegram users can select outlet and browse products.
-- Cart service foundation is ready for implementation.
+- [x] Context builder reads database history — computeGreetingFlags() tahu apakah ini first message atau nth
+- [x] Introduction hanya sekali — greeting flags mencegah AI introduce ulang
+- [x] Agent settings dari database dipakai — tidak hardcode di code
+- [x] Tool Gateway validation berfungsi — tool mutasi butuh confirmation
+- [x] Human takeover silence — AI stop reply saat `takenOverByUserId != null`
+- [x] RAG retrieval dari knowledge chunks yang sudah dipublish
+- [x] Memory service menyimpan/mengoreksi/melupakan preferensi
+- [x] Semua test: 426 pass, 0 fail

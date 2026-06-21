@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
+import api from '../../../shared/api/httpClient'
+import { isDemoMode } from '../../../mocks/demoState'
 import {
   ArrowDown,
   ArrowUp,
@@ -18,7 +20,7 @@ import {
   X,
 } from 'lucide-react'
 
-const products = [
+const dummyProducts = [
   {
     id: 1,
     name: 'Salty Caramel',
@@ -518,7 +520,31 @@ function StatBox({ label, value, valueClass, helper }) {
 }
 
 function DetailPanel({ product, onClose, mobile = false }) {
-  if (!product) return null
+  if (!product) {
+    return (
+      <aside className='h-full bg-white flex flex-col items-center justify-center text-center p-6 text-[#667085] relative'>
+        <div className='absolute top-4 right-4'>
+          <button
+            type='button'
+            onClick={onClose}
+            className='grid h-9 w-9 place-items-center rounded-lg border border-[#E1E6EF] text-[#667085] hover:bg-[#F6F8FB] hover:text-[#11182E] transition-colors duration-150'
+            title='Hide product details'
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div className='flex flex-col items-center gap-2'>
+          <div className='w-12 h-12 rounded-full bg-[#F6F8FB] flex items-center justify-center text-[#667085] mb-2 border border-dashed border-[#E1E6EF] text-lg'>
+            📦
+          </div>
+          <div className='text-sm font-semibold text-[#11182E]'>No Product Selected</div>
+          <div className='text-xs text-[#667085] max-w-[240px]'>
+            Click on any product in the table to view its full details here.
+          </div>
+        </div>
+      </aside>
+    )
+  }
 
   return (
     <aside
@@ -760,8 +786,63 @@ export default function ProductsPage() {
   const [tagFilter, setTagFilter] = useState('All Tags')
   const [sortBy, setSortBy] = useState('Newest First')
   const [activeTab, setActiveTab] = useState('All Products')
-  const [selectedProduct, setSelectedProduct] = useState(products[0])
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [selectedProduct, setSelectedProduct] = useState(null)
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false)
+  const [isDetailOpen, setIsDetailOpen] = useState(true)
+
+  useEffect(() => {
+    loadProducts()
+  }, [])
+
+  const loadProducts = async () => {
+    setLoading(true)
+    try {
+      if (isDemoMode()) {
+        setProducts(dummyProducts)
+      } else {
+        const res = await api.get('/products')
+        const rawProducts = Array.isArray(res.data) 
+          ? res.data 
+          : (res.data && Array.isArray(res.data.data) ? res.data.data : [])
+        
+        const mappedProducts = rawProducts.map((item, idx) => ({
+          id: item.id || item._id,
+          _id: item.id || item._id,
+          name: item.name,
+          sku: item.sku || `SKU-SEL-00${idx + 1}`,
+          image: item.thumbnail_url || '/images/products/salty-caramel.png',
+          category: item.metadata?.category || item.category || 'Teh',
+          outlets: item.outlets || 1,
+          price: item.base_price || 0,
+          cost: item.cost_price || 0,
+          stock: item.stock_quantity || 0,
+          stockState: item.is_active ? 'In Stock' : 'Out of Stock',
+          status: item.is_active ? 'Active' : 'Inactive',
+          salesMonth: item.salesMonth || 0,
+          salesChange: item.salesChange || 0,
+          totalSold: item.totalSold || 0,
+          description: item.description || '',
+          tags: item.tags || [],
+          tax: item.tax_label || 'PPN 11%',
+          trend: item.trend || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          inventorySummary: item.inventorySummary || { total: item.stock_quantity || 0, lowStock: 0, outOfStock: 0 }
+        }))
+        setProducts(mappedProducts)
+      }
+    } catch (err) {
+      console.error('Failed to load products:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (products.length > 0 && !selectedProduct) {
+      setSelectedProduct(products[0])
+    }
+  }, [products])
 
   const counts = useMemo(
     () => ({
@@ -774,7 +855,7 @@ export default function ProductsPage() {
         (item) => item.stockState === 'Out of Stock'
       ).length,
     }),
-    []
+    [products]
   )
 
   const summary = useMemo(() => {
@@ -846,10 +927,12 @@ export default function ProductsPage() {
     tagFilter,
     activeTab,
     sortBy,
+    products,
   ])
 
   const openProduct = (product) => {
     setSelectedProduct(product)
+    setIsDetailOpen(true)
     setMobileDetailOpen(true)
   }
 
@@ -894,7 +977,7 @@ export default function ProductsPage() {
     <div className='flex flex-1 overflow-hidden bg-[#F6F8FB] -m-4 h-[calc(100vh-58px)] max-h-[calc(100vh-58px)] text-[#11182E]'>
       <main className={cx(
         'flex-1 flex flex-col min-w-0 p-4 pt-3 overflow-hidden transition-[padding] duration-200 motion-reduce:transition-none',
-        selectedProduct ? 'xl:pr-[416px]' : 'xl:pr-4'
+        isDetailOpen ? 'xl:pr-[416px]' : 'xl:pr-4'
       )}>
         <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden'>
           <header className='-mx-1 shrink-0 flex flex-col gap-3 overflow-visible px-1 pt-1 pb-1 lg:flex-row lg:items-start lg:justify-between'>
@@ -907,6 +990,17 @@ export default function ProductsPage() {
               </p>
             </div>
             <div className='flex flex-wrap items-center justify-end gap-2.5 overflow-visible xl:flex-nowrap'>
+              {!isDetailOpen && selectedProduct && (
+                <button
+                  type='button'
+                  onClick={() => setIsDetailOpen(true)}
+                  className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#D6DCE8] bg-white px-3 text-sm font-bold text-[#11182E] shadow-sm transition hover:border-[#F43F70] hover:text-[#F43F70]'
+                  title="Show product details"
+                >
+                  <Eye size={14} />
+                  <span>{selectedProduct.sku}</span>
+                </button>
+              )}
               <button
                 type='button'
                 onClick={exportCsv}
@@ -1283,9 +1377,9 @@ export default function ProductsPage() {
         </div>
       </main>
 
-      {selectedProduct && (
+      {isDetailOpen && (
         <div className='fixed inset-y-0 right-0 z-[80] hidden xl:block w-[400px] h-[100dvh] bg-white border-l border-[#E1E6EF] overflow-hidden shadow-[-4px_0_15px_rgba(17,24,46,0.03)]'>
-          <DetailPanel product={selectedProduct} onClose={() => setSelectedProduct(null)} />
+          <DetailPanel product={selectedProduct} onClose={() => setIsDetailOpen(false)} />
         </div>
       )}
 

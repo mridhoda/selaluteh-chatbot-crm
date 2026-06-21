@@ -79,6 +79,10 @@ create index idx_payments_order_attempt on payments(order_id, attempt_number des
 create unique index uq_payments_provider_transaction_present on payments(provider_transaction_id) where provider_transaction_id is not null and provider_transaction_id <> '';
 create unique index uq_payments_merchant_reference_present on payments(merchant_reference) where merchant_reference is not null and merchant_reference <> '';
 create index idx_payments_reconciliation on payments(reconciliation_status);
+-- Optional hardening for Xendit idempotency if expression indexes are approved:
+-- create unique index uq_payments_workspace_order_idempotency_present
+--   on payments(workspace_id, order_id, (metadata->>'idempotency_key'))
+--   where metadata ? 'idempotency_key' and metadata->>'idempotency_key' <> '';
 
 -- Payment Events
 create unique index uq_payment_events_provider_event_present on payment_events(coalesce(provider, ''), provider_event_id) where provider_event_id is not null and provider_event_id <> '';
@@ -100,4 +104,5 @@ Notes:
 - Runtime Mongo cart/checkout/order items are embedded, but the Postgres migration normalizes them into `cart_items`, `checkout_items`, and `order_items`.
 - WebhookEvent uses provider + platform_id + external_event_id uniqueness, with null platform ids normalized by `coalesce`.
 - Mongo sparse unique indexes become Postgres partial unique indexes, especially product slug/SKU, outlet code, checkout idempotency key, order number, payment provider transaction id, merchant reference, and payment provider event id.
+- Xendit `payment_session_id` is stored in `payments.provider_transaction_id`; Xendit `reference_id` is stored in `payments.merchant_reference`.
 ```

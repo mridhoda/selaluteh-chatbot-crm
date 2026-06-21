@@ -54,6 +54,24 @@ Test:
 - Duplicate event id.
 - Status downgrade attempt.
 - Paid event after expired order.
+- Xendit valid `x-callback-token` accepted.
+- Xendit invalid/missing `x-callback-token` rejected.
+- Xendit completed event validates session ID, reference ID, amount, and currency.
+- Xendit expired event does not downgrade paid payment.
+- Xendit duplicate event does not duplicate Telegram notification.
+
+Xendit Payment Session path:
+
+```txt
+POST /api/webhooks/xendit/payment-sessions
+```
+
+Accepted Xendit events:
+
+```txt
+payment_session.completed
+payment_session.expired
+```
 
 ## Required Idempotency Keys
 
@@ -62,6 +80,7 @@ Test:
 | Telegram | update id + message id / callback id |
 | Meta | entry/change/message id |
 | Payment | provider event id or transaction id + status |
+| Xendit Payment Session | webhook id if available, else payment_session_id + event type + updated timestamp |
 
 ## Acceptance
 

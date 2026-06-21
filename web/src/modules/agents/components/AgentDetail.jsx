@@ -1,10 +1,121 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react'
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, useNavigate, Navigate } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faTrash } from '@fortawesome/free-solid-svg-icons'
 import api from '../../../shared/api/httpClient'
 import AgentSales from './AgentSales'
 import BrandIcon from '../../../shared/components/brand/BrandIcon'
+
+const FILE_MENTION_REGEX = /!(?:\{format:(image|sticker|document|file)\})?\[([^\]]*)\]\(([^)]+)\)/i
+
+const isImageFilename = (filename = '') => /\.(png|jpe?g|gif|webp)$/i.test(filename)
+
+const buildPreviewFileUrl = (url = '') => {
+  if (!url) return ''
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url
+  if (url.startsWith('/files/') || url.startsWith('/uploads/')) return `${api.defaults.baseURL}${url}`
+  if (url.startsWith('/')) return `${api.defaults.baseURL}${url}`
+  return `${api.defaults.baseURL}/files/${url}`
+}
+
+const parsePreviewFileMention = (text = '', databaseFiles = []) => {
+  const match = FILE_MENTION_REGEX.exec(text || '')
+  if (!match) return null
+
+  let explicitFormat = (match[1] || '').trim().toLowerCase()
+  let altText = (match[2] || '').trim()
+  let rawRef = (match[3] || '').trim()
+  if (!rawRef) return null
+
+  const altFormatMatch = altText.match(/^\{format:(image|sticker|document|file)\}\s*/i)
+  if (altFormatMatch) {
+    explicitFormat ||= altFormatMatch[1].toLowerCase()
+    altText = altText.replace(altFormatMatch[0], '').trim()
+  }
+
+  const refFormatMatch = rawRef.match(/^\{format:(image|sticker|document|file)\}\s*/i)
+  if (refFormatMatch) {
+    explicitFormat ||= refFormatMatch[1].toLowerCase()
+    rawRef = rawRef.replace(refFormatMatch[0], '').trim()
+  }
+
+  if (explicitFormat === 'file') explicitFormat = 'document'
+
+  let decodedRef = rawRef
+  try {
+    decodedRef = decodeURIComponent(rawRef)
+  } catch (_) {
+    decodedRef = rawRef
+  }
+
+  const normalizedTargets = [rawRef, decodedRef].map((val) => (val || '').toLowerCase())
+  const candidate = databaseFiles.find((file) => {
+    const aliases = [file.storedName, file.originalName, file.id]
+      .filter(Boolean)
+      .map((val) => String(val).toLowerCase())
+    return aliases.some((alias) =>
+      normalizedTargets.some((target) => target === alias || target.includes(alias)),
+    )
+  })
+
+  const storedName = candidate?.storedName || rawRef.replace(/^\/?files\//i, '')
+  const filename = candidate?.originalName || candidate?.storedName || altText || storedName
+  const type = explicitFormat === 'image' || explicitFormat === 'sticker' || isImageFilename(filename || storedName)
+    ? 'image'
+    : 'document'
+
+  return {
+    token: match[0],
+    text: (text || '').replace(match[0], altText || '').trim(),
+    attachment: {
+      url: storedName.startsWith('http') || storedName.startsWith('/') || storedName.startsWith('data:')
+        ? storedName
+        : `/files/${storedName}`,
+      filename,
+      storedName: candidate?.storedName || storedName,
+      type,
+      format: explicitFormat || null,
+    },
+  }
+}
+
+const normalizePreviewMessage = (message = {}, databaseFiles = []) => {
+  if (message.attachment) return message
+  const mention = parsePreviewFileMention(message.text || '', databaseFiles)
+  if (!mention) return message
+  return {
+    ...message,
+    text: mention.text,
+    attachment: mention.attachment,
+  }
+}
+
+const PreviewAttachment = ({ attachment }) => {
+  if (!attachment) return null
+  const filename = attachment.filename || attachment.storedName || attachment.url || 'attachment'
+  const url = buildPreviewFileUrl(attachment.url || attachment.storedName)
+  const isImage = attachment.type === 'image' || attachment.format === 'image' || attachment.format === 'sticker' || isImageFilename(filename)
+
+  if (isImage) {
+    return (
+      <div className="rounded-xl overflow-hidden border border-slate-100 shadow-sm mt-0 bg-slate-100 max-w-[260px]">
+        <img
+          src={url}
+          alt={filename}
+          className="block w-full h-auto max-h-[260px] object-contain cursor-pointer"
+          onClick={() => window.open(url, '_blank')}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 mt-1 no-underline">
+      <i className="fa-solid fa-download"></i>
+      <span className="truncate max-w-[180px]">{filename}</span>
+    </a>
+  )
+}
 
 const KnowledgeTextEditor = ({ value, onChange, placeholder }) => {
   const textareaRef = React.useRef(null)
@@ -196,6 +307,8 @@ export default function AgentDetail() {
   const [testMsg, setTestMsg] = useState('')
   const [testAttachment, setTestAttachment] = useState(null)
   const [testing, setTesting] = useState(false)
+  const [manualSaveFeedback, setManualSaveFeedback] = useState(false)
+  const manualSaveFeedbackTimerRef = useRef(null)
 
   const combinedDatabase = useMemo(
     () => [
@@ -207,12 +320,22 @@ export default function AgentDetail() {
 
   const getFileLink = (file) => {
     if (file.source === 'remote' && file.storedName) {
-      return `${api.defaults.baseURL}/files/${file.storedName}`
+      const publicFilesBaseUrl =
+        import.meta.env.VITE_PUBLIC_FILES_BASE_URL ||
+        `${api.defaults.baseURL}/files`
+      return `${publicFilesBaseUrl.replace(/\/$/, '')}/${file.storedName}`
     }
     if (file.source === 'local' && file.dataUrl) {
       return file.dataUrl
     }
     return ''
+  }
+
+  const getAiFileMarkdown = (file, format = '') => {
+    if (file.source !== 'remote' || !file.storedName) return ''
+    const label = file.originalName || file.storedName
+    const formatPrefix = format ? `{format:${format}}` : ''
+    return `![${formatPrefix}${label}](${file.storedName})`
   }
 
   const toggleLinkPanel = (fileKey, file) => {
@@ -346,12 +469,36 @@ export default function AgentDetail() {
       }
       const r = await api.put(`/agents/${id}`, payload)
       setAgent(r.data)
+      return true
     } catch (error) {
       console.error('Error saving agent data:', error)
+      return false
     } finally {
       setSaving(false)
     }
   }
+
+  const handleManualSave = async () => {
+    const ok = await save()
+    if (!ok) return
+
+    setManualSaveFeedback(true)
+    if (manualSaveFeedbackTimerRef.current) {
+      clearTimeout(manualSaveFeedbackTimerRef.current)
+    }
+    manualSaveFeedbackTimerRef.current = setTimeout(() => {
+      setManualSaveFeedback(false)
+      manualSaveFeedbackTimerRef.current = null
+    }, 1400)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (manualSaveFeedbackTimerRef.current) {
+        clearTimeout(manualSaveFeedbackTimerRef.current)
+      }
+    }
+  }, [])
 
   const addKnowledge = (k = { kind: 'url', value: '' }) =>
     setKnowledge([...knowledge, k])
@@ -525,7 +672,7 @@ export default function AgentDetail() {
     let newMessages = [...messages, userMessage]
 
     if (messages.length === 0) {
-      const welcomeMsg = { from: 'ai', text: welcomeMessage || 'Halo!' }
+      const welcomeMsg = normalizePreviewMessage({ from: 'ai', text: welcomeMessage || 'Halo!' }, database)
       newMessages.push(welcomeMsg)
       if (stickerUrl) {
         const stickerMsg = { from: 'ai', sticker: stickerUrl }
@@ -556,9 +703,9 @@ export default function AgentDetail() {
       const reply = r.data.reply;
 
       if (typeof reply === 'object' && reply.attachment) {
-        setMessages((prev) => [...prev, { from: 'ai', text: reply.text, attachment: reply.attachment }])
+        setMessages((prev) => [...prev, normalizePreviewMessage({ from: 'ai', text: reply.text, attachment: reply.attachment }, database)])
       } else {
-        setMessages((prev) => [...prev, { from: 'ai', text: reply }])
+        setMessages((prev) => [...prev, normalizePreviewMessage({ from: 'ai', text: reply }, database)])
       }
     } catch (error) {
       console.error('Test message error:', error)
@@ -589,9 +736,9 @@ export default function AgentDetail() {
       const reply = r.data.reply;
       
       if (typeof reply === 'object' && reply.attachment) {
-        setMessages((prev) => [...prev, { from: 'ai', text: reply.text, attachment: reply.attachment }]);
+        setMessages((prev) => [...prev, normalizePreviewMessage({ from: 'ai', text: reply.text, attachment: reply.attachment }, database)]);
       } else {
-        setMessages((prev) => [...prev, { from: 'ai', text: reply }]);
+        setMessages((prev) => [...prev, normalizePreviewMessage({ from: 'ai', text: reply }, database)]);
       }
     } catch (error) {
       console.error('Test message error:', error);
@@ -670,11 +817,11 @@ export default function AgentDetail() {
             <i className="fa-solid fa-rotate-right mr-2"></i> Reset
           </button>
           <button 
-            onClick={save} 
+            onClick={handleManualSave} 
             disabled={saving}
-            className="bg-slate-900 text-white px-6 py-2.5 rounded-full font-bold text-sm shadow-lg shadow-slate-900/20 hover:bg-slate-800 hover:scale-[1.02] transition-all active:scale-95 disabled:opacity-50"
+            className={`px-6 py-2.5 rounded-full font-bold text-sm shadow-lg transition-all active:scale-95 disabled:opacity-50 ${manualSaveFeedback ? 'bg-emerald-500 text-white shadow-emerald-500/25' : 'bg-slate-900 text-white shadow-slate-900/20 hover:bg-slate-800 hover:scale-[1.02]'}`}
           >
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? 'Saving...' : manualSaveFeedback ? 'Saved!' : 'Save Changes'}
           </button>
         </div>
       </header>
@@ -730,7 +877,7 @@ export default function AgentDetail() {
                   <textarea 
                     value={behavior}
                     onChange={(e) => setBehavior(e.target.value)}
-                    className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700 text-sm focus:ring-2 focus:ring-orange-100 focus:border-orange-400 outline-none transition resize-none leading-relaxed"
+                    className="w-full min-h-[260px] bg-slate-50 border border-slate-200 rounded-xl p-4 pb-14 text-slate-700 text-sm focus:ring-2 focus:ring-orange-100 focus:border-orange-400 outline-none transition resize-y leading-relaxed"
                     placeholder="Describe precisely how the AI should behave..."
                   />
                   <button 
@@ -1428,10 +1575,11 @@ export default function AgentDetail() {
                           <div className="flex items-center gap-3">
                             <button 
                               onClick={() => toggleLinkPanel(fileKey, f)}
-                              className="text-slate-400 hover:text-sky-500 transition p-2 rounded-full hover:bg-slate-50" 
-                              title="Toggle Link"
+                              className="text-sky-600 bg-sky-50 hover:bg-sky-100 border border-sky-100 transition px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2" 
+                              title="Get File URL Links"
                             >
                               <i className="fa-solid fa-link text-sm"></i>
+                              Get Links
                             </button>
                             <button 
                               onClick={() => deleteDatabaseFile(f)}
@@ -1444,23 +1592,76 @@ export default function AgentDetail() {
                         </div>
 
                         {activeLinkId === fileKey && link && (
-                          <div className="mt-3 flex gap-2 animate-slide-up">
-                            <input
-                              type="text"
-                              readOnly
-                              value={link}
-                              className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-600 focus:outline-none"
-                              onFocus={(e) => e.target.select()}
-                            />
-                            <button
-                              onClick={() => {
-                                copyLink(link);
-                                alert('Link berhasil disalin!');
-                              }}
-                              className="bg-white border border-slate-200 px-3 py-1 rounded hover:bg-slate-50 text-xs font-semibold text-slate-700"
-                            >
-                              Copy
-                            </button>
+                          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 animate-slide-up space-y-3">
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Public File URL</label>
+                                <button
+                                  onClick={() => {
+                                    copyLink(link);
+                                    alert('Link berhasil disalin!');
+                                  }}
+                                  className="bg-white border border-slate-200 px-3 py-1 rounded hover:bg-slate-50 text-xs font-semibold text-slate-700"
+                                >
+                                  Copy URL
+                                </button>
+                              </div>
+                              <input
+                                type="text"
+                                readOnly
+                                value={link}
+                                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono text-slate-600 focus:outline-none"
+                                onFocus={(e) => e.target.select()}
+                              />
+                            </div>
+
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">AI Markdown Trigger</label>
+                                <div className="flex gap-1.5">
+                                  <button
+                                    disabled={!getAiFileMarkdown(f)}
+                                    onClick={() => {
+                                      copyLink(getAiFileMarkdown(f));
+                                      alert('Markdown untuk AI berhasil disalin!');
+                                    }}
+                                    className="bg-white border border-slate-200 px-3 py-1 rounded hover:bg-slate-50 text-xs font-semibold text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Copy Auto
+                                  </button>
+                                  <button
+                                    disabled={!getAiFileMarkdown(f, 'image')}
+                                    onClick={() => {
+                                      copyLink(getAiFileMarkdown(f, 'image'));
+                                      alert('Markdown image berhasil disalin!');
+                                    }}
+                                    className="bg-white border border-slate-200 px-3 py-1 rounded hover:bg-slate-50 text-xs font-semibold text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Copy Image
+                                  </button>
+                                  <button
+                                    disabled={!getAiFileMarkdown(f, 'sticker')}
+                                    onClick={() => {
+                                      copyLink(getAiFileMarkdown(f, 'sticker'));
+                                      alert('Markdown sticker berhasil disalin!');
+                                    }}
+                                    className="bg-white border border-slate-200 px-3 py-1 rounded hover:bg-slate-50 text-xs font-semibold text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Copy Sticker
+                                  </button>
+                                </div>
+                              </div>
+                              <input
+                                type="text"
+                                readOnly
+                                value={getAiFileMarkdown(f) || 'Upload file ke server dulu agar bisa dipakai AI.'}
+                                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono text-slate-600 focus:outline-none"
+                                onFocus={(e) => e.target.select()}
+                              />
+                              <p className="mt-1 text-[11px] text-slate-400">
+                                Auto mengikuti ekstensi file. Pakai Copy Image untuk paksa kirim sebagai gambar, atau Copy Sticker untuk format sticker jika platform/file mendukung.
+                              </p>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1851,23 +2052,37 @@ export default function AgentDetail() {
                       </div>
 
                       {/* First Message (Welcome message) */}
-                      <div className="flex flex-col items-start max-w-[85%] animate-slide-up">
-                        <div className="inline-block w-fit max-w-full bg-slate-50 border border-slate-100 text-slate-800 px-4 pt-3 pb-5 rounded-2xl rounded-tl-none text-sm leading-relaxed relative shadow-sm">
-                          <p className="m-0 whitespace-normal">{welcomeMessage || 'Halo! 👋 Ada yang bisa saya bantu hari ini?'}</p>
-                          {stickerUrl && (
-                            <div className="rounded-xl overflow-hidden border border-slate-100 shadow-sm max-w-[200px] mt-2">
-                              <img src={`${api.defaults.baseURL}${stickerUrl}`} alt="sticker" className="w-full object-cover" />
+                      {(() => {
+                        const previewWelcome = normalizePreviewMessage(
+                          { from: 'ai', text: welcomeMessage || 'Halo! 👋 Ada yang bisa saya bantu hari ini?' },
+                          database,
+                        )
+                        return (
+                          <div className="flex flex-col items-start max-w-[85%] animate-slide-up">
+                            <div className="inline-block w-fit max-w-full bg-slate-50 border border-slate-100 text-slate-800 px-4 pt-3 pb-5 rounded-2xl rounded-tl-none text-sm leading-relaxed relative shadow-sm">
+                              <PreviewAttachment attachment={previewWelcome.attachment} />
+                              {stickerUrl && (
+                                <div className="rounded-xl overflow-hidden border border-slate-100 shadow-sm max-w-[200px] mt-2 bg-slate-100">
+                                  <img src={buildPreviewFileUrl(stickerUrl)} alt="sticker" className="block w-full h-auto object-contain" />
+                                </div>
+                              )}
+                              {previewWelcome.text && (
+                                <p className={`${previewWelcome.attachment || stickerUrl ? 'mt-2' : 'mt-0'} mb-0 whitespace-normal break-words`}>
+                                  {previewWelcome.text}
+                                </p>
+                              )}
+                              <div className="absolute bottom-1 right-2 text-[9px] text-slate-400">
+                                {getChatTime()}
+                              </div>
                             </div>
-                          )}
-                          <div className="absolute bottom-1 right-2 text-[9px] text-slate-400">
-                            {getChatTime()}
                           </div>
-                        </div>
-                      </div>
+                        )
+                      })()}
 
                       {/* Dynamic user and AI messages */}
                       {messages.map((m, idx) => {
-                        const isUser = m.from === 'user';
+                        const normalizedMessage = normalizePreviewMessage(m, database);
+                        const isUser = normalizedMessage.from === 'user';
                         return (
                           <div key={idx} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} max-w-full animate-slide-up`}>
                             <div className={`max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed relative shadow-sm pb-6 ${
@@ -1875,32 +2090,18 @@ export default function AgentDetail() {
                                 ? 'bg-pink-50 border border-pink-100 text-slate-800 rounded-tr-none'
                                 : 'bg-slate-50 border border-slate-100 text-slate-800 rounded-tl-none'
                             }`}>
-                              {m.text && <p className={isUser ? 'pr-12' : ''}>{m.text}</p>}
-                              
-                              {m.sticker && (
-                                <div className="rounded-xl overflow-hidden border border-slate-100 shadow-sm max-w-[200px] mt-1">
-                                  <img src={`${api.defaults.baseURL}${m.sticker}`} alt="sticker" className="w-full object-cover" />
+                              {normalizedMessage.sticker && (
+                                <div className="rounded-xl overflow-hidden border border-slate-100 shadow-sm max-w-[200px] mt-1 bg-slate-100">
+                                  <img src={buildPreviewFileUrl(normalizedMessage.sticker)} alt="sticker" className="block w-full h-auto object-contain" />
                                 </div>
                               )}
 
-                              {m.attachment && (
-                                <div className="mt-1">
-                                  {(() => {
-                                    const filename = m.attachment.filename || '';
-                                    const url = m.attachment.url && (m.attachment.url.startsWith('http://') || m.attachment.url.startsWith('https://'))
-                                      ? m.attachment.url
-                                      : `${api.defaults.baseURL}${m.attachment.url || ''}`;
-                                    const isImage = /\.(png|jpe?g|gif|webp)$/i.test(filename);
-                                    if (isImage) {
-                                      return <img src={url} alt="attachment" className="max-w-[200px] rounded-lg border border-slate-100 shadow-sm" />;
-                                    }
-                                    return (
-                                      <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50">
-                                        <i className="fa-solid fa-download"></i> Download File
-                                      </a>
-                                    );
-                                  })()}
-                                </div>
+                              <PreviewAttachment attachment={normalizedMessage.attachment} />
+
+                              {normalizedMessage.text && (
+                                <p className={`${normalizedMessage.attachment || normalizedMessage.sticker ? 'mt-2' : 'mt-0'} mb-0 break-words ${isUser ? 'pr-12' : ''}`}>
+                                  {normalizedMessage.text}
+                                </p>
                               )}
 
                               {isUser ? (

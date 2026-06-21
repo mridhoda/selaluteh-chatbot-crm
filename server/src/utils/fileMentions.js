@@ -8,12 +8,34 @@ export function decodeRef(value = '') {
 
 export function findDatabaseFileMention(text, agent) {
   if (!text || !agent?.database?.length) return null;
-  const regex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+
+  // Supported formats:
+  // ![Menu](menu.jpg)
+  // ![{format:image} Menu](menu.jpg)
+  // ![Menu]({format:image}menu.jpg)
+  // !{format:image}[Menu](menu.jpg)
+  const regex = /!(?:\{format:(image|sticker|document|file)\})?\[([^\]]*)\]\(([^)]+)\)/gi;
   let match;
   while ((match = regex.exec(text)) !== null) {
-    const altText = (match[1] || '').trim();
-    const rawRef = (match[2] || '').trim();
+    let explicitFormat = (match[1] || '').trim().toLowerCase();
+    let altText = (match[2] || '').trim();
+    let rawRef = (match[3] || '').trim();
     if (!rawRef) continue;
+
+    const altFormatMatch = altText.match(/^\{format:(image|sticker|document|file)\}\s*/i);
+    if (altFormatMatch) {
+      explicitFormat ||= altFormatMatch[1].toLowerCase();
+      altText = altText.replace(altFormatMatch[0], '').trim();
+    }
+
+    const refFormatMatch = rawRef.match(/^\{format:(image|sticker|document|file)\}\s*/i);
+    if (refFormatMatch) {
+      explicitFormat ||= refFormatMatch[1].toLowerCase();
+      rawRef = rawRef.replace(refFormatMatch[0], '').trim();
+    }
+
+    if (explicitFormat === 'file') explicitFormat = 'document';
+
     const decodedRef = decodeRef(rawRef);
     const normalizedTargets = [rawRef, decodedRef].map((val) =>
       (val || '').toLowerCase(),
@@ -29,7 +51,7 @@ export function findDatabaseFileMention(text, agent) {
       );
     });
     if (candidate) {
-      return { file: candidate, token: match[0], altText };
+      return { file: candidate, token: match[0], altText, format: explicitFormat || null };
     }
   }
   return null;

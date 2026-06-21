@@ -1,6 +1,48 @@
 import { promises as fs } from 'fs';
 import path from 'path';
+import https from 'https';
+import dns from 'dns';
 import { splitMessage } from '../utils/messageSplitter.js';
+
+function fetchWithIPv4(url, body, timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const postData = JSON.stringify(body);
+
+    dns.resolve4(urlObj.hostname, (err, addresses) => {
+      if (err || !addresses || addresses.length === 0) {
+        return reject(new Error('DNS resolution failed for ' + urlObj.hostname));
+      }
+
+      const options = {
+        hostname: addresses[0],
+        path: urlObj.pathname,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+          'Host': urlObj.hostname,
+        },
+        timeout: timeoutMs,
+        rejectUnauthorized: true,
+      };
+
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => data += chunk);
+        res.on('end', () => {
+          try { resolve(JSON.parse(data)); }
+          catch { reject(new Error('Invalid JSON response: ' + data.slice(0, 200))); }
+        });
+      });
+
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(Object.assign(new Error('Timeout'), { code: 'ETIMEDOUT' })); });
+      req.write(postData);
+      req.end();
+    });
+  });
+}
 
 export async function tgSendSplit(token, chatId, text, replyToMessageId = null) {
   const bubbles = splitMessage(text);
@@ -31,16 +73,19 @@ export async function tgSend(token, chatId, text, replyToMessageId = null, optio
     body.reply_markup = options.replyMarkup || options.reply_markup;
   }
 
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const j = await r.json()
-  if (!j.ok) throw new Error(`Telegram sendMessage failed: ${JSON.stringify(j)}`)
-  return j
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const j = await fetchWithIPv4(url, body, 10000);
+      if (!j.ok) throw new Error(`Telegram sendMessage failed: ${JSON.stringify(j)}`)
+      return j
+    } catch (e) {
+      lastError = e;
+      if (attempt === 0) await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+  throw lastError || new Error('Telegram send failed after retry');
 }
-
 export async function waSend(token, fromPhoneNumberId, to, text) {
   const url = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
   const body = {
@@ -82,6 +127,50 @@ export async function waSendDocument(token, fromPhoneNumberId, to, documentUrl, 
   });
   const j = await r.json();
   if (j.error) throw new Error(`WhatsApp sendDocument failed: ${JSON.stringify(j.error)}`);
+  return j;
+}
+
+export async function waSendImage(token, fromPhoneNumberId, to, imageUrl, caption = '') {
+  const url = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
+  const image = { link: imageUrl };
+  if (caption) image.caption = caption;
+  const body = {
+    messaging_product: 'whatsapp',
+    to,
+    type: 'image',
+    image,
+  };
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const j = await r.json();
+  if (j.error) throw new Error(`WhatsApp sendImage failed: ${JSON.stringify(j.error)}`);
+  return j;
+}
+
+export async function waSendSticker(token, fromPhoneNumberId, to, stickerUrl) {
+  const url = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
+  const body = {
+    messaging_product: 'whatsapp',
+    to,
+    type: 'sticker',
+    sticker: { link: stickerUrl },
+  };
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const j = await r.json();
+  if (j.error) throw new Error(`WhatsApp sendSticker failed: ${JSON.stringify(j.error)}`);
   return j;
 }
 

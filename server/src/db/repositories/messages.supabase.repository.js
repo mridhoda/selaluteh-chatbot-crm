@@ -18,12 +18,33 @@ import { requireWorkspaceId } from '../supabase-query.js';
 
 const TABLE = 'chat_messages';
 
+function isImageAttachment(attachment = {}, messageType = '') {
+  return attachment.type === 'image'
+    || messageType === 'image'
+    || /\.(png|jpe?g|gif|webp)$/i.test(attachment.filename || attachment.url || '');
+}
+
+function normalizeAttachment(attachment, messageType = '') {
+  if (!attachment) return null;
+  const normalized = { ...attachment };
+  if (!normalized.type) normalized.type = isImageAttachment(normalized, messageType) ? 'image' : 'document';
+  if (!normalized.url && normalized.storedName) normalized.url = `/files/${normalized.storedName}`;
+  return normalized;
+}
+
 function mapMessageRow(row) {
   if (!row) return null;
   const mapped = mapRow(row);
   if (row.users) {
     mapped.users = mapRow(row.users);
     mapped.agentName = row.users.name || '';
+  }
+  mapped.text = mapped.content || '';
+  const rawPayload = mapped.rawPayload || row.raw_payload || {};
+  mapped.rawPayload = rawPayload || {};
+  mapped.attachment = normalizeAttachment(rawPayload?.attachment || mapped.attachment, mapped.messageType);
+  if (mapped.attachment) {
+    mapped.rawPayload = { ...mapped.rawPayload, attachment: mapped.attachment };
   }
   return mapped;
 }
@@ -54,6 +75,11 @@ export const messagesSupabaseRepository = {
     if (senderType === 'user') senderType = 'customer';
     if (senderType === 'human') senderType = 'admin';
 
+    const rawPayload = data.rawPayload || data.raw_payload || (data.attachment ? { attachment: data.attachment } : {});
+    if (rawPayload?.attachment) {
+      rawPayload.attachment = normalizeAttachment(rawPayload.attachment, data.messageType || data.message_type);
+    }
+
     const insert = {
       workspace_id: data.workspaceId,
       chat_id: data.chatId,
@@ -66,7 +92,7 @@ export const messagesSupabaseRepository = {
       content: data.content || data.text || null,
       attachment_file_id: data.attachmentFileId || null,
       platform_message_id: data.platformMessageId || null,
-      raw_payload: data.rawPayload || data.raw_payload || {},
+      raw_payload: rawPayload || {},
     };
     const result = await client.from(TABLE).insert(insert).select('*, users:user_id(id, name)').single();
     const row = extractSingle(result, 'messages.create');

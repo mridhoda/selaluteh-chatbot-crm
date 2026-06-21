@@ -9,6 +9,7 @@ import {
 } from '../services/order.service.js';
 import { checkoutsRepository } from '../db/repositories/index.js';
 import { AppError } from '../utils/errors.js';
+import { createXenditPaymentSessionForOrder } from '../services/payment.service.js';
 
 const router = express.Router();
 
@@ -29,6 +30,19 @@ router.get('/:id', async (req, res, next) => {
   try {
     const order = await workspaceGetOrder({ workspaceId: req.me.workspaceId, orderId: req.params.id });
     res.json({ data: order });
+  } catch (err) { next(err); }
+});
+
+router.post('/:id/payments/xendit/session', async (req, res, next) => {
+  try {
+    const payment = await createXenditPaymentSessionForOrder({
+      user: req.me,
+      workspaceId: req.me.workspaceId,
+      orderId: req.params.id,
+      customer: req.body?.customer || {},
+      idempotencyKey: req.get('Idempotency-Key') || req.body?.idempotencyKey,
+    });
+    res.status(201).json({ data: payment });
   } catch (err) { next(err); }
 });
 

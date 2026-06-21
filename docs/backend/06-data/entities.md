@@ -110,9 +110,13 @@ Timeline event for Order Detail UI. Examples: created, paid, preparing, ready, c
 
 Workspace payment configuration used by Settings UI. Stores provider, environment, merchant ID, public key, encrypted server key, encrypted webhook secret, enabled methods, and status.
 
+In the Xendit Test Mode MVP, sensitive provider settings are server environment variables, not frontend-editable values. UI can display `Xendit / Test Mode / configured` only.
+
 ## Payment
 
 Payment bound to order, workspace, outlet, and contact. Stores provider data, payment link, provider reference, merchant reference, reconciliation status, fees, net amount, expiry, paid time, and matched time.
+
+For Xendit Payment Session, the main payment row is the payment attempt record. `provider_transaction_id` stores `payment_session_id`, `merchant_reference` stores Xendit `reference_id`, and `payment_url` stores the hosted checkout URL.
 
 ## Payment Attempt
 
@@ -121,3 +125,5 @@ Retry/attempt record for a payment. Supports multiple payment links or retries w
 ## Payment Event
 
 Provider webhook or internal payment timeline event. Used for auditability and Payments detail timeline.
+
+Xendit Payment Session events must be idempotent and may not downgrade paid payments. Event payloads are safe/redacted provider data only.

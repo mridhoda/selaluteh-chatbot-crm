@@ -29,5 +29,6 @@ router.use('/telegram', telegramRouter);
 router.use('/meta', metaRouter);
 router.use('/test-meta', metaTestRouter);
 router.use('/payments', paymentRouter);
+router.use('/xendit', paymentRouter);
 
 export default router;

@@ -59,9 +59,14 @@ PAYMENT_PROVIDER_MODE=sandbox
 ### Payment API
 
 - Create payment produces sandbox link.
+- Create Xendit Test Mode Payment Session returns hosted checkout URL.
+- Create Xendit Payment Session uses authoritative order total, not client amount.
+- Create Xendit Payment Session is idempotent for repeated request key.
+- Refresh payment calls mocked provider status lookup and does not trust client status.
 - Webhook with valid signature updates payment.
 - Webhook with invalid signature rejected.
 - Duplicate webhook does not double-update order.
+- Xendit Payment Session webhook validates callback token, session ID, reference, amount, and currency.
 
 ### Files API
 
@@ -76,6 +81,7 @@ PAYMENT_PROVIDER_MODE=sandbox
 | Telegram sender | Capture sent messages/buttons |
 | AI provider | Return deterministic text/action |
 | Payment provider | Return payment link and transaction id |
+| Xendit Payment Session | Return payment_session_id, payment_link_url, status, payment_request_id |
 | File downloader | Return fixture file path |
 
 ## Acceptance

@@ -73,22 +73,29 @@ META_APP_SECRET=
 
 ## Payment Env
 
-Midtrans sandbox:
+Xendit Test Mode Payment Session:
 
 ```env
-PAYMENT_PROVIDER=midtrans
+PAYMENT_PROVIDER=xendit
+XENDIT_MODE=test
+XENDIT_API_BASE_URL=https://api.xendit.co
+XENDIT_SECRET_API_KEY=
+XENDIT_WEBHOOK_VERIFICATION_TOKEN=
+XENDIT_PAYMENT_COUNTRY=ID
+XENDIT_PAYMENT_CURRENCY=IDR
+XENDIT_PAYMENT_SESSION_MODE=PAYMENT_LINK
+XENDIT_PAYMENT_CAPTURE_METHOD=AUTOMATIC
+XENDIT_PAYMENT_SESSION_TTL_MINUTES=30
+```
+
+Midtrans remains a possible future/sandbox provider path:
+
+```env
 MIDTRANS_IS_PRODUCTION=false
 MIDTRANS_SERVER_KEY=
 MIDTRANS_CLIENT_KEY=
 MIDTRANS_MERCHANT_ID=
 MIDTRANS_WEBHOOK_SECRET=
-```
-
-Xendit optional:
-
-```env
-XENDIT_SECRET_KEY=
-XENDIT_WEBHOOK_TOKEN=
 ```
 
 Manual fallback:
@@ -149,3 +156,5 @@ Critical missing env should crash startup:
 - `PUBLIC_BASE_URL` in production
 
 Provider-specific env should be required only when enabled.
+
+When `PAYMENT_PROVIDER=xendit`, backend startup must fail if `XENDIT_SECRET_API_KEY` is missing or if `XENDIT_MODE` is not `test`.

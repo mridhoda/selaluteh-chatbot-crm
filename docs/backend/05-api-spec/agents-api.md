@@ -40,7 +40,16 @@ Auth: owner/super.
   "welcome_message": "Halo! Mau pesan apa hari ini?",
   "behavior": "Friendly Indonesian customer service assistant.",
   "prompt": "You help customers browse products and checkout safely.",
-  "enabled": true
+  "enabled": true,
+  "aiSettings": {
+    "provider": "openai",
+    "apiKey": "sk-...",
+    "baseUrl": "https://api.openai.com/v1",
+    "model": "gpt-4o-mini",
+    "temperature": 0.7,
+    "maxTokens": 2048,
+    "referer": "http://localhost:3000"
+  }
 }
 ```
 
@@ -56,7 +65,15 @@ Auth: owner/super.
 {
   "welcome_message": "Halo kak, ada yang bisa dibantu?",
   "behavior": "Warm, concise, helpful.",
-  "enabled": true
+  "enabled": true,
+  "aiSettings": {
+    "provider": "openai",
+    "apiKey": "sk-...",
+    "baseUrl": "https://api.openai.com/v1",
+    "model": "gpt-4o-mini",
+    "temperature": 0.7,
+    "maxTokens": 2048
+  }
 }
 ```
 
@@ -137,3 +154,18 @@ create order without confirmation
 bypass backend validation
 access other workspace data
 ```
+
+## AI Settings Config Schema (`aiSettings`)
+
+Per-agent configurations for OpenAI-compatible LLM endpoints.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `provider` | string | Yes | The LLM provider type. Allowed values: `"global"` (uses default system settings from `.env`), `"openai"` (uses custom endpoint configured below). |
+| `apiKey` | string | No | API Secret Key for the custom provider. Optional for local development/endpoints that do not require auth. |
+| `baseUrl` | string | No | Custom provider base endpoint (e.g. `https://api.groq.com/openai/v1` or `http://localhost:11434/v1`). |
+| `model` | string | No | Model name identifier from the provider (e.g. `gpt-4o-mini`, `llama3`, etc.). |
+| `temperature` | number | No | Temperature slider between `0` (deterministik) and `2` (sangat kreatif). Defaults to `0.6`. |
+| `maxTokens` | number | No | Maximum token response limit. |
+| `referer` | string | No | Optional HTTP-Referer header value (useful for OpenRouter or custom proxy environments). |
+

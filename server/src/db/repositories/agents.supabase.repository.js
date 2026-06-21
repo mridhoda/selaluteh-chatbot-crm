@@ -52,6 +52,7 @@ export const agentsSupabaseRepository = {
     if (!row) return null;
     const mapped = mapRow(row);
     if (mapped.metadata?.aiSettings) mapped.aiSettings = mapped.metadata.aiSettings;
+    if (mapped.metadata?.outlets) mapped.outlets = mapped.metadata.outlets;
     return mapped;
   },
 
@@ -69,6 +70,7 @@ export const agentsSupabaseRepository = {
     if (!row) return null;
     const mapped = mapRow(row);
     if (mapped.metadata?.aiSettings) mapped.aiSettings = mapped.metadata.aiSettings;
+    if (mapped.metadata?.outlets) mapped.outlets = mapped.metadata.outlets;
     return mapped;
   },
 
@@ -77,7 +79,7 @@ export const agentsSupabaseRepository = {
    */
   async create({ workspaceId, name, platformId, prompt, behavior, welcomeMessage,
     stickerUrl, knowledge, followUps, database, complaintFields, complaintNotification,
-    salesForms, payment, status = 'active', metadata = {} }) {
+    salesForms, payment, outlets, status = 'active', metadata = {} }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
     const insert = {
@@ -125,8 +127,8 @@ export const agentsSupabaseRepository = {
       if (fieldMap[k] !== undefined) set[fieldMap[k]] = v;
     }
 
-    // Store aiSettings inside metadata.aiSettings until dedicated column is migrated
-    if (updates.aiSettings !== undefined || updates.metadata !== undefined) {
+    // Store aiSettings & outlets inside metadata until dedicated columns are migrated
+    if (updates.aiSettings !== undefined || updates.metadata !== undefined || updates.outlets !== undefined) {
       const current = await client
         .from(TABLE)
         .select('metadata')
@@ -134,8 +136,12 @@ export const agentsSupabaseRepository = {
         .eq('id', agentId)
         .maybeSingle();
       const existingMeta = current?.data?.metadata || {};
-      if (updates.aiSettings !== undefined) {
+      if (updates.aiSettings !== undefined && updates.outlets !== undefined) {
+        set.metadata = { ...existingMeta, aiSettings: updates.aiSettings, outlets: updates.outlets };
+      } else if (updates.aiSettings !== undefined) {
         set.metadata = { ...existingMeta, aiSettings: updates.aiSettings };
+      } else if (updates.outlets !== undefined) {
+        set.metadata = { ...existingMeta, outlets: updates.outlets };
       } else {
         set.metadata = { ...existingMeta, ...updates.metadata };
       }
@@ -151,10 +157,8 @@ export const agentsSupabaseRepository = {
     const row = extractSingle(result, 'agents.update');
     if (!row) return null;
     const mapped = mapRow(row);
-    // Expose aiSettings at top level for service layer consumption
-    if (mapped.metadata?.aiSettings) {
-      mapped.aiSettings = mapped.metadata.aiSettings;
-    }
+    if (mapped.metadata?.aiSettings) mapped.aiSettings = mapped.metadata.aiSettings;
+    if (mapped.metadata?.outlets) mapped.outlets = mapped.metadata.outlets;
     return mapped;
   },
 

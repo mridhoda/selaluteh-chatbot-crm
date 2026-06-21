@@ -32,6 +32,18 @@ export default function OrderDetailDrawer({
   if (!order) {
     return (
       <aside className="fixed inset-y-0 right-0 z-[80] w-full md:w-[400px] h-[100dvh] bg-[var(--surface-primary)] border-l border-[var(--border-subtle)] overflow-hidden flex flex-col shrink-0 items-center justify-center text-center p-6 text-[var(--text-muted)] shadow-[-4px_0_15px_rgba(17,24,46,0.03)]">
+        <div className="absolute top-4 right-4">
+          <button
+            type="button"
+            onClick={onHide || onClose}
+            className="order-detail-collapse-button flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-primary)] text-sm font-medium text-[var(--text-secondary)] shadow-none transition duration-150 hover:border-[var(--brand-200)] hover:bg-[var(--brand-50)] hover:text-[var(--brand-600)] focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]"
+            title="Hide order details"
+            aria-label="Hide order details"
+          >
+            <FontAwesomeIcon icon={faChevronRight} />
+          </button>
+        </div>
+
         <div className="flex flex-col items-center gap-2">
           <div className="w-12 h-12 rounded-full bg-[var(--surface-secondary)] flex items-center justify-center text-[var(--text-subtle)] mb-2 border border-dashed border-[var(--border-subtle)] text-lg">
             👤

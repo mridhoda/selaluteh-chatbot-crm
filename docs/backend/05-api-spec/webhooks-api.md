@@ -109,6 +109,55 @@ Provider-specific payload.
 - Store normalized provider event in `payment_events`.
 - Update payment/order status idempotently.
 
+## POST `/api/webhooks/xendit/payment-sessions`
+
+Receive Xendit Test Mode Payment Session status webhooks.
+
+### Verification
+
+```txt
+x-callback-token == XENDIT_WEBHOOK_VERIFICATION_TOKEN
+```
+
+Missing or invalid token returns an unauthorized error and performs no payment/order mutation.
+
+### Accepted Events
+
+```txt
+payment_session.completed
+payment_session.expired
+```
+
+### Processing
+
+```txt
+receive webhook
+-> verify x-callback-token
+-> normalize data.payment_session_id, reference_id, status, amount, currency
+-> derive idempotency key from webhook id or session/event/timestamp
+-> locate internal payment by provider session id or merchant reference
+-> store payment_events row
+-> validate provider session id/reference/amount/currency
+-> paid: set payments.status=paid and orders.payment_status=paid
+-> expired: set payments.status=expired and orders.payment_status=expired
+-> do not downgrade paid payment from stale event
+-> return 2xx for safe duplicate/no-op
+```
+
+### Response
+
+```json
+{
+  "processed": true,
+  "event": {
+    "eventType": "payment_session.completed",
+    "status": "paid"
+  }
+}
+```
+
+No raw Xendit secret, callback token, Authorization header, or full provider response is returned.
+
 ## Webhook Event Table Usage
 
 Store:

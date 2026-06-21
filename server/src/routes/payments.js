@@ -1,13 +1,36 @@
 import express from 'express';
 import { authRequired, attachUser } from '../middleware/auth.js';
 import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
-import { createPayment, getPaymentDetail, listPayments, syncPaymentWithProvider } from '../services/payment.service.js';
+import { createPayment, createXenditPaymentSessionForOrder, getPaymentDetail, listPayments, refreshPaymentSession, syncPaymentWithProvider } from '../services/payment.service.js';
 import { AppError } from '../utils/errors.js';
 import { paymentEventsRepository } from '../db/repositories/index.js';
 
 const router = express.Router();
 
 router.use(authRequired, attachUser, attachWorkspaceContext);
+
+router.get('/gateway/config', async (req, res) => {
+  res.json({
+    data: {
+      provider: 'xendit',
+      environment: 'test',
+      configured: env.paymentProvider === 'xendit' && Boolean(env.xenditSecretApiKey),
+    },
+  });
+});
+
+router.post('/orders/:orderId/xendit/session', async (req, res, next) => {
+  try {
+    const payment = await createXenditPaymentSessionForOrder({
+      user: req.me,
+      workspaceId: req.me.workspaceId,
+      orderId: req.params.orderId,
+      customer: req.body?.customer || {},
+      idempotencyKey: req.get('Idempotency-Key') || req.body?.idempotencyKey,
+    });
+    res.status(201).json({ data: payment });
+  } catch (err) { next(err); }
+});
 
 router.post('/', async (req, res, next) => {
   try {
@@ -57,6 +80,13 @@ router.get('/:paymentId/events', async (req, res, next) => {
 router.post('/:paymentId/sync', async (req, res, next) => {
   try {
     const payment = await syncPaymentWithProvider({ workspaceId: req.me.workspaceId, paymentId: req.params.paymentId });
+    res.json({ data: payment });
+  } catch (err) { next(err); }
+});
+
+router.post('/:paymentId/refresh', async (req, res, next) => {
+  try {
+    const payment = await refreshPaymentSession({ user: req.me, workspaceId: req.me.workspaceId, paymentId: req.params.paymentId });
     res.json({ data: payment });
   } catch (err) { next(err); }
 });

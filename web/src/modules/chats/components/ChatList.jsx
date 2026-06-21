@@ -66,10 +66,10 @@ export default function ChatList({
 }) {
   const [search, setSearch] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [assignmentTab, setAssignmentTab] = useState(filters.assignment || 'assigned')
+  const [assignmentTab, setAssignmentTab] = useState(filters.assignment || 'all')
 
   useEffect(() => {
-    setAssignmentTab(filters.assignment || 'assigned')
+    setAssignmentTab(filters.assignment || 'all')
   }, [filters.assignment])
 
   const sorted = [...chats].sort((a, b) => {
@@ -94,7 +94,7 @@ export default function ChatList({
     setAssignmentTab(value)
     onFilterChange?.({
       ...filters,
-      assignment: value === 'assigned' || value === 'unassigned' ? value : undefined,
+      assignment: ['all', 'assigned', 'unassigned'].includes(value) ? value : undefined,
     })
   }
 
@@ -138,6 +138,12 @@ export default function ChatList({
         </div>
 
         <div className="chat-prism-tabs">
+          <button
+            className={`chat-prism-tab ${assignmentTab === 'all' ? 'active' : ''}`}
+            onClick={() => setAssignmentFilter('all')}
+          >
+            All
+          </button>
           <button
             className={`chat-prism-tab ${assignmentTab === 'assigned' ? 'active' : ''}`}
             onClick={() => setAssignmentFilter('assigned')}

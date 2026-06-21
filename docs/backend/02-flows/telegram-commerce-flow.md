@@ -16,6 +16,17 @@
 → Telegram notification
 ```
 
+For Xendit Test Mode:
+
+```txt
+order created
+→ backend creates or reuses Xendit Payment Session
+→ bot sends hosted checkout link
+→ Xendit webhook verifies payment_session.completed
+→ backend updates payment status and orders.payment_status
+→ bot sends one paid notification
+```
+
 ## Required Context
 
 Every commerce action must carry:
@@ -38,3 +49,5 @@ AI cannot:
 - offer unavailable outlet product
 - mark payment paid
 - change outlet without confirmation
+- create Xendit sessions directly or bypass backend payment service
+- provide trusted amount/currency for payment creation

@@ -626,6 +626,7 @@ Future production harus dapat mendukung:
    - `temperature`
    - `knowledge_config`
    - `commerce_enabled`
+   - `ai_settings`
    - `created_at`
    - `updated_at`
 3. THE Backend_System SHALL memisahkan provider client dari AI orchestration service.

@@ -46,10 +46,42 @@ export const paymentsSupabaseRepository = {
     return row ? mapRow(row) : null;
   },
 
+  async findByMerchantReferenceGlobal(ref) {
+    const client = getSupabaseServiceClient();
+    const result = await client.from(TABLE).select('*').eq('merchant_reference', ref).maybeSingle();
+    const row = extractSingle(result, 'payments.findByMerchantReferenceGlobal');
+    return row ? mapRow(row) : null;
+  },
+
   async findByProviderTransactionId(providerTransactionId) {
     const client = getSupabaseServiceClient();
     const result = await client.from(TABLE).select('*').eq('provider_transaction_id', providerTransactionId).maybeSingle();
     const row = extractSingle(result, 'payments.findByProviderTransactionId');
+    return row ? mapRow(row) : null;
+  },
+
+  async findByProviderTransactionIdScoped({ workspaceId, providerTransactionId }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client.from(TABLE).select('*').eq('workspace_id', workspaceId).eq('provider_transaction_id', providerTransactionId).maybeSingle();
+    const row = extractSingle(result, 'payments.findByProviderTransactionIdScoped');
+    return row ? mapRow(row) : null;
+  },
+
+  async findByIdempotencyKey({ workspaceId, orderId, idempotencyKey }) {
+    requireWorkspaceId(workspaceId);
+    if (!idempotencyKey) return null;
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .eq('order_id', orderId)
+      .eq('metadata->>idempotency_key', idempotencyKey)
+      .order('attempt_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const row = extractSingle(result, 'payments.findByIdempotencyKey');
     return row ? mapRow(row) : null;
   },
 
@@ -105,9 +137,12 @@ export const paymentsSupabaseRepository = {
       merchant_reference: data.merchantReference || null,
       provider_transaction_id: data.providerTransactionId || null,
       payment_url: data.paymentUrl || null,
-      expiry_time: data.expiryTime || null,
+      payment_link: data.paymentLink || data.paymentUrl || null,
+      provider_ref: data.providerRef || data.providerSessionId || null,
+      expires_at: data.expiresAt || null,
       reconciliation_status: data.reconciliationStatus || 'pending',
       metadata: data.metadata || {},
+      customer_snapshot: data.customerSnapshot || {},
     };
     const result = await client.from(TABLE).insert(insert).select().single();
     return mapRow(extractSingle(result, 'payments.create'));
@@ -115,8 +150,20 @@ export const paymentsSupabaseRepository = {
 
   async atomicStatusUpdate({ paymentId, expectedStatus, newStatus }) {
     const client = getSupabaseServiceClient();
-    const result = await client.from(TABLE).update({ status: newStatus }).eq('id', paymentId).eq('status', expectedStatus).select().maybeSingle();
+    const updates = { status: newStatus };
+    if (newStatus === 'paid') updates.paid_at = new Date().toISOString();
+    const result = await client.from(TABLE).update(updates).eq('id', paymentId).eq('status', expectedStatus).select().maybeSingle();
     const row = extractSingle(result, 'payments.atomicStatusUpdate');
+    return row ? mapRow(row) : null;
+  },
+
+  async transitionStatus({ paymentId, fromStatuses, newStatus, updates = {} }) {
+    const client = getSupabaseServiceClient();
+    let q = client.from(TABLE).update({ status: newStatus, ...updates }).eq('id', paymentId);
+    if (Array.isArray(fromStatuses)) q = q.in('status', fromStatuses);
+    else if (fromStatuses) q = q.eq('status', fromStatuses);
+    const result = await q.select().maybeSingle();
+    const row = extractSingle(result, 'payments.transitionStatus');
     return row ? mapRow(row) : null;
   },
 

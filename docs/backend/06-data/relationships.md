@@ -87,6 +87,8 @@ payments   1 ── * payment_attempts
 payments   1 ── * payment_events
 ```
 
+Current Xendit Test Mode implementation uses the main `payments` row as the active session attempt and stores provider session details there. `payment_attempts` remains available for future richer attempt history.
+
 ## AI Agent & Complaints
 
 ```txt
@@ -130,3 +132,4 @@ Notes:
 4. Agent knowledge, follow-ups, sales forms, and tools are stored as embedded JSON in `agents` for MVP simplicity. Normalize later if needed.
 5. Complaints link to outlet, contact, chat, and platform for full traceability.
 6. Runtime tables `files`, `webhook_events`, and `ai_actions` are required even though they are not admin CRUD pages.
+7. Xendit webhooks resolve workspace/outlet/order through the matched payment row, not from untrusted webhook query/body fields.

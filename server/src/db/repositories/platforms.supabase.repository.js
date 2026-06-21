@@ -41,6 +41,15 @@ function mapAndSanitize(row) {
   if (obj.tokenEncrypted) { obj.token = 'configured'; }
   if (obj.appSecretEncrypted) { obj.appSecret = 'configured'; }
   if (obj.webhookSecretEncrypted) { obj.webhookSecret = 'configured'; }
+
+  // Virtual credentials object for frontend backward compatibility
+  obj.credentials = {
+    phoneNumberId: obj.phoneNumberId || '',
+    pageId: obj.pageId || '',
+    accessToken: obj.tokenEncrypted ? 'configured' : '',
+    webhookVerifyToken: obj.webhookSecretEncrypted ? 'configured' : '',
+  };
+
   // Remove raw encrypted fields from output
   delete obj.tokenEncrypted;
   delete obj.appSecretEncrypted;
@@ -64,6 +73,15 @@ function mapWithCredentials(row) {
   if (obj.webhookSecretEncrypted) {
     try { obj.webhookSecret = decrypt(obj.webhookSecretEncrypted); } catch { obj.webhookSecret = ''; }
   }
+
+  // Virtual credentials object for compatibility
+  obj.credentials = {
+    phoneNumberId: obj.phoneNumberId || '',
+    pageId: obj.pageId || '',
+    accessToken: obj.token || '',
+    webhookVerifyToken: obj.webhookSecret || '',
+  };
+
   delete obj.tokenEncrypted;
   delete obj.appSecretEncrypted;
   delete obj.credentialsEncrypted;
@@ -128,6 +146,14 @@ export const platformsSupabaseRepository = {
     const client = getSupabaseServiceClient();
     const data = { ...payload };
 
+    // Support nested credentials object sent by frontend
+    if (data.credentials) {
+      if (data.credentials.phoneNumberId) data.phoneNumberId = data.credentials.phoneNumberId;
+      if (data.credentials.pageId) data.pageId = data.credentials.pageId;
+      if (data.credentials.accessToken) data.token = data.credentials.accessToken;
+      if (data.credentials.webhookVerifyToken) data.webhookSecret = data.credentials.webhookVerifyToken;
+    }
+
     const insert = {
       workspace_id: workspaceId,
       type: data.type,
@@ -160,10 +186,21 @@ export const platformsSupabaseRepository = {
   async update({ workspaceId, platformId, updates }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
+    const data = { ...updates };
+
+    // Support nested credentials object sent by frontend
+    if (data.credentials) {
+      if (data.credentials.phoneNumberId) data.phoneNumberId = data.credentials.phoneNumberId;
+      if (data.credentials.pageId) data.pageId = data.credentials.pageId;
+      if (data.credentials.accessToken) data.token = data.credentials.accessToken;
+      if (data.credentials.webhookVerifyToken) data.webhookSecret = data.credentials.webhookVerifyToken;
+      delete data.credentials;
+    }
+
     const set = {};
     const skip = new Set(['id', 'workspaceId', 'workspace_id', 'createdAt', 'created_at']);
 
-    for (const [key, value] of Object.entries(updates)) {
+    for (const [key, value] of Object.entries(data)) {
       if (skip.has(key)) continue;
       if (key === 'token' && value) { set.token_encrypted = encrypt(value); continue; }
       if (key === 'appSecret' && value) { set.app_secret_encrypted = encrypt(value); continue; }
@@ -272,6 +309,19 @@ export const platformsSupabaseRepository = {
     if (type) q = q.eq('type', type);
     const result = await q.maybeSingle();
     const row = extractSingle(result, 'platforms.findByAccountId');
+    return row ? mapWithCredentials(row) : null;
+  },
+
+  /**
+   * Find a platform by phone_number_id and type (fallback lookup).
+   * Returns with decrypted credentials for internal webhook use.
+   */
+  async findByPhoneNumberId({ phoneNumberId, type }) {
+    const client = getSupabaseServiceClient();
+    let q = client.from(TABLE).select('*').eq('phone_number_id', phoneNumberId);
+    if (type) q = q.eq('type', type);
+    const result = await q.maybeSingle();
+    const row = extractSingle(result, 'platforms.findByPhoneNumberId');
     return row ? mapWithCredentials(row) : null;
   },
 };

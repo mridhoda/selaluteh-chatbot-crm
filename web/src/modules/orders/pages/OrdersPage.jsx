@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../shared/api/httpClient';
+import { isDemoMode } from '../../../mocks/demoState';
 import * as XLSX from 'xlsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
@@ -27,7 +28,7 @@ export default function Orders() {
   // Filter States
   const [filters, setFilters] = useState({
     outlet: 'all',
-    date: 'today',
+    date: 'all',
     channel: 'all',
     paymentStatus: 'all',
     orderStatus: 'all',
@@ -58,10 +59,20 @@ export default function Orders() {
     setLoading(true);
     try {
       const res = await api.get('/orders');
-      setOrders(res.data);
+      const rawOrders = Array.isArray(res.data) 
+        ? res.data 
+        : (res.data && Array.isArray(res.data.data) ? res.data.data : []);
+      
+      const normalizedOrders = rawOrders.map(order => ({
+        ...order,
+        _id: order._id || order.id,
+        id: order.id || order._id
+      }));
+
+      setOrders(normalizedOrders);
 
       // Fetch agents for product/price parsing
-      const agentIds = [...new Set(res.data.map(o => o.agentId).filter(Boolean))];
+      const agentIds = [...new Set(normalizedOrders.map(o => o.agentId).filter(Boolean))];
       const agentMap = {};
       for (const agentId of agentIds) {
         try {
@@ -278,8 +289,10 @@ export default function Orders() {
       }
     ];
 
-    // Filter out deleted mock items
-    const activeMocks = mockList.filter(m => !deletedMockIds.has(m._id));
+    // Only use mock items if in demo mode
+    const activeMocks = isDemoMode()
+      ? mockList.filter(m => !deletedMockIds.has(m._id))
+      : [];
 
     // Map overrides onto mocks
     const overriddenMocks = activeMocks.map(m => {
@@ -380,20 +393,39 @@ export default function Orders() {
     const orderDate = new Date(dateStr);
     const now = new Date();
 
+    // Determine if it is a mock order (from May 2025)
+    const isMockOrder = orderDate.getFullYear() === 2025 && orderDate.getMonth() === 4;
+
     if (dateFilter === 'today') {
-      const isMockToday = orderDate.getFullYear() === 2025 && orderDate.getMonth() === 4 && orderDate.getDate() === 16;
-      const isActualToday = orderDate.getFullYear() === now.getFullYear() && orderDate.getMonth() === now.getMonth() && orderDate.getDate() === now.getDate();
-      return isActualToday || isMockToday;
+      if (isMockOrder) {
+        return orderDate.getDate() === 16;
+      }
+      return orderDate.getFullYear() === now.getFullYear() &&
+             orderDate.getMonth() === now.getMonth() &&
+             orderDate.getDate() === now.getDate();
     }
+
     if (dateFilter === 'yesterday') {
+      if (isMockOrder) {
+        return orderDate.getDate() === 15;
+      }
       const yesterday = new Date(now);
       yesterday.setDate(now.getDate() - 1);
-      return orderDate.getFullYear() === yesterday.getFullYear() && orderDate.getMonth() === yesterday.getMonth() && orderDate.getDate() === yesterday.getDate();
+      return orderDate.getFullYear() === yesterday.getFullYear() &&
+             orderDate.getMonth() === yesterday.getMonth() &&
+             orderDate.getDate() === yesterday.getDate();
     }
+
     if (dateFilter === '7days') {
-      const diffDays = Math.ceil(Math.abs(now - orderDate) / (1000 * 60 * 60 * 24));
+      if (isMockOrder) {
+        // Mock "today" is May 16, 2025. Last 7 days means May 10 to May 16, 2025.
+        return orderDate.getDate() >= 10 && orderDate.getDate() <= 16;
+      }
+      const diffTime = Math.abs(now - orderDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return diffDays <= 7;
     }
+
     return true;
   };
 

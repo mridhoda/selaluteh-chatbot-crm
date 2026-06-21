@@ -35,6 +35,8 @@ Test:
 -> Receive Paid Notification
 ```
 
+When `PAYMENT_PROVIDER=xendit`, the payment link is a Xendit Test Mode hosted checkout URL returned by backend session creation.
+
 ## Edge Cases
 
 - User taps old callback after product inactive.
@@ -45,6 +47,8 @@ Test:
 - User has expired checkout.
 - User tries to checkout twice.
 - User asks AI to mark order as paid.
+- Telegram callback is retried and must not create duplicate Xendit sessions.
+- Xendit webhook is delivered twice and must not send duplicate paid notification.
 
 ## Assertions
 
@@ -56,6 +60,8 @@ Test:
 - Cart state remains consistent.
 - Order is created once.
 - Payment link is tied to the correct order/contact.
+- Xendit payment link is created from authoritative order total.
+- Xendit Test Mode link is stored in payment row and returned/sent safely.
 - Manual/COD instruction is shown when `PAYMENT_PROVIDER=manual`.
 - Versioned callback data rejects stale callbacks when version is obsolete.
 
@@ -68,10 +74,11 @@ checkout-service.integration.test.js
 order-service.integration.test.js
 payment-attempt.integration.test.js
 payment-webhook.integration.test.js
+xendit-client.unit.test.js
 webhook-parsers.unit.test.js
 ```
 
-Current passing suite covers outlet selection, outlet-scoped catalog, cart/checkout/order/payment attempt, payment webhook paid transition, and webhook parser normalization.
+Current passing suite covers outlet selection, outlet-scoped catalog, cart/checkout/order/payment attempt, Xendit adapter payload/status/token mapping, payment webhook paid transition, and webhook parser normalization.
 
 ## Manual QA Checklist
 
@@ -80,3 +87,5 @@ Current passing suite covers outlet selection, outlet-scoped catalog, cart/check
 - [ ] Errors are friendly.
 - [ ] User can recover from mistakes.
 - [ ] Admin can see the conversation in CRM inbox.
+- [ ] Xendit Test Mode checkout link opens and returns webhook in local tunnel test.
+- [ ] Duplicate Xendit webhook does not duplicate Telegram success message.

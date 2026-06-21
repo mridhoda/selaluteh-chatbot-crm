@@ -435,7 +435,7 @@ function CommerceTab({ chat, onOpenOrder }) {
         <div className="bg-white border border-slate-100 rounded-xl p-3.5 shadow-sm mt-1.5 space-y-3.5">
           <label className="flex items-center gap-2.5 cursor-pointer group">
             <input type="radio" name="payment-type" defaultChecked className="accent-[var(--brand-500)] h-4 w-4 border-slate-300 cursor-pointer" />
-            <span className="text-xs font-bold text-[var(--brand-600)]">Link Payment</span>
+            <span className="text-xs font-bold text-[var(--brand-600)]">Link Payment — Xendit Test</span>
           </label>
           <label className="flex items-center gap-2.5 cursor-pointer group">
             <input type="radio" name="payment-type" className="accent-[var(--brand-500)] h-4 w-4 border-slate-300 cursor-pointer" />
@@ -446,12 +446,12 @@ function CommerceTab({ chat, onOpenOrder }) {
             <span className="text-xs font-semibold text-slate-600 group-hover:text-slate-800 transition-colors">Cash on Delivery</span>
           </label>
 
-          {/* Warning Box */}
-          <div className="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-3 shadow-sm text-left">
-            <div className="text-[11px] font-bold text-amber-700 mb-0.5">No payment gateway connected</div>
-            <div className="text-[10px] text-amber-600/80 mb-2 leading-tight">Set up Midtrans or Xendit to send payment link.</div>
+          {/* Gateway state */}
+          <div className="mt-3 bg-emerald-50 border border-emerald-100 rounded-xl p-3 shadow-sm text-left">
+            <div className="text-[11px] font-bold text-emerald-700 mb-0.5">Xendit Test Mode</div>
+            <div className="text-[10px] text-emerald-600/80 mb-2 leading-tight">Connected when backend Xendit Test Mode env is configured. Payment and order statuses remain separate.</div>
             <button className="text-[10px] font-bold text-amber-700 flex items-center gap-1 hover:underline border-none bg-transparent cursor-pointer p-0" onClick={() => setIsPaymentModalOpen(true)}>
-              Set up now <ArrowRight size={10} className="group-hover:translate-x-0.5 transition-transform shrink-0" />
+              View setup <ArrowRight size={10} className="group-hover:translate-x-0.5 transition-transform shrink-0" />
             </button>
           </div>
         </div>
@@ -462,7 +462,7 @@ function CommerceTab({ chat, onOpenOrder }) {
         <OrderStepHeader num="6" title="Actions" />
         <div className="flex flex-col gap-2.5 mt-1.5">
           <button className="bg-gradient-to-r from-[var(--brand-500)] to-[var(--ai-500)] w-full py-3 text-white text-sm font-bold rounded-xl shadow-lg hover:opacity-95 transition-all cursor-pointer border-none">
-            Create Order
+            Create & Send Payment Link
           </button>
           <button className="w-full py-2.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm hover:bg-slate-50 transition-colors cursor-pointer">
             <Bookmark size={14} className="text-slate-400 shrink-0" />

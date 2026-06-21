@@ -1,0 +1,1897 @@
+# SelaluTeh Location Intelligence and Nearest Outlet Specification
+#
+# Spec ini khusus untuk:
+# - text-first customer location
+# - Google Maps provider integration
+# - admin Google Maps URL resolver
+# - canonical outlet coordinates
+# - nearest outlet calculation
+# - service radius
+# - Google Maps link
+# - optional directions
+# - privacy, cache, rate limit, SSRF, dan observability
+#
+# Spec ini TIDAK menggantikan atau menggabungkan:
+# - selaluteh-ai-agent-architecture
+# - selaluteh-ai-agent-scope-security
+# - selaluteh-backend-marketplace
+#
+schema_version: 2
+spec_version: 1.0.0
+
+id: selaluteh-location-intelligence
+title: SelaluTeh Location Intelligence and Nearest Outlet
+description: >-
+  Requirements-first specification khusus untuk memahami lokasi customer secara
+  text-first, mengumpulkan city dan detail lokasi secara progresif, me-resolve
+  lokasi melalui provider adapter, menyimpan canonical outlet coordinates
+  setelah admin confirmation, menghitung outlet eligible terdekat, memberikan
+  Google Maps link, menyediakan optional directions hanya ketika diminta,
+  menjaga customer location tetap sementara, serta menerapkan cache, rate
+  limiting, SSRF protection, workspace isolation, observability, dan pengujian
+  TDD.
+
+type: feature
+workflow: requirements-first
+
+status: active
+workflow_state: in_progress
+priority: critical
+
+created_at: '2026-06-20'
+updated_at: '2026-06-20'
+
+owners:
+  product_owner: Humble Breads
+  technical_owner: project-maintainer
+  security_owner: project-maintainer
+  implementation_actor: coding-agent
+  review_required: true
+  security_review_required: true
+  privacy_review_required: true
+
+tags:
+  - location-intelligence
+  - nearest-outlet
+  - google-maps
+  - geocoding
+  - places
+  - directions
+  - text-first-location
+  - outlet-location
+  - privacy
+  - ssrf
+  - cache
+  - rate-limit
+  - telegram
+  - whatsapp
+  - tdd
+
+lifecycle:
+  config: docs/specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: docs/specs/active/selaluteh-location-intelligence
+  move_entire_spec_directory: true
+  repository_root_relative_paths: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    check_command: npm run specs:check
+    sync_command: npm run specs:sync
+    dry_run_command: npm run specs:sync:dry
+    automatic_on_file_save: false
+    automatic_local_folder_move: false
+    manual_sync_required_after_status_change: true
+    ci_check_only: true
+    ci_must_not_move_or_commit_files: true
+    index_path: docs/specs/SPECS-INDEX.md
+
+  completion_requirements:
+    - all-p0-tasks-completed
+    - definition-of-done-passed
+    - unit-tests-passed
+    - component-tests-passed
+    - integration-tests-passed
+    - api-integration-tests-passed
+    - security-tests-passed
+    - property-tests-passed
+    - concurrency-tests-passed
+    - resilience-tests-passed
+    - performance-and-cost-tests-passed
+    - ssrf-suite-passed
+    - workspace-isolation-passed
+    - privacy-suite-passed
+    - route-default-zero-calls-passed
+    - confirmation-required-suite-passed
+    - provider-key-redaction-passed
+    - human-takeover-regression-passed
+    - documentation-updated
+    - implementation-status-updated
+    - progress-log-updated
+    - current-task-pointer-updated
+    - specs-check-passed
+
+spec_registry:
+  root: docs/specs
+  config: docs/specs/specs.config.yaml
+  index: docs/specs/SPECS-INDEX.md
+  template: docs/specs/_templates/feature
+
+  buckets:
+    backlog: docs/specs/backlog
+    active: docs/specs/active
+    completed: docs/specs/completed
+
+  required_files:
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+
+  global_reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md
+  current_sprint: docs/backend/11-sprint/current-sprint.md
+  backlog: docs/backend/11-sprint/backlog.md
+  definition_of_done: docs/backend/11-sprint/definition-of-done.md
+  release_checklist: docs/backend/11-sprint/release-checklist.md
+
+document_authority:
+  spec:
+    path: spec.yaml
+    purpose: identity-status-scope-lifecycle-boundaries-and-invariants
+
+  requirements:
+    path: requirements.md
+    purpose: what-the-location-intelligence-system-must-do
+
+  design:
+    path: design.md
+    purpose: how-the-location-intelligence-system-is-designed
+
+  tasks:
+    path: tasks.md
+    purpose: tdd-implementation-order-dependencies-tests-and-release-gates
+
+  current_task:
+    path: docs/backend/09-ai-context/current-task.md
+    purpose: explicit-active-spec-and-active-task-pointer
+
+  implementation_status:
+    path: docs/backend/11-sprint/implementation-status.md
+    purpose: actual-current-implementation-state-not-target-design
+
+  precedence:
+    - latest-approved-location-intelligence-decision
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+    - current-task
+    - implementation-status-for-current-reality
+    - external-contract-documents
+    - legacy-generated-or-combined-documents
+
+  conflict_rules:
+    - requirements-controls-what
+    - design-controls-how
+    - tasks-controls-order-and-verification
+    - spec-controls-scope-status-and-authority
+    - current-task-controls-immediate-work
+    - implementation-status-controls-actual-reality
+    - ai-agent-architecture-controls-tool-calling-conversation-runtime-and-human-takeover
+    - ai-agent-scope-security-controls-whether-location-tools-may-run
+    - backend-marketplace-controls-workspace-outlet-opening-hours-selected-outlet-cart-and-order
+    - location-intelligence-controls-location-resolution-nearest-outlet-and-location-security
+    - newer-approved-decision-overrides-stale-document
+    - source-documents-override-generated-combined-documents
+
+product:
+  name: SelaluTeh Marketplace
+  project_context: KALIS.AI / SelaluTeh Marketplace
+  area: location-intelligence
+  stage: mvp
+  delivery_method: incremental-test-driven-security-first
+
+  customer_channels:
+    - telegram
+    - whatsapp
+
+  admin_surface:
+    - outlet-settings
+    - outlet-location-resolver
+    - location-preview
+    - manual-pin-adjustment
+    - verification-history
+    - location-health
+    - provider-health
+
+  primary_customer_language: id
+
+  customer_tone:
+    - friendly
+    - warm
+    - semi-formal
+    - concise
+    - non-coercive
+
+  target_outcomes:
+    - customer-can-search-nearest-outlet-with-text
+    - share-location-remains-optional
+    - city-is-collected-progressively
+    - city-is-never-guessed
+    - outlet-location-is-canonical-and-verified
+    - nearest-outlet-is-calculated-server-side
+    - google-maps-link-is-returned
+    - route-provider-is-not-called-by-default
+    - customer-location-remains-temporary
+    - selected-outlet-requires-confirmation
+    - provider-cost-is-controlled
+    - maps-url-resolution-is-ssrf-safe
+    - future-provider-expansion-remains-possible
+
+spec_relationships:
+  depends_on:
+    - id: selaluteh-ai-agent-architecture
+      relationship: ai-runtime-and-tool-calling-contract-provider
+      merge_authority: false
+      owned_contracts:
+        - tool-registration
+        - tool-calling
+        - conversation-runtime
+        - channel-message-normalization
+        - human-takeover-state
+        - tool-result-delivery
+        - ai-response-generation
+
+    - id: selaluteh-ai-agent-scope-security
+      relationship: tool-access-and-business-scope-contract-provider
+      merge_authority: false
+      owned_contracts:
+        - outlet-location-intent-classification
+        - clarification-classification
+        - off-topic-tool-blocking
+        - unsafe-tool-blocking
+        - location-tool-schema-gating
+
+    - id: selaluteh-backend-marketplace
+      relationship: business-data-and-commerce-authority
+      merge_authority: false
+      owned_contracts:
+        - workspace
+        - outlet
+        - outlet-active-state
+        - pickup-eligibility
+        - opening-hours
+        - selected-outlet-id
+        - cart-outlet-conflict
+        - cart
+        - order
+        - authorization
+
+  does_not_replace:
+    - selaluteh-ai-agent-architecture
+    - selaluteh-ai-agent-scope-security
+    - selaluteh-backend-marketplace
+
+  integration_rules:
+    - consume-external-contracts-only
+    - do-not-copy-ai-orchestration
+    - do-not-copy-scope-classifier
+    - do-not-copy-commerce-mutations
+    - do-not-create-second-tool-gateway
+    - do-not-create-second-outlet-domain
+    - missing-external-contract-marks-task-blocked
+    - selected-outlet-mutation-remains-backend-marketplace-owned
+
+scope:
+  included:
+    - text-first-customer-location
+    - progressive-location-collection
+    - city-required-followup
+    - street-area-landmark-place-postal-code-input
+    - shared-coordinate-input
+    - optional-customer-google-maps-url-input
+    - temporary-location-flow
+    - location-flow-expiry
+    - location-field-parsing
+    - location-query-normalization
+    - supported-outlet-city-derivation
+    - city-alias-registry
+    - location-provider-interface
+    - google-location-provider-adapter
+    - text-geocoding
+    - places-text-search
+    - place-details
+    - secure-google-maps-url-resolution
+    - ssrf-protection
+    - redirect-validation
+    - admin-outlet-location-preview
+    - admin-location-confirmation
+    - manual-pin-adjustment
+    - canonical-outlet-location
+    - outlet-location-verification
+    - scheduled-location-verification
+    - outlet-location-history
+    - verified-location-eligibility
+    - outlet-eligibility-filtering
+    - haversine-distance
+    - optional-postgis-distance
+    - nearest-outlet-ranking
+    - open-outlet-preference
+    - service-radius
+    - google-maps-place-link
+    - optional-directions
+    - directions-cache
+    - customer-outlet-confirmation
+    - temporary-customer-coordinate-retention
+    - location-cache
+    - provider-rate-limiting
+    - provider-circuit-breaker
+    - provider-cost-metrics
+    - location-observability
+    - location-audit
+    - telegram-location-flow
+    - whatsapp-location-flow
+    - location-security-tests
+    - property-tests
+    - concurrency-tests
+    - resilience-tests
+    - performance-tests
+    - cost-tests
+
+  deferred:
+    - indonesia-wide-search-outside-supported-outlet-cities
+    - active-multi-provider-fallback
+    - public-transit-routing
+    - motorcycle-specific-routing
+    - advanced-traffic-aware-default-ranking
+    - service-area-polygons
+    - saved-customer-addresses
+    - delivery-address-support
+    - continuous-live-location
+    - background-location-tracking
+    - geofence-marketing
+    - advanced-location-spoofing-detection
+    - location-analytics-dashboard
+    - automatic-city-alias-learning
+    - bulk-outlet-map-import
+    - provider-cost-optimizer
+
+  excluded:
+    - unrestricted-internet-browser
+    - generic-web-search
+    - generic-fetch-any-url-tool
+    - google-maps-html-scraping
+    - ai-agent-orchestration
+    - ai-scope-classifier-implementation
+    - ai-memory-implementation
+    - outlet-crud-implementation
+    - cart-domain-implementation
+    - order-domain-implementation
+    - payment-domain-implementation
+    - delivery-domain-implementation
+    - automatic-outlet-selection
+    - durable-customer-address-memory
+    - continuous-customer-tracking
+    - marketing-location-profiling
+    - generated-code-execution
+    - arbitrary-provider-endpoints
+
+fixed_product_decisions:
+  spec_id: selaluteh-location-intelligence
+  requirement_prefix: LINT-R
+
+  customer_input_default: text-first
+  share_location_required: false
+  share_location_optional: true
+
+  minimum_location_context:
+    city_required: true
+    require_one_of:
+      - street
+      - area
+      - landmark
+      - place_name
+      - postal_code
+
+  city_guessing_allowed: false
+  active_flow_city_reuse_allowed: true
+  durable-memory-city-reuse_allowed: false
+
+  pending_location_ttl_minutes: 30
+
+  mvp_search_scope: supported-outlet-cities-only
+  future_search_scope: indonesia-wide
+
+  provider_architecture: adapter-based
+  active_provider: google
+  unrestricted-internet-access: false
+
+  outlet_location_input: google-maps-url
+  outlet_location_persistence: preview-then-confirm
+  manual-pin-adjustment: allowed-and-audited
+  significant-refresh-change: needs-review
+
+  nearest-calculation-default: geographic-distance
+  geographic-calculation:
+    preferred: postgis-when-available
+    fallback: haversine
+
+  route-calculation-default: disabled
+  directions-trigger: explicit-customer-request-only
+  directions-default-mode-when-unspecified: DRIVE
+
+  default-result-count:
+    recommended: 1
+    alternatives_max: 2
+
+  default-service-radius-km: 25
+  service-radius-configurable: true
+
+  open-outlet-preference: true
+  closed-outlet-may-appear-as-alternative: true
+  all-closed-behavior: show-nearest-with-status-and-authoritative-next-opening
+
+  outlet-confirmation-required: true
+  selected-outlet-mutation-owned-by: selaluteh-backend-marketplace
+
+  customer-location-durable-memory: forbidden
+  customer-coordinate-standard-logging: forbidden
+  background-location-tracking: forbidden
+
+  google-maps-place-link-in-default-result: true
+  google-api-key-client-exposure: forbidden
+
+  url-resolver:
+    generic-fetch-tool: forbidden
+    ssrf-protection: required
+    redirect-limit: 5
+    html-scraping: forbidden
+
+customer_location_flow:
+  statuses:
+    - EMPTY
+    - MISSING_CITY
+    - MISSING_DETAIL
+    - READY_TO_RESOLVE
+    - RESOLVING
+    - AMBIGUOUS
+    - READY_TO_CALCULATE
+    - RESULTS_READY
+    - CONFIRMING_OUTLET
+    - CONFIRMED
+    - CANCELLED
+    - EXPIRED
+
+  input_types:
+    - text
+    - structured_fields
+    - shared_coordinates
+    - google_maps_url
+    - candidate_selection
+
+  completeness_rules:
+    street_without_city: MISSING_CITY
+    area_without_city: MISSING_CITY
+    landmark_without_city: MISSING_CITY
+    place_without_city: MISSING_CITY
+    city_only: MISSING_DETAIL
+    city_plus_detail: READY_TO_RESOLVE
+    shared_coordinates: READY_TO_CALCULATE
+
+  clarification_codes:
+    - ASK_CITY
+    - ASK_STREET_AREA_OR_LANDMARK
+    - ASK_CANDIDATE_SELECTION
+    - ASK_LOCATION_CORRECTION
+
+  expiry:
+    inactivity_minutes: 30
+    clear_on:
+      - outlet-confirmed
+      - customer-cancelled
+      - session-invalidated
+      - ttl-expired
+
+  persistence:
+    durable_customer_memory: false
+    database_backed_temporary_state_preferred: true
+    redis_only_authority: false
+    idempotent_by_message_id: true
+    workspace_scoped: true
+    contact_chat_scoped: true
+
+supported_city_policy:
+  country_code: ID
+  derivation:
+    requires_at_least_one_outlet:
+      - active
+      - pickup-enabled
+      - not-deleted
+      - location-verified
+      - workspace-matched
+
+  provider_bias:
+    country: Indonesia
+    city: customer-confirmed-supported-city
+
+  unsupported_city_behavior:
+    resolve_nationwide_by_default: false
+    show_supported_cities: true
+    show_distant_outlet_as_nearby: false
+
+  aliases:
+    controlled_registry: true
+    model_generated_aliases_allowed: false
+
+provider:
+  interface_name: LocationProvider
+
+  methods:
+    - geocodeText
+    - searchPlaces
+    - getPlaceDetails
+    - resolveMapsUrl
+    - getDirections
+    - health
+
+  active:
+    id: google
+    type: google-maps-platform
+
+  configuration:
+    provider_env: LOCATION_PROVIDER
+    api_key_env: GOOGLE_MAPS_API_KEY
+    timeout_env: LOCATION_PROVIDER_TIMEOUT_MS
+    retry_env: LOCATION_PROVIDER_RETRY_MAX
+
+  default_limits:
+    timeout_ms: 3000
+    retry_max: 1
+
+  required_properties:
+    - backend-only-credentials
+    - strict-output-normalization
+    - bounded-timeout
+    - bounded-retry
+    - cancellation
+    - minimum-field-request
+    - no-raw-response-persistence
+    - stable-domain-errors
+    - provider-version-trace
+
+  fake_provider_required: true
+  live-google-tests-in-default-ci: false
+
+location_resolution:
+  normalization:
+    expand_abbreviations:
+      Jl.: Jalan
+      Kec.: Kecamatan
+      Kel.: Kelurahan
+    append_country: Indonesia
+    preserve_meaningful-place-names: true
+    reject-unrelated-instructions: true
+
+  strategy:
+    street: geocode
+    postal_code: geocode
+    structured_address: geocode
+    landmark: places-text-search
+    place_name: places-text-search
+    building: places-text-search
+
+  result_statuses:
+    - RESOLVED
+    - AMBIGUOUS
+    - NOT_FOUND
+    - OUTSIDE_SUPPORTED_CITY
+    - INVALID_INPUT
+    - PROVIDER_UNAVAILABLE
+    - RATE_LIMITED
+
+  confidence:
+    categories:
+      - high
+      - medium
+      - low
+    high_single_candidate_may_proceed: true
+    medium_requires_clarification: true
+    low_requires_clarification: true
+    multiple_candidates_require_clarification: true
+    maximum_candidates_shown: 3
+
+  city_consistency:
+    requested_city_must_match_candidate: true
+    mismatch_behavior: reject-or-ambiguous
+    silent_city_substitution: forbidden
+
+customer_input_priority:
+  - shared_coordinates
+  - resolved_google_maps_url
+  - street_or_area_plus_city
+  - landmark_or_place_plus_city
+  - postal_code_plus_city
+
+admin_outlet_location:
+  flow:
+    - resolve
+    - preview
+    - optional-manual-adjustment
+    - confirm
+    - persist
+    - audit
+    - invalidate-caches
+
+  preview_ttl_minutes: 15
+  persist_before_confirmation: false
+
+  location_sources:
+    - provider_resolved
+    - manual_adjustment
+    - imported
+    - migrated
+
+  statuses:
+    - UNRESOLVED
+    - RESOLVED
+    - VERIFIED
+    - NEEDS_REVIEW
+    - INVALID
+
+  verification:
+    scheduled_interval_months: 12
+    minor_coordinate_change_threshold_meters: 50
+    significant_change_behavior: NEEDS_REVIEW
+    silent_significant-overwrite: false
+    manual-refresh-supported: true
+    dry-run-supported: true
+
+canonical_outlet_location:
+  persistent: true
+  required_for-eligibility: true
+
+  minimum_fields:
+    - workspace_id
+    - outlet_id
+    - provider
+    - provider_place_id
+    - source_url
+    - google_maps_uri
+    - formatted_address
+    - city
+    - province
+    - country_code
+    - postal_code
+    - latitude
+    - longitude
+    - location_source
+    - status
+    - confidence
+    - resolver_version
+    - location_version
+    - resolved_at
+    - verified_at
+    - last_verification_at
+    - next_verification_at
+    - created_at
+    - updated_at
+
+  coordinate_constraints:
+    latitude_min: -90
+    latitude_max: 90
+    longitude_min: -180
+    longitude_max: 180
+
+  eligible_statuses:
+    - VERIFIED
+
+  runtime_behavior:
+    resolve-google-url-per-customer-request: false
+    use-stored-coordinates: true
+
+outlet_eligibility:
+  required:
+    - workspace-match
+    - not-deleted
+    - active
+    - pickup-enabled
+    - not-operationally-disabled
+    - verified-location
+    - valid-coordinates
+
+  source_of_truth: selaluteh-backend-marketplace
+  llm_override_allowed: false
+  revalidate_at:
+    - nearest-search
+    - customer-confirmation
+
+nearest_outlet:
+  origin:
+    - resolved-temporary-customer-coordinates
+    - shared-temporary-customer-coordinates
+
+  destination:
+    - canonical-verified-eligible-outlet-coordinates
+
+  calculation:
+    default: geographic-distance
+    preferred: postgis
+    fallback: haversine
+    server_side_only: true
+    llm_calculation: forbidden
+    distance_unit_internal: meters
+
+  ranking:
+    recommended_count: 1
+    alternatives_max: 2
+    stable_tie_breaker: outlet-id-or-name
+    route-api-default: false
+
+  correctness:
+    non_negative_distance: true
+    stable_sorting: true
+    workspace_isolation: true
+    unverified_outlets_allowed: false
+    travel_duration_from-haversine: forbidden
+
+opening_preference:
+  source_of_truth: selaluteh-backend-marketplace
+  google-opening-hours-authoritative: false
+
+  statuses:
+    - open
+    - closed
+    - unknown
+
+  default_policy:
+    prefer-open-outlet: true
+    open-distance-tolerance-km: 3
+    disclose-farther-open-recommendation: true
+    closed-nearest-may-appear-as-alternative: true
+    all-closed-show-nearest: true
+    next-opening-requires-authoritative-data: true
+
+service_radius:
+  platform_default_km: 25
+  configurable: true
+
+  precedence:
+    - outlet-group
+    - city
+    - workspace
+    - platform-default
+
+  outside_radius:
+    label_as_nearby: false
+    may_show-nearest-informationally: true
+    default-confirmation-offered: false
+    explicit-policy-required-for-selection: true
+
+maps_links:
+  default_result:
+    include-place-link: true
+    include-directions-link: false
+    include-travel-duration: false
+
+  place_link:
+    preferred_source: canonical-google-maps-uri
+    fallback: generated-google-maps-url
+    api_key_in-url: false
+
+  directions_link:
+    generated-server-side: true
+    api_key_in-url: false
+    arbitrary-user-host: false
+
+directions:
+  enabled: true
+  default_invocation: false
+  explicit-request-required: true
+
+  supported_modes:
+    - DRIVE
+    - WALK
+
+  default_mode_when_unspecified: DRIVE
+
+  result:
+    - estimated_distance_meters
+    - estimated_duration_seconds
+    - google_maps_directions_url
+    - estimate_available
+
+  failure:
+    return-directions-link-without-estimate: true
+    fabricate-duration: false
+
+  cache_ttl_minutes: 10
+
+customer_confirmation:
+  required: true
+
+  before:
+    - selected_outlet_id-persisted
+    - new-cart-created
+    - product-added-to-new-cart
+    - checkout-started
+    - order-created
+
+  validation:
+    - active-flow
+    - active-confirmation
+    - outlet-in-current-result
+    - workspace-match
+    - outlet-still-eligible
+    - location-still-verified
+    - expected-outlet-version
+    - marketplace-cart-rules
+
+  accepted_inputs:
+    - explicit-yes
+    - use-recommended
+    - choose-alternative
+    - search-another-location
+    - cancel
+
+  ambiguous_yes_without-active-prompt: no-selection
+
+  mutation_owner: selaluteh-backend-marketplace
+
+  after_success:
+    - clear-temporary-coordinates
+    - clear-candidates
+    - clear-pending-location-fields
+    - clear-confirmation-state
+    - retain-selected-outlet-through-marketplace
+
+url_security:
+  generic_fetch_tool: forbidden
+  accepted_scheme:
+    - https
+
+  approved_hosts_configured: true
+  initial_hosts:
+    - google.com
+    - www.google.com
+    - maps.google.com
+    - maps.app.goo.gl
+    - goo.gl
+
+  redirect_limit: 5
+  validate_each_redirect: true
+  final_host_revalidation: true
+  response_size_limit_required: true
+  short_timeout_required: true
+  cookies_forwarded: false
+  authorization_headers_forwarded: false
+  javascript_execution: false
+  html_scraping: false
+
+  blocked_networks:
+    - loopback
+    - private-ipv4
+    - link-local
+    - ipv6-loopback
+    - ipv6-private
+    - ipv6-link-local
+    - cloud-metadata
+
+  blocked_schemes:
+    - http-unless-explicitly-reviewed
+    - file
+    - ftp
+    - data
+    - javascript
+
+  dns_rebinding_mitigation: required
+  punycode-normalization: required
+  secret-query-stripping-before-persistence: required
+
+cache:
+  required: true
+
+  namespaces:
+    - location:resolved-text
+    - location:ambiguous
+    - location:not-found
+    - location:supported-cities
+    - location:opening-status
+    - location:directions
+    - location:url-resolution
+
+  default_ttl:
+    resolved_text_days: 7
+    ambiguous_hours: 1
+    not_found_minutes: 10
+    directions_minutes: 10
+    url_resolution_days: 7
+
+  key_components:
+    - provider
+    - provider-version
+    - country
+    - normalized-query-hash
+    - city-bias
+    - workspace-context-when-required
+
+  prohibited_key_material:
+    - raw-sensitive-address
+    - raw-exact-customer-coordinates
+    - provider-api-key
+
+  invalidation_events:
+    - outlet-location-changed
+    - outlet-eligibility-changed
+    - supported-city-changed
+    - service-radius-changed
+    - opening-schedule-changed
+    - provider-version-changed
+
+  authority:
+    canonical-outlet-location: database
+    cache-is-source-of-truth: false
+
+rate_limits:
+  customer_resolution:
+    max_requests: 5
+    window_minutes: 10
+    scope:
+      - customer
+      - chat
+      - workspace
+
+  customer_directions:
+    max_requests: 10
+    window_minutes: 10
+    scope:
+      - customer
+      - chat
+      - workspace
+
+  admin_resolution:
+    max_requests: 20
+    window_minutes: 10
+    scope:
+      - admin
+      - workspace
+
+  scheduled_verification:
+    quota-aware: true
+    bounded-concurrency: true
+    retry-backoff: true
+
+  duplicate-message-double-counting: forbidden
+  cache-hit-provider-quota-consumption: false
+  friendly-rate-limit-response: true
+
+privacy:
+  customer_location_classification: temporary-sensitive
+  outlet_location_classification: business-data
+
+  customer_location:
+    durable_memory: false
+    background_tracking: false
+    movement_history: false
+    marketing_profile: false
+    cross-workspace-sharing: false
+    standard-log-exact-coordinates: false
+    metric-label-exact-coordinates: false
+
+  temporary_retention:
+    pending-flow-minutes: 30
+    clear-after-confirmation: true
+    clear-after-cancellation: true
+    clear-after-expiry: true
+
+  logs:
+    allowed:
+      - flow-id
+      - input-type
+      - city
+      - status
+      - candidate-count
+      - provider-latency
+      - error-code
+
+    forbidden:
+      - exact-customer-coordinates
+      - raw-full-customer-address
+      - raw-provider-payload
+      - provider-api-key
+      - authorization-header
+
+  admin_access:
+    exact-temporary-customer-location-visible-by-default: false
+    elevated-debug-access:
+      enabled_by_default: false
+      permission_required: true
+      time_bounded: true
+      audited: true
+
+observability:
+  trace_required: true
+  raw-provider-payload-retention: false
+  exact-customer-coordinate-trace: false
+  provider-key-trace: false
+
+  operations:
+    - resolve_text
+    - resolve_maps_url
+    - calculate_nearest
+    - get_directions
+    - confirm_outlet
+    - verify_outlet_location
+
+  trace_fields:
+    - trace_id
+    - correlation_id
+    - workspace_id
+    - chat_id
+    - message_id
+    - flow_id
+    - operation
+    - input_type
+    - city
+    - provider
+    - provider_version
+    - cache_hit
+    - status
+    - candidate_count
+    - eligible_outlet_count
+    - calculation_method
+    - within_service_radius
+    - selected_outlet_id
+    - latency_ms
+    - provider_call_count
+    - error_code
+    - created_at
+
+  metrics:
+    - location_flow_started_total
+    - location_missing_city_total
+    - location_missing_detail_total
+    - location_resolution_success_total
+    - location_resolution_ambiguous_total
+    - location_resolution_not_found_total
+    - location_unsupported_city_total
+    - location_cache_hit_total
+    - location_provider_call_total
+    - location_rate_limited_total
+    - location_no_eligible_outlet_total
+    - location_outside_radius_total
+    - location_confirmation_success_total
+    - location_confirmation_abandoned_total
+    - location_directions_requested_total
+    - location_url_ssrf_rejected_total
+    - location_verification_needs_review_total
+
+  alerts:
+    - provider-error-spike
+    - provider-latency-spike
+    - ssrf-rejection-spike
+    - missing-verified-outlet
+    - scheduled-verification-failure
+    - significant-coordinate-change
+    - cache-hit-rate-collapse
+    - rate-limit-spike
+    - cross-workspace-attempt
+
+failure_policy:
+  invalid_input:
+    behavior: targeted-clarification
+    select_outlet: false
+
+  missing_city:
+    behavior: ask-city
+    provider_call: false
+
+  missing_detail:
+    behavior: ask-street-area-or-landmark
+    provider_call: false
+
+  ambiguous:
+    behavior: show-up-to-three-candidates
+    silent-guess: false
+
+  not_found:
+    behavior: ask-more-detail-or-spelling
+
+  unsupported_city:
+    behavior: explain-current-supported-cities
+    distant-outlet-as-nearby: false
+
+  provider_timeout:
+    behavior: retry-later-or-add-detail
+    report-as-not-found: false
+    share-location-offer: optional
+
+  provider_quota:
+    behavior:
+      - cache-fallback
+      - backoff
+      - circuit-breaker
+      - bounded-message
+
+  cache_failure:
+    expand-scope: false
+    auto-select: false
+    fallback: provider-or-database-when-safe
+
+  database_failure:
+    auto-select: false
+    fabricate-result: false
+
+  route_failure:
+    return-directions-link: true
+    estimate_available: false
+    fabricate-duration: false
+
+  outlet-change-before-confirmation:
+    behavior: revalidate-and-recalculate
+
+  admin-resolver-failure:
+    overwrite-current-location: false
+
+tool_contracts:
+  customer:
+    composite_tool:
+      name: resolve_location_and_find_nearest_outlets
+      version: 1
+
+      allowed_intents:
+        - OUTLET
+        - LOCATION_NEAREST_OUTLET
+        - PICKUP_OUTLET_SELECTION
+
+      statuses:
+        - missing_information
+        - ambiguous
+        - resolved
+        - not_found
+        - outside_supported_city
+        - no_eligible_outlet
+        - outside_radius
+        - provider_unavailable
+        - rate_limited
+        - invalid_input
+        - flow_expired
+
+      max_result_count: 3
+      selected_outlet_mutation: false
+      raw-provider-output: false
+      api-key-output: false
+
+    directions_tool:
+      name: get_outlet_directions
+      version: 1
+      explicit-request-required: true
+      selected_outlet_mutation: false
+
+  admin:
+    - resolve_google_maps_url
+    - confirm_outlet_location
+    - refresh_outlet_location
+
+  security:
+    off-topic-allowed: false
+    unsafe-allowed: false
+    unrestricted-internet: false
+    generic-url-fetch: false
+    tool-gateway-required: true
+    workspace-context-required: true
+    human-takeover-authoritative: true
+
+admin_api_contracts:
+  - method: POST
+    path: /api/outlets/:outletId/location/resolve
+    purpose: resolve-maps-url-to-preview
+    persists-location: false
+
+  - method: POST
+    path: /api/outlets/:outletId/location/confirm
+    purpose: confirm-and-persist-canonical-location
+    persists-location: true
+
+  - method: POST
+    path: /api/outlets/:outletId/location/refresh
+    purpose: preview-provider-refresh
+    persists-location: conditional-after-confirmation
+
+  - method: GET
+    path: /api/outlets/:outletId/location
+    purpose: read-canonical-location
+
+  - method: GET
+    path: /api/outlets/:outletId/location/history
+    purpose: read-location-history
+
+  - method: POST
+    path: /api/location/resolve-nearest-outlets
+    purpose: internal-nearest-location-service
+    optional: true
+
+  - method: POST
+    path: /api/location/directions
+    purpose: internal-explicit-directions-service
+    optional: true
+
+api_requirements:
+  - authentication-where-applicable
+  - workspace-scope
+  - role-permission
+  - strict-schema
+  - optimistic-concurrency
+  - idempotency-for-mutations
+  - stable-error-codes
+  - redacted-responses
+  - rate-limit
+  - no-raw-provider-payload
+  - no-generic-url-fetch
+  - no-location-persist-before-confirmation
+
+testing:
+  methodology: test-driven-development
+
+  cycle:
+    - red
+    - green
+    - refactor
+    - verify
+
+  deterministic_ci_default: true
+  production_data_prohibited: true
+  production_api_key_prohibited: true
+  live_google_suite_required_in_default_ci: false
+
+  layers:
+    unit:
+      path: server/test/unit/location-intelligence
+      required: true
+
+    component:
+      path: server/test/component/location-intelligence
+      required: true
+
+    integration:
+      path: server/test/integration/location-intelligence
+      required: true
+
+    api_integration:
+      path: server/test/integration/location-intelligence/api
+      required: true
+
+    security:
+      path: server/test/security/location-intelligence
+      required: true
+
+    property:
+      path: server/test/property/location-intelligence
+      required: true
+
+    concurrency:
+      path: server/test/concurrency/location-intelligence
+      required: true
+
+    resilience:
+      path: server/test/resilience/location-intelligence
+      required: true
+
+    performance:
+      path: server/test/performance/location-intelligence
+      required: true
+
+    live_google_sandbox:
+      required_before-production: true
+      default_ci_blocker: false
+
+  required_scenarios:
+    text_first:
+      - Jalan-Biawan-Samarinda
+      - Air-Putih-Samarinda
+      - Dekat-Big-Mall-Samarinda
+      - Jalan-Biawan-without-city
+      - Samarinda-without-detail
+      - informal-spelling
+      - unsupported-city
+      - ambiguous-landmark
+
+    outlet_eligibility:
+      - active-verified
+      - inactive
+      - pickup-disabled
+      - deleted
+      - unverified
+      - cross-workspace
+      - no-eligible-outlet
+
+    ranking:
+      - nearest-open
+      - nearest-closed-nearby-open
+      - open-outlet-beyond-tolerance
+      - all-closed
+      - unknown-schedule
+      - one-outlet
+      - equal-distance-tie
+
+    service_radius:
+      - inside
+      - exact-boundary
+      - outside
+      - workspace-override
+      - city-override
+      - outlet-group-override
+
+    confirmation:
+      - recommended-outlet
+      - alternative-outlet
+      - reject-results
+      - search-again
+      - duplicate-confirmation
+      - expired-confirmation
+      - outlet-deactivated
+      - yes-without-active-prompt
+
+    security:
+      - localhost
+      - private-ip
+      - metadata-ip
+      - redirect-to-private-ip
+      - redirect-loop
+      - punycode
+      - unsupported-protocol
+      - cross-workspace
+      - provider-key-leakage
+      - prompt-injection-in-location-text
+      - fake-outlet-coordinate
+      - automatic-outlet-selection-attempt
+
+  critical_properties:
+    - city-is-required
+    - city-is-never-guessed
+    - valid-text-does-not-require-share-location
+    - customer-coordinates-are-temporary
+    - nearest-uses-verified-outlet-coordinates
+    - returned-outlets-are-eligible
+    - returned-outlets-belong-to-workspace
+    - distance-is-non-negative
+    - sorting-is-stable
+    - default-nearest-route-calls-are-zero
+    - haversine-never-produces-travel-duration
+    - outside-radius-is-not-labeled-nearby
+    - selected-outlet-requires-confirmation
+    - admin-resolution-does-not-persist-before-confirmation
+    - ssrf-private-targets-are-blocked
+    - duplicate-message-updates-once
+    - outlet-url-is-not-reresolved-per-customer-request
+    - standard-logs-do-not-contain-exact-customer-coordinates
+    - off-topic-and-unsafe-cannot-invoke-location-tools
+
+  release_gate_commands:
+    spec_check: npm run specs:check
+    location_unit: npm run test:location:unit
+    location_component: npm run test:location:component
+    location_integration: npm run test:location:integration
+    location_security: npm run test:location:security
+    location_property: npm run test:location:property
+    location_concurrency: npm run test:location:concurrency
+    location_resilience: npm run test:location:resilience
+    location_performance: npm run test:location:performance
+    location_all: npm run test:location:all
+    location_google_sandbox: npm run test:location:google:sandbox
+
+  skipped_test_policy:
+    reason_required: true
+    owner_required: true
+    followup_task_required: true
+    critical_security_skip_allowed: false
+
+  flaky_test_policy:
+    accepted_as_baseline: false
+    quarantine_requires_owner: true
+    quarantine_requires_expiry: true
+
+implementation:
+  current_phase: spec-preflight-and-test-harness
+  task_source: tasks.md
+  active_task_pointer: docs/backend/09-ai-context/current-task.md
+  recommended_first_task: 0.1-confirm-spec-isolation
+
+  phases:
+    - id: 0
+      name: preflight-and-test-harness
+      task_sections:
+        - 0
+
+    - id: 1
+      name: contracts-and-temporary-state
+      task_sections:
+        - 1
+        - 2
+        - 3
+
+    - id: 2
+      name: provider-and-secure-url-foundation
+      task_sections:
+        - 4
+        - 5
+        - 6
+        - 7
+
+    - id: 3
+      name: canonical-outlet-location
+      task_sections:
+        - 8
+        - 9
+        - 10
+        - 11
+
+    - id: 4
+      name: nearest-outlet-engine
+      task_sections:
+        - 12
+        - 13
+        - 14
+        - 15
+
+    - id: 5
+      name: customer-tools-confirmation-and-directions
+      task_sections:
+        - 16
+        - 17
+        - 18
+
+    - id: 6
+      name: production-controls-and-integration
+      task_sections:
+        - 19
+        - 20
+        - 21
+        - 22
+        - 23
+        - 24
+        - 25
+
+    - id: 7
+      name: validation-and-release
+      task_sections:
+        - 26
+        - 27
+        - 28
+        - 29
+
+  fastest_safe_mvp_order:
+    - task-section-0
+    - task-section-1
+    - task-section-2
+    - task-section-3
+    - task-section-4
+    - task-section-5
+    - task-section-7
+    - task-section-8
+    - task-section-9
+    - task-section-10
+    - task-section-11
+    - task-section-12
+    - task-section-13
+    - task-section-14
+    - task-section-15
+    - task-section-16
+    - task-section-17
+    - task-section-19
+    - task-section-20
+    - task-section-21
+    - task-section-22
+    - task-section-24
+    - task-section-25
+    - task-section-26
+    - task-section-27
+    - task-section-28
+    - task-section-29
+
+  may_defer_after-core-mvp:
+    - customer-google-maps-link-input
+    - optional-directions
+    - location-history-ui
+    - restore-previous-location-ui
+    - scheduled-verification-automation
+    - internal-nearest-api-if-tool-path-is-sufficient
+
+  must_not_defer:
+    - text-first-flow
+    - city-required
+    - city-never-guessed
+    - temporary-customer-location
+    - google-provider-adapter
+    - ssrf-safe-admin-url-resolver
+    - canonical-verified-outlet-coordinates
+    - workspace-isolation
+    - eligible-outlet-filter
+    - nearest-calculation
+    - service-radius
+    - maps-place-link
+    - customer-confirmation
+    - no-route-by-default
+    - privacy-redaction
+    - rate-limiting
+
+  release_gates:
+    - domain-contract-tests-pass
+    - temporary-flow-tests-pass
+    - supported-city-tests-pass
+    - provider-adapter-tests-pass
+    - text-resolution-tests-pass
+    - ssrf-suite-pass
+    - admin-preview-confirm-tests-pass
+    - canonical-location-tests-pass
+    - verification-tests-pass
+    - eligibility-tests-pass
+    - nearest-distance-tests-pass
+    - open-preference-tests-pass
+    - service-radius-tests-pass
+    - maps-link-tests-pass
+    - composite-tool-tests-pass
+    - confirmation-tests-pass
+    - cache-tests-pass
+    - rate-limit-tests-pass
+    - privacy-tests-pass
+    - ai-scope-integration-tests-pass
+    - human-takeover-tests-pass
+    - resilience-tests-pass
+    - performance-cost-tests-pass
+    - no-route-default-test-pass
+    - no-provider-key-exposure
+    - no-tracked-secrets
+    - documentation-updated
+    - specs-check-passed
+
+requirements_registry:
+  prefix: LINT-R
+  total: 30
+
+  groups:
+    customer-input-and-flow:
+      - LINT-R1
+      - LINT-R2
+      - LINT-R3
+      - LINT-R4
+
+    provider-and-resolution:
+      - LINT-R5
+      - LINT-R6
+      - LINT-R7
+      - LINT-R8
+      - LINT-R9
+      - LINT-R10
+
+    outlet-location-foundation:
+      - LINT-R11
+      - LINT-R12
+      - LINT-R13
+      - LINT-R14
+
+    nearest-and-result:
+      - LINT-R15
+      - LINT-R16
+      - LINT-R17
+      - LINT-R18
+      - LINT-R19
+      - LINT-R20
+
+    privacy-cost-security:
+      - LINT-R21
+      - LINT-R22
+      - LINT-R23
+      - LINT-R24
+      - LINT-R25
+
+    contracts-integration-observability:
+      - LINT-R26
+      - LINT-R27
+      - LINT-R28
+      - LINT-R29
+      - LINT-R30
+
+correctness_invariants:
+  - text-location-is-default
+  - share-location-is-optional
+  - city-is-required
+  - city-is-never-guessed
+  - provider-is-not-called-before-minimum-location-context
+  - customer-location-is-temporary
+  - customer-location-is-not-durable-memory
+  - supported-cities-come-from-eligible-outlets
+  - outlet-coordinates-are-canonical
+  - nearest-calculation-uses-verified-outlets
+  - cross-workspace-outlet-is-never-returned
+  - route-api-is-not-called-by-default
+  - haversine-never-produces-travel-duration
+  - outside-radius-is-not-labeled-nearby
+  - google-maps-link-contains-no-api-key
+  - customer-confirmation-is-required
+  - selected-outlet-mutation-is-marketplace-owned
+  - admin-resolution-does-not-persist-before-confirmation
+  - significant-refresh-change-requires-review
+  - generic-url-fetch-tool-does-not-exist
+  - ssrf-private-target-is-blocked
+  - outlet-url-is-not-resolved-per-customer-request
+  - duplicate-message-is-idempotent
+  - exact-customer-coordinates-are-redacted
+  - off-topic-and-unsafe-cannot-invoke-location-tools
+
+security:
+  untrusted_inputs:
+    - customer-location-text
+    - customer-google-maps-url
+    - admin-google-maps-url
+    - provider-redirect-target
+    - provider-response
+    - candidate-selection-text
+    - llm-tool-arguments
+
+  immutable_controls:
+    - no-generic-url-fetch
+    - ssrf-protection
+    - workspace-isolation
+    - verified-outlet-only
+    - customer-confirmation-required
+    - provider-key-backend-only
+    - no-route-by-default
+    - no-durable-customer-location
+    - human-takeover-authority
+
+  secret_categories:
+    - google-maps-api-key
+    - authorization-header
+    - database-service-key
+    - provider-access-token
+    - webhook-secret
+    - session-secret
+
+  release_blockers:
+    - city-guessed
+    - durable-customer-location
+    - unverified-outlet-returned
+    - cross-workspace-outlet-returned
+    - automatic-outlet-selection
+    - route-called-by-default
+    - fabricated-travel-duration
+    - ssrf-bypass
+    - provider-key-exposure
+    - generic-url-fetch-exposed
+    - admin-location-persisted-before-confirmation
+    - outlet-url-reresolved-per-customer-request
+    - ai-location-response-during-human-takeover
+
+risks:
+  - id: risk-location-ambiguity
+    severity: high
+    mitigation:
+      - city-required
+      - supported-city-bias
+      - candidate-clarification
+      - no-silent-guess
+      - evaluation-suite
+
+  - id: risk-ssrf
+    severity: critical
+    mitigation:
+      - strict-host-allowlist
+      - scheme-validation
+      - dns-ip-validation
+      - private-network-blocking
+      - redirect-validation
+      - response-size-limit
+      - security-release-blocker
+
+  - id: risk-provider-cost
+    severity: high
+    mitigation:
+      - cache
+      - rate-limit
+      - no-route-by-default
+      - field-mask-minimization
+      - circuit-breaker
+      - outlet-coordinate-persistence
+
+  - id: risk-customer-location-privacy
+    severity: critical
+    mitigation:
+      - temporary-state
+      - thirty-minute-ttl
+      - no-durable-memory
+      - coordinate-redaction
+      - no-background-tracking
+      - privacy-tests
+
+  - id: risk-cross-workspace-outlet-leak
+    severity: critical
+    mitigation:
+      - workspace-filter-every-layer
+      - repository-scope
+      - tool-scope
+      - api-scope
+      - security-tests
+
+  - id: risk-stale-outlet-location
+    severity: high
+    mitigation:
+      - verified-status
+      - manual-refresh
+      - scheduled-verification
+      - needs-review
+      - history
+      - cache-invalidation
+
+  - id: risk-automatic-wrong-outlet-selection
+    severity: critical
+    mitigation:
+      - confirmation-state
+      - backend-revalidation
+      - marketplace-owned-mutation
+      - expiration
+      - confirmation-tests
+
+  - id: risk-provider-unavailable
+    severity: medium
+    mitigation:
+      - cache
+      - bounded-retry
+      - circuit-breaker
+      - honest-fallback
+      - no-fabrication
+
+assumptions:
+  - ai-agent-architecture-provides-tool-registration-and-calling
+  - ai-scope-security-provides-location-intent-gating
+  - backend-marketplace-provides-outlet-eligibility-and-selected-outlet-command
+  - telegram-and-whatsapp-location-events-are-normalizable
+  - message-deduplication-exists-before-flow-update
+  - human-takeover-state-is-queryable
+  - google-maps-platform-account-and-api-key-are-available
+  - outlet-admin-permissions-exist
+  - database-supports-required-location-storage
+  - postgis-may-be-available-but-haversine-fallback-is-required
+  - cache-and-rate-limit-infrastructure-can-be-reused-or-added
+  - backend-opening-hours-are-authoritative
+
+constraints:
+  - no-unrestricted-internet-access
+  - no-generic-fetch-any-url
+  - no-google-maps-html-scraping
+  - no-city-guessing
+  - no-forced-share-location
+  - no-durable-customer-location
+  - no-background-tracking
+  - no-route-call-by-default
+  - no-haversine-travel-duration
+  - no-unverified-outlet-recommendation
+  - no-cross-workspace-outlet
+  - no-selected-outlet-mutation-without-confirmation
+  - no-provider-key-in-client-output-log-or-prompt
+  - no-production-data-in-tests
+  - no-production-api-key-in-tests
+  - no-external-domain-shadow-implementation
+  - implementation-reality-must-be-reported-honestly
+
+status_workflow:
+  initial_status: active
+  initial_workflow_state: in_progress
+
+  folder_statuses:
+    backlog:
+      folder: docs/specs/backlog
+      workflow_states:
+        - draft
+        - review
+        - approved
+
+    active:
+      folder: docs/specs/active
+      workflow_states:
+        - in_progress
+        - blocked
+        - verifying
+
+    completed:
+      folder: docs/specs/completed
+      workflow_states:
+        - done
+        - archived
+
+  normal_state_transitions:
+    - from: draft
+      to: review
+    - from: review
+      to: approved
+    - from: approved
+      to: in_progress
+    - from: in_progress
+      to: verifying
+    - from: verifying
+      to: done
+    - from: done
+      to: archived
+
+  exceptional_state_transitions:
+    - from: approved
+      to: blocked
+    - from: in_progress
+      to: blocked
+    - from: verifying
+      to: blocked
+    - from: blocked
+      to: in_progress
+    - from: done
+      to: in_progress
+
+  allowed_folder_transitions:
+    - from: backlog
+      to: active
+    - from: active
+      to: backlog
+    - from: active
+      to: completed
+    - from: completed
+      to: active
+
+  folder_move_rule: edit-status-then-run-npm-run-specs-sync
+  completed_guard: required-unchecked-tasks-must-be-zero
+
+references:
+  location_intelligence_spec:
+    - docs/specs/active/selaluteh-location-intelligence/requirements.md
+    - docs/specs/active/selaluteh-location-intelligence/design.md
+    - docs/specs/active/selaluteh-location-intelligence/tasks.md
+
+  external_ai_architecture:
+    - docs/specs/active/selaluteh-ai-agent-architecture/spec.yaml
+    - docs/specs/active/selaluteh-ai-agent-architecture/requirements.md
+    - docs/specs/active/selaluteh-ai-agent-architecture/design.md
+    - docs/specs/active/selaluteh-ai-agent-architecture/tasks.md
+
+  external_scope_security:
+    - docs/specs/active/selaluteh-ai-agent-scope-security/spec.yaml
+    - docs/specs/active/selaluteh-ai-agent-scope-security/requirements.md
+    - docs/specs/active/selaluteh-ai-agent-scope-security/design.md
+    - docs/specs/active/selaluteh-ai-agent-scope-security/tasks.md
+
+  external_backend_marketplace:
+    - docs/specs/active/selaluteh-backend-marketplace/spec.yaml
+    - docs/specs/active/selaluteh-backend-marketplace/requirements.md
+    - docs/specs/active/selaluteh-backend-marketplace/design.md
+    - docs/specs/active/selaluteh-backend-marketplace/tasks.md
+
+  global_entry:
+    - docs/backend/READING-ORDER.md
+    - docs/backend/09-ai-context/current-task.md
+
+metadata:
+  generated_for: selaluteh-location-intelligence
+  generated_at: '2026-06-20'
+  based_on:
+    - selaluteh-location-intelligence-requirements-v1
+    - selaluteh-location-intelligence-design-v1
+    - selaluteh-location-intelligence-tasks-v1
+    - specs-lifecycle-config-v1.1
+
+  notes:
+    - This specification remains separate from AI Agent Architecture, AI Scope
+      Security, and Backend Marketplace.
+    - Google Maps Platform is the active MVP provider, while domain contracts
+      remain provider-neutral.
+    - Customer location is temporary and must not become durable memory.
+    - Default nearest-outlet lookup must not call a route provider.
+    - Google Maps URL resolution must pass SSRF security tests before release.
+    - selected_outlet_id remains owned by backend marketplace and requires
+      customer confirmation.

@@ -4,7 +4,7 @@ Dokumen ini memberi context payment gateway untuk AI coding agent.
 
 ## Current Payment State
 
-Existing app hanya punya manual payment instruction/QRIS proof style. Belum ada gateway sandbox.
+Existing app supports manual/COD payment instruction and Xendit Test Mode Payment Session hosted checkout. Live mode is not enabled for MVP development.
 
 ## Target MVP Payment
 
@@ -12,31 +12,32 @@ Gunakan payment provider abstraction:
 
 ```txt
 PaymentProvider
-  createPaymentLink(order)
+  createPaymentSession(order)
+  getPaymentSession(providerSessionId)
   verifyWebhook(payload, headers)
   normalizeStatus(event)
 ```
 
-Provider awal boleh:
+Current approved provider:
 
-- Midtrans sandbox, atau
-- Xendit sandbox, atau
-- mock provider untuk local development.
+- Xendit Test Mode Payment Session.
+
+Mock provider behavior is allowed only for automated tests. Do not use Xendit Live Mode in this MVP task.
 
 ## Payment Flow
 
 ```txt
 checkout confirmed
 -> create pending order
--> create payment row pending
--> call provider create payment link
--> store provider transaction id
--> send payment link to Telegram user
--> receive provider webhook
--> verify signature
+-> create/reuse payment row pending
+-> call Xendit POST /sessions
+-> store payment_session_id and payment_link_url
+-> send hosted checkout link to Telegram user
+-> receive payment_session webhook
+-> verify x-callback-token
 -> insert payment_event
 -> update payment status
--> update order payment_status/order status
+-> update order payment_status only
 -> notify Telegram user
 ```
 
@@ -59,6 +60,7 @@ workspace_id
 order_id
 provider
 provider_transaction_id
+merchant_reference
 amount
 currency
 status
@@ -73,7 +75,10 @@ Payment event should include raw/normalized payload for audit.
 ## Security
 
 - verify webhook signature,
+- verify Xendit `x-callback-token`,
 - idempotency on provider event id,
 - never expose provider secret to frontend,
 - never trust amount from client,
 - compare webhook amount with order total.
+
+AI tools may request a backend `create_payment_link` action, but the backend must validate workspace, outlet, order, amount, and payment status. AI cannot create provider sessions directly and cannot set paid.

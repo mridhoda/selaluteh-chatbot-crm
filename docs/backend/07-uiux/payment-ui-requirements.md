@@ -18,11 +18,21 @@ Every order detail should show:
 - expires at
 - latest webhook event
 
+For Xendit Test Mode, staff-facing UI should clearly show:
+
+```txt
+Xendit
+Test Mode
+Connected / Not configured
+```
+
+Customer-facing payment links must not expose API keys, webhook tokens, or internal provider metadata.
+
 ## Required Buttons
 
 | Button | Purpose | Risk |
 |---|---|---|
-| Generate Payment Link | create payment | Medium |
+| Create & Send Payment Link | create or reuse Xendit hosted checkout link | Medium |
 | Copy Payment Link | share link | Low |
 | Refresh Status | fetch latest state | Low |
 | View Events | inspect webhook timeline | Low |
@@ -53,6 +63,40 @@ Show:
 - processed/failed
 - timestamp
 - error details if any
+
+## Orders Sidebar MVP
+
+Payment choices:
+
+```txt
+Link Payment — Xendit Test
+Manual Transfer
+Cash on Delivery
+```
+
+Primary action for Xendit:
+
+```txt
+Create & Send Payment Link
+```
+
+Status badges must stay separate:
+
+```txt
+Payment: Pending / Paid / Expired
+Order: New / Accepted / Preparing / Ready / Completed
+```
+
+If an active Xendit session already exists, the UI should show actions equivalent to:
+
+```txt
+Open Payment Link
+Resend Link
+Refresh Status
+Expires at / expires in
+```
+
+Clicking create again must not create a duplicate session when the backend returns an active reusable attempt.
 
 ## Error States
 

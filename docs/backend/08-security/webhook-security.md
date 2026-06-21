@@ -56,10 +56,22 @@ Recommended protections:
 Payment webhook must have separate stricter rules:
 
 - verify signature;
+- verify callback token where provider uses token verification;
 - store raw payload;
 - update payment/order only after verification;
 - make duplicate events idempotent;
 - reconcile suspicious events with provider API.
+
+For Xendit Payment Session:
+
+```txt
+verification header = x-callback-token
+configured secret = XENDIT_WEBHOOK_VERIFICATION_TOKEN
+accepted path = /api/webhooks/xendit/payment-sessions
+accepted events = payment_session.completed, payment_session.expired
+```
+
+The webhook handler must not accept `workspace_id` from query/body as authority. It must locate the internal payment by provider session ID or merchant reference, then use that payment's workspace/outlet/order scope.
 
 ## Webhook Event Table
 
@@ -85,3 +97,5 @@ created_at
 - Use provider event id if provided.
 - Reject duplicate idempotency keys or return OK without reprocessing.
 - Optionally reject old timestamps if provider signs timestamp.
+
+For Xendit, prefer documented webhook ID if present. Fallback key should include `payment_session_id`, event type, and provider updated timestamp. Duplicate webhook must not create duplicate Telegram success messages.

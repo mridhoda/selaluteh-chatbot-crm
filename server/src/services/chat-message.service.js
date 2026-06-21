@@ -30,14 +30,20 @@ export async function recordOutboundMessage({
   from = 'ai',
   text,
   attachment = null,
+  messageType = null,
   platformMessageId = null,
 }) {
+  const resolvedMessageType = messageType || (attachment
+    ? (/\.(png|jpe?g|gif|webp)$/i.test(attachment.filename || attachment.url || '') ? 'image' : 'file')
+    : 'text');
+
   return messagesRepository.create({
     chatId,
     workspaceId,
     from,
     text,
     attachment,
+    messageType: resolvedMessageType,
     platformMessageId,
     createdAt: new Date(),
   });

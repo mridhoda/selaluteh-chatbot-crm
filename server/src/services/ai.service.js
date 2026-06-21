@@ -100,17 +100,42 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
     }).join('\n');
   }
 
+  const databaseFiles = Array.isArray(agent?.database) ? agent.database : [];
+  const fileCatalog = databaseFiles.length > 0
+    ? databaseFiles
+      .filter((file) => file?.storedName)
+      .map((file) => `- ${file.originalName || file.storedName}: use ![${file.originalName || file.storedName}](${file.storedName})`)
+      .join('\n')
+    : '';
+  const fileInstruction = fileCatalog
+    ? `\n\nAvailable media/files you may send as attachments when relevant:\n${fileCatalog}\nIf the user asks for one of these files/images, include exactly one markdown file trigger in your answer using the shown format. Do not invent file names.`
+    : '';
+
   try {
     let reply = '';
     // Prioritize OpenAI (or per-agent override) if available
     if (effectiveOpenaiClient) {
       try {
+        const openaiMessages = [
+          { role: 'system', content: (system || 'You are a helpful assistant.') + contactName + fileInstruction },
+        ];
+
+        for (const msg of history) {
+          const isUser = msg.senderType === 'customer' || msg.direction === 'inbound';
+          openaiMessages.push({
+            role: isUser ? 'user' : 'assistant',
+            content: msg.content || msg.text || '',
+          });
+        }
+
+        openaiMessages.push({
+          role: 'user',
+          content: `${prompt || ''}\n\nKnowledge:\n${knowledgeContent}${fileInstruction}\n\nUser: ${currentMessageText}`,
+        });
+
         const createParams = {
           model: effectiveOpenaiModel,
-          messages: [
-            { role: 'system', content: (system || 'You are a helpful assistant.') + contactName },
-            { role: 'user', content: `${prompt || ''}\n\nKnowledge:\n${knowledgeContent}\n\nUser: ${currentMessageText}` },
-          ],
+          messages: openaiMessages,
           temperature: effectiveTemperature,
         };
         if (effectiveMaxTokens) createParams.max_tokens = effectiveMaxTokens;
@@ -191,7 +216,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
         5. Do not add any other text if you decide to escalate.
         `;
 
-        let systemInstruction = (system || 'You are a helpful assistant.') + contactName + escalationInstruction;
+        let systemInstruction = (system || 'You are a helpful assistant.') + contactName + fileInstruction + escalationInstruction;
 
         // --- Tools Injection ---
         if (agent.tools && agent.tools.includes('time')) {
@@ -215,9 +240,8 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
           { role: 'model', parts: [{ text: 'Baik, saya mengerti.' }] },
         ];
 
-        // Process history asynchronously to avoid blocking
         for (const msg of history) {
-          const role = msg.from === 'user' ? 'user' : 'model';
+          const role = (msg.senderType === 'customer' || msg.direction === 'inbound') ? 'user' : 'model';
           const parts = [];
 
           if (msg.text) {

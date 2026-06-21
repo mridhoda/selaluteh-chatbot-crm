@@ -29,7 +29,8 @@ Store server-side only:
 
 ```txt
 MIDTRANS_SERVER_KEY
-XENDIT_SECRET_KEY
+XENDIT_SECRET_API_KEY
+XENDIT_WEBHOOK_VERIFICATION_TOKEN
 PAYMENT_WEBHOOK_SECRET
 ```
 
@@ -38,6 +39,8 @@ Never expose to frontend or logs.
 ## Signature Verification
 
 Every payment webhook must verify provider-specific signature.
+
+For Xendit Payment Session webhooks, the backend verifies the documented `x-callback-token` header using `XENDIT_WEBHOOK_VERIFICATION_TOKEN`. No HMAC scheme is invented for Payment Session unless Xendit changes the official contract.
 
 If signature invalid:
 
@@ -79,6 +82,8 @@ fraud status if provider supplies it is acceptable
 ```
 
 The payment creation API must reject client-provided amount mismatch before provider/manual attempt creation.
+
+For Xendit Test Mode, the webhook handler also validates `payment_session_id`, `reference_id`, amount, and currency before a paid transition. A stale `expired` event cannot downgrade a `paid` payment.
 
 ## Manual Payment Proof
 

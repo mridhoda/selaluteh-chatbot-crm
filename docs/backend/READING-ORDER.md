@@ -872,7 +872,42 @@ docs/backend/10-testing/ci-test-pipeline.md
 docs/backend/09-ai-context/testing-expectations.md
 ```
 
-## 9.15 Deployment dan Operations
+## 9.15 Location Intelligence
+
+```text
+docs/backend/02-flows/location-flow.md — bila ada
+docs/backend/03-business-rules/location-intelligence-rules.md — bila ada
+docs/backend/05-api-spec/location-admin-api.md — bila ada
+docs/backend/06-data/location-data-model.md — bila ada
+docs/backend/08-security/location-security.md — bila ada
+docs/backend/10-testing/location-test-plan.md — bila ada
+server/src/services/location-intelligence/*.js — 41 source files (flow state machine, parser, resolver, Haversine, nearest outlet, SSRF-safe URL resolver, admin resolver, cache, rate limit, privacy redactor, trace, failure handler, coordinator, confirmation, opening-hours, circuit-breaker)
+server/test/unit/location-intelligence/*.test.js — 46 test files, 513 tests
+server/test/helpers/location/*.js — 6 test helper files (fake provider, fake URL redirect, spies, factories, clock)
+server/src/db/repositories/outlet-locations.supabase.repository.js — Supabase repository
+server/src/routes/location-admin.js — Admin API routes (resolve, confirm, refresh, get, history)
+server/src/routes/location-internal.js — Internal nearest-outlet API
+server/src/ai/tools/domain-tools.js — `find_nearest_outlet` AI tool
+supabase/migrations/010_outlet_locations.sql — DB migration (2 tables, 6 indexes)
+specs/active/selaluteh-location-intelligence/ — active spec folder
+```
+
+Invariant:
+
+```text
+location provider = Nominatim (OpenStreetMap) — gratis, tanpa API key
+Google Maps API hanya fallback jika LOCATION_PROVIDER=google dan GOOGLE_MAPS_API_KEY terisi
+PostGIS tidak tersedia — Haversine fallback sebagai default
+temporary location flow state disimpan di flow-repository (in-memory, 30 menit TTL)
+exact customer coordinates tidak disimpan sebagai durable memory
+outlet location hanya bisa diverifikasi melalui admin preview → confirm workflow
+SSRF guard di semua Maps URL resolution — hanya host tertentu diizinkan
+find_nearest_outlet tool read-only, memerlukan Scope Security gate
+cross-workspace outlet access ditolak di semua layer
+rate limit: 5/10min customer resolution, 20/10min admin
+```
+
+## 9.16 Deployment dan Operations
 
 ```text
 docs/backend/04-tech-spec/deployment.md

@@ -1,0 +1,1903 @@
+# SelaluTeh AI Agent Scope Security and Cost Guard Specification
+#
+# Spec ini khusus untuk business-domain confinement, off-topic protection,
+# unsafe-request handling, dan AI cost guard.
+#
+# Spec ini TIDAK menggantikan atau menggabungkan:
+# - selaluteh-ai-agent-architecture
+# - selaluteh-backend-marketplace
+#
+# Existing AI architecture tetap menjadi pemilik memory, RAG implementation,
+# model routing, AI orchestration, Tool Gateway, dan human takeover.
+#
+schema_version: 2
+spec_version: 1.0.0
+
+id: selaluteh-ai-agent-scope-security
+title: SelaluTeh AI Agent Scope Security and Cost Guard
+description: >-
+  Requirements-first specification khusus untuk memastikan customer-facing AI
+  SelaluTeh tetap berada dalam domain bisnis yang disetujui, tidak berubah
+  menjadi general-purpose chatbot, tidak menjalankan RAG, embedding, tools,
+  atau full AI Agent untuk request off-topic atau unsafe, serta menggunakan
+  processing tier paling murah yang tetap benar dan aman. Spec ini mengatur
+  deterministic filtering, lightweight scope classification, immutable
+  platform maximum scope, policy profiles, agent scope narrowing, off-topic
+  refusal, unsafe handling, small-talk limits, clarification, cooldown,
+  capability gating, cost controls, observability, rollout, dan pengujian TDD.
+
+type: feature
+workflow: requirements-first
+
+status: active
+workflow_state: in_progress
+priority: critical
+
+created_at: '2026-06-20'
+updated_at: '2026-06-20'
+
+owners:
+  product_owner: Humble Breads
+  technical_owner: project-maintainer
+  security_owner: project-maintainer
+  implementation_actor: coding-agent
+  review_required: true
+  security_review_required: true
+
+tags:
+  - ai-agent
+  - scope-security
+  - business-domain-guard
+  - off-topic-protection
+  - prompt-injection
+  - cost-guard
+  - classifier
+  - policy-engine
+  - tool-gating
+  - rag-gating
+  - local-llm
+  - telegram
+  - whatsapp
+  - customer-service
+  - tdd
+
+lifecycle:
+  config: docs/specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: docs/specs/active/selaluteh-ai-agent-scope-security
+  move_entire_spec_directory: true
+  repository_root_relative_paths: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    check_command: npm run specs:check
+    sync_command: npm run specs:sync
+    dry_run_command: npm run specs:sync:dry
+    automatic_on_file_save: false
+    automatic_local_folder_move: false
+    manual_sync_required_after_status_change: true
+    ci_check_only: true
+    ci_must_not_move_or_commit_files: true
+    index_path: docs/specs/SPECS-INDEX.md
+
+  completion_requirements:
+    - all-p0-tasks-completed
+    - definition-of-done-passed
+    - unit-tests-passed
+    - component-tests-passed
+    - integration-tests-passed
+    - api-integration-tests-passed
+    - security-tests-passed
+    - evaluation-tests-passed
+    - property-tests-passed
+    - concurrency-tests-passed
+    - resilience-tests-passed
+    - cost-and-performance-tests-passed
+    - denied-route-isolation-passed
+    - scope-expansion-tests-passed
+    - payment-bypass-tests-passed
+    - workspace-isolation-tests-passed
+    - human-takeover-regression-passed
+    - documentation-updated
+    - implementation-status-updated
+    - progress-log-updated
+    - current-task-pointer-updated
+    - specs-check-passed
+
+spec_registry:
+  root: docs/specs
+  config: docs/specs/specs.config.yaml
+  index: docs/specs/SPECS-INDEX.md
+  template: docs/specs/_templates/feature
+
+  buckets:
+    backlog: docs/specs/backlog
+    active: docs/specs/active
+    completed: docs/specs/completed
+
+  required_files:
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+
+  global_reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md
+  current_sprint: docs/backend/11-sprint/current-sprint.md
+  backlog: docs/backend/11-sprint/backlog.md
+  definition_of_done: docs/backend/11-sprint/definition-of-done.md
+  release_checklist: docs/backend/11-sprint/release-checklist.md
+
+document_authority:
+  spec:
+    path: spec.yaml
+    purpose: identity-status-scope-lifecycle-boundaries-and-security-controls
+
+  requirements:
+    path: requirements.md
+    purpose: what-the-scope-security-system-must-do
+
+  design:
+    path: design.md
+    purpose: how-the-scope-security-system-is-designed
+
+  tasks:
+    path: tasks.md
+    purpose: tdd-implementation-order-dependencies-tests-and-release-gates
+
+  current_task:
+    path: docs/backend/09-ai-context/current-task.md
+    purpose: explicit-active-spec-and-active-task-pointer
+
+  implementation_status:
+    path: docs/backend/11-sprint/implementation-status.md
+    purpose: actual-current-implementation-state-not-target-design
+
+  precedence:
+    - latest-approved-scope-security-decision
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+    - current-task
+    - implementation-status-for-current-reality
+    - external-contract-documents
+    - legacy-generated-or-combined-documents
+
+  conflict_rules:
+    - requirements-controls-what
+    - design-controls-how
+    - tasks-controls-order-and-verification
+    - spec-controls-scope-status-and-authority
+    - current-task-controls-immediate-work
+    - implementation-status-controls-actual-reality
+    - ai-agent-architecture-controls-memory-rag-orchestration-and-tool-gateway-internals
+    - backend-marketplace-controls-commerce-domain-internals
+    - scope-security-controls-domain-confinement-and-cost-gating
+    - source-documents-override-generated-combined-documents
+    - newer-approved-decision-overrides-stale-document
+
+product:
+  name: SelaluTeh Marketplace
+  project_context: KALIS.AI / SelaluTeh Marketplace
+  area: ai-agent-scope-security
+  stage: mvp
+  delivery_method: incremental-test-driven-security-hardening
+
+  customer_channels:
+    - telegram
+    - whatsapp
+
+  admin_surface:
+    - ai-agent-settings
+    - scope-and-safety-settings
+    - scope-test-preview
+    - scope-events
+    - scope-metrics
+    - feedback-and-evaluation
+
+  primary_customer_language: id
+
+  customer_agent_tone:
+    - friendly
+    - warm
+    - semi-formal
+    - gen-z
+    - concise
+
+  target_outcomes:
+    - customer-agent-remains-business-scoped
+    - off-topic-requests-are-cheap
+    - unsafe-requests-cannot-reach-capabilities
+    - valid-business-requests-remain-natural
+    - customer-location-text-is-not-falsely-rejected
+    - emotional-complaints-remain-serviceable
+    - scope-decisions-are-versioned-and-observable
+    - agent-configuration-cannot-expand-platform-maximum
+
+spec_relationships:
+  depends_on:
+    - id: selaluteh-ai-agent-architecture
+      relationship: runtime-and-capability-contract-provider
+      merge_authority: false
+      owned_contracts:
+        - agent-configuration
+        - agent-versioning
+        - model-provider-adapter
+        - model-router
+        - context-builder
+        - rag-service
+        - embedding-service
+        - ai-orchestrator
+        - tool-registry
+        - tool-gateway
+        - ai-run-tracing
+        - human-takeover-state
+
+    - id: selaluteh-backend-marketplace
+      relationship: commerce-domain-contract-provider
+      merge_authority: false
+      owned_contracts:
+        - workspace
+        - outlet
+        - product
+        - cart
+        - order
+        - payment
+        - complaint
+        - notification
+        - authorization
+
+  does_not_replace:
+    - selaluteh-ai-agent-architecture
+    - selaluteh-backend-marketplace
+
+  integration_rule:
+    - consume-external-contracts-only
+    - do-not-copy-external-domain-implementation
+    - missing-contract-marks-task-blocked
+    - scope-security-must-not-create-shadow-commerce-services
+    - scope-security-must-not-create-second-tool-gateway
+    - scope-security-must-not-create-second-rag-engine
+
+scope:
+  included:
+    - scope-guard-runtime
+    - deterministic-input-safety-precheck
+    - deterministic-scope-filter
+    - lightweight-scope-classifier
+    - scope-classifier-schema
+    - scope-classifier-budget
+    - scope-policy-engine
+    - scope-decision-taxonomy
+    - scope-intent-taxonomy
+    - scope-reason-codes
+    - immutable-platform-maximum-scope
+    - policy-profile-registry
+    - customer-commerce-strict-profile
+    - product-advisor-profile
+    - customer-support-profile
+    - internal-business-copilot-profile
+    - agent-scope-narrowing
+    - effective-scope-calculation
+    - business-domain-allowlist
+    - business-adjacent-boundary
+    - product-health-information-boundary
+    - small-talk-boundary
+    - ambiguous-message-clarification
+    - off-topic-fixed-refusal
+    - unsafe-fixed-refusal
+    - emotional-complaint-preservation
+    - repeated-off-topic-counters
+    - repeated-unsafe-counters
+    - cooldown
+    - rate-limit-signals
+    - rag-gating
+    - embedding-gating
+    - tool-schema-gating
+    - tool-call-gating
+    - full-agent-gating
+    - memory-extraction-gating-for-denied-requests
+    - processing-cost-tiers
+    - classifier-context-minimization
+    - deterministic-response-templates
+    - scope-decision-traces
+    - scope-cost-metrics
+    - critical-invariant-alerts
+    - admin-profile-read-apis
+    - agent-scope-configuration-apis
+    - scope-test-preview-api
+    - scope-events-api
+    - scope-feedback
+    - shadow-mode
+    - staged-enforcement
+    - rollback
+    - scope-evaluation-dataset
+    - prompt-injection-tests
+    - scope-expansion-tests
+    - denied-route-isolation-tests
+    - false-positive-tests
+    - false-negative-tests
+    - property-tests
+    - concurrency-tests
+    - resilience-tests
+    - cost-and-performance-tests
+
+  deferred:
+    - classifier-fine-tuning
+    - dedicated-scope-classifier-service
+    - advanced-multilingual-optimization
+    - semantic-classification-cache
+    - dynamic-cost-aware-model-selection
+    - advanced-abuse-reputation
+    - scope-policy-ab-testing
+    - automated-policy-suggestions
+    - cross-channel-abuse-correlation
+    - adaptive-per-intent-thresholds
+    - automated-false-positive-clustering
+    - historical-conversation-policy-simulation
+    - advanced-scope-analytics-dashboard
+
+  excluded:
+    - conversation-memory-implementation
+    - rolling-summary-implementation
+    - durable-customer-memory-implementation
+    - rag-ingestion-implementation
+    - knowledge-chunking-implementation
+    - embedding-model-implementation
+    - ai-orchestrator-implementation
+    - model-router-implementation
+    - tool-gateway-implementation
+    - human-takeover-implementation
+    - workspace-domain-implementation
+    - outlet-domain-implementation
+    - product-domain-implementation
+    - cart-domain-implementation
+    - order-domain-implementation
+    - payment-domain-implementation
+    - complaint-domain-implementation
+    - notification-domain-implementation
+    - google-maps-integration
+    - geocoding
+    - nearest-outlet-calculation
+    - customer-location-resolution
+    - general-content-moderation-platform
+    - general-purpose-customer-assistant
+    - unrestricted-creative-assistant
+    - model-training
+    - autonomous-policy-modification
+    - automatic-production-prompt-optimization
+    - payment-mutation
+    - generated-code-execution
+
+location_context_boundary:
+  status: external-future-spec
+  implementation_in_this_spec: false
+
+  classification_examples_only:
+    - input: Jalan Biawan Samarinda
+      expected_scope_decision: ALLOW_BUSINESS
+      expected_intent: OUTLET
+
+    - input: Jalan Biawan
+      expected_scope_decision: CLARIFY
+      expected_clarification: ask-city
+
+    - input: Samarinda
+      expected_scope_decision: CLARIFY
+      expected_clarification: ask-street-area-or-landmark
+
+  rules:
+    - location-text-is-valid-business-input
+    - missing-city-requires-followup
+    - city-must-not-be-guessed
+    - share-location-remains-optional
+    - customer-location-must-not-become-durable-memory
+    - actual-geocoding-and-nearest-outlet-search-belong-to-separate-spec
+
+fixed_product_decisions:
+  customer_facing_scope: strict-business-only
+  internal_agent_scope: broader-business-only
+  unknown_request: clarify-or-deny-not-automatically-allow
+  classifier_strategy: deterministic-first-then-lightweight-model
+  off_topic_response: fixed-deterministic-template
+  unsafe_response: fixed-safe-template-and-security-signal
+  denied_rag: false
+  denied_embedding: false
+  denied_tool_schema: false
+  denied_tools: false
+  denied_full_agent: false
+  denied_memory_extraction: false
+  small_talk_enabled: true
+  small_talk_max_consecutive_turns: 1
+  adjacent_max_consecutive_turns: 2
+  clarification_attempts: 1
+  low_confidence_action: clarify
+  third_off_topic_action: cooldown
+  initial_cooldown_seconds: 60
+  maximum_cooldown_seconds: 300
+  customer_creative_requests: denied
+  internal_business_creative_requests: profile-controlled
+  agent_can_narrow_scope: true
+  agent_can_expand_scope: false
+  platform_maximum_can_be_disabled: false
+
+decision_taxonomy:
+  decisions:
+    - ALLOW_BUSINESS
+    - ALLOW_ADJACENT
+    - ALLOW_SMALL_TALK
+    - CLARIFY
+    - DENY_OFF_TOPIC
+    - DENY_UNSAFE
+
+  intents:
+    - GREETING
+    - BRAND
+    - OUTLET
+    - PRODUCT
+    - RECOMMENDATION
+    - CART
+    - ORDER
+    - PAYMENT
+    - PICKUP
+    - COMPLAINT
+    - HANDOFF
+    - ADJACENT_PRODUCT_INFO
+    - SMALL_TALK
+    - OFF_TOPIC
+    - UNSAFE
+    - UNKNOWN
+
+  processing_tiers:
+    - TIER_0_DETERMINISTIC
+    - TIER_1_CLASSIFIER
+    - TIER_2_CONSTRAINED_ADJACENT
+    - TIER_3_FULL_BUSINESS
+
+  denied_decisions:
+    - DENY_OFF_TOPIC
+    - DENY_UNSAFE
+
+  required_final_fields:
+    - decision
+    - intent
+    - confidence
+    - reason_code
+    - processing_tier
+    - rag_allowed
+    - embedding_allowed
+    - tool_schema_allowed
+    - tools_allowed
+    - full_agent_allowed
+    - memory_extraction_allowed
+    - response_strategy
+    - profile_id
+    - profile_version
+    - policy_engine_version
+
+reason_code_groups:
+  business:
+    - BUSINESS_BRAND
+    - BUSINESS_OUTLET
+    - BUSINESS_PRODUCT
+    - BUSINESS_RECOMMENDATION
+    - BUSINESS_CART
+    - BUSINESS_ORDER
+    - BUSINESS_PAYMENT
+    - BUSINESS_PICKUP
+    - BUSINESS_COMPLAINT
+    - BUSINESS_SUPPORT
+    - BUSINESS_HANDOFF
+
+  adjacent:
+    - ADJACENT_COFFEE_EDUCATION
+    - ADJACENT_INGREDIENT
+    - ADJACENT_ALLERGEN
+    - ADJACENT_CAFFEINE
+    - ADJACENT_DIETARY
+    - ADJACENT_TASTE_COMPARISON
+    - ADJACENT_PREPARATION_METHOD
+
+  small_talk:
+    - SMALL_TALK_GREETING
+    - SMALL_TALK_THANKS
+    - SMALL_TALK_AGENT_IDENTITY
+    - SMALL_TALK_SOCIAL
+
+  clarify:
+    - AMBIGUOUS_REFERENCE
+    - AMBIGUOUS_ACTION
+    - AMBIGUOUS_SHORT_MESSAGE
+    - MISSING_LOCATION_CITY
+    - MISSING_LOCATION_DETAIL
+    - LOW_CONFIDENCE
+
+  off_topic:
+    - OFF_TOPIC_CODING
+    - OFF_TOPIC_HOMEWORK
+    - OFF_TOPIC_GENERAL_KNOWLEDGE
+    - OFF_TOPIC_POLITICS
+    - OFF_TOPIC_NEWS
+    - OFF_TOPIC_MEDICAL_ADVICE
+    - OFF_TOPIC_LEGAL_ADVICE
+    - OFF_TOPIC_FINANCIAL_ADVICE
+    - OFF_TOPIC_CREATIVE
+    - OFF_TOPIC_TRANSLATION
+    - OFF_TOPIC_TRAVEL
+    - OFF_TOPIC_ROLEPLAY
+    - OFF_TOPIC_OTHER
+
+  unsafe:
+    - UNSAFE_PROMPT_INJECTION
+    - UNSAFE_SECRET_REQUEST
+    - UNSAFE_CROSS_TENANT_REQUEST
+    - UNSAFE_PAYMENT_BYPASS
+    - UNSAFE_TOOL_ESCALATION
+    - UNSAFE_ADMIN_IMPERSONATION
+    - UNSAFE_DATA_EXFILTRATION
+    - UNSAFE_ABUSE
+
+platform_maximum_scope:
+  version: 1
+
+  customer_business_capabilities:
+    - brand
+    - outlet
+    - opening-hours
+    - product
+    - recommendation
+    - product-price-through-authoritative-tool
+    - product-availability-through-authoritative-tool
+    - promotion-through-authoritative-source
+    - cart
+    - order
+    - payment-link
+    - payment-status-read
+    - pickup
+    - complaint
+    - ticket
+    - refund-policy-explanation
+    - customer-support
+    - human-handoff
+    - bounded-small-talk
+    - approved-adjacent-product-information
+
+  approved_adjacent_topics:
+    - coffee-education
+    - ingredients
+    - allergens
+    - caffeine
+    - dietary-information
+    - taste-comparison
+    - preparation-method
+
+  permanently_forbidden_customer_capabilities:
+    - general-coding
+    - homework-completion
+    - unrelated-general-knowledge
+    - politics
+    - unrelated-news
+    - personal-medical-advice
+    - personal-legal-advice
+    - personal-financial-advice
+    - unrelated-creative-writing
+    - unrelated-translation
+    - unrelated-travel-planning
+    - unrelated-roleplay
+    - hidden-tool-access
+    - cross-workspace-access
+    - secret-access
+    - payment-status-mutation
+    - mark-payment-paid
+    - refund-payment
+    - permission-change
+    - generated-code-execution
+
+  immutable_controls:
+    - denied-no-rag
+    - denied-no-embedding
+    - denied-no-tool-schema
+    - denied-no-tools
+    - denied-no-full-agent
+    - denied-no-memory-extraction
+    - payment-mutation-denied
+    - cross-workspace-denied
+    - human-takeover-authoritative
+    - secrets-redacted
+    - policy-engine-fail-closed
+
+policy_profiles:
+  registry_owner: platform
+  published_versions_immutable: true
+  arbitrary_tenant_profiles_allowed: false
+
+  profiles:
+    customer_commerce_strict:
+      version: 1
+      customer_facing: true
+      internal_only: false
+      small_talk_max: 1
+      adjacent_turn_max: 2
+      clarification_attempts: 1
+      off_topic_first_action: friendly-fixed-refusal
+      off_topic_second_action: short-fixed-refusal
+      off_topic_third_action: cooldown
+      cooldown_seconds: 60
+      max_cooldown_seconds: 300
+      denied_rag: false
+      denied_embedding: false
+      denied_tools: false
+      denied_full_agent: false
+
+    product_advisor:
+      version: 1
+      customer_facing: true
+      internal_only: false
+      allows:
+        - product
+        - recommendation
+        - product-ingredients
+        - allergens
+        - caffeine
+        - dietary-information
+        - taste-comparison
+        - product-availability-read
+      mutation_tools_default: false
+
+    customer_support:
+      version: 1
+      customer_facing: true
+      internal_only: false
+      allows:
+        - order-status
+        - payment-status-read
+        - pickup
+        - complaint
+        - ticket
+        - refund-policy
+        - handoff
+
+    internal_business_copilot:
+      version: 1
+      customer_facing: false
+      internal_only: true
+      allows:
+        - business-reports
+        - campaign-drafts
+        - brand-content
+        - complaint-summaries
+        - operational-analysis
+        - business-knowledge
+      still_forbidden:
+        - unrelated-general-purpose-work
+        - secret-access
+        - payment-mutation
+        - cross-workspace-access
+
+effective_scope:
+  calculation: intersection-of-platform-profile-and-agent-subset
+
+  agent_may:
+    - disable-capability
+    - disable-adjacent-topic
+    - lower-small-talk-limit
+    - lower-adjacent-limit
+    - lower-classifier-budget
+    - strengthen-refusal
+    - strengthen-cooldown
+
+  agent_may_not:
+    - add-capability-outside-profile
+    - increase-limit-above-profile
+    - disable-unsafe-control
+    - enable-rag-for-denied
+    - enable-embedding-for-denied
+    - enable-tools-for-denied
+    - enable-full-agent-for-denied
+    - grant-payment-mutation
+    - broaden-platform-maximum-through-prompt
+
+classifier:
+  type: lightweight-structured-scope-classifier
+  preferred_provider: local-openai-compatible
+  tools_enabled: false
+  rag_enabled: false
+  database_credentials_available: false
+  chain_of_thought_requested: false
+  strict_json_output: true
+  cancellation_supported: true
+
+  default_budget:
+    recent_turns_max: 4
+    output_tokens_max: 128
+    timeout_ms: 2500
+    temperature_min: 0
+    temperature_max: 0.2
+    retry_on_malformed_output: 1
+
+  allowed_input:
+    - policy-profile-id
+    - policy-profile-version
+    - channel
+    - current-message
+    - bounded-recent-turns
+    - compact-commerce-state-labels
+    - scope-counters
+
+  forbidden_input:
+    - full-conversation-history
+    - full-customer-profile
+    - full-customer-memory
+    - full-product-catalog
+    - rag-documents
+    - full-tool-schemas
+    - raw-payment-payload
+    - provider-secrets
+    - authorization-headers
+    - cross-workspace-data
+
+  confidence_policy:
+    accept_at_or_above: 0.80
+    clarify_from: 0.55
+    clarify_below: 0.55
+    maximum_clarification_attempts: 1
+    after_failed_clarification: fixed-scope-redirect
+
+  malformed_output_policy:
+    retry_max: 1
+    final_fallback: CLARIFY
+    full_agent_fallback_allowed: false
+
+scope_policy_engine:
+  authority: final-scope-decision
+  model_is_authority: false
+  framework_independent: true
+  fail_closed: true
+
+  inputs:
+    - deterministic-proposal
+    - classifier-proposal
+    - effective-policy-profile
+    - agent-narrowing
+    - confidence
+    - security-signals
+    - human-takeover-state
+    - compact-commerce-state
+    - scope-counters
+    - cooldown-state
+
+  mandatory_overrides:
+    payment_mutation: DENY_UNSAFE
+    secret_request: DENY_UNSAFE
+    cross_workspace_request: DENY_UNSAFE
+    hidden_tool_request: DENY_UNSAFE
+    admin_impersonation: DENY_UNSAFE
+    active_human_takeover: suppress-customer-ai-response
+    missing_profile: fail-closed
+    invalid_decision: fail-closed
+    internal_exception: fail-closed
+
+business_adjacent_policy:
+  allowed_only_when:
+    - relevant-to-product-or-purchase-decision
+    - supported-by-official-knowledge-or-backend-data
+
+  medical_boundary:
+    official-ingredient-facts: allowed
+    official-allergen-facts: allowed
+    official-caffeine-facts: allowed
+    official-dietary-facts: allowed
+    personal-diagnosis: denied
+    medical-treatment-advice: denied
+    allergy-safety-guarantee-without-evidence: denied
+    serious-allergy: direct-to-outlet-or-human
+    emergency-language: advise-appropriate-emergency-help
+
+  mutation_tools_allowed: false
+  default_max_consecutive_turns: 2
+  after_limit: redirect-to-product-or-customer-service
+
+small_talk_policy:
+  enabled: true
+  default_max_consecutive_turns: 1
+  default_processing: fixed-template
+  rag_allowed: false
+  embedding_allowed: false
+  tools_allowed: false
+  full_agent_allowed: false
+  redirect_to_business: true
+
+  reset_on:
+    - valid-business-request
+    - commerce-flow-start
+    - support-request
+    - new-session
+
+clarification_policy:
+  maximum_attempts: 1
+  mutation_tools_allowed: false
+  broad_rag_allowed: false
+  full_agent_allowed: false
+  preferred_processing: deterministic-context-specific-template
+
+  examples:
+    street_without_city:
+      decision: CLARIFY
+      clarification_code: ASK_CITY
+
+    city_without_detail:
+      decision: CLARIFY
+      clarification_code: ASK_STREET_AREA_OR_LANDMARK
+
+    ambiguous_short_message:
+      decision: CLARIFY
+      clarification_code: ASK_CONTEXT_SPECIFIC_DETAIL
+
+  after_exhaustion:
+    response: fixed-scope-redirect
+    off_topic_counter_increment: false
+
+off_topic_policy:
+  response_mode: fixed-deterministic
+  rag_allowed: false
+  embedding_allowed: false
+  tool_schema_allowed: false
+  tools_allowed: false
+  full_agent_allowed: false
+  memory_extraction_allowed: false
+  automatic_human_handoff: false
+  original_message_retention: existing-chat-retention-policy
+
+  attempts:
+    first:
+      action: friendly-refusal
+
+    second:
+      action: shorter-refusal-and-business-redirect
+
+    third:
+      action: cooldown
+      cooldown_seconds: 60
+
+    continued:
+      action: capped-increasing-cooldown
+      maximum_seconds: 300
+
+unsafe_policy:
+  response_mode: fixed-safe-refusal
+  rag_allowed: false
+  embedding_allowed: false
+  tool_schema_allowed: false
+  tools_allowed: false
+  full_agent_allowed: false
+  memory_extraction_allowed: false
+  security_signal_required: true
+  stronger-rate-limit-signal: true
+  capability-disclosure: minimal
+  prompt-disclosure: forbidden
+  secret-disclosure: forbidden
+
+emotional_complaint_policy:
+  profanity_alone_is_unsafe: false
+  business_intent_priority: true
+  response_style:
+    - calm
+    - concise
+    - non-retaliatory
+    - resolution-focused
+
+  examples:
+    angry_order_status:
+      decision: ALLOW_BUSINESS
+      intent: ORDER
+
+    angry_payment_issue:
+      decision: ALLOW_BUSINESS
+      intent: COMPLAINT
+
+    abuse_without_business_intent:
+      decision: DENY_OFF_TOPIC-or-DENY_UNSAFE
+
+capability_gates:
+  ALLOW_BUSINESS:
+    rag: intent-dependent
+    embedding: intent-dependent
+    tool_schema: intent-dependent
+    tools: intent-and-tool-gateway-dependent
+    full_agent: true
+    memory_extraction: existing-ai-architecture-policy
+
+  ALLOW_ADJACENT:
+    rag: constrained
+    embedding: constrained
+    tool_schema: read-only-product-information-only
+    tools: read-only-only
+    full_agent: constrained
+    memory_extraction: false
+
+  ALLOW_SMALL_TALK:
+    rag: false
+    embedding: false
+    tool_schema: false
+    tools: false
+    full_agent: false
+    memory_extraction: false
+
+  CLARIFY:
+    rag: false
+    embedding: false
+    tool_schema: false
+    tools: false
+    full_agent: false
+    memory_extraction: false
+
+  DENY_OFF_TOPIC:
+    rag: false
+    embedding: false
+    tool_schema: false
+    tools: false
+    full_agent: false
+    memory_extraction: false
+
+  DENY_UNSAFE:
+    rag: false
+    embedding: false
+    tool_schema: false
+    tools: false
+    full_agent: false
+    memory_extraction: false
+
+cost_guard:
+  principle: use-lowest-sufficient-processing-tier
+
+  tiers:
+    TIER_0_DETERMINISTIC:
+      llm_calls: 0
+      rag_calls: 0
+      embedding_calls: 0
+      tool_schema_loads: 0
+      tool_calls: 0
+      use_cases:
+        - known-callback
+        - known-command
+        - obvious-greeting
+        - obvious-unsafe
+        - cooldown
+        - fixed-refusal
+
+    TIER_1_CLASSIFIER:
+      classifier_calls_max: 2
+      rag_calls: 0
+      embedding_calls: 0
+      tool_schema_loads: 0
+      tool_calls: 0
+      full_agent_calls: 0
+      use_cases:
+        - uncertain-scope
+        - ambiguous-natural-language
+
+    TIER_2_CONSTRAINED_ADJACENT:
+      rag: limited
+      embedding: limited
+      tools: read-only-official-data-only
+      mutation_tools: false
+      output_budget: reduced
+
+    TIER_3_FULL_BUSINESS:
+      rag: intent-dependent
+      embedding: intent-dependent
+      tools: tool-gateway-controlled
+      full_agent: true
+      bounded_orchestration: required
+
+  denied_cost_invariant:
+    full_agent_calls: 0
+    rag_calls: 0
+    embedding_calls: 0
+    tool_schema_loads: 0
+    tool_calls: 0
+    memory_extraction_calls: 0
+
+  cost_reporting:
+    record_estimated_tokens_saved: true
+    exact_currency_requires_reliable_pricing: true
+    exact_currency_without_pricing: forbidden
+    duplicate-message-double-counting: forbidden
+
+scope_counters:
+  fields:
+    - workspace_id
+    - contact_id
+    - chat_id
+    - session_id
+    - consecutive_small_talk
+    - consecutive_adjacent
+    - consecutive_off_topic
+    - consecutive_unsafe
+    - clarification_attempts
+    - last_decision
+    - cooldown_until
+    - last_message_id
+    - updated_at
+
+  requirements:
+    - workspace-scoped
+    - idempotent-by-message
+    - atomic-update
+    - duplicate-safe
+    - concurrency-safe
+    - non-negative
+    - not-redis-only
+    - authoritative-clock
+
+  reset_rules:
+    valid_business_request:
+      - consecutive_off_topic
+      - consecutive_small_talk
+      - clarification_attempts
+
+    new_session:
+      - consecutive_small_talk
+      - consecutive_adjacent
+      - clarification_attempts
+
+response_templates:
+  language: id
+  default_tone: friendly-gen-z
+  versioned: true
+  full_llm_required: false
+
+  categories:
+    - small-talk-redirect
+    - location-ask-city
+    - location-ask-street-area-or-landmark
+    - generic-clarification
+    - first-off-topic
+    - repeated-off-topic
+    - unsafe-refusal
+    - health-allergen-boundary
+    - cooldown
+
+  security_rules:
+    - safe-interpolation-only
+    - no-provider-disclosure
+    - no-hidden-tool-list
+    - no-system-prompt-disclosure
+    - no-secret
+    - bounded-length
+    - no-arbitrary-user-url
+
+observability:
+  scope_trace_required: true
+  chain_of_thought_persistence: forbidden
+  workspace_scope_required: true
+  retention_required: true
+
+  trace_fields:
+    - workspace_id
+    - chat_id
+    - message_id
+    - agent_id
+    - agent_version
+    - profile_id
+    - profile_version
+    - platform_scope_version
+    - decision
+    - intent
+    - confidence
+    - reason_code
+    - deterministic_filter_hit
+    - classifier_provider
+    - classifier_model
+    - classifier_version
+    - policy_engine_version
+    - processing_tier
+    - rag_invoked
+    - embedding_invoked
+    - tool_schema_loaded
+    - tools_invoked
+    - full_agent_invoked
+    - memory_extraction_invoked
+    - counter_snapshot
+    - latency_ms
+    - estimated_input_tokens
+    - estimated_output_tokens
+    - created_at
+
+  metrics:
+    - scope_guard_total
+    - scope_guard_deterministic
+    - scope_guard_classifier
+    - scope_guard_allow_business
+    - scope_guard_allow_adjacent
+    - scope_guard_small_talk
+    - scope_guard_clarify
+    - scope_guard_deny_off_topic
+    - scope_guard_deny_unsafe
+    - scope_guard_cooldown
+    - scope_guard_full_agent_avoided
+    - scope_guard_rag_avoided
+    - scope_guard_embedding_avoided
+    - scope_guard_tool_avoided
+    - scope_guard_classifier_latency
+    - scope_guard_policy_latency
+    - scope_guard_denied_latency
+    - scope_guard_false_positive
+    - scope_guard_false_negative
+
+  critical_alerts:
+    - rag-invoked-after-denied
+    - embedding-invoked-after-denied
+    - tool-schema-loaded-after-denied
+    - tool-invoked-after-denied
+    - full-agent-invoked-after-denied
+    - payment-bypass-allowed
+    - cross-workspace-request-allowed
+    - scope-expansion-validation-spike
+    - classifier-malformed-output-spike
+    - unsafe-attempt-spike
+
+privacy:
+  classifier_data_minimization: required
+  full_order_history_in_classifier: forbidden
+  full_contact_profile_in_classifier: forbidden
+  durable-address-memory: forbidden
+  raw-payment-payload-in-classifier: forbidden
+  unrelated-memory-in-classifier: forbidden
+  cross-workspace-data-in-classifier: forbidden
+  chain_of_thought_in_trace: forbidden
+  production-secret-in-test: forbidden
+  raw-sensitive-cache-key: forbidden
+  pii-in-metric-labels: forbidden
+
+  cache_key_policy:
+    allowed:
+      - normalized-hash
+      - context-fingerprint
+      - workspace-safe-partition
+    raw-sensitive-text: false
+
+failure_policy:
+  classifier_timeout:
+    deterministic-known-route: continue-safe-deterministic-route
+    ambiguous-business: CLARIFY
+    unknown-natural-language: CLARIFY
+    full-agent-fallback: false
+
+  classifier_malformed:
+    retry_max: 1
+    final_fallback: CLARIFY
+    full-agent-fallback: false
+
+  profile_missing:
+    fail_closed: true
+
+  policy_engine_exception:
+    fail_closed: true
+
+  counter_storage_failure:
+    disable-unsafe-checks: false
+    expand-scope: false
+    behavior: conservative-fallback
+
+  trace_failure:
+    block-safe-refusal: false
+
+  cache_failure:
+    expand-scope: false
+
+  fail_closed_gates:
+    rag: false
+    embedding: false
+    tool_schema: false
+    tools: false
+    full_agent: false
+    memory_extraction: false
+
+rollout:
+  modes:
+    - DISABLED
+    - SHADOW
+    - ENFORCE_UNSAFE
+    - ENFORCE_HIGH_CONFIDENCE
+    - ENFORCE_ALL
+
+  recommended_sequence:
+    - shadow
+    - enforce-unsafe
+    - enforce-high-confidence-off-topic
+    - enforce-cost-gates
+    - enable-agent-profiles
+    - optimize-thresholds
+
+  shadow_mode:
+    blocks_requests: false
+    records_expected_decision: true
+    records_expected-gates: true
+    compares-actual-calls: true
+
+  rollback:
+    supported: true
+    may_disable-immutable-unsafe-controls: false
+
+  transition_requirements:
+    - shadow-data-reviewed
+    - false-positive-risk-reviewed
+    - critical-false-negative-zero
+    - security-corpus-passed
+    - business-regression-passed
+    - human-takeover-regression-passed
+    - cost-counters-verified
+    - rollback-tested
+
+admin_api_contracts:
+  profile_read:
+    - GET /api/ai-scope/profiles
+    - GET /api/ai-scope/profiles/:profileId
+
+  agent_scope:
+    - GET /api/agents/:agentId/scope
+    - PUT /api/agents/:agentId/scope
+
+  scope_test:
+    - POST /api/agents/:agentId/scope/test
+
+  events_and_metrics:
+    - GET /api/ai-scope/events
+    - GET /api/ai-scope/events/:id
+    - GET /api/ai-scope/metrics
+
+  feedback:
+    - POST /api/ai-scope/events/:id/feedback
+    - GET /api/ai-scope/feedback
+
+  requirements:
+    - workspace-scope
+    - role-permission
+    - optimistic-concurrency-for-updates
+    - redacted-responses
+    - no-production-side-effects-in-test-endpoint
+    - no-mutation-tools-in-test-endpoint
+    - audit-configuration-changes
+    - reject-scope-expansion
+
+testing:
+  methodology: test-driven-development
+
+  cycle:
+    - red
+    - green
+    - refactor
+    - verify
+
+  deterministic_ci_default: true
+  production_data_prohibited: true
+  production_secret_prohibited: true
+  live_local_model_suite_required_in_default_ci: false
+
+  layers:
+    unit:
+      path: server/test/unit/ai/scope-security
+      required: true
+
+    component:
+      path: server/test/component/ai/scope-security
+      required: true
+
+    integration:
+      path: server/test/integration/ai/scope-security
+      required: true
+
+    api_integration:
+      path: server/test/integration/ai/api/scope-security
+      required: true
+
+    security:
+      path: server/test/security/ai/scope-security
+      required: true
+
+    evaluation:
+      path: server/test/evaluation/ai/scope-security
+      required: true
+
+    property:
+      path: server/test/property/ai/scope-security
+      required: true
+
+    concurrency:
+      path: server/test/concurrency/ai/scope-security
+      required: true
+
+    performance:
+      path: server/test/performance/ai/scope-security
+      required: true
+
+    resilience:
+      path: server/test/resilience/ai/scope-security
+      required: true
+
+    local_model_sandbox:
+      required_before-production-enforcement: true
+      deterministic_ci_blocker: false
+
+  required_denied_assertions:
+    rag_calls: 0
+    embedding_calls: 0
+    tool_schema_loads: 0
+    tool_calls: 0
+    full_agent_calls: 0
+    memory_extraction_calls: 0
+
+  required_allowed_scenarios:
+    - greeting
+    - thanks
+    - product-question
+    - outlet-question
+    - text-location-with-city
+    - text-location-missing-city
+    - order-status
+    - payment-status
+    - complaint
+    - angry-complaint
+    - ingredient-question
+    - allergen-question
+    - coffee-education
+    - ambiguous-followup
+    - human-handoff
+
+  required_denied_scenarios:
+    - coding
+    - homework
+    - general-history
+    - politics
+    - news
+    - investment-advice
+    - medical-diagnosis
+    - legal-advice
+    - unrelated-creative-writing
+    - unrelated-translation
+    - unrelated-roleplay
+
+  required_unsafe_scenarios:
+    - system-prompt-request
+    - api-key-request
+    - mark-payment-paid
+    - cross-workspace-data-request
+    - hidden-tool-request
+    - admin-impersonation
+    - encoded-jailbreak
+    - rag-instruction-injection
+    - agent-prompt-scope-expansion
+    - gradual-multiturn-jailbreak
+
+  critical_properties:
+    - effective-scope-never-exceeds-platform-maximum
+    - denied-never-enables-rag
+    - denied-never-enables-embedding
+    - denied-never-enables-tool-schema
+    - denied-never-enables-tools
+    - denied-never-enables-full-agent
+    - denied-never-enables-memory-extraction
+    - classifier-context-remains-bounded
+    - counter-never-negative
+    - cooldown-never-exceeds-cap
+    - duplicate-message-increments-counter-once
+    - human-takeover-suppresses-ai-response
+    - payment-mutation-never-available
+
+  release_gate_commands:
+    spec_check: npm run specs:check
+    scope_unit: npm run test:ai:scope:unit
+    scope_component: npm run test:ai:scope:component
+    scope_integration: npm run test:ai:scope:integration
+    scope_security: npm run test:ai:scope:security
+    scope_evaluation: npm run test:ai:scope:evaluation
+    scope_property: npm run test:ai:scope:property
+    scope_concurrency: npm run test:ai:scope:concurrency
+    scope_performance: npm run test:ai:scope:performance
+    scope_all: npm run test:ai:scope:all
+
+  skipped_test_policy:
+    reason_required: true
+    owner_required: true
+    followup_task_required: true
+    critical_security_skip_allowed: false
+
+  flaky_test_policy:
+    accepted_as_baseline: false
+    quarantine_requires_owner: true
+    quarantine_requires_expiry: true
+
+implementation:
+  current_phase: spec-preflight-and-tdd-harness
+  task_source: tasks.md
+  active_task_pointer: docs/backend/09-ai-context/current-task.md
+  recommended_first_task: 0.1-confirm-spec-isolation
+
+  phases:
+    - id: 0
+      name: spec-preflight-and-tdd-harness
+      task_sections:
+        - 0
+
+    - id: 1
+      name: contracts-and-immutable-policy
+      task_sections:
+        - 1
+        - 2
+
+    - id: 2
+      name: early-filtering-and-policy-engine
+      task_sections:
+        - 3
+        - 4
+        - 5
+        - 6
+
+    - id: 3
+      name: customer-scope-behavior
+      task_sections:
+        - 7
+        - 8
+        - 9
+
+    - id: 4
+      name: counters-and-runtime-integration
+      task_sections:
+        - 10
+        - 11
+
+    - id: 5
+      name: capability-and-cost-gating
+      task_sections:
+        - 12
+        - 13
+
+    - id: 6
+      name: observability-and-administration
+      task_sections:
+        - 14
+        - 15
+
+    - id: 7
+      name: security-and-resilience
+      task_sections:
+        - 16
+        - 17
+
+    - id: 8
+      name: rollout-and-improvement
+      task_sections:
+        - 18
+        - 19
+
+    - id: 9
+      name: comprehensive-validation-and-release
+      task_sections:
+        - 20
+        - 21
+        - 22
+
+  checkpoints:
+    - scope-contracts
+    - platform-policy
+    - early-filtering
+    - customer-experience
+    - cost-and-capability-gating
+    - abuse-controls
+    - adversarial-security
+    - production-readiness
+
+  fastest_safe_mvp_order:
+    - task-section-0
+    - task-section-1
+    - task-section-2
+    - task-section-3
+    - task-section-4
+    - task-section-5
+    - task-section-6
+    - task-section-7
+    - task-section-8
+    - task-section-9
+    - task-section-10
+    - task-section-11
+    - task-section-12
+    - task-section-13
+    - task-section-14
+    - task-section-16
+    - task-section-17
+    - task-section-20
+    - task-section-21
+    - task-section-22
+
+  may_defer_after_core_enforcement:
+    - advanced-admin-ui
+    - full-feedback-dashboard
+    - advanced-shadow-rollout-controls
+    - semantic-classification-cache
+    - internal-copilot-profile-activation
+
+  must_not_defer:
+    - immutable-platform-maximum
+    - agent-cannot-expand
+    - off-topic-no-rag
+    - off-topic-no-embedding
+    - off-topic-no-tools
+    - off-topic-no-full-agent
+    - unsafe-no-tools
+    - payment-bypass-denied
+    - cross-workspace-denied
+    - fail-closed-behavior
+    - human-takeover-regression
+    - critical-security-tests
+
+  release_gates:
+    - decision-contract-tests-pass
+    - platform-maximum-property-tests-pass
+    - profile-validation-tests-pass
+    - classifier-budget-tests-pass
+    - policy-engine-tests-pass
+    - business-false-positive-suite-pass
+    - off-topic-false-negative-suite-pass
+    - prompt-injection-suite-pass
+    - denied-route-isolation-pass
+    - payment-bypass-tests-pass
+    - workspace-isolation-tests-pass
+    - human-takeover-regression-pass
+    - counter-concurrency-tests-pass
+    - resilience-tests-pass
+    - cost-verification-pass
+    - no-tracked-secrets
+    - documentation-updated
+    - specs-check-passed
+
+requirements_registry:
+  prefix: AISS-R
+  total: 34
+
+  groups:
+    placement_and_decisions:
+      - AISS-R1
+      - AISS-R2
+
+    early_filtering_and_classifier:
+      - AISS-R3
+      - AISS-R4
+      - AISS-R5
+      - AISS-R6
+
+    scope_behavior:
+      - AISS-R7
+      - AISS-R8
+      - AISS-R9
+      - AISS-R10
+      - AISS-R11
+      - AISS-R12
+      - AISS-R13
+      - AISS-R14
+
+    profiles_and_authority:
+      - AISS-R15
+      - AISS-R16
+      - AISS-R17
+
+    capability_and_cost_gating:
+      - AISS-R18
+      - AISS-R19
+      - AISS-R20
+      - AISS-R21
+      - AISS-R22
+      - AISS-R23
+      - AISS-R24
+      - AISS-R25
+
+    administration_and_privacy:
+      - AISS-R26
+      - AISS-R27
+      - AISS-R28
+
+    failure_security_and_rollout:
+      - AISS-R29
+      - AISS-R30
+      - AISS-R31
+
+    validation_and_improvement:
+      - AISS-R32
+      - AISS-R33
+      - AISS-R34
+
+correctness_invariants:
+  - effective-scope-is-subset-of-platform-maximum
+  - effective-scope-is-subset-of-profile-maximum
+  - agent-configuration-can-only-narrow
+  - unknown-is-not-automatically-allowed
+  - denied-request-never-invokes-rag
+  - denied-request-never-invokes-embedding
+  - denied-request-never-loads-tool-schema
+  - denied-request-never-invokes-tool
+  - denied-request-never-invokes-full-agent
+  - denied-request-never-runs-memory-extraction
+  - unsafe-request-never-invokes-capabilities
+  - payment-bypass-always-denied
+  - cross-workspace-request-always-denied
+  - active-human-takeover-produces-no-ai-response
+  - complaint-is-not-denied-only-because-of-profanity
+  - ambiguous-location-without-city-asks-city
+  - location-city-is-never-guessed
+  - small-talk-is-bounded
+  - adjacent-information-uses-approved-knowledge
+  - medical-advice-remains-denied
+  - classifier-context-remains-bounded
+  - classifier-failure-does-not-open-full-agent
+  - duplicate-message-updates-counter-once
+  - cooldown-remains-within-cap
+  - scope-decision-records-policy-and-classifier-version
+  - hidden-chain-of-thought-is-not-persisted
+  - exact-cost-saving-is-not-claimed-without-reliable-pricing
+
+security:
+  untrusted_inputs:
+    - customer-message
+    - custom-agent-instruction
+    - rag-document
+    - tool-returned-free-text
+    - encoded-instruction
+    - translated-instruction
+    - provider-error-text
+
+  immutable_controls:
+    - platform-maximum-scope
+    - payment-read-only-ai
+    - cross-workspace-isolation
+    - human-takeover-authority
+    - denied-route-isolation
+    - fail-closed-policy
+    - secret-redaction
+
+  prohibited_authority:
+    model:
+      - expand-scope
+      - grant-tool
+      - grant-permission
+      - mutate-payment-state
+      - override-human-takeover
+      - redefine-policy-profile
+
+    workspace_admin:
+      - create-arbitrary-platform-maximum
+      - disable-unsafe-controls
+      - enable-denied-tools
+      - enable-denied-full-agent
+      - grant-payment-mutation
+
+  secret_categories:
+    - supabase-service-role
+    - xendit-secret
+    - provider-api-key
+    - jwt-secret
+    - webhook-verification-token
+    - authorization-header
+    - password
+    - otp
+    - payment-token
+
+  release_blockers:
+    - scope-expansion-above-platform-maximum
+    - rag-after-denied
+    - embedding-after-denied
+    - tool-schema-after-denied
+    - tool-after-denied
+    - full-agent-after-denied
+    - payment-bypass-allowed
+    - cross-workspace-request-allowed
+    - ai-response-during-human-takeover
+    - classifier-failure-open-route
+    - critical-complaint-false-positive
+    - secret-exposure
+
+risks:
+  - id: risk-classifier-false-positive
+    severity: high
+    mitigation:
+      - bounded-recent-context
+      - compact-commerce-state
+      - clarify-path
+      - shadow-mode
+      - feedback-loop
+      - business-regression-evaluation
+
+  - id: risk-classifier-false-negative
+    severity: critical
+    mitigation:
+      - immutable-policy-engine-overrides
+      - deterministic-security-rules
+      - tool-gateway-defense-in-depth
+      - adversarial-evaluation
+      - release-blocker
+
+  - id: risk-off-topic-cost-exhaustion
+    severity: high
+    mitigation:
+      - deterministic-first
+      - fixed-responses
+      - denied-cost-isolation
+      - counters
+      - cooldown
+      - rate-limit-signals
+
+  - id: risk-custom-agent-scope-expansion
+    severity: critical
+    mitigation:
+      - platform-owned-profiles
+      - effective-scope-intersection
+      - publish-validation
+      - property-tests
+
+  - id: risk-rag-instruction-expansion
+    severity: critical
+    mitigation:
+      - scope-before-rag
+      - untrusted-document-wrapping
+      - denied-rag-gate
+      - adversarial-tests
+
+  - id: risk-emotional-complaint-false-denial
+    severity: high
+    mitigation:
+      - separate-abuse-signal-from-domain-intent
+      - complaint-evaluation
+      - human-handoff-preservation
+
+  - id: risk-counter-race
+    severity: medium
+    mitigation:
+      - idempotent-message-key
+      - atomic-update
+      - concurrency-tests
+      - authoritative-clock
+
+  - id: risk-classifier-latency
+    severity: medium
+    mitigation:
+      - deterministic-fast-path
+      - strict-timeout
+      - small-context
+      - performance-baseline
+      - optional-safe-cache
+
+assumptions:
+  - ai-agent-architecture-spec-provides-runtime-integration-points
+  - backend-marketplace-provides-workspace-and-commerce-authority
+  - local-openai-compatible-provider-is-available-for-classifier
+  - telegram-and-whatsapp-events-are-normalized-before-scope-guard
+  - message-deduplication-exists-before-counter-update
+  - human-takeover-state-is-queryable
+  - tool-gateway-remains-final-action-authority
+  - rag-service-can-be-gated-before-invocation
+  - embedding-query-can-be-gated-before-invocation
+  - full-agent-invocation-can-be-gated-before-expensive-context-build
+  - customer-facing-language-is-bahasa-indonesia
+
+constraints:
+  - no-big-bang-ai-runtime-rewrite
+  - no-general-purpose-customer-mode
+  - no-prompt-only-security
+  - no-tenant-defined-platform-maximum
+  - no-production-data-in-tests
+  - no-production-secret-in-tests-or-docs
+  - no-denied-request-full-agent
+  - no-denied-request-rag
+  - no-denied-request-embedding
+  - no-denied-request-tools
+  - no-payment-mutation
+  - no-cross-workspace-data
+  - no-hidden-chain-of-thought-persistence
+  - no-location-geocoding-implementation-in-this-spec
+  - no-external-domain-shadow-implementation
+  - implementation-reality-must-be-reported-honestly
+
+status_workflow:
+  initial_status: active
+  initial_workflow_state: in_progress
+
+  folder_statuses:
+    backlog:
+      folder: docs/specs/backlog
+      workflow_states:
+        - draft
+        - review
+        - approved
+
+    active:
+      folder: docs/specs/active
+      workflow_states:
+        - in_progress
+        - blocked
+        - verifying
+
+    completed:
+      folder: docs/specs/completed
+      workflow_states:
+        - done
+        - archived
+
+  normal_state_transitions:
+    - from: draft
+      to: review
+    - from: review
+      to: approved
+    - from: approved
+      to: in_progress
+    - from: in_progress
+      to: verifying
+    - from: verifying
+      to: done
+    - from: done
+      to: archived
+
+  exceptional_state_transitions:
+    - from: approved
+      to: blocked
+    - from: in_progress
+      to: blocked
+    - from: verifying
+      to: blocked
+    - from: blocked
+      to: in_progress
+    - from: done
+      to: in_progress
+
+  allowed_folder_transitions:
+    - from: backlog
+      to: active
+    - from: active
+      to: backlog
+    - from: active
+      to: completed
+    - from: completed
+      to: active
+
+  folder_move_rule: edit-status-then-run-npm-run-specs-sync
+  completed_guard: required-unchecked-tasks-must-be-zero
+
+references:
+  scope_security_spec:
+    - docs/specs/active/selaluteh-ai-agent-scope-security/requirements.md
+    - docs/specs/active/selaluteh-ai-agent-scope-security/design.md
+    - docs/specs/active/selaluteh-ai-agent-scope-security/tasks.md
+
+  external_ai_architecture:
+    - docs/specs/active/selaluteh-ai-agent-architecture/spec.yaml
+    - docs/specs/active/selaluteh-ai-agent-architecture/requirements.md
+    - docs/specs/active/selaluteh-ai-agent-architecture/design.md
+    - docs/specs/active/selaluteh-ai-agent-architecture/tasks.md
+
+  global_entry:
+    - docs/backend/READING-ORDER.md
+    - docs/backend/09-ai-context/current-task.md
+
+metadata:
+  generated_for: selaluteh-ai-agent-scope-security
+  generated_at: '2026-06-20'
+  based_on:
+    - selaluteh-ai-agent-scope-security-requirements-v1
+    - selaluteh-ai-agent-scope-security-design-v1
+    - selaluteh-ai-agent-scope-security-tasks-v1
+    - specs-lifecycle-config-v1.1
+
+  notes:
+    - This specification remains separate from the general AI Agent Architecture specification.
+    - Location text classification examples are included, but geocoding and nearest-outlet implementation are explicitly excluded.
+    - Denied request isolation is a release-critical invariant.
+    - Tool Gateway and backend authorization remain the final action authorities.

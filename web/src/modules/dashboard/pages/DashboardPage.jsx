@@ -94,8 +94,18 @@ function Inbox() {
       api.get('/agents'),
       api.get('/platforms'), // Fetch platforms
     ]).then(([agentsRes, platformsRes]) => {
-      setAgents(agentsRes.data)
-      setPlatforms(platformsRes.data)
+      const normalizedAgents = (agentsRes.data || []).map(a => ({
+        ...a,
+        _id: a._id || a.id,
+        id: a.id || a._id
+      }));
+      const normalizedPlatforms = (platformsRes.data || []).map(p => ({
+        ...p,
+        _id: p._id || p.id,
+        id: p.id || p._id
+      }));
+      setAgents(normalizedAgents)
+      setPlatforms(normalizedPlatforms)
     }).catch(console.error)
   }, [])
 
@@ -128,7 +138,16 @@ function Inbox() {
     if (!filters.unreadOnly) delete params.unreadOnly
 
     const r = await api.get('/chats', { params })
-    let chatsData = r.data;
+    let chatsData = (r.data || []).map(chat => ({
+      ...chat,
+      _id: chat._id || chat.id,
+      id: chat.id || chat._id,
+      contactId: chat.contactId ? {
+        ...chat.contactId,
+        _id: chat.contactId._id || chat.contactId.id,
+        id: chat.contactId.id || chat.contactId._id
+      } : null
+    }));
 
     // Apply client-side filtering for assigned/unassigned
     if (currentAssignment === 'assigned') {
@@ -364,8 +383,8 @@ function Inbox() {
                     {chat.status !== 'resolved' && !chat.takeoverBy && !chat.isEscalated && !chat.agentId && (
                       <span className='status-badge pending'>Pending</span>
                     )}
-                    {chat.contactId?.tags?.map((tag) => (
-                      <span key={tag} className='contact-tag-badge'>
+                    {chat.contactId?.tags?.map((tag, idx) => (
+                      <span key={`${tag}-${idx}`} className='contact-tag-badge'>
                         {tag}
                       </span>
                     ))}

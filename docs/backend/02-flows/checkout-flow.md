@@ -41,6 +41,18 @@ confirm checkout
 
 When `PAYMENT_PROVIDER=manual`, the customer sees a manual/COD instruction instead of a provider URL.
 
+When `PAYMENT_PROVIDER=xendit`, payment attempt creation means:
+
+```txt
+create/reuse internal payment row
+→ call Xendit Test Mode POST /sessions
+→ store payment_session_id as provider_transaction_id
+→ store payment_link_url as payment_url
+→ show Xendit-hosted checkout link
+```
+
+The checkout/order flow must not trust client amount or AI amount. Payment amount and currency come from the created order only.
+
 ## Failure Cases
 
 - no outlet selected
@@ -50,3 +62,5 @@ When `PAYMENT_PROVIDER=manual`, the customer sees a manual/COD instruction inste
 - payment provider unavailable
 - amount mismatch between order total and payment request
 - duplicate checkout confirmation
+- Xendit Payment Session unavailable or API key not configured
+- active payment session already exists and should be reused

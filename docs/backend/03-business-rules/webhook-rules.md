@@ -53,12 +53,24 @@ Rules:
 
 Payment webhook must:
 
-- verify signature
+- verify provider signature/token
 - identify payment/order
-- validate amount/reference
+- validate provider session, reference, amount, and currency
 - store `payment_events`
 - update payment/order idempotently
 - send notification only after successful commit
+
+For Xendit Payment Session webhooks:
+
+```txt
+endpoint = POST /api/webhooks/xendit/payment-sessions
+verification = x-callback-token header
+accepted events = payment_session.completed, payment_session.expired
+payment lookup = provider payment_session_id or merchant reference
+authoritative paid transition = completed event + provider session confirmation when needed
+```
+
+Do not derive workspace from untrusted query/body for Xendit payment-session processing. Workspace comes from the matched internal payment row.
 
 ## Webhook Event Table
 
@@ -85,6 +97,8 @@ process once
 return success on duplicate if already processed
 never duplicate messages/orders/payments/notifications
 ```
+
+For Xendit, duplicate detection should prefer documented webhook ID when available, otherwise use a stable key composed from payment session ID, event type, and provider updated timestamp.
 
 ## Failure Rule
 

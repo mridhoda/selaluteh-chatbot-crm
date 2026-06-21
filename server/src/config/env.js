@@ -46,15 +46,42 @@ const raw = {
   googleApiKey: process.env.GOOGLE_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   paymentProvider: process.env.PAYMENT_PROVIDER || 'manual',
+  xenditMode: process.env.XENDIT_MODE || 'test',
+  xenditApiBaseUrl: process.env.XENDIT_API_BASE_URL || 'https://api.xendit.co',
+  xenditSecretApiKey: process.env.XENDIT_SECRET_API_KEY || process.env.XENDIT_SECRET_KEY || '',
+  xenditWebhookVerificationToken: process.env.XENDIT_WEBHOOK_VERIFICATION_TOKEN || '',
+  xenditPaymentCountry: process.env.XENDIT_PAYMENT_COUNTRY || 'ID',
+  xenditPaymentCurrency: process.env.XENDIT_PAYMENT_CURRENCY || 'IDR',
+  xenditPaymentSessionMode: process.env.XENDIT_PAYMENT_SESSION_MODE || 'PAYMENT_LINK',
+  xenditPaymentCaptureMethod: process.env.XENDIT_PAYMENT_CAPTURE_METHOD || 'AUTOMATIC',
+  xenditPaymentSessionTtlMinutes: process.env.XENDIT_PAYMENT_SESSION_TTL_MINUTES || '30',
   midtransServerKey: process.env.MIDTRANS_SERVER_KEY || '',
   midtransClientKey: process.env.MIDTRANS_CLIENT_KEY || '',
-  xenditSecretKey: process.env.XENDIT_SECRET_KEY || '',
   paymentWebhookSecret: process.env.PAYMENT_WEBHOOK_SECRET || '',
   smtpUrl: process.env.SMTP_URL || '',
   smtpFrom: process.env.SMTP_FROM || 'no-reply@chatbot.local',
   localUploadRoot: process.env.LOCAL_UPLOAD_ROOT || 'server/uploads',
   publicFilesBaseUrl: process.env.PUBLIC_FILES_BASE_URL || '',
   corsOriginList: process.env.CORS_ORIGIN || '*',
+
+  // AI Agent Architecture vars
+  aiDefaultProvider: process.env.AI_DEFAULT_PROVIDER || 'local_openai_compatible',
+  aiDefaultModel: process.env.AI_DEFAULT_MODEL || 'default',
+  aiEmbeddingProvider: process.env.AI_EMBEDDING_PROVIDER || 'openai',
+  aiEmbeddingModel: process.env.AI_EMBEDDING_MODEL || 'text-embedding-3-small',
+  aiMaxInputTokens: parseInt(process.env.AI_MAX_INPUT_TOKENS, 10) || 8000,
+  aiSummaryModel: process.env.AI_SUMMARY_MODEL || 'gpt-4o-mini',
+  aiMaxToolCalls: parseInt(process.env.AI_MAX_TOOL_CALLS, 10) || 10,
+  aiMaxIterations: parseInt(process.env.AI_MAX_ITERATIONS, 10) || 5,
+  aiRunRetentionDays: parseInt(process.env.AI_RUN_RETENTION_DAYS, 10) || 30,
+  aiToolTraceRetentionDays: parseInt(process.env.AI_TOOL_TRACE_RETENTION_DAYS, 10) || 90,
+  localAiBaseUrl: process.env.LOCAL_AI_BASE_URL || '',
+  ollamaBaseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+  localAiApiKey: process.env.LOCAL_AI_API_KEY || '',
+
+  // Location Intelligence — Google Maps
+  googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',
+  locationProvider: process.env.LOCATION_PROVIDER || 'nominatim',
 };
 
 const isTest = raw.nodeEnv === 'test';
@@ -81,6 +108,16 @@ if (isProduction) {
     validate({
       midtransServerKey: { value: raw.midtransServerKey, severity: CRITICAL, label: 'MIDTRANS_SERVER_KEY' },
     });
+  }
+}
+
+if (raw.paymentProvider === 'xendit') {
+  validate({
+    xenditSecretApiKey: { value: raw.xenditSecretApiKey, severity: CRITICAL, label: 'XENDIT_SECRET_API_KEY' },
+  });
+  if (raw.xenditMode !== 'test') {
+    console.error('XENDIT_MODE must be "test" for this MVP integration. Live mode is not allowed.');
+    process.exit(1);
   }
 }
 
@@ -114,14 +151,37 @@ export const env = {
   googleApiKey: raw.googleApiKey,
   geminiModel: raw.geminiModel,
   paymentProvider: raw.paymentProvider,
+  xenditMode: raw.xenditMode,
+  xenditApiBaseUrl: raw.xenditApiBaseUrl,
+  xenditSecretApiKey: raw.xenditSecretApiKey,
+  xenditWebhookVerificationToken: raw.xenditWebhookVerificationToken,
+  xenditPaymentCountry: raw.xenditPaymentCountry,
+  xenditPaymentCurrency: raw.xenditPaymentCurrency,
+  xenditPaymentSessionMode: raw.xenditPaymentSessionMode,
+  xenditPaymentCaptureMethod: raw.xenditPaymentCaptureMethod,
+  xenditPaymentSessionTtlMinutes: parseInt(raw.xenditPaymentSessionTtlMinutes, 10) || 30,
   midtransServerKey: raw.midtransServerKey,
   midtransClientKey: raw.midtransClientKey,
-  xenditSecretKey: raw.xenditSecretKey,
+  xenditSecretKey: raw.xenditSecretApiKey,
   paymentWebhookSecret: raw.paymentWebhookSecret,
   smtpUrl: raw.smtpUrl,
   smtpFrom: raw.smtpFrom,
   localUploadRoot: raw.localUploadRoot,
   publicFilesBaseUrl: raw.publicFilesBaseUrl,
+
+  aiDefaultProvider: raw.aiDefaultProvider,
+  aiDefaultModel: raw.aiDefaultModel,
+  aiEmbeddingProvider: raw.aiEmbeddingProvider,
+  aiEmbeddingModel: raw.aiEmbeddingModel,
+  aiMaxInputTokens: raw.aiMaxInputTokens,
+  aiSummaryModel: raw.aiSummaryModel,
+  aiMaxToolCalls: raw.aiMaxToolCalls,
+  aiMaxIterations: raw.aiMaxIterations,
+  aiRunRetentionDays: raw.aiRunRetentionDays,
+  aiToolTraceRetentionDays: raw.aiToolTraceRetentionDays,
+  localAiBaseUrl: raw.localAiBaseUrl,
+  ollamaBaseUrl: raw.ollamaBaseUrl,
+  localAiApiKey: raw.localAiApiKey,
 };
 
 export function getAllowedCorsOrigins() {
@@ -156,6 +216,15 @@ export function redactedConfig() {
     googleApiKey: env.googleApiKey ? 'configured' : '',
     geminiModel: env.geminiModel,
     paymentProvider: env.paymentProvider,
+    xenditMode: env.xenditMode,
+    xenditApiBaseUrl: env.xenditApiBaseUrl,
+    xenditSecretApiKey: env.xenditSecretApiKey ? 'configured' : '',
+    xenditWebhookVerificationToken: env.xenditWebhookVerificationToken ? 'configured' : '',
+    xenditPaymentCountry: env.xenditPaymentCountry,
+    xenditPaymentCurrency: env.xenditPaymentCurrency,
+    xenditPaymentSessionMode: env.xenditPaymentSessionMode,
+    xenditPaymentCaptureMethod: env.xenditPaymentCaptureMethod,
+    xenditPaymentSessionTtlMinutes: env.xenditPaymentSessionTtlMinutes,
     midtransServerKey: env.midtransServerKey ? 'configured' : '',
     midtransClientKey: env.midtransClientKey ? 'configured' : '',
     xenditSecretKey: env.xenditSecretKey ? 'configured' : '',

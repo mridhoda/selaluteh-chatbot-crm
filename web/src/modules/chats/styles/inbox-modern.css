@@ -3166,6 +3166,49 @@
   background: linear-gradient(90deg, var(--brand-500), var(--brand-600)) !important;
 }
 
+.chat-prism-bubble.chat-prism-bubble-image-container .chat-prism-image-preview {
+  position: relative;
+  width: min(320px, 68vw);
+  max-width: 100%;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.chat-prism-bubble.chat-prism-bubble-image-container .chat-prism-image-preview.landscape {
+  width: min(420px, 72vw);
+}
+
+.chat-prism-bubble.chat-prism-bubble-image-container .chat-prism-image-preview.portrait {
+  width: min(280px, 62vw);
+}
+
+.chat-prism-bubble.chat-prism-bubble-image-container .chat-prism-image-preview-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(360px, 52vh);
+  object-fit: contain;
+  cursor: pointer;
+  transition: opacity .15s ease;
+}
+
+.chat-prism-bubble.chat-prism-bubble-image-container .chat-prism-image-preview.landscape .chat-prism-image-preview-img {
+  max-height: min(280px, 42vh);
+}
+
+.chat-prism-bubble.chat-prism-bubble-image-container .chat-prism-image-preview-img:hover {
+  opacity: .95;
+}
+
+@media (max-width: 768px) {
+  .chat-prism-message-stack { max-width: 82%; }
+  .chat-prism-bubble.chat-prism-bubble-image-container .chat-prism-image-preview,
+  .chat-prism-bubble.chat-prism-bubble-image-container .chat-prism-image-preview.landscape,
+  .chat-prism-bubble.chat-prism-bubble-image-container .chat-prism-image-preview.portrait {
+    width: min(300px, 78vw);
+  }
+}
+
 /* ==========================================
    CUSTOM DROP-DOWN MENU & DELETE POPUP DIALOG
    ========================================== */

@@ -4,12 +4,16 @@ import { RefreshCw } from 'lucide-react'
 export default function PageHeader({
   title,
   description,
+  subtitle, // fallback / alternative
   primaryAction,
   secondaryActions = [],
   lastUpdated,
   isRefreshing,
   onRefresh,
+  actions, // custom buttons div
 }) {
+  const displayDescription = description || subtitle;
+
   return (
     <div
       style={{
@@ -32,7 +36,7 @@ export default function PageHeader({
         >
           {title}
         </h1>
-        {description && (
+        {displayDescription && (
           <p
             style={{
               margin: '4px 0 0',
@@ -41,7 +45,7 @@ export default function PageHeader({
               lineHeight: 1.5,
             }}
           >
-            {description}
+            {displayDescription}
           </p>
         )}
         {(lastUpdated || onRefresh) && (
@@ -95,24 +99,28 @@ export default function PageHeader({
           flexShrink: 0,
         }}
       >
-        {secondaryActions.map((action, i) => (
-          <button
-            key={i}
-            className="btn ghost"
-            onClick={action.onClick}
-            disabled={action.disabled}
-          >
-            {action.label}
-          </button>
-        ))}
-        {primaryAction && (
-          <button
-            className="btn"
-            onClick={primaryAction.onClick}
-            disabled={primaryAction.disabled}
-          >
-            {primaryAction.label}
-          </button>
+        {actions ? actions : (
+          <>
+            {secondaryActions.map((action, i) => (
+              <button
+                key={i}
+                className="btn ghost"
+                onClick={action.onClick}
+                disabled={action.disabled}
+              >
+                {action.label}
+              </button>
+            ))}
+            {primaryAction && (
+              <button
+                className="btn"
+                onClick={primaryAction.onClick}
+                disabled={primaryAction.disabled}
+              >
+                {primaryAction.label}
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

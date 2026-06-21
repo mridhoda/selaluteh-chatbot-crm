@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import api from "../../../shared/api/httpClient";
+import { isDemoMode } from "../../../mocks/demoState";
 import "../styles/payments.css";
 import {
   User,
@@ -609,6 +611,15 @@ function PaymentDetailDrawer({
   if (!payment) {
     return (
       <aside className="fixed inset-y-0 right-0 z-[80] w-full md:w-[400px] h-[100dvh] bg-[var(--surface-primary)] border-l border-[var(--border-subtle)] overflow-hidden flex flex-col shrink-0 items-center justify-center text-center p-6 text-[var(--text-muted)] shadow-[-4px_0_15px_rgba(17,24,46,0.03)]">
+        <div className="absolute top-4 right-4">
+          <button
+            className="w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-primary)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[#F43F70] hover:border-[#F43F70] hover:bg-[#FFF5F7] cursor-pointer transition-colors duration-150 outline-none focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]"
+            onClick={onClose}
+            aria-label="Close payment detail"
+          >
+            <X size={15} />
+          </button>
+        </div>
         <div className="flex flex-col items-center gap-2">
           <div className="w-12 h-12 rounded-full bg-[var(--surface-secondary)] flex items-center justify-center text-[var(--text-subtle)] mb-2 border border-dashed border-[var(--border-subtle)] text-lg">
             💳
@@ -903,11 +914,57 @@ function PaymentDetailDrawer({
 }
 
 export default function PaymentsPage() {
-  const [payments] = useState(initialPayments);
-  const [selectedPaymentId, setSelectedPaymentId] = useState(
-    initialPayments[0]?.id
-  );
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPaymentId, setSelectedPaymentId] = useState(null);
   const [isDetailOpen, setIsDetailOpen] = useState(true);
+
+  useEffect(() => {
+    loadPayments();
+  }, []);
+
+  const loadPayments = async () => {
+    setLoading(true);
+    try {
+      if (isDemoMode()) {
+        setPayments(initialPayments);
+      } else {
+        const res = await api.get('/payments');
+        const rawPayments = Array.isArray(res.data) 
+          ? res.data 
+          : (res.data && Array.isArray(res.data.data) ? res.data.data : []);
+        
+        const mappedPayments = rawPayments.map((p, idx) => ({
+          id: p.id || p._id,
+          _id: p.id || p._id,
+          orderId: p.order_id || p.orderId || '-',
+          outlet: p.outlet_id || 'Samarinda',
+          provider: p.provider || 'xendit',
+          paymentMethod: p.payment_method || 'Virtual Account',
+          amount: p.amount || p.total_amount || 0,
+          paymentStatus: p.payment_status || p.status || 'Pending',
+          reconciliationStatus: p.reconciliation_status || 'Reconciled',
+          createdAt: p.created_at || new Date().toISOString(),
+          customer: {
+            name: p.customer_name_snapshot || 'Unknown User',
+            phone: p.customer_phone_snapshot || '-',
+          },
+          events: p.events || []
+        }));
+        setPayments(mappedPayments);
+      }
+    } catch (err) {
+      console.error('Failed to load payments:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (payments.length > 0 && !selectedPaymentId) {
+      setSelectedPaymentId(payments[0].id);
+    }
+  }, [payments]);
 
   const [search, setSearch] = useState("");
   const [outlet, setOutlet] = useState("all");
@@ -1081,7 +1138,7 @@ export default function PaymentsPage() {
     <div className="flex flex-1 overflow-hidden bg-[var(--app-background)] -m-4 h-[calc(100vh-58px)] max-h-[calc(100vh-58px)]">
       <div
         className={`flex-1 flex flex-col min-w-0 p-4 pt-3 overflow-hidden transition-[padding] duration-200 motion-reduce:transition-none ${
-          isDetailOpen && currentSelectedPayment ? "md:pr-[416px]" : "md:pr-4"
+          isDetailOpen ? "md:pr-[416px]" : "md:pr-4"
         }`}
       >
         {/* Toolbar Header (Title, Subtitle, Actions, Filters) */}
@@ -1552,7 +1609,7 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      {isDetailOpen && currentSelectedPayment && (
+      {isDetailOpen && (
         <PaymentDetailDrawer
           payment={currentSelectedPayment}
           onClose={() => setIsDetailOpen(false)}

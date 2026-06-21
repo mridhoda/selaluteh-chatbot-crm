@@ -19,6 +19,8 @@ import {
   tgSendSticker,
 } from '../../services/sender.js';
 import { findDatabaseFileMention, findUrlFileMention } from '../../utils/fileMentions.js';
+import { buildContext } from '../../ai/context/context-builder.js';
+import { loadRecentMessages } from '../../ai/context/recent-messages.js';
 import { downloadFile } from '../../utils/downloader.js';
 import { recordInboundMessage, recordOutboundMessage } from '../../services/chat-message.service.js';
 import {
@@ -35,6 +37,58 @@ import {
 import { normalizeTelegramUpdate } from '../../integrations/telegram/telegram-parser.js';
 
 const router = express.Router();
+
+function isImageFile(filename = '') {
+  return /\.(png|jpe?g|gif|webp)$/i.test(filename);
+}
+
+function isStickerFile(filename = '') {
+  return /\.(webp|tgs|webm)$/i.test(filename);
+}
+
+function getPublicFileUrl(storedName) {
+  const base = process.env.PUBLIC_FILES_BASE_URL || `${process.env.PUBLIC_BASE_URL || 'http://localhost:5000'}/files`;
+  return `${base.replace(/\/$/, '')}/${storedName}`;
+}
+
+function resolveMessageType(filename = '', format = null) {
+  if (format === 'image' || isImageFile(filename)) return 'image';
+  return 'file';
+}
+
+async function sendTelegramTextOrDatabaseAttachment({ token, chatId, text, agent, sendTextOptions = {} }) {
+  const mention = findDatabaseFileMention(text, agent);
+  if (mention?.file?.storedName) {
+    const { file, token: mentionToken, altText, format } = mention;
+    const cleanedText = (text || '').replace(mentionToken, altText || '').trim();
+    const caption = cleanedText || altText || '';
+    const localFilePath = path.resolve('uploads', file.storedName);
+    const filename = file.originalName || file.storedName;
+
+    if (format === 'sticker' && isStickerFile(filename)) {
+      await tgSendSticker(token, chatId, getPublicFileUrl(file.storedName));
+      if (caption) await tgSend(token, chatId, caption, null, sendTextOptions);
+    } else if (format === 'image' || isImageFile(filename)) {
+      await tgSendPhoto(token, chatId, localFilePath, caption || undefined);
+    } else {
+      await tgSendDocument(token, chatId, localFilePath, caption || undefined);
+    }
+
+    return {
+      text: caption || 'Lampiran terkirim.',
+      messageType: resolveMessageType(filename, format),
+      attachment: {
+        url: `/files/${file.storedName}`,
+        filename,
+        type: resolveMessageType(filename, format) === 'image' ? 'image' : 'document',
+        format: format || null,
+      },
+    };
+  }
+
+  await tgSend(token, chatId, text, null, sendTextOptions);
+  return { text, messageType: 'text', attachment: null };
+}
 
 async function fetchTelegramFilePath(token, fileId) {
   const resp = await fetch(
@@ -202,7 +256,7 @@ router.post('/:token?', async (req, res) => {
     const workspaceAgents = await agentsSupabaseRepository.list({ workspaceId: platform.workspaceId });
     let agent = workspaceAgents.find((a) => a.platformId === platform.id);
     if (!agent) agent = workspaceAgents[0] || null;
-    const system = agent?.behavior || 'You are a helpful assistant.';
+    const systemRaw = agent?.behavior || 'You are a helpful assistant.';
     const prompt = agent?.prompt || '';
     const welcome = agent?.welcomeMessage || 'Halo! Ada yang bisa saya bantu?';
 
@@ -226,8 +280,6 @@ router.post('/:token?', async (req, res) => {
         last_message_at: new Date().toISOString(),
       },
     });
-    const isNewChat = !chat.updatedAt || (new Date(chat.createdAt).getTime() > Date.now() - 2000);
-
     const commerceAction = parseTelegramAction(update.callback_query?.data || '');
 
     let userMessage = null;
@@ -287,13 +339,27 @@ router.post('/:token?', async (req, res) => {
       console.log(`[telegram] chat ${chat.id} is NOT handled by human, proceeding to AI reply.`);
     }
 
-    // Send welcome message for new chats, but not for /start command
-    // (we'll handle /start separately below)
-    const isStartCommand = text.trim() === '/start';
-    if (isNewChat && !isStartCommand) {
+    const isStartCommand = text?.trim() === '/start';
+
+    // Compute greeting flags from persistent messages (before sending any new message)
+    const chatHistoryForGreeting = await loadRecentMessages({ chatId: chat.id, limit: 5 });
+    const { greetingFlags: computedGreetingFlags } = await buildContext({
+      chat,
+      agent: agent ? { ...agent, displayName: agent.name } : null,
+      recentMessages: chatHistoryForGreeting,
+    });
+
+    if (computedGreetingFlags.isFirstAssistantMessageInChat && !isStartCommand) {
       const processedWelcome = welcome.replace('{{name}}', contact.name);
+      let sentWelcome = { text: processedWelcome, attachment: null };
       try {
-        await tgSend(platform.token, chatId, processedWelcome, null, { replyMarkup: null });
+        sentWelcome = await sendTelegramTextOrDatabaseAttachment({
+          token: platform.token,
+          chatId,
+          text: processedWelcome,
+          agent,
+          sendTextOptions: { replyMarkup: null },
+        });
       } catch (e) {
         console.error('[telegram] Failed to send welcome message:', e);
       }
@@ -304,10 +370,10 @@ router.post('/:token?', async (req, res) => {
         contactId: contact.id,
         senderType: 'ai',
         direction: 'outbound',
-        messageType: 'text',
-        content: processedWelcome,
+        messageType: sentWelcome.messageType || 'text',
+        content: sentWelcome.text,
+        rawPayload: sentWelcome.attachment ? { attachment: sentWelcome.attachment } : {},
       });
-
       if (agent && agent.stickerUrl) {
         try {
           const stickerUrl = `${process.env.PUBLIC_BASE_URL}${agent.stickerUrl}`;
@@ -316,8 +382,9 @@ router.post('/:token?', async (req, res) => {
           console.error('[telegram] Sticker error:', e);
         }
       }
+      await markWebhookProcessed(webhookEvent);
+      return;
     }
-
 
     // Handle /start command specially
     if (isStartCommand) {
@@ -325,8 +392,14 @@ router.post('/:token?', async (req, res) => {
         ? await buildOutletSelectionMessage({ workspaceId: platform.workspaceId })
         : null;
       const processedWelcome = outletSelection?.text || welcome.replace('{{name}}', contact.name);
+      let sentWelcome = { text: processedWelcome, attachment: null };
       try {
-        await tgSend(platform.token, chatId, processedWelcome);
+        sentWelcome = await sendTelegramTextOrDatabaseAttachment({
+          token: platform.token,
+          chatId,
+          text: processedWelcome,
+          agent,
+        });
         await messagesSupabaseRepository.create({
           workspaceId: platform.workspaceId,
           chatId: chat.id,
@@ -334,8 +407,9 @@ router.post('/:token?', async (req, res) => {
           contactId: contact.id,
           senderType: 'ai',
           direction: 'outbound',
-          messageType: 'text',
-          content: processedWelcome,
+          messageType: sentWelcome.messageType || 'text',
+          content: sentWelcome.text,
+          rawPayload: sentWelcome.attachment ? { attachment: sentWelcome.attachment } : {},
         });
 
         if (agent && agent.stickerUrl) {
@@ -401,10 +475,17 @@ router.post('/:token?', async (req, res) => {
 
       let reply;
       try {
-        const history = await messagesSupabaseRepository.listByChatId(chat.id, { limit: 10 });
+        const history = await loadRecentMessages({ chatId: chat.id });
+        let system = systemRaw;
+        let aiPrompt = prompt;
+
+        if (!computedGreetingFlags.isFirstAssistantMessageInChat) {
+          system = systemRaw + '\n\nPENTING: Customer sudah pernah chat sebelumnya. Jangan memberi salam, halo, atau perkenalan lagi. Langsung jawab kebutuhan customer.';
+        }
+
         reply = await generateAIReply({
           system,
-          prompt,
+          prompt: aiPrompt,
           message: userMessage,
           knowledge: agent?.knowledge,
           agent,
@@ -422,20 +503,15 @@ router.post('/:token?', async (req, res) => {
 
       const mention = findDatabaseFileMention(replyText, agent);
       if (mention && mention.file?.storedName) {
-        const { file, token, altText } = mention;
-        const cleanedText = (replyText || '')
-          .replace(token, altText || '')
-          .trim();
-        const caption = cleanedText || altText || '';
-        const localFilePath = path.resolve('uploads', file.storedName);
+        let sentReply = { text: replyText, attachment: null, messageType: 'text' };
         let documentSent = false;
         try {
-          await tgSendDocument(
-            platform.token,
+          sentReply = await sendTelegramTextOrDatabaseAttachment({
+            token: platform.token,
             chatId,
-            localFilePath,
-            caption || undefined,
-          );
+            text: replyText,
+            agent,
+          });
           documentSent = true;
         } catch (e) {
           console.error(
@@ -454,18 +530,13 @@ router.post('/:token?', async (req, res) => {
           }
         }
 
-        const savedText = cleanedText || altText || replyText || 'Lampiran terkirim.';
         await recordOutboundMessage({
           chatId: chat.id,
           workspaceId: platform.workspaceId,
           from: 'ai',
-          text: savedText,
-          attachment: documentSent
-            ? {
-              url: `/files/${file.storedName}`,
-              filename: file.originalName || file.storedName,
-            }
-            : null,
+          text: sentReply.text,
+          attachment: documentSent ? sentReply.attachment : null,
+          messageType: documentSent ? sentReply.messageType : 'text',
         });
 
         if (documentSent) {

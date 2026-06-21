@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
-import { CheckCircle, XCircle, AlertTriangle, X } from 'lucide-react'
+import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react'
 
 const ToastContext = createContext(null)
 
@@ -20,6 +20,11 @@ const CONFIGS = {
     icon: AlertTriangle,
     color: 'var(--warning-500)',
     border: 'var(--warning-500)',
+  },
+  info: {
+    icon: Info,
+    color: 'var(--info-500, #3b82f6)',
+    border: 'var(--info-500, #3b82f6)',
   },
 }
 
@@ -95,6 +100,7 @@ export function ToastProvider({ children }) {
     success: (msg) => add('success', msg),
     error: (msg) => add('error', msg),
     warning: (msg) => add('warning', msg),
+    info: (msg) => add('info', msg),
   }
 
   return (
