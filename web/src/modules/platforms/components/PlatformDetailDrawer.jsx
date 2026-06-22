@@ -11,7 +11,12 @@ import api from '../../../shared/api/httpClient'
 
 function Section({ title, children }) {
   return (
-    <div style={{ padding: '14px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+    <div
+      style={{
+        padding: '14px 0',
+        borderBottom: '1px solid var(--border-subtle)',
+      }}
+    >
       <div
         style={{
           fontSize: 11,
@@ -40,10 +45,14 @@ function DataRow({ label, children, value }) {
         gap: 8,
       }}
     >
-      <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>
+        {label}
+      </span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {children || (
-          <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{value || '—'}</span>
+          <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>
+            {value || '—'}
+          </span>
         )}
       </div>
     </div>
@@ -114,9 +123,7 @@ export default function PlatformDetailDrawer({
 
   const pid = platform._id || platform.id
   const isTelegram = platform.type === 'telegram'
-  const agent = agents.find(
-    (a) => (a._id || a.id) === platform.agentId
-  )
+  const agent = agents.find((a) => (a._id || a.id) === platform.agentId)
   const connectionStatus =
     platform.token || (platform.credentials && platform.credentials.accessToken)
       ? 'connected'
@@ -131,8 +138,12 @@ export default function PlatformDetailDrawer({
     null
 
   const apiBaseUrl = api.defaults.baseURL || window.location.origin
-  const webhookPath = platform.type === 'whatsapp' || platform.type === 'instagram' ? 'meta' : platform.type
-  const webhookUrl = platform.webhookUrl || `${apiBaseUrl}/webhook/${webhookPath}`
+  const webhookPath =
+    platform.type === 'whatsapp' || platform.type === 'instagram'
+      ? 'meta'
+      : platform.type
+  const webhookUrl =
+    platform.webhookUrl || `${apiBaseUrl}/webhook/${webhookPath}`
 
   const copyText = (text, label) => {
     navigator.clipboard.writeText(text).then(
@@ -177,8 +188,11 @@ export default function PlatformDetailDrawer({
 
   const titleEl = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <div className={`chat-prism-avatar-wrap ${platform.type || 'custom'}`} style={{ width: 24, height: 24, marginTop: 0 }}>
-        <BrandIcon type={platform.type} size={12} color="#ffffff" />
+      <div
+        className={`chat-prism-avatar-wrap ${platform.type || 'custom'}`}
+        style={{ width: 24, height: 24, marginTop: 0 }}
+      >
+        <BrandIcon type={platform.type} size={12} color='#ffffff' />
       </div>
       <span>{platform.label || platform.type || 'Platform'}</span>
     </div>
@@ -198,16 +212,16 @@ export default function PlatformDetailDrawer({
       >
         <div style={{ padding: '0 24px 24px' }}>
           {/* A. Account Details */}
-          <Section title="Account Details">
-            <DataRow label="Platform type" value={platform.type || '—'} />
-            <DataRow label="Display label" value={platform.label || '—'} />
-            <DataRow label="Account / Bot ID">
+          <Section title='Account Details'>
+            <DataRow label='Platform type' value={platform.type || '—'} />
+            <DataRow label='Display label' value={platform.label || '—'} />
+            <DataRow label='Account / Bot ID'>
               <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>
                 {maskId(accountId)}
               </span>
               {accountId && (
                 <button
-                  className="btn ghost"
+                  className='btn ghost'
                   style={{ padding: '1px 5px' }}
                   onClick={() => copyText(String(accountId), 'Account ID')}
                 >
@@ -215,28 +229,36 @@ export default function PlatformDetailDrawer({
                 </button>
               )}
             </DataRow>
-            <DataRow label="Bot token">
-              <span style={{ fontSize: 13, color: 'var(--text-muted)', letterSpacing: 2 }}>
+            <DataRow label='Bot token'>
+              <span
+                style={{
+                  fontSize: 13,
+                  color: 'var(--text-muted)',
+                  letterSpacing: 2,
+                }}
+              >
                 ••••••••
               </span>
             </DataRow>
             <DataRow
-              label="Connected since"
+              label='Connected since'
               value={formatDate(platform.createdAt || platform.connectedAt)}
             />
             <DataRow
-              label="Last activity"
+              label='Last activity'
               value={formatDateTime(
-                platform.lastActivity || platform.lastActivityAt || platform.updatedAt
+                platform.lastActivity ||
+                  platform.lastActivityAt ||
+                  platform.updatedAt
               )}
             />
-            <DataRow label="Status">
+            <DataRow label='Status'>
               <PlatformStatusBadge status={connectionStatus} />
             </DataRow>
           </Section>
 
           {/* B. Agent Assignment */}
-          <Section title="AI Agent Assignment">
+          <Section title='AI Agent Assignment'>
             <div
               style={{
                 display: 'flex',
@@ -254,7 +276,7 @@ export default function PlatformDetailDrawer({
               </span>
               {onEdit && (
                 <button
-                  className="btn ghost"
+                  className='btn ghost'
                   style={{ fontSize: 12, padding: '3px 8px' }}
                   onClick={() => onEdit(platform)}
                 >
@@ -265,19 +287,33 @@ export default function PlatformDetailDrawer({
           </Section>
 
           {/* C. Outlet Routing */}
-          <Section title="Outlet Routing">
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-              Workspace-wide channel — customer selects outlet during commerce flow.
+          <Section title='Outlet Routing'>
+            <p
+              style={{
+                fontSize: 13,
+                color: 'var(--text-secondary)',
+                margin: 0,
+                lineHeight: 1.5,
+              }}
+            >
+              Workspace-wide channel — customer selects outlet during commerce
+              flow.
             </p>
           </Section>
 
           {/* D. Webhook Status */}
-          <Section title="Webhook Status">
-            <DataRow label="Health">
+          <Section title='Webhook Status'>
+            <DataRow label='Health'>
               <WebhookHealthBadge health={webhookHealth} />
             </DataRow>
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 5 }}>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: 'var(--text-muted)',
+                  marginBottom: 5,
+                }}
+              >
                 Webhook URL
               </div>
               <div
@@ -303,7 +339,7 @@ export default function PlatformDetailDrawer({
                   {webhookUrl}
                 </span>
                 <button
-                  className="btn ghost"
+                  className='btn ghost'
                   style={{ padding: '1px 5px', flexShrink: 0 }}
                   onClick={() => copyText(webhookUrl, 'Webhook URL')}
                 >
@@ -311,23 +347,36 @@ export default function PlatformDetailDrawer({
                 </button>
               </div>
               {webhookUrl.includes('localhost') && (
-                <div style={{ fontSize: 11, color: 'var(--warning-600)', marginTop: 5, lineHeight: 1.4 }}>
-                  ⚠️ Ganti <strong>localhost:5000</strong> dengan URL Cloudflare Tunnel (misal: <code>https://frequent-managing-dietary-mud.trycloudflare.com/webhook/{webhookPath}</code>) saat didaftarkan di portal eksternal.
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: 'var(--warning-600)',
+                    marginTop: 5,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  ⚠️ Ganti <strong>localhost:5000</strong> dengan URL Cloudflare
+                  Tunnel (misal:{' '}
+                  <code>
+                    https://frequent-managing-dietary-mud.trycloudflare.com/webhook/
+                    {webhookPath}
+                  </code>
+                  ) saat didaftarkan di portal eksternal.
                 </div>
               )}
             </div>
             <DataRow
-              label="Verification"
+              label='Verification'
               value={platform.webhookConfigured ? 'Verified' : 'Not verified'}
             />
             <DataRow
-              label="Last webhook event"
+              label='Last webhook event'
               value={formatDateTime(platform.lastWebhookAt)}
             />
           </Section>
 
           {/* E. Commerce Capabilities */}
-          <Section title="Commerce Capabilities">
+          <Section title='Commerce Capabilities'>
             <PlatformCapabilitiesChecklist
               type={platform.type}
               webhookConfigured={platform.webhookConfigured}
@@ -335,38 +384,60 @@ export default function PlatformDetailDrawer({
           </Section>
 
           {/* Actions */}
-          <div style={{ paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div
+            style={{
+              paddingTop: 16,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
             {isTelegram && (
               <button
-                className="btn"
+                className='btn'
                 onClick={handleSetWebhook}
                 disabled={settingWebhook}
-                style={{ width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center' }}
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
               >
                 <RotateCcw size={13} style={{ marginRight: 6 }} />
                 {settingWebhook ? 'Setting webhook…' : 'Set / Refresh Webhook'}
               </button>
             )}
             <button
-              className="btn ghost"
+              className='btn ghost'
               onClick={handleTest}
               disabled={testing}
-              style={{ width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center' }}
+              style={{
+                width: '100%',
+                justifyContent: 'center',
+                display: 'flex',
+                alignItems: 'center',
+              }}
             >
               <TestTube size={13} style={{ marginRight: 6 }} />
               {testing ? 'Testing…' : 'Test Connection'}
             </button>
             {onEdit && (
               <button
-                className="btn ghost"
+                className='btn ghost'
                 onClick={() => onEdit(platform)}
-                style={{ width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center' }}
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
               >
                 Edit Configuration
               </button>
             )}
             <button
-              className="btn ghost"
+              className='btn ghost'
               onClick={() => setConfirmDelete(true)}
               style={{
                 width: '100%',
@@ -385,13 +456,13 @@ export default function PlatformDetailDrawer({
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete Platform"
+        title='Delete Platform'
         description={
           'Are you sure you want to delete "' +
           (platform.label || platform.type || 'this platform') +
           '"? This action cannot be undone and will disconnect all associated conversations.'
         }
-        variant="danger"
+        variant='danger'
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmDelete(false)}
       />

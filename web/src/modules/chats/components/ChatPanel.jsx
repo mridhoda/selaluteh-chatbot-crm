@@ -1,5 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Check, MessageCircle, Bot, Search, MoreVertical, Plus, Image as ImageIcon, Smile, Keyboard, AlertCircle, Zap, FileText, Video, ShoppingBag, Mic, X, Loader2, ChevronDown, Trash2, AlertTriangle } from 'lucide-react'
+import {
+  Send,
+  Check,
+  MessageCircle,
+  Bot,
+  Search,
+  MoreVertical,
+  Plus,
+  Image as ImageIcon,
+  Smile,
+  Keyboard,
+  AlertCircle,
+  Zap,
+  FileText,
+  Video,
+  ShoppingBag,
+  Mic,
+  X,
+  Loader2,
+  ChevronDown,
+  Trash2,
+  AlertTriangle,
+} from 'lucide-react'
 import BrandIcon from '../../../shared/components/brand/BrandIcon'
 import api from '../../../shared/api/httpClient'
 
@@ -42,13 +64,23 @@ function getAttachmentUrl(url) {
 }
 
 function normalizeMessageAttachment(message) {
-  const attachment = message.rawPayload?.attachment || message.raw_payload?.attachment || message.attachment || null
+  const attachment =
+    message.rawPayload?.attachment ||
+    message.raw_payload?.attachment ||
+    message.attachment ||
+    null
   if (!attachment) return null
   const normalized = { ...attachment }
-  if (!normalized.url && normalized.storedName) normalized.url = `/files/${normalized.storedName}`
+  if (!normalized.url && normalized.storedName)
+    normalized.url = `/files/${normalized.storedName}`
   if (!normalized.type) {
     const filename = normalized.filename || normalized.url || ''
-    normalized.type = message.messageType === 'image' || message.message_type === 'image' || /\.(jpg|jpeg|png|gif|webp)$/i.test(filename) ? 'image' : 'document'
+    normalized.type =
+      message.messageType === 'image' ||
+      message.message_type === 'image' ||
+      /\.(jpg|jpeg|png|gif|webp)$/i.test(filename)
+        ? 'image'
+        : 'document'
   }
   return normalized
 }
@@ -57,49 +89,65 @@ function normalizeMessageAttachment(message) {
 
 function MessageBubble({ message }) {
   const [imageShape, setImageShape] = useState('standard')
-  const role = message.senderType || message.role || message.sender || message.from
-  const isUser = message.direction === 'inbound' || role === 'user' || role === 'customer'
+  const role =
+    message.senderType || message.role || message.sender || message.from
+  const isUser =
+    message.direction === 'inbound' || role === 'user' || role === 'customer'
   const isAi =
-    role === 'ai' || role === 'assistant' || role === 'bot' || role === 'agent_ai'
+    role === 'ai' ||
+    role === 'assistant' ||
+    role === 'bot' ||
+    role === 'agent_ai'
   const isHuman =
     role === 'human' ||
     role === 'agent' ||
     role === 'human_agent' ||
     role === 'staff' ||
     role === 'admin'
-  const isSystem = role === 'system' || role === 'event' || role === 'notification'
+  const isSystem =
+    role === 'system' || role === 'event' || role === 'notification'
 
   const content = message.content || message.text || message.message || ''
 
   if (isSystem) {
-    const isError = content.toLowerCase().includes('error') || content.toLowerCase().includes('failed')
+    const isError =
+      content.toLowerCase().includes('error') ||
+      content.toLowerCase().includes('failed')
     if (isError) {
       return (
-        <div className="chat-prism-error-row">
-          <span className="chat-prism-error-pill">
-            <AlertCircle size={12} className="chat-prism-error-icon" />
+        <div className='chat-prism-error-row'>
+          <span className='chat-prism-error-pill'>
+            <AlertCircle size={12} className='chat-prism-error-icon' />
             <span>{content}</span>
-            <span className="chat-prism-error-divider">|</span>
-            <span className="chat-prism-error-time">{formatTime(message.createdAt || message.timestamp)}</span>
+            <span className='chat-prism-error-divider'>|</span>
+            <span className='chat-prism-error-time'>
+              {formatTime(message.createdAt || message.timestamp)}
+            </span>
           </span>
         </div>
       )
     }
     return (
-      <div className="chat-prism-system-row">
-        <span className="chat-prism-system-pill">
-          <Zap size={11} className="chat-prism-system-icon" />
+      <div className='chat-prism-system-row'>
+        <span className='chat-prism-system-pill'>
+          <Zap size={11} className='chat-prism-system-icon' />
           <span>{content}</span>
-          <span className="chat-prism-system-divider">|</span>
-          <span className="chat-prism-system-time">{formatTime(message.createdAt || message.timestamp)}</span>
+          <span className='chat-prism-system-divider'>|</span>
+          <span className='chat-prism-system-time'>
+            {formatTime(message.createdAt || message.timestamp)}
+          </span>
         </span>
       </div>
     )
   }
 
   const attachment = normalizeMessageAttachment(message)
-  const isImage = attachment && (attachment.type === 'image' || (attachment.filename && attachment.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)));
-  const hasCaption = !!content;
+  const isImage =
+    attachment &&
+    (attachment.type === 'image' ||
+      (attachment.filename &&
+        attachment.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)))
+  const hasCaption = !!content
 
   const handleImageLoad = (event) => {
     const { naturalWidth, naturalHeight } = event.currentTarget
@@ -116,61 +164,95 @@ function MessageBubble({ message }) {
 
   return (
     <div className={`chat-prism-message-row ${isUser ? 'user' : 'agent'}`}>
-      <div className="chat-prism-message-stack">
-        <div className={`chat-prism-bubble ${isUser ? 'user' : isHuman ? 'human' : 'ai'} ${isImage ? 'chat-prism-bubble-image-container' : ''} flex flex-col`}>
-          {attachment && (
-            isImage ? (
+      <div className='chat-prism-message-stack'>
+        <div
+          className={`chat-prism-bubble ${isUser ? 'user' : isHuman ? 'human' : 'ai'} ${isImage ? 'chat-prism-bubble-image-container' : ''} flex flex-col`}
+        >
+          {attachment &&
+            (isImage ? (
               <div className={`chat-prism-image-preview ${imageShape}`}>
-                <img 
-                  src={getAttachmentUrl(attachment.url)} 
-                  alt={attachment.filename || 'Attached image'} 
-                  className="chat-prism-image-preview-img"
+                <img
+                  src={getAttachmentUrl(attachment.url)}
+                  alt={attachment.filename || 'Attached image'}
+                  className='chat-prism-image-preview-img'
                   onLoad={handleImageLoad}
-                  onClick={() => window.open(getAttachmentUrl(attachment.url), '_blank')}
+                  onClick={() =>
+                    window.open(getAttachmentUrl(attachment.url), '_blank')
+                  }
                 />
                 {!hasCaption && (
-                  <div className="absolute bottom-2 right-2 bg-black/55 backdrop-blur-[2px] px-2 py-0.5 rounded-full text-[9px] text-white flex items-center gap-1 font-semibold pointer-events-none select-none">
-                    <span>{formatTime(message.createdAt || message.timestamp)}</span>
-                    {!isUser && <Check size={10} className="text-white/80" />}
+                  <div className='absolute bottom-2 right-2 bg-black/55 backdrop-blur-[2px] px-2 py-0.5 rounded-full text-[9px] text-white flex items-center gap-1 font-semibold pointer-events-none select-none'>
+                    <span>
+                      {formatTime(message.createdAt || message.timestamp)}
+                    </span>
+                    {!isUser && <Check size={10} className='text-white/80' />}
                   </div>
                 )}
               </div>
             ) : (
-              <a 
-                href={getAttachmentUrl(attachment.url)} 
-                target="_blank" 
-                rel="noopener noreferrer"
+              <a
+                href={getAttachmentUrl(attachment.url)}
+                target='_blank'
+                rel='noopener noreferrer'
                 className={`flex items-center gap-2 p-2.5 m-2 border rounded-xl decoration-none no-underline text-xs max-w-[280px] ${isUser ? 'bg-white/10 border-white/20 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
               >
-                <FileText size={16} className={isUser ? 'text-white/80 shrink-0' : 'text-slate-500 shrink-0'} />
-                <span className="truncate flex-1 font-semibold">{attachment.filename || 'Download File'}</span>
+                <FileText
+                  size={16}
+                  className={
+                    isUser
+                      ? 'text-white/80 shrink-0'
+                      : 'text-slate-500 shrink-0'
+                  }
+                />
+                <span className='truncate flex-1 font-semibold'>
+                  {attachment.filename || 'Download File'}
+                </span>
               </a>
-            )
-          )}
+            ))}
           {content && (
-            <div className={isImage ? "px-4 py-2.5 text-[13px] leading-relaxed break-words" : ""}>
+            <div
+              className={
+                isImage
+                  ? 'px-4 py-2.5 text-[13px] leading-relaxed break-words'
+                  : ''
+              }
+            >
               {content}
             </div>
           )}
         </div>
         {(!isImage || hasCaption) && (
-          <div className={`chat-prism-message-meta ${isUser ? 'user' : 'agent'}`}>
+          <div
+            className={`chat-prism-message-meta ${isUser ? 'user' : 'agent'}`}
+          >
             {isUser ? (
               <span>{formatTime(message.createdAt || message.timestamp)}</span>
             ) : (
               <>
                 <span>
                   {(() => {
-                    if (message.platformMessageId) return 'Sent';
-                    const ageMs = Date.now() - new Date(message.createdAt || message.timestamp).getTime();
-                    return ageMs < 8000 ? 'Sending...' : 'Sent';
+                    if (message.platformMessageId) return 'Sent'
+                    const ageMs =
+                      Date.now() -
+                      new Date(message.createdAt || message.timestamp).getTime()
+                    return ageMs < 8000 ? 'Sending...' : 'Sent'
                   })()}
                 </span>
-                <span className="chat-prism-meta-dot">•</span>
-                <span>{formatTime(message.createdAt || message.timestamp)}</span>
-                <span className={isHuman ? 'chat-prism-agent-chip-badge human' : 'chat-prism-agent-chip-badge ai'}>
+                <span className='chat-prism-meta-dot'>•</span>
+                <span>
+                  {formatTime(message.createdAt || message.timestamp)}
+                </span>
+                <span
+                  className={
+                    isHuman
+                      ? 'chat-prism-agent-chip-badge human'
+                      : 'chat-prism-agent-chip-badge ai'
+                  }
+                >
                   <Bot size={10} />
-                  <span>{isHuman ? (message.agentName || 'Human Agent') : 'AI Agent'}</span>
+                  <span>
+                    {isHuman ? message.agentName || 'Human Agent' : 'AI Agent'}
+                  </span>
                 </span>
               </>
             )}
@@ -183,12 +265,20 @@ function MessageBubble({ message }) {
 
 // ─── main component ────────────────────────────────────────────────────────
 
-export default function ChatPanel({ 
+export default function ChatPanel({
   // New API
-  chat: _chatNew, messages: _messagesNew, isLoading: _isLoadingNew,
-  onSendMessage, onTakeover, onResolve, onDeleteChat,
+  chat: _chatNew,
+  messages: _messagesNew,
+  isLoading: _isLoadingNew,
+  onSendMessage,
+  onTakeover,
+  onResolve,
+  onDeleteChat,
   // Old API (DashboardPage Inbox)
-  selected, onChatUpdate, replyingTo: _replyingTo, setReplyingTo: _setReplyingTo
+  selected,
+  onChatUpdate,
+  replyingTo: _replyingTo,
+  setReplyingTo: _setReplyingTo,
 }) {
   const chat = _chatNew || selected || null
   const chatId = chat?._id || chat?.id || null
@@ -217,10 +307,16 @@ export default function ChatPanel({
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (attachmentMenuRef.current && !attachmentMenuRef.current.contains(event.target)) {
+      if (
+        attachmentMenuRef.current &&
+        !attachmentMenuRef.current.contains(event.target)
+      ) {
         setShowAttachmentMenu(false)
       }
-      if (emojiMenuRef.current && !emojiMenuRef.current.contains(event.target)) {
+      if (
+        emojiMenuRef.current &&
+        !emojiMenuRef.current.contains(event.target)
+      ) {
         setShowEmojiMenu(false)
       }
       if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
@@ -272,7 +368,8 @@ export default function ChatPanel({
       return
     }
     setLocalLoading(true)
-    api.get(`/chats/${chatId}/messages`)
+    api
+      .get(`/chats/${chatId}/messages`)
       .then((res) => {
         setLocalMessages(res.data || [])
       })
@@ -285,8 +382,7 @@ export default function ChatPanel({
 
   const isResolved =
     chat && (chat.status === 'resolved' || chat.status === 'closed')
-  const isHumanMode =
-    chat && chat.aiEnabled === false
+  const isHumanMode = chat && chat.aiEnabled === false
 
   const scrollToBottom = (behavior = 'smooth') => {
     if (scrollRef.current) {
@@ -335,10 +431,17 @@ export default function ChatPanel({
       if (onSendMessage) {
         await onSendMessage(content, currentAttachment)
       } else if (chatId) {
-        const res = await api.post(`/chats/${chatId}/send`, { text: content, attachment: currentAttachment })
+        const res = await api.post(`/chats/${chatId}/send`, {
+          text: content,
+          attachment: currentAttachment,
+        })
         setLocalMessages((prev) => [...prev, res.data])
         if (onChatUpdate) {
-          onChatUpdate({ ...chat, lastMessage: content || '[Lampiran]', lastMessageAt: new Date().toISOString() })
+          onChatUpdate({
+            ...chat,
+            lastMessage: content || '[Lampiran]',
+            lastMessageAt: new Date().toISOString(),
+          })
         }
       }
     } catch (err) {
@@ -380,11 +483,9 @@ export default function ChatPanel({
 
   if (!chat) {
     return (
-      <div className="chat-prism-empty-panel">
+      <div className='chat-prism-empty-panel'>
         <MessageCircle size={42} style={{ opacity: 0.25 }} />
-        <p>
-          Select a conversation to start
-        </p>
+        <p>Select a conversation to start</p>
       </div>
     )
   }
@@ -397,25 +498,29 @@ export default function ChatPanel({
     if (!prev || !sameDay(prevTs, ts)) {
       timeline.push({ type: 'date', date: ts, key: 'sep-' + i })
     }
-    timeline.push({ type: 'msg', message: msg, key: msg._id || msg.id || 'msg-' + i })
+    timeline.push({
+      type: 'msg',
+      message: msg,
+      key: msg._id || msg.id || 'msg-' + i,
+    })
   })
 
   return (
-    <div className="chat-prism-panel">
-      <div className="chat-prism-pattern" />
+    <div className='chat-prism-panel'>
+      <div className='chat-prism-pattern' />
       {/* ── Conversation header ─────────────────────────────────────────── */}
-      <div className="chat-prism-chat-header">
+      <div className='chat-prism-chat-header'>
         {/* Left: Contact Info */}
-        <div className="chat-prism-header-left">
-          <div className="chat-prism-contact-avatar">
+        <div className='chat-prism-header-left'>
+          <div className='chat-prism-contact-avatar'>
             {(chat.contactName || 'U').charAt(0).toUpperCase()}
           </div>
-          <div className="chat-prism-chat-title-area">
-            <span className="chat-prism-chat-name">
+          <div className='chat-prism-chat-title-area'>
+            <span className='chat-prism-chat-name'>
               {chat.contactName || 'Unknown'}
             </span>
-            <div className="chat-prism-chat-subtitle">
-              <span className="chat-prism-platform-badge">
+            <div className='chat-prism-chat-subtitle'>
+              <span className='chat-prism-platform-badge'>
                 {chat.platform && <BrandIcon type={chat.platform} size={10} />}
                 <span>{chat.outletName || 'selaluteh.id'}</span>
               </span>
@@ -424,15 +529,15 @@ export default function ChatPanel({
         </div>
 
         {/* Center: Mode Switch Action */}
-        <div className="chat-prism-header-center flex items-center gap-3">
+        <div className='chat-prism-header-center flex items-center gap-3'>
           {chat.aiEnabled !== false ? (
-            <div className="px-4 py-2 bg-[var(--ai-50)] text-[var(--ai-600)] border border-[var(--ai-100)] rounded-xl text-xs font-bold flex items-center gap-2 animate-pulse">
+            <div className='px-4 py-2 bg-[var(--ai-50)] text-[var(--ai-600)] border border-[var(--ai-100)] rounded-xl text-xs font-bold flex items-center gap-2 animate-pulse'>
               <Bot size={16} /> AI Active
             </div>
           ) : (
             <button
               onClick={handleTakeoverClick}
-              className="bg-gradient-to-r from-[var(--ai-500)] to-[var(--brand-500)] text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg shadow-[var(--brand-500)]/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 border-none cursor-pointer"
+              className='bg-gradient-to-r from-[var(--ai-500)] to-[var(--brand-500)] text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg shadow-[var(--brand-500)]/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 border-none cursor-pointer'
             >
               <Bot size={16} /> Switch to AI Agent
             </button>
@@ -440,46 +545,45 @@ export default function ChatPanel({
         </div>
 
         {/* Right: Actions */}
-        <div className="chat-prism-header-right">
-          <button
-            className="chat-prism-header-icon"
-            title="Search in chat"
-          >
+        <div className='chat-prism-header-right'>
+          <button className='chat-prism-header-icon' title='Search in chat'>
             <Search size={18} />
           </button>
-          <div className="chat-prism-header-divider" />
-          
-          <div className="chat-prism-more-menu-container" ref={moreMenuRef}>
-            <button 
-              className={`chat-prism-header-icon ${showMoreMenu ? 'active' : ''}`} 
-              title="More options"
-              onClick={() => setShowMoreMenu(prev => !prev)}
+          <div className='chat-prism-header-divider' />
+
+          <div className='chat-prism-more-menu-container' ref={moreMenuRef}>
+            <button
+              className={`chat-prism-header-icon ${showMoreMenu ? 'active' : ''}`}
+              title='More options'
+              onClick={() => setShowMoreMenu((prev) => !prev)}
             >
               <MoreVertical size={18} />
             </button>
 
             {showMoreMenu && (
-              <div className="chat-prism-more-menu">
+              <div className='chat-prism-more-menu'>
                 <button
-                  type="button"
+                  type='button'
                   onClick={() => {
                     setShowMoreMenu(false)
                     if (onResolve) onResolve()
                   }}
-                  className="chat-prism-more-menu-item"
+                  className='chat-prism-more-menu-item'
                 >
-                  <Check size={14} className="text-emerald-500 shrink-0" />
-                  <span>{isResolved ? 'Buka Kembali Chat' : 'Selesaikan Chat'}</span>
+                  <Check size={14} className='text-emerald-500 shrink-0' />
+                  <span>
+                    {isResolved ? 'Buka Kembali Chat' : 'Selesaikan Chat'}
+                  </span>
                 </button>
                 <button
-                  type="button"
+                  type='button'
                   onClick={() => {
                     setShowMoreMenu(false)
                     setShowDeleteConfirm(true)
                   }}
-                  className="chat-prism-more-menu-item danger"
+                  className='chat-prism-more-menu-item danger'
                 >
-                  <Trash2 size={14} className="shrink-0" />
+                  <Trash2 size={14} className='shrink-0' />
                   <span>Hapus Chat</span>
                 </button>
               </div>
@@ -492,30 +596,24 @@ export default function ChatPanel({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="chat-prism-timeline"
+        className='chat-prism-timeline'
       >
         {isLoading && messages.length === 0 ? (
-          <div className="chat-prism-empty-messages">
-            Loading messages…
-          </div>
+          <div className='chat-prism-empty-messages'>Loading messages…</div>
         ) : messages.length === 0 ? (
-          <div className="chat-prism-empty-messages">
+          <div className='chat-prism-empty-messages'>
             No messages yet — start the conversation below
           </div>
         ) : (
           timeline.map((item) => {
             if (item.type === 'date') {
               return (
-                <div key={item.key} className="chat-prism-date-row">
-                  <span>
-                    {formatDateLabel(item.date)}
-                  </span>
+                <div key={item.key} className='chat-prism-date-row'>
+                  <span>{formatDateLabel(item.date)}</span>
                 </div>
               )
             }
-            return (
-              <MessageBubble key={item.key} message={item.message} />
-            )
+            return <MessageBubble key={item.key} message={item.message} />
           })
         )}
       </div>
@@ -528,143 +626,235 @@ export default function ChatPanel({
             setShowScrollButton(false)
             scrollToBottom('smooth')
           }}
-          className="absolute bottom-28 left-1/2 -translate-x-1/2 z-30 bg-white/90 backdrop-blur-sm border border-slate-200 shadow-md w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-700 hover:scale-105 active:scale-95 transition-all cursor-pointer"
-          title="Scroll to bottom"
+          className='absolute bottom-28 left-1/2 -translate-x-1/2 z-30 bg-white/90 backdrop-blur-sm border border-slate-200 shadow-md w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-700 hover:scale-105 active:scale-95 transition-all cursor-pointer'
+          title='Scroll to bottom'
         >
           <ChevronDown size={16} />
         </button>
       )}
 
       {/* ── Composer ────────────────────────────────────────────────────── */}
-      <div className="p-5 z-20 bg-gradient-to-t from-white via-white/80 to-transparent">
+      <div className='p-5 z-20 bg-gradient-to-t from-white via-white/80 to-transparent'>
         {isResolved ? (
-          <div className="chat-prism-resolved-note text-center py-2 text-slate-500 text-sm">
+          <div className='chat-prism-resolved-note text-center py-2 text-slate-500 text-sm'>
             This conversation is resolved.{' '}
             <button
-              className="chat-prism-inline-button text-[var(--brand-500)] border-none bg-transparent underline cursor-pointer font-bold"
+              className='chat-prism-inline-button text-[var(--brand-500)] border-none bg-transparent underline cursor-pointer font-bold'
               onClick={onResolve}
             >
               Reopen
             </button>{' '}
             to send messages.
           </div>
-        ) : (chat.aiEnabled !== false) ? (
+        ) : chat.aiEnabled !== false ? (
           // Takeover Button Mode
-          <div className="flex justify-center py-2.5">
+          <div className='flex justify-center py-2.5'>
             <button
               onClick={handleTakeoverClick}
-              className="flex items-center gap-3 px-6 py-2.5 bg-gradient-to-r from-[var(--ai-500)] to-[var(--brand-500)] text-white border-none rounded-full shadow-lg shadow-[var(--brand-500)]/20 hover:scale-105 active:scale-95 transition-all group cursor-pointer"
+              className='flex items-center gap-3 px-6 py-2.5 bg-gradient-to-r from-[var(--ai-500)] to-[var(--brand-500)] text-white border-none rounded-full shadow-lg shadow-[var(--brand-500)]/20 hover:scale-105 active:scale-95 transition-all group cursor-pointer'
             >
-              <div className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center group-hover:bg-white group-hover:text-[var(--brand-500)] transition-colors shrink-0">
+              <div className='w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center group-hover:bg-white group-hover:text-[var(--brand-500)] transition-colors shrink-0'>
                 <Keyboard size={15} />
               </div>
-              <div className="text-left">
-                <div className="text-xs font-extrabold leading-tight">Takeover Chat</div>
-                <div className="text-[10px] text-white/80 font-medium leading-none mt-0.5">Switch to manual typing</div>
+              <div className='text-left'>
+                <div className='text-xs font-extrabold leading-tight'>
+                  Takeover Chat
+                </div>
+                <div className='text-[10px] text-white/80 font-medium leading-none mt-0.5'>
+                  Switch to manual typing
+                </div>
               </div>
             </button>
           </div>
         ) : (
           // Standard Input Mode
-          <div className="relative flex flex-col gap-2 p-3 bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-slate-100 ring-1 ring-slate-50 focus-within:ring-2 focus-within:ring-[var(--brand-100)] focus-within:border-[var(--brand-200)] transition-all">
+          <div className='relative flex flex-col gap-2 p-3 bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-slate-100 ring-1 ring-slate-50 focus-within:ring-2 focus-within:ring-[var(--brand-100)] focus-within:border-[var(--brand-200)] transition-all'>
             {/* Hidden Input Files */}
-            <input 
-              type="file" 
-              ref={imageInputRef} 
-              style={{ display: 'none' }} 
-              accept="image/*"
+            <input
+              type='file'
+              ref={imageInputRef}
+              style={{ display: 'none' }}
+              accept='image/*'
               onChange={(e) => {
                 if (e.target.files?.[0]) {
-                  handleFileUpload(e.target.files[0], 'image');
+                  handleFileUpload(e.target.files[0], 'image')
                 }
-                e.target.value = '';
+                e.target.value = ''
               }}
             />
-            <input 
-              type="file" 
-              ref={docInputRef} 
-              style={{ display: 'none' }} 
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
+            <input
+              type='file'
+              ref={docInputRef}
+              style={{ display: 'none' }}
+              accept='.pdf,.doc,.docx,.xls,.xlsx,.txt'
               onChange={(e) => {
                 if (e.target.files?.[0]) {
-                  handleFileUpload(e.target.files[0], 'document');
+                  handleFileUpload(e.target.files[0], 'document')
                 }
-                e.target.value = '';
+                e.target.value = ''
               }}
             />
 
             {/* Plus / Attachment Menu */}
             {showAttachmentMenu && (
-              <div 
-                ref={attachmentMenuRef} 
-                className="absolute left-2 bottom-full mb-3 bg-white/95 backdrop-blur-md border border-slate-100 rounded-2xl shadow-xl shadow-slate-100/30 p-2 flex flex-col gap-1 w-48 animate-in fade-in slide-in-from-bottom-2 duration-200 z-30"
+              <div
+                ref={attachmentMenuRef}
+                className='absolute left-2 bottom-full mb-3 bg-white/95 backdrop-blur-md border border-slate-100 rounded-2xl shadow-xl shadow-slate-100/30 p-2 flex flex-col gap-1 w-48 animate-in fade-in slide-in-from-bottom-2 duration-200 z-30'
               >
                 <button
-                  type="button"
+                  type='button'
                   onClick={() => imageInputRef.current.click()}
-                  className="flex items-center gap-3 w-full px-3 py-2 text-slate-600 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)]/50 rounded-xl border-none bg-transparent text-left cursor-pointer transition-all"
+                  className='flex items-center gap-3 w-full px-3 py-2 text-slate-600 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)]/50 rounded-xl border-none bg-transparent text-left cursor-pointer transition-all'
                 >
-                  <ImageIcon size={16} className="text-[var(--brand-500)]" />
-                  <span className="text-xs font-semibold">Image & Video</span>
+                  <ImageIcon size={16} className='text-[var(--brand-500)]' />
+                  <span className='text-xs font-semibold'>Image & Video</span>
                 </button>
                 <button
-                  type="button"
+                  type='button'
                   onClick={() => docInputRef.current.click()}
-                  className="flex items-center gap-3 w-full px-3 py-2 text-slate-600 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)]/50 rounded-xl border-none bg-transparent text-left cursor-pointer transition-all"
+                  className='flex items-center gap-3 w-full px-3 py-2 text-slate-600 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)]/50 rounded-xl border-none bg-transparent text-left cursor-pointer transition-all'
                 >
-                  <FileText size={16} className="text-blue-500" />
-                  <span className="text-xs font-semibold">Document</span>
+                  <FileText size={16} className='text-blue-500' />
+                  <span className='text-xs font-semibold'>Document</span>
                 </button>
                 <button
-                  type="button"
+                  type='button'
                   onClick={() => {
-                    alert("Menautkan produk toko sedang dalam pengembangan!");
-                    setShowAttachmentMenu(false);
+                    alert('Menautkan produk toko sedang dalam pengembangan!')
+                    setShowAttachmentMenu(false)
                   }}
-                  className="flex items-center gap-3 w-full px-3 py-2 text-slate-600 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)]/50 rounded-xl border-none bg-transparent text-left cursor-pointer transition-all"
+                  className='flex items-center gap-3 w-full px-3 py-2 text-slate-600 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)]/50 rounded-xl border-none bg-transparent text-left cursor-pointer transition-all'
                 >
-                  <ShoppingBag size={16} className="text-emerald-500" />
-                  <span className="text-xs font-semibold">Product Link</span>
+                  <ShoppingBag size={16} className='text-emerald-500' />
+                  <span className='text-xs font-semibold'>Product Link</span>
                 </button>
                 <button
-                  type="button"
+                  type='button'
                   onClick={() => {
-                    alert("Perekam suara sedang dalam pengembangan!");
-                    setShowAttachmentMenu(false);
+                    alert('Perekam suara sedang dalam pengembangan!')
+                    setShowAttachmentMenu(false)
                   }}
-                  className="flex items-center gap-3 w-full px-3 py-2 text-slate-600 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)]/50 rounded-xl border-none bg-transparent text-left cursor-pointer transition-all"
+                  className='flex items-center gap-3 w-full px-3 py-2 text-slate-600 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)]/50 rounded-xl border-none bg-transparent text-left cursor-pointer transition-all'
                 >
-                  <Mic size={16} className="text-amber-500" />
-                  <span className="text-xs font-semibold">Audio File</span>
+                  <Mic size={16} className='text-amber-500' />
+                  <span className='text-xs font-semibold'>Audio File</span>
                 </button>
               </div>
             )}
 
             {/* Emoji Menu */}
             {showEmojiMenu && (
-              <div 
-                ref={emojiMenuRef} 
-                className="absolute right-12 bottom-full mb-3 bg-white/95 backdrop-blur-md border border-slate-100 rounded-2xl shadow-xl shadow-slate-100/30 p-3 w-64 animate-in fade-in slide-in-from-bottom-2 duration-200 z-30"
+              <div
+                ref={emojiMenuRef}
+                className='absolute right-12 bottom-full mb-3 bg-white/95 backdrop-blur-md border border-slate-100 rounded-2xl shadow-xl shadow-slate-100/30 p-3 w-64 animate-in fade-in slide-in-from-bottom-2 duration-200 z-30'
               >
-                <div className="text-[10px] font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider">Popular Emojis</div>
-                <div className="grid grid-cols-8 gap-1 max-h-40 overflow-y-auto pr-1 select-none">
-                  {['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', 
-                    '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', 
-                    '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', 
-                    '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', 
-                    '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', 
-                    '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', 
-                    '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', 
-                    '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', 
-                    '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', 
-                    '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', 
-                    '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '👍', 
-                    '👎', '👏', '🙌', '🙏', '❤️', '🔥', '✨', '🎉'].map((emoji) => (
+                <div className='text-[10px] font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider'>
+                  Popular Emojis
+                </div>
+                <div className='grid grid-cols-8 gap-1 max-h-40 overflow-y-auto pr-1 select-none'>
+                  {[
+                    '😀',
+                    '😃',
+                    '😄',
+                    '😁',
+                    '😆',
+                    '😅',
+                    '😂',
+                    '🤣',
+                    '😊',
+                    '😇',
+                    '🙂',
+                    '🙃',
+                    '😉',
+                    '😌',
+                    '😍',
+                    '🥰',
+                    '😘',
+                    '😗',
+                    '😙',
+                    '😚',
+                    '😋',
+                    '😛',
+                    '😝',
+                    '😜',
+                    '🤪',
+                    '🤨',
+                    '🧐',
+                    '🤓',
+                    '😎',
+                    '🤩',
+                    '🥳',
+                    '😏',
+                    '😒',
+                    '😞',
+                    '😔',
+                    '😟',
+                    '😕',
+                    '🙁',
+                    '☹️',
+                    '😣',
+                    '😖',
+                    '😫',
+                    '😩',
+                    '🥺',
+                    '😢',
+                    '😭',
+                    '😤',
+                    '😠',
+                    '😡',
+                    '🤬',
+                    '🤯',
+                    '😳',
+                    '🥵',
+                    '🥶',
+                    '😱',
+                    '😨',
+                    '😰',
+                    '😥',
+                    '😓',
+                    '🤗',
+                    '🤔',
+                    '🤭',
+                    '🤫',
+                    '🤥',
+                    '😶',
+                    '😐',
+                    '😑',
+                    '😬',
+                    '🙄',
+                    '😯',
+                    '😦',
+                    '😧',
+                    '😮',
+                    '😲',
+                    '🥱',
+                    '😴',
+                    '🤤',
+                    '😪',
+                    '😵',
+                    '🤐',
+                    '🥴',
+                    '🤢',
+                    '🤮',
+                    '🤧',
+                    '😷',
+                    '🤒',
+                    '🤕',
+                    '👍',
+                    '👎',
+                    '👏',
+                    '🙌',
+                    '🙏',
+                    '❤️',
+                    '🔥',
+                    '✨',
+                    '🎉',
+                  ].map((emoji) => (
                     <button
                       key={emoji}
-                      type="button"
+                      type='button'
                       onClick={() => handleEmojiSelect(emoji)}
-                      className="text-lg p-1 hover:bg-slate-100 active:scale-90 rounded transition-all cursor-pointer border-none bg-transparent flex items-center justify-center"
+                      className='text-lg p-1 hover:bg-slate-100 active:scale-90 rounded transition-all cursor-pointer border-none bg-transparent flex items-center justify-center'
                     >
                       {emoji}
                     </button>
@@ -675,43 +865,50 @@ export default function ChatPanel({
 
             {/* Uploading indicator */}
             {uploading && (
-              <div className="flex items-center gap-2 pl-2 mb-2 text-slate-500 animate-pulse">
-                <Loader2 size={16} className="animate-spin text-[var(--brand-500)]" />
-                <span className="text-xs font-semibold">Uploading file...</span>
+              <div className='flex items-center gap-2 pl-2 mb-2 text-slate-500 animate-pulse'>
+                <Loader2
+                  size={16}
+                  className='animate-spin text-[var(--brand-500)]'
+                />
+                <span className='text-xs font-semibold'>Uploading file...</span>
               </div>
             )}
 
             {/* Attachment Preview (Inside the border) */}
             {attachment && (
-              <div className="flex pl-1 mb-2 animate-in fade-in zoom-in-95 duration-200">
+              <div className='flex pl-1 mb-2 animate-in fade-in zoom-in-95 duration-200'>
                 {attachment.type === 'image' ? (
-                  <div className="relative w-20 h-20 group">
-                    <img 
-                      src={getAttachmentUrl(attachment.url)} 
-                      alt="preview" 
-                      className="w-full h-full object-cover rounded-xl border border-slate-100 animate-fade-in" 
+                  <div className='relative w-20 h-20 group'>
+                    <img
+                      src={getAttachmentUrl(attachment.url)}
+                      alt='preview'
+                      className='w-full h-full object-cover rounded-xl border border-slate-100 animate-fade-in'
                     />
-                    <button 
-                      type="button" 
+                    <button
+                      type='button'
                       onClick={() => setAttachment(null)}
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-slate-900/80 hover:bg-slate-900 text-white rounded-full flex items-center justify-center border border-white cursor-pointer shadow-sm transition-all hover:scale-110"
+                      className='absolute -top-1.5 -right-1.5 w-5 h-5 bg-slate-900/80 hover:bg-slate-900 text-white rounded-full flex items-center justify-center border border-white cursor-pointer shadow-sm transition-all hover:scale-110'
                     >
                       <X size={12} />
                     </button>
                   </div>
                 ) : (
-                  <div className="relative flex items-center gap-2 p-2 bg-slate-50 border border-slate-100 rounded-xl pr-8 max-w-[240px]">
-                    <div className="w-8 h-8 bg-[var(--brand-50)] text-[var(--brand-500)] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <div className='relative flex items-center gap-2 p-2 bg-slate-50 border border-slate-100 rounded-xl pr-8 max-w-[240px]'>
+                    <div className='w-8 h-8 bg-[var(--brand-50)] text-[var(--brand-500)] rounded-lg flex items-center justify-center flex-shrink-0'>
                       <FileText size={16} />
                     </div>
-                    <div className="min-w-0 text-left flex flex-col justify-center">
-                      <p className="text-xs font-bold text-slate-800 truncate m-0 leading-tight">{attachment.filename}</p>
-                      <p className="text-[10px] text-slate-400 capitalize m-0 mt-0.5 leading-none">{attachment.type}</p>
+                    <div className='min-w-0 text-left flex flex-col justify-center'>
+                      <p className='text-xs font-bold text-slate-800 truncate m-0 leading-tight'>
+                        {attachment.filename}
+                      </p>
+                      <p className='text-[10px] text-slate-400 capitalize m-0 mt-0.5 leading-none'>
+                        {attachment.type}
+                      </p>
                     </div>
-                    <button 
-                      type="button" 
+                    <button
+                      type='button'
                       onClick={() => setAttachment(null)}
-                      className="absolute top-1/2 -translate-y-1/2 right-2 w-5 h-5 hover:bg-slate-200 text-slate-500 rounded-full flex items-center justify-center border-none bg-transparent cursor-pointer transition-colors"
+                      className='absolute top-1/2 -translate-y-1/2 right-2 w-5 h-5 hover:bg-slate-200 text-slate-500 rounded-full flex items-center justify-center border-none bg-transparent cursor-pointer transition-colors'
                     >
                       <X size={12} />
                     </button>
@@ -721,15 +918,15 @@ export default function ChatPanel({
             )}
 
             {/* Input Row */}
-            <div className="flex items-end gap-2 w-full">
-              <button 
+            <div className='flex items-end gap-2 w-full'>
+              <button
                 onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
-                className="p-2.5 text-slate-400 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)] rounded-full border-none bg-transparent cursor-pointer transition-colors" 
-                type="button"
+                className='p-2.5 text-slate-400 hover:text-[var(--brand-500)] hover:bg-[var(--brand-50)] rounded-full border-none bg-transparent cursor-pointer transition-colors'
+                type='button'
               >
                 <Plus size={20} />
               </button>
-              
+
               <textarea
                 ref={textareaRef}
                 value={text}
@@ -738,33 +935,42 @@ export default function ChatPanel({
                   autoResize(e.target)
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder="Type your message..." 
-                className="w-full bg-transparent border-none px-2 py-2.5 text-sm focus:ring-0 outline-none resize-none min-h-[36px] max-h-32 text-slate-700 placeholder-slate-400 font-medium self-center"
+                placeholder='Type your message...'
+                className='w-full bg-transparent border-none px-2 py-2.5 text-sm focus:ring-0 outline-none resize-none min-h-[36px] max-h-32 text-slate-700 placeholder-slate-400 font-medium self-center'
                 rows={1}
                 disabled={sending}
               />
-              
-              <div className="flex items-center gap-1 pb-0.5 pr-0.5">
-                <button 
+
+              <div className='flex items-center gap-1 pb-0.5 pr-0.5'>
+                <button
                   onClick={() => imageInputRef.current.click()}
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 border-none bg-transparent cursor-pointer rounded-full transition-colors" 
-                  type="button"
+                  className='p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 border-none bg-transparent cursor-pointer rounded-full transition-colors'
+                  type='button'
                 >
                   <ImageIcon size={18} />
                 </button>
-                <button 
+                <button
                   onClick={() => setShowEmojiMenu(!showEmojiMenu)}
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 border-none bg-transparent cursor-pointer rounded-full transition-colors" 
-                  type="button"
+                  className='p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 border-none bg-transparent cursor-pointer rounded-full transition-colors'
+                  type='button'
                 >
                   <Smile size={18} />
                 </button>
-                <button 
+                <button
                   onClick={handleSend}
-                  disabled={(!text.trim() && !attachment) || sending || uploading}
+                  disabled={
+                    (!text.trim() && !attachment) || sending || uploading
+                  }
                   className={`${(text.trim() || attachment) && !uploading ? 'bg-gradient-to-r from-[var(--brand-500)] to-[var(--ai-500)] shadow-md cursor-pointer' : 'bg-slate-100 text-slate-300 cursor-not-allowed'} w-10 h-10 border-none rounded-full flex items-center justify-center transition-all duration-300 ml-1`}
                 >
-                  <Send size={18} className={(text.trim() || attachment) && !uploading ? 'text-white ml-0.5' : 'ml-0.5'} />
+                  <Send
+                    size={18}
+                    className={
+                      (text.trim() || attachment) && !uploading
+                        ? 'text-white ml-0.5'
+                        : 'ml-0.5'
+                    }
+                  />
                 </button>
               </div>
             </div>
@@ -773,27 +979,35 @@ export default function ChatPanel({
       </div>
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="chat-prism-modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="chat-prism-modal-dialog" onClick={(e) => e.stopPropagation()}>
-            <div className="chat-prism-modal-icon-wrap">
+        <div
+          className='chat-prism-modal-overlay'
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div
+            className='chat-prism-modal-dialog'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className='chat-prism-modal-icon-wrap'>
               <AlertTriangle size={28} />
             </div>
-            <h3 className="chat-prism-modal-title">Hapus Chat?</h3>
-            <p className="chat-prism-modal-body text-center">
-              Apakah Anda yakin ingin menghapus chat dengan <strong>{chat.contactName || 'Unknown'}</strong> secara permanen?
-              Semua riwayat chat di database akan ikut terhapus dan tidak dapat dikembalikan.
+            <h3 className='chat-prism-modal-title'>Hapus Chat?</h3>
+            <p className='chat-prism-modal-body text-center'>
+              Apakah Anda yakin ingin menghapus chat dengan{' '}
+              <strong>{chat.contactName || 'Unknown'}</strong> secara permanen?
+              Semua riwayat chat di database akan ikut terhapus dan tidak dapat
+              dikembalikan.
             </p>
-            <div className="chat-prism-modal-actions">
+            <div className='chat-prism-modal-actions'>
               <button
-                type="button"
-                className="chat-prism-modal-btn cancel"
+                type='button'
+                className='chat-prism-modal-btn cancel'
                 onClick={() => setShowDeleteConfirm(false)}
               >
                 Batal
               </button>
               <button
-                type="button"
-                className="chat-prism-modal-btn danger"
+                type='button'
+                className='chat-prism-modal-btn danger'
                 onClick={async () => {
                   setShowDeleteConfirm(false)
                   if (onDeleteChat) {

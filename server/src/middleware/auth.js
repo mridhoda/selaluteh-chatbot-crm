@@ -15,6 +15,8 @@ import jwt from 'jsonwebtoken';
 import { usersSupabaseRepository } from '../db/repositories/users.repository.js';
 import { env } from '../config/env.js';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Verify Bearer JWT and attach payload to req.user.
  * Does NOT load user from DB — use attachUser for that.
@@ -42,7 +44,7 @@ export function authRequired(req, res, next) {
  * req.me is a camelCase UserRecord (id is UUID, not ObjectId).
  */
 export async function attachUser(req, res, next) {
-  if (!req.user?.id) {
+  if (!req.user?.id || !UUID_RE.test(req.user.id)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   try {

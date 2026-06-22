@@ -54,7 +54,7 @@ export default function EmptyState({ icon, title, description, action }) {
         </p>
       )}
       {action && (
-        <button className="btn" onClick={action.onClick}>
+        <button className='btn' onClick={action.onClick}>
           {action.label}
         </button>
       )}

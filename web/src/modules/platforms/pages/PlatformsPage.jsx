@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Plus, RefreshCw, Search, Eye, Trash2, Settings, TestTube, RotateCcw } from 'lucide-react'
+import {
+  Plus,
+  RefreshCw,
+  Search,
+  Eye,
+  Trash2,
+  Settings,
+  TestTube,
+  RotateCcw,
+} from 'lucide-react'
 import PageHeader from '../../../shared/components/ui/PageHeader'
 import EmptyState from '../../../shared/components/ui/EmptyState'
 import ConfirmDialog from '../../../shared/components/ui/ConfirmDialog'
@@ -70,7 +79,10 @@ function formatRelativeDate(d) {
   if (hours < 24) return hours + 'h ago'
   const days = Math.floor(hours / 24)
   if (days < 30) return days + 'd ago'
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return new Date(d).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 function getApiErrorMessage(e, fallback = 'Request failed') {
@@ -97,7 +109,7 @@ function getApiErrorMessage(e, fallback = 'Request failed') {
 function SummaryCard({ label, value, color }) {
   return (
     <div
-      className="card"
+      className='card'
       style={{ padding: '16px 20px', flex: 1, minWidth: 0 }}
     >
       <div
@@ -141,7 +153,8 @@ function PlatformForm({ type, initialData = {}, onSubmit, onCancel, saving }) {
       (initialData.credentials && initialData.credentials.phoneNumberId) || '',
     accessToken: '',
     webhookVerifyToken:
-      (initialData.credentials && initialData.credentials.webhookVerifyToken) || '',
+      (initialData.credentials && initialData.credentials.webhookVerifyToken) ||
+      '',
     pageId: (initialData.credentials && initialData.credentials.pageId) || '',
     agentId: initialData.agentId || '',
   })
@@ -186,9 +199,11 @@ function PlatformForm({ type, initialData = {}, onSubmit, onCancel, saving }) {
         <div>
           <FieldLabel>Display Label *</FieldLabel>
           <input
-            className="input"
+            className='input'
             required
-            placeholder={'My ' + type.charAt(0).toUpperCase() + type.slice(1) + ' Bot'}
+            placeholder={
+              'My ' + type.charAt(0).toUpperCase() + type.slice(1) + ' Bot'
+            }
             value={form.label}
             onChange={(e) => set('label', e.target.value)}
           />
@@ -200,8 +215,8 @@ function PlatformForm({ type, initialData = {}, onSubmit, onCancel, saving }) {
               Bot Token{isEdit ? ' — leave blank to keep existing' : ' *'}
             </FieldLabel>
             <input
-              className="input"
-              type="password"
+              className='input'
+              type='password'
               required={!isEdit}
               placeholder={
                 isEdit
@@ -210,10 +225,13 @@ function PlatformForm({ type, initialData = {}, onSubmit, onCancel, saving }) {
               }
               value={form.token}
               onChange={(e) => set('token', e.target.value)}
-              autoComplete="new-password"
+              autoComplete='new-password'
             />
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 5 }}>
-              Get your token from @BotFather on Telegram. It will never be shown again.
+            <div
+              style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 5 }}
+            >
+              Get your token from @BotFather on Telegram. It will never be shown
+              again.
             </div>
           </div>
         )}
@@ -222,9 +240,9 @@ function PlatformForm({ type, initialData = {}, onSubmit, onCancel, saving }) {
           <div>
             <FieldLabel>Phone Number ID *</FieldLabel>
             <input
-              className="input"
+              className='input'
               required
-              placeholder="1234567890"
+              placeholder='1234567890'
               value={form.phoneNumberId}
               onChange={(e) => set('phoneNumberId', e.target.value)}
             />
@@ -235,9 +253,9 @@ function PlatformForm({ type, initialData = {}, onSubmit, onCancel, saving }) {
           <div>
             <FieldLabel>Page ID *</FieldLabel>
             <input
-              className="input"
+              className='input'
               required
-              placeholder="123456789"
+              placeholder='123456789'
               value={form.pageId}
               onChange={(e) => set('pageId', e.target.value)}
             />
@@ -251,24 +269,32 @@ function PlatformForm({ type, initialData = {}, onSubmit, onCancel, saving }) {
                 Access Token{isEdit ? ' — leave blank to keep existing' : ' *'}
               </FieldLabel>
               <input
-                className="input"
-                type="password"
+                className='input'
+                type='password'
                 required={!isEdit}
-                placeholder={isEdit ? '••••••••  (unchanged)' : 'EAABwzLixnjYBAO…'}
+                placeholder={
+                  isEdit ? '••••••••  (unchanged)' : 'EAABwzLixnjYBAO…'
+                }
                 value={form.accessToken}
                 onChange={(e) => set('accessToken', e.target.value)}
-                autoComplete="new-password"
+                autoComplete='new-password'
               />
             </div>
             <div>
               <FieldLabel>Webhook Verify Token</FieldLabel>
               <input
-                className="input"
-                placeholder="my_verify_token"
+                className='input'
+                placeholder='my_verify_token'
                 value={form.webhookVerifyToken}
                 onChange={(e) => set('webhookVerifyToken', e.target.value)}
               />
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 5 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: 'var(--text-muted)',
+                  marginTop: 5,
+                }}
+              >
                 Set this same value in your Meta App webhook configuration.
               </div>
             </div>
@@ -284,19 +310,15 @@ function PlatformForm({ type, initialData = {}, onSubmit, onCancel, saving }) {
           }}
         >
           <button
-            type="button"
-            className="btn ghost"
+            type='button'
+            className='btn ghost'
             onClick={onCancel}
             disabled={saving}
           >
             {isEdit ? 'Cancel' : 'Back'}
           </button>
-          <button type="submit" className="btn" disabled={saving}>
-            {saving
-              ? 'Saving…'
-              : isEdit
-              ? 'Save Changes'
-              : 'Connect Platform'}
+          <button type='submit' className='btn' disabled={saving}>
+            {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Connect Platform'}
           </button>
         </div>
       </div>
@@ -372,8 +394,7 @@ export default function PlatformsPage() {
     (p) => getConnectionStatus(p) === 'connected'
   ).length
   const needsAttentionCount = platforms.filter(
-    (p) =>
-      getConnectionStatus(p) !== 'connected' || !p.webhookConfigured
+    (p) => getConnectionStatus(p) !== 'connected' || !p.webhookConfigured
   ).length
 
   // ── modal helpers ────────────────────────────────────────────────────────
@@ -440,7 +461,11 @@ export default function PlatformsPage() {
       await platformsApi.delete(pid)
       toast.success('Platform deleted')
       setPlatforms((prev) => prev.filter((p) => (p._id || p.id) !== pid))
-      if (drawerOpen && drawerPlatform && (drawerPlatform._id || drawerPlatform.id) === pid) {
+      if (
+        drawerOpen &&
+        drawerPlatform &&
+        (drawerPlatform._id || drawerPlatform.id) === pid
+      ) {
         setDrawerOpen(false)
       }
     } catch (e) {
@@ -467,7 +492,9 @@ export default function PlatformsPage() {
     return (
       (p.label || '').toLowerCase().includes(q) ||
       (p.type || '').toLowerCase().includes(q) ||
-      (String(getAccountId(p) || '')).toLowerCase().includes(q)
+      String(getAccountId(p) || '')
+        .toLowerCase()
+        .includes(q)
     )
   })
 
@@ -477,12 +504,12 @@ export default function PlatformsPage() {
     <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
       {/* Header */}
       <PageHeader
-        title="Connected Platforms"
-        subtitle="Connect and monitor the channels used by your customers"
+        title='Connected Platforms'
+        subtitle='Connect and monitor the channels used by your customers'
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              className="btn ghost"
+              className='btn ghost'
               onClick={fetchPlatforms}
               disabled={isLoading}
             >
@@ -495,7 +522,7 @@ export default function PlatformsPage() {
               />
               Refresh
             </button>
-            <button className="btn" onClick={openConnect}>
+            <button className='btn' onClick={openConnect}>
               <Plus size={13} style={{ marginRight: 5 }} />
               Connect Platform
             </button>
@@ -506,14 +533,14 @@ export default function PlatformsPage() {
       {/* Summary cards */}
       {!isLoading && platforms.length > 0 && (
         <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
-          <SummaryCard label="Connected Channels" value={platforms.length} />
+          <SummaryCard label='Connected Channels' value={platforms.length} />
           <SummaryCard
-            label="Active"
+            label='Active'
             value={connectedCount}
-            color="var(--success-600)"
+            color='var(--success-600)'
           />
           <SummaryCard
-            label="Needs Attention"
+            label='Needs Attention'
             value={needsAttentionCount}
             color={
               needsAttentionCount > 0
@@ -521,7 +548,7 @@ export default function PlatformsPage() {
                 : 'var(--text-primary)'
             }
           />
-          <SummaryCard label="Messages Today" value="—" />
+          <SummaryCard label='Messages Today' value='—' />
         </div>
       )}
 
@@ -541,8 +568,8 @@ export default function PlatformsPage() {
               }}
             />
             <input
-              className="input"
-              placeholder="Search platforms…"
+              className='input'
+              placeholder='Search platforms…'
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ paddingLeft: 32 }}
@@ -581,7 +608,7 @@ export default function PlatformsPage() {
         >
           {error}
           <button
-            className="btn ghost"
+            className='btn ghost'
             style={{ marginLeft: 12 }}
             onClick={fetchPlatforms}
           >
@@ -590,20 +617,17 @@ export default function PlatformsPage() {
         </div>
       ) : platforms.length === 0 ? (
         <EmptyState
-          title="No channels connected"
-          description="Connect Telegram to start receiving marketplace conversations"
+          title='No channels connected'
+          description='Connect Telegram to start receiving marketplace conversations'
           action={
-            <button className="btn" onClick={openConnect}>
+            <button className='btn' onClick={openConnect}>
               <Plus size={13} style={{ marginRight: 5 }} />
               Connect Telegram
             </button>
           }
         />
       ) : (
-        <div
-          className="card"
-          style={{ overflow: 'hidden', padding: 0 }}
-        >
+        <div className='card' style={{ overflow: 'hidden', padding: 0 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr
@@ -691,8 +715,15 @@ export default function PlatformsPage() {
                             gap: 10,
                           }}
                         >
-                          <div className={`chat-prism-avatar-wrap ${platform.type || 'custom'}`} style={{ width: 28, height: 28, marginTop: 0 }}>
-                            <BrandIcon type={platform.type} size={14} color="#ffffff" />
+                          <div
+                            className={`chat-prism-avatar-wrap ${platform.type || 'custom'}`}
+                            style={{ width: 28, height: 28, marginTop: 0 }}
+                          >
+                            <BrandIcon
+                              type={platform.type}
+                              size={14}
+                              color='#ffffff'
+                            />
                           </div>
                           <div>
                             <div
@@ -756,9 +787,9 @@ export default function PlatformsPage() {
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', gap: 2 }}>
                           <button
-                            className="btn ghost"
+                            className='btn ghost'
                             style={{ padding: '4px 8px' }}
-                            title="View details"
+                            title='View details'
                             onClick={() => {
                               setDrawerPlatform(platform)
                               setDrawerOpen(true)
@@ -767,20 +798,20 @@ export default function PlatformsPage() {
                             <Eye size={14} />
                           </button>
                           <button
-                            className="btn ghost"
+                            className='btn ghost'
                             style={{ padding: '4px 8px' }}
-                            title="Edit"
+                            title='Edit'
                             onClick={() => openEdit(platform)}
                           >
                             <Settings size={14} />
                           </button>
                           <button
-                            className="btn ghost"
+                            className='btn ghost'
                             style={{
                               padding: '4px 8px',
                               color: 'var(--danger-600)',
                             }}
-                            title="Delete"
+                            title='Delete'
                             onClick={() => setConfirmDelete(platform)}
                           >
                             <Trash2 size={14} />
@@ -799,13 +830,13 @@ export default function PlatformsPage() {
       {/* ── Connect / Edit Modal ─────────────────────────────────────────── */}
       {connectOpen && (
         <div
-          className="modal"
+          className='modal'
           style={{ zIndex: 1000 }}
           onClick={(e) => {
             if (e.target === e.currentTarget) closeConnect()
           }}
         >
-          <div className="modal-card" style={{ maxWidth: 520, width: '100%' }}>
+          <div className='modal-card' style={{ maxWidth: 520, width: '100%' }}>
             {/* modal header */}
             <div
               style={{
@@ -827,15 +858,15 @@ export default function PlatformsPage() {
                 {editPlatform
                   ? 'Edit Platform'
                   : connectStep === 1
-                  ? 'Select Platform Type'
-                  : 'Connect ' +
-                    (selectedType
-                      ? selectedType.charAt(0).toUpperCase() +
-                        selectedType.slice(1)
-                      : '')}
+                    ? 'Select Platform Type'
+                    : 'Connect ' +
+                      (selectedType
+                        ? selectedType.charAt(0).toUpperCase() +
+                          selectedType.slice(1)
+                        : '')}
               </h3>
               <button
-                className="btn ghost"
+                className='btn ghost'
                 style={{ padding: '2px 8px', fontSize: 18, lineHeight: 1 }}
                 onClick={closeConnect}
               >
@@ -847,11 +878,13 @@ export default function PlatformsPage() {
             <div style={{ padding: 24 }}>
               {connectStep === 1 ? (
                 /* Step 1 — type picker */
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div
+                  style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+                >
                   {PLATFORM_TYPES.map(({ type, label, description }) => (
                     <button
                       key={type}
-                      className="btn ghost"
+                      className='btn ghost'
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -867,8 +900,11 @@ export default function PlatformsPage() {
                         setConnectStep(2)
                       }}
                     >
-                      <div className={`chat-prism-avatar-wrap ${type || 'custom'}`} style={{ width: 32, height: 32, marginTop: 0 }}>
-                        <BrandIcon type={type} size={16} color="#ffffff" />
+                      <div
+                        className={`chat-prism-avatar-wrap ${type || 'custom'}`}
+                        style={{ width: 32, height: 32, marginTop: 0 }}
+                      >
+                        <BrandIcon type={type} size={16} color='#ffffff' />
                       </div>
                       <div>
                         <div
@@ -900,9 +936,7 @@ export default function PlatformsPage() {
                   initialData={editPlatform || {}}
                   onSubmit={handleSubmit}
                   onCancel={
-                    editPlatform
-                      ? closeConnect
-                      : () => setConnectStep(1)
+                    editPlatform ? closeConnect : () => setConnectStep(1)
                   }
                   saving={saving}
                 />
@@ -927,7 +961,7 @@ export default function PlatformsPage() {
       {/* ── Confirm Delete ───────────────────────────────────────────────── */}
       <ConfirmDialog
         open={!!confirmDelete}
-        title="Delete Platform"
+        title='Delete Platform'
         description={
           'Are you sure you want to delete "' +
           (confirmDelete
@@ -935,10 +969,9 @@ export default function PlatformsPage() {
             : '') +
           '"? This cannot be undone.'
         }
-        variant="danger"
+        variant='danger'
         onConfirm={() =>
-          confirmDelete &&
-          handleDelete(confirmDelete._id || confirmDelete.id)
+          confirmDelete && handleDelete(confirmDelete._id || confirmDelete.id)
         }
         onCancel={() => setConfirmDelete(null)}
       />

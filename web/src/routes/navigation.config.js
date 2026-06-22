@@ -15,7 +15,11 @@ export const navigationGroups = [
       { label: 'Chat', path: '/app/chats', key: 'chat' },
       { label: 'Analytics', path: '/app/analytics', key: 'analytics' },
       { label: 'Contacts', path: '/app/contacts', key: 'contacts' },
-      { label: 'Connected Platforms', path: '/app/platforms', key: 'platforms' },
+      {
+        label: 'Connected Platforms',
+        path: '/app/platforms',
+        key: 'platforms',
+      },
       { label: 'AI Agents', path: '/app/agents', key: 'agents' },
       { label: 'Human Agents', path: '/app/human-agents', key: 'human-agents' },
       { label: 'Complaints', path: '/app/complaints', key: 'complaints' },

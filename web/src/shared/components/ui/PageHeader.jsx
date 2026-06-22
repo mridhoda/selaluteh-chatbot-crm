@@ -12,7 +12,7 @@ export default function PageHeader({
   onRefresh,
   actions, // custom buttons div
 }) {
-  const displayDescription = description || subtitle;
+  const displayDescription = description || subtitle
 
   return (
     <div
@@ -66,7 +66,7 @@ export default function PageHeader({
               <button
                 onClick={onRefresh}
                 disabled={isRefreshing}
-                title="Refresh"
+                title='Refresh'
                 style={{
                   background: 'none',
                   border: 'none',
@@ -82,7 +82,9 @@ export default function PageHeader({
                 <RefreshCw
                   size={13}
                   style={{
-                    animation: isRefreshing ? 'spin 1s linear infinite' : 'none',
+                    animation: isRefreshing
+                      ? 'spin 1s linear infinite'
+                      : 'none',
                   }}
                 />
               </button>
@@ -99,12 +101,14 @@ export default function PageHeader({
           flexShrink: 0,
         }}
       >
-        {actions ? actions : (
+        {actions ? (
+          actions
+        ) : (
           <>
             {secondaryActions.map((action, i) => (
               <button
                 key={i}
-                className="btn ghost"
+                className='btn ghost'
                 onClick={action.onClick}
                 disabled={action.disabled}
               >
@@ -113,7 +117,7 @@ export default function PageHeader({
             ))}
             {primaryAction && (
               <button
-                className="btn"
+                className='btn'
                 onClick={primaryAction.onClick}
                 disabled={primaryAction.disabled}
               >

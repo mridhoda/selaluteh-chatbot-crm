@@ -41,6 +41,12 @@ describe('supabase-errors', () => {
       assert.equal(err.status, 400);
     });
 
+    it('maps invalid_text_representation (22P02) to VALIDATION_ERROR 400', () => {
+      const err = mapSupabaseError({ code: PG_ERRORS.INVALID_TEXT_REPRESENTATION, message: 'invalid uuid' });
+      assert.equal(err.code, 'VALIDATION_ERROR');
+      assert.equal(err.status, 400);
+    });
+
     it('maps PGRST116 (no rows) to null (not an error)', () => {
       const result = mapSupabaseError({ code: PG_ERRORS.PGRST_NO_ROWS, message: 'no rows' });
       assert.strictEqual(result, null);

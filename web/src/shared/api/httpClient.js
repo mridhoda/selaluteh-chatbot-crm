@@ -22,10 +22,20 @@ if (typeof window !== 'undefined') {
   const realPut = api.put.bind(api)
   const realDelete = api.delete.bind(api)
 
-  api.get = (url, config) => (isDemoMode() ? mockApi('get', url, undefined, config) : realGet(url, config))
-  api.post = (url, data, config) => (isDemoMode() ? mockApi('post', url, data, config) : realPost(url, data, config))
-  api.put = (url, data, config) => (isDemoMode() ? mockApi('put', url, data, config) : realPut(url, data, config))
-  api.delete = (url, config) => (isDemoMode() ? mockApi('delete', url, undefined, config) : realDelete(url, config))
+  api.get = (url, config) =>
+    isDemoMode() ? mockApi('get', url, undefined, config) : realGet(url, config)
+  api.post = (url, data, config) =>
+    isDemoMode()
+      ? mockApi('post', url, data, config)
+      : realPost(url, data, config)
+  api.put = (url, data, config) =>
+    isDemoMode()
+      ? mockApi('put', url, data, config)
+      : realPut(url, data, config)
+  api.delete = (url, config) =>
+    isDemoMode()
+      ? mockApi('delete', url, undefined, config)
+      : realDelete(url, config)
 }
 
 export default api

@@ -73,7 +73,7 @@ export default function DetailDrawer({
       {/* Backdrop */}
       <div
         onClick={onClose}
-        aria-hidden="true"
+        aria-hidden='true'
         style={{
           position: 'fixed',
           inset: 0,
@@ -86,9 +86,9 @@ export default function DetailDrawer({
       {/* Drawer panel */}
       <div
         ref={drawerRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="drawer-title"
+        role='dialog'
+        aria-modal='true'
+        aria-labelledby='drawer-title'
         style={{
           position: 'fixed',
           top: 0,
@@ -131,7 +131,7 @@ export default function DetailDrawer({
               }}
             >
               <span
-                id="drawer-title"
+                id='drawer-title'
                 style={{
                   fontSize: 16,
                   fontWeight: 600,
@@ -146,7 +146,7 @@ export default function DetailDrawer({
             <button
               data-close
               onClick={onClose}
-              aria-label="Close"
+              aria-label='Close'
               style={{
                 background: 'none',
                 border: 'none',
@@ -159,8 +159,12 @@ export default function DetailDrawer({
                 flexShrink: 0,
                 transition: 'color 0.12s',
               }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.color = 'var(--text-primary)')
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = 'var(--text-muted)')
+              }
             >
               <X size={18} />
             </button>

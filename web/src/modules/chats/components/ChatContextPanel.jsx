@@ -1,5 +1,43 @@
 import React, { useState } from 'react'
-import { Copy, ExternalLink, Send, AlertCircle, Ticket, ShoppingBag, Filter, ChevronDown, Plus, User, UserPlus, Bot, Shield, CheckCircle, Clock, Calendar, LayoutGrid, ShoppingCart, Bookmark, Search, ArrowRight, X, Wallet, CheckCircle2, MinusCircle, MoreHorizontal, Trash2, Edit2, Coffee, Tag, Info, ChevronLeft, ChevronRight, MapPin, Check, Sparkles, AlertTriangle } from 'lucide-react'
+import {
+  Copy,
+  ExternalLink,
+  Send,
+  AlertCircle,
+  Ticket,
+  ShoppingBag,
+  Filter,
+  ChevronDown,
+  Plus,
+  User,
+  UserPlus,
+  Bot,
+  Shield,
+  CheckCircle,
+  Clock,
+  Calendar,
+  LayoutGrid,
+  ShoppingCart,
+  Bookmark,
+  Search,
+  ArrowRight,
+  X,
+  Wallet,
+  CheckCircle2,
+  MinusCircle,
+  MoreHorizontal,
+  Trash2,
+  Edit2,
+  Coffee,
+  Tag,
+  Info,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  Check,
+  Sparkles,
+  AlertTriangle,
+} from 'lucide-react'
 import { useToast } from '../../../shared/components/feedback/Toast'
 
 // ─── small helpers ─────────────────────────────────────────────────────────
@@ -92,31 +130,133 @@ function Divider() {
 }
 
 const OUTLETS = [
-  { id: 'ST_SMG', name: 'Selalu Teh - Semarang City', location: 'Semarang, Central Java', status: 'Active', initials: 'ST' },
-  { id: 'ST_BDO', name: 'Selalu Teh - Bandung', location: 'Bandung, West Java', status: 'Active', initials: 'SB' },
-  { id: 'ST_JKT', name: 'Selalu Teh - Jakarta', location: 'Jakarta, DKI Jakarta', status: 'Active', initials: 'SJ' },
-  { id: 'ST_SUB', name: 'Selalu Teh - Surabaya', location: 'Surabaya, East Java', status: 'Busy', initials: 'SS' },
-  { id: 'ST_YOG', name: 'Selalu Teh - Yogyakarta', location: 'Yogyakarta, DI Yogyakarta', status: 'Offline', initials: 'SY' },
+  {
+    id: 'ST_SMG',
+    name: 'Selalu Teh - Semarang City',
+    location: 'Semarang, Central Java',
+    status: 'Active',
+    initials: 'ST',
+  },
+  {
+    id: 'ST_BDO',
+    name: 'Selalu Teh - Bandung',
+    location: 'Bandung, West Java',
+    status: 'Active',
+    initials: 'SB',
+  },
+  {
+    id: 'ST_JKT',
+    name: 'Selalu Teh - Jakarta',
+    location: 'Jakarta, DKI Jakarta',
+    status: 'Active',
+    initials: 'SJ',
+  },
+  {
+    id: 'ST_SUB',
+    name: 'Selalu Teh - Surabaya',
+    location: 'Surabaya, East Java',
+    status: 'Busy',
+    initials: 'SS',
+  },
+  {
+    id: 'ST_YOG',
+    name: 'Selalu Teh - Yogyakarta',
+    location: 'Yogyakarta, DI Yogyakarta',
+    status: 'Offline',
+    initials: 'SY',
+  },
 ]
 
 const CONVERSATION_ORDERS = [
-  { id: 'ORD-1028', date: 'May 7, 2025', time: '10:15 AM', amount: 'Rp 111.000', payment: 'Paid', status: 'Completed', actions: ['Open', 'Duplicate'] },
-  { id: 'ORD-1027', date: 'May 7, 2025', time: '09:15 AM', amount: 'Rp 91.500', payment: 'Pending', status: 'Preparing', actions: ['Open', 'Resend'] },
-  { id: 'ORD-1026', date: 'May 6, 2025', time: '02:49 PM', amount: 'Rp 85.000', payment: 'Paid', status: 'Completed', actions: ['Open', 'Duplicate'] },
-  { id: 'ORD-1025', date: 'May 4, 2025', time: '11:42 AM', amount: 'Rp 65.000', payment: 'Paid', status: 'Completed', actions: ['Open', 'Duplicate'] },
-  { id: 'ORD-1024', date: 'May 2, 2025', time: '04:22 PM', amount: 'Rp 120.000', payment: 'Pending', status: 'Preparing', actions: ['Open', 'Resend'] },
+  {
+    id: 'ORD-1028',
+    date: 'May 7, 2025',
+    time: '10:15 AM',
+    amount: 'Rp 111.000',
+    payment: 'Paid',
+    status: 'Completed',
+    actions: ['Open', 'Duplicate'],
+  },
+  {
+    id: 'ORD-1027',
+    date: 'May 7, 2025',
+    time: '09:15 AM',
+    amount: 'Rp 91.500',
+    payment: 'Pending',
+    status: 'Preparing',
+    actions: ['Open', 'Resend'],
+  },
+  {
+    id: 'ORD-1026',
+    date: 'May 6, 2025',
+    time: '02:49 PM',
+    amount: 'Rp 85.000',
+    payment: 'Paid',
+    status: 'Completed',
+    actions: ['Open', 'Duplicate'],
+  },
+  {
+    id: 'ORD-1025',
+    date: 'May 4, 2025',
+    time: '11:42 AM',
+    amount: 'Rp 65.000',
+    payment: 'Paid',
+    status: 'Completed',
+    actions: ['Open', 'Duplicate'],
+  },
+  {
+    id: 'ORD-1024',
+    date: 'May 2, 2025',
+    time: '04:22 PM',
+    amount: 'Rp 120.000',
+    payment: 'Pending',
+    status: 'Preparing',
+    actions: ['Open', 'Resend'],
+  },
 ]
 
 const PRODUCTS = [
-  { id: 'p1', name: 'Matcha Latte', price: 'Rp 28.000', stock: 'In stock', badge: 'Bestseller' },
+  {
+    id: 'p1',
+    name: 'Matcha Latte',
+    price: 'Rp 28.000',
+    stock: 'In stock',
+    badge: 'Bestseller',
+  },
   { id: 'p2', name: 'Lemon Tea', price: 'Rp 18.000', stock: 'In stock' },
-  { id: 'p3', name: 'Kopi Susu Gula Aren', price: 'Rp 24.000', stock: 'Low stock' },
+  {
+    id: 'p3',
+    name: 'Kopi Susu Gula Aren',
+    price: 'Rp 24.000',
+    stock: 'Low stock',
+  },
 ]
 
 const CART_ITEMS = [
-  { id: 'c1', name: 'Selkop Hoodie', variant: 'Navy / L', qty: 1, price: 'Rp 120.000', total: 'Rp 120.000' },
-  { id: 'c2', name: 'Selkop Tumbler', variant: 'White / 500ml', qty: 2, price: 'Rp 85.000', total: 'Rp 170.000' },
-  { id: 'c3', name: 'Selkop Tote Bag', variant: 'Canvas / Natural', qty: 1, price: 'Rp 65.000', total: 'Rp 65.000' },
+  {
+    id: 'c1',
+    name: 'Selkop Hoodie',
+    variant: 'Navy / L',
+    qty: 1,
+    price: 'Rp 120.000',
+    total: 'Rp 120.000',
+  },
+  {
+    id: 'c2',
+    name: 'Selkop Tumbler',
+    variant: 'White / 500ml',
+    qty: 2,
+    price: 'Rp 85.000',
+    total: 'Rp 170.000',
+  },
+  {
+    id: 'c3',
+    name: 'Selkop Tote Bag',
+    variant: 'Canvas / Natural',
+    qty: 1,
+    price: 'Rp 65.000',
+    total: 'Rp 65.000',
+  },
 ]
 
 // ─── tab panels ────────────────────────────────────────────────────────────
@@ -145,112 +285,158 @@ function ContactTab({ chat }) {
     : '—'
 
   return (
-    <div className="chat-prism-info-sections">
-      <section className="chat-prism-profile-block">
-        <div className="chat-prism-profile-title-row">
+    <div className='chat-prism-info-sections'>
+      <section className='chat-prism-profile-block'>
+        <div className='chat-prism-profile-title-row'>
           <h2>{chat.contactName || 'Unknown'}</h2>
-          <button onClick={() => copy(phone || chat.contactName)} title="Copy contact">
+          <button
+            onClick={() => copy(phone || chat.contactName)}
+            title='Copy contact'
+          >
             <Copy size={16} />
           </button>
         </div>
-        <div className="chat-prism-profile-channel">
+        <div className='chat-prism-profile-channel'>
           {chat.platform || 'Channel'} {phone ? `· ${phone}` : ''}
         </div>
-        <button className="chat-prism-select-status">
-          <span><Filter size={14} /> Select Pipeline Status</span>
+        <button className='chat-prism-select-status'>
+          <span>
+            <Filter size={14} /> Select Pipeline Status
+          </span>
           <ChevronDown size={14} />
         </button>
       </section>
 
       <InfoDivider />
 
-      <InfoHeader title="Labels" action="Add Label" icon={<Plus size={12} />} />
-      <p className="chat-prism-muted-line">{tags.length ? tags.join(', ') : 'No labels yet'}</p>
+      <InfoHeader title='Labels' action='Add Label' icon={<Plus size={12} />} />
+      <p className='chat-prism-muted-line'>
+        {tags.length ? tags.join(', ') : 'No labels yet'}
+      </p>
 
       <InfoDivider />
 
-      <AccordionMini title="Session History">
-        <p className="chat-prism-center-muted">No sessions available</p>
+      <AccordionMini title='Session History'>
+        <p className='chat-prism-center-muted'>No sessions available</p>
       </AccordionMini>
 
       <InfoDivider />
 
       <div>
-        <label className="chat-prism-section-label">Handled By</label>
-        <button className="chat-prism-assignee-card">
-          <span className="chat-prism-assignee-icon"><User size={14} /></span>
-          <strong>{chat.takenOverByName || chat.takenOverBy || 'Super Admin IT Core'}</strong>
+        <label className='chat-prism-section-label'>Handled By</label>
+        <button className='chat-prism-assignee-card'>
+          <span className='chat-prism-assignee-icon'>
+            <User size={14} />
+          </span>
+          <strong>
+            {chat.takenOverByName || chat.takenOverBy || 'Super Admin IT Core'}
+          </strong>
           <ChevronDown size={14} />
         </button>
       </div>
 
       <InfoDivider />
 
-      <InfoHeader title="Collaborators" action="Add Collaborator" icon={<UserPlus size={14} />} />
-      <p className="chat-prism-muted-line">No collaborators yet</p>
+      <InfoHeader
+        title='Collaborators'
+        action='Add Collaborator'
+        icon={<UserPlus size={14} />}
+      />
+      <p className='chat-prism-muted-line'>No collaborators yet</p>
 
       <InfoDivider />
 
       <div>
-        <label className="chat-prism-section-label">Notes</label>
-        <textarea className="chat-prism-notes" placeholder="Add a note..." />
+        <label className='chat-prism-section-label'>Notes</label>
+        <textarea className='chat-prism-notes' placeholder='Add a note...' />
       </div>
 
       <InfoDivider />
 
       <div>
-        <label className="chat-prism-section-label">AI Summary</label>
-        <button className="chat-prism-summary-button">Generate AI Summary</button>
+        <label className='chat-prism-section-label'>AI Summary</label>
+        <button className='chat-prism-summary-button'>
+          Generate AI Summary
+        </button>
       </div>
 
       <InfoDivider />
 
-      <AccordionMini title="Additional Data">
-        <button className="chat-prism-outline-action">Add New Additional Info</button>
+      <AccordionMini title='Additional Data'>
+        <button className='chat-prism-outline-action'>
+          Add New Additional Info
+        </button>
       </AccordionMini>
 
       <InfoDivider />
 
       <div>
-        <h4 className="chat-prism-section-label">Conversation Details</h4>
-        <DetailMini label="Assigned By" value="—" icon={<User size={12} />} />
-        <DetailMini label="Handled By" value={chat.takenOverByName || chat.takenOverBy || 'Super Admin IT Core'} icon={<User size={12} />} />
-        <DetailMini label="Resolved By" value="—" icon={<User size={12} />} />
-        <DetailMini label="AI Handoff At" value="—" icon={<Bot size={12} />} />
-        <DetailMini label="Assigned At" value="—" icon={<Clock size={12} />} />
-        <DetailMini label="Created At" value={formattedFirstContact} icon={<Calendar size={12} />} highlight />
-        <DetailMini label="Resolved At" value="—" icon={<CheckCircle size={12} />} />
+        <h4 className='chat-prism-section-label'>Conversation Details</h4>
+        <DetailMini label='Assigned By' value='—' icon={<User size={12} />} />
+        <DetailMini
+          label='Handled By'
+          value={
+            chat.takenOverByName || chat.takenOverBy || 'Super Admin IT Core'
+          }
+          icon={<User size={12} />}
+        />
+        <DetailMini label='Resolved By' value='—' icon={<User size={12} />} />
+        <DetailMini label='AI Handoff At' value='—' icon={<Bot size={12} />} />
+        <DetailMini label='Assigned At' value='—' icon={<Clock size={12} />} />
+        <DetailMini
+          label='Created At'
+          value={formattedFirstContact}
+          icon={<Calendar size={12} />}
+          highlight
+        />
+        <DetailMini
+          label='Resolved At'
+          value='—'
+          icon={<CheckCircle size={12} />}
+        />
       </div>
 
       <InfoDivider />
 
-      <div className="chat-prism-access-grid">
-        <label className="chat-prism-section-label">Conversation Access</label>
-        <button><Shield size={14} /> Active - Click to Block</button>
-        <label className="chat-prism-section-label">AI Access</label>
-        <button><Bot size={14} /> AI Active - Click to Block</button>
+      <div className='chat-prism-access-grid'>
+        <label className='chat-prism-section-label'>Conversation Access</label>
+        <button>
+          <Shield size={14} /> Active - Click to Block
+        </button>
+        <label className='chat-prism-section-label'>AI Access</label>
+        <button>
+          <Bot size={14} /> AI Active - Click to Block
+        </button>
       </div>
 
       <InfoDivider />
 
-      <div className="chat-prism-ticket-block">
-        <label className="chat-prism-section-label">Tickets</label>
-        <button className="chat-prism-ticket-board"><span><LayoutGrid size={14} /> Default Board</span><ChevronDown size={14} /></button>
-        <p className="chat-prism-center-muted">No tickets yet</p>
+      <div className='chat-prism-ticket-block'>
+        <label className='chat-prism-section-label'>Tickets</label>
+        <button className='chat-prism-ticket-board'>
+          <span>
+            <LayoutGrid size={14} /> Default Board
+          </span>
+          <ChevronDown size={14} />
+        </button>
+        <p className='chat-prism-center-muted'>No tickets yet</p>
       </div>
     </div>
   )
 }
 
 function InfoDivider() {
-  return <div className="chat-prism-info-divider" />
+  return <div className='chat-prism-info-divider' />
 }
 
 function InfoHeader({ title, action, icon }) {
   return (
-    <div className="chat-prism-info-header">
+    <div className='chat-prism-info-header'>
       <h4>{title}</h4>
-      <button>{icon}{action}</button>
+      <button>
+        {icon}
+        {action}
+      </button>
     </div>
   )
 }
@@ -259,7 +445,10 @@ function AccordionMini({ title, children }) {
   const [open, setOpen] = useState(true)
   return (
     <div>
-      <button className="chat-prism-accordion-title" onClick={() => setOpen((v) => !v)}>
+      <button
+        className='chat-prism-accordion-title'
+        onClick={() => setOpen((v) => !v)}
+      >
         <span>{title}</span>
         <ChevronDown size={14} className={open ? 'open' : ''} />
       </button>
@@ -270,7 +459,7 @@ function AccordionMini({ title, children }) {
 
 function DetailMini({ label, value, icon, highlight }) {
   return (
-    <div className="chat-prism-detail-mini">
+    <div className='chat-prism-detail-mini'>
       <span>{icon}</span>
       <div>
         <small>{label}</small>
@@ -282,11 +471,13 @@ function DetailMini({ label, value, icon, highlight }) {
 
 function OrderStepHeader({ num, title }) {
   return (
-    <div className="flex items-center gap-2 mb-1.5 select-none">
-      <div className="w-5 h-5 rounded-full border border-[var(--ai-200)] text-[var(--ai-700)] flex items-center justify-center text-[10px] font-bold bg-[var(--ai-50)] shadow-sm shrink-0">
+    <div className='flex items-center gap-2 mb-1.5 select-none'>
+      <div className='w-5 h-5 rounded-full border border-[var(--ai-200)] text-[var(--ai-700)] flex items-center justify-center text-[10px] font-bold bg-[var(--ai-50)] shadow-sm shrink-0'>
         {num}
       </div>
-      <h3 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">{title}</h3>
+      <h3 className='text-[11px] font-extrabold text-slate-700 uppercase tracking-wider'>
+        {title}
+      </h3>
     </div>
   )
 }
@@ -303,7 +494,8 @@ function CommerceTab({ chat, onOpenOrder }) {
   const [isBrowseModalOpen, setIsBrowseModalOpen] = useState(false)
   const [isViewCartModalOpen, setIsViewCartModalOpen] = useState(false)
 
-  const selectedOutlet = OUTLETS.find((item) => item.id === selectedOutletId) || OUTLETS[0]
+  const selectedOutlet =
+    OUTLETS.find((item) => item.id === selectedOutletId) || OUTLETS[0]
   const filteredOrders = CONVERSATION_ORDERS.filter((order) => {
     if (ordersFilter === 'all') return true
     if (ordersFilter === 'paid') return order.payment === 'Paid'
@@ -312,31 +504,42 @@ function CommerceTab({ chat, onOpenOrder }) {
   })
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className='space-y-6 pb-6'>
       {/* 1. Outlet */}
       <div>
-        <OrderStepHeader num="1" title="Outlet" />
-        <div className="w-full mt-1.5 relative">
+        <OrderStepHeader num='1' title='Outlet' />
+        <div className='w-full mt-1.5 relative'>
           <button
             className={`chat-prism-commerce-select ${isOutletDropdownOpen ? 'open' : ''}`}
             onClick={() => setIsOutletDropdownOpen((open) => !open)}
           >
             <span>{outlet || selectedOutlet.name}</span>
-            <ChevronDown size={14} className={isOutletDropdownOpen ? 'open' : ''} />
+            <ChevronDown
+              size={14}
+              className={isOutletDropdownOpen ? 'open' : ''}
+            />
           </button>
 
           {isOutletDropdownOpen && (
-            <div className="chat-prism-outlet-dropdown">
-              <div className="chat-prism-outlet-search">
+            <div className='chat-prism-outlet-dropdown'>
+              <div className='chat-prism-outlet-search'>
                 <Search size={14} />
-                <input type="text" placeholder="Search outlet..." />
+                <input type='text' placeholder='Search outlet...' />
               </div>
               <button
-                className="chat-prism-outlet-option current"
-                onClick={() => { setSelectedOutletId('ST_SMG'); setIsOutletDropdownOpen(false) }}
+                className='chat-prism-outlet-option current'
+                onClick={() => {
+                  setSelectedOutletId('ST_SMG')
+                  setIsOutletDropdownOpen(false)
+                }}
               >
-                <span className="chat-prism-outlet-icon"><MapPin size={14} /></span>
-                <span className="chat-prism-outlet-copy"><strong>Use current outlet</strong><small>Selalu Teh - Semarang City</small></span>
+                <span className='chat-prism-outlet-icon'>
+                  <MapPin size={14} />
+                </span>
+                <span className='chat-prism-outlet-copy'>
+                  <strong>Use current outlet</strong>
+                  <small>Selalu Teh - Semarang City</small>
+                </span>
                 {selectedOutletId === 'ST_SMG' && <CheckCircle2 size={16} />}
               </button>
               {OUTLETS.map((item) => {
@@ -345,16 +548,24 @@ function CommerceTab({ chat, onOpenOrder }) {
                   <button
                     key={item.id}
                     className={`chat-prism-outlet-option ${isSelected ? 'selected' : ''}`}
-                    onClick={() => { setSelectedOutletId(item.id); setIsOutletDropdownOpen(false) }}
+                    onClick={() => {
+                      setSelectedOutletId(item.id)
+                      setIsOutletDropdownOpen(false)
+                    }}
                   >
-                    <span className="chat-prism-outlet-initials">{item.initials}</span>
-                    <span className="chat-prism-outlet-copy"><strong>{item.name}</strong><small>{item.location}</small></span>
+                    <span className='chat-prism-outlet-initials'>
+                      {item.initials}
+                    </span>
+                    <span className='chat-prism-outlet-copy'>
+                      <strong>{item.name}</strong>
+                      <small>{item.location}</small>
+                    </span>
                     <em className={item.status.toLowerCase()}>{item.status}</em>
                     {isSelected && <Check size={14} />}
                   </button>
                 )
               })}
-              <button className="chat-prism-manage-outlets">
+              <button className='chat-prism-manage-outlets'>
                 Manage outlets <ExternalLink size={14} />
               </button>
             </div>
@@ -364,15 +575,18 @@ function CommerceTab({ chat, onOpenOrder }) {
 
       {/* 2. Cart */}
       <div>
-        <OrderStepHeader num="2" title="Cart" />
-        <div className="mt-1.5 flex items-center justify-between bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-            <ShoppingCart size={14} className="text-slate-400 shrink-0" />
+        <OrderStepHeader num='2' title='Cart' />
+        <div className='mt-1.5 flex items-center justify-between bg-white border border-slate-100 rounded-xl p-3 shadow-sm'>
+          <div className='flex items-center gap-2 text-xs font-semibold text-slate-600'>
+            <ShoppingCart size={14} className='text-slate-400 shrink-0' />
             <span>3 items</span>
-            <span className="text-slate-300">•</span>
+            <span className='text-slate-300'>•</span>
             <span>Rp 110.000</span>
           </div>
-          <button className="px-3 py-1.5 bg-[var(--brand-50)] text-[var(--brand-600)] border border-[var(--brand-100)] rounded-lg text-xs font-bold hover:bg-[var(--brand-100)] transition-colors cursor-pointer" onClick={() => setIsViewCartModalOpen(true)}>
+          <button
+            className='px-3 py-1.5 bg-[var(--brand-50)] text-[var(--brand-600)] border border-[var(--brand-100)] rounded-lg text-xs font-bold hover:bg-[var(--brand-100)] transition-colors cursor-pointer'
+            onClick={() => setIsViewCartModalOpen(true)}
+          >
             View cart
           </button>
         </div>
@@ -380,21 +594,30 @@ function CommerceTab({ chat, onOpenOrder }) {
 
       {/* 3. Quick Add */}
       <div>
-        <OrderStepHeader num="3" title="Quick add product" />
-        <div className="mt-1.5 space-y-2">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 shrink-0" />
-            <input 
-              type="text" 
-              placeholder="Search product..." 
-              className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-[var(--brand-100)] focus:border-[var(--brand-300)] outline-none transition-all shadow-sm placeholder-slate-400" 
+        <OrderStepHeader num='3' title='Quick add product' />
+        <div className='mt-1.5 space-y-2'>
+          <div className='relative'>
+            <Search
+              size={14}
+              className='absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 shrink-0'
+            />
+            <input
+              type='text'
+              placeholder='Search product...'
+              className='w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-[var(--brand-100)] focus:border-[var(--brand-300)] outline-none transition-all shadow-sm placeholder-slate-400'
             />
           </div>
-          <div className="flex gap-2">
-            <button className="bg-gradient-to-r from-[var(--brand-500)] to-[var(--ai-500)] flex-1 py-2.5 text-white text-xs font-bold rounded-xl shadow-md hover:opacity-95 transition-all cursor-pointer border-none" onClick={() => setIsQuickAddModalOpen(true)}>
+          <div className='flex gap-2'>
+            <button
+              className='bg-gradient-to-r from-[var(--brand-500)] to-[var(--ai-500)] flex-1 py-2.5 text-white text-xs font-bold rounded-xl shadow-md hover:opacity-95 transition-all cursor-pointer border-none'
+              onClick={() => setIsQuickAddModalOpen(true)}
+            >
               Add item
             </button>
-            <button className="flex-1 py-2.5 bg-white text-[var(--brand-600)] border border-[var(--brand-200)] text-xs font-bold rounded-xl hover:bg-[var(--brand-50)] transition-colors shadow-sm cursor-pointer" onClick={() => setIsBrowseModalOpen(true)}>
+            <button
+              className='flex-1 py-2.5 bg-white text-[var(--brand-600)] border border-[var(--brand-200)] text-xs font-bold rounded-xl hover:bg-[var(--brand-50)] transition-colors shadow-sm cursor-pointer'
+              onClick={() => setIsBrowseModalOpen(true)}
+            >
               Browse
             </button>
           </div>
@@ -403,55 +626,86 @@ function CommerceTab({ chat, onOpenOrder }) {
 
       {/* 4. Order Summary */}
       <div>
-        <OrderStepHeader num="4" title="Order summary" />
-        <div className="bg-white border border-slate-100 rounded-xl p-3.5 shadow-sm mt-1.5 space-y-2.5">
-          <div className="flex justify-between text-xs text-slate-500 font-semibold">
+        <OrderStepHeader num='4' title='Order summary' />
+        <div className='bg-white border border-slate-100 rounded-xl p-3.5 shadow-sm mt-1.5 space-y-2.5'>
+          <div className='flex justify-between text-xs text-slate-500 font-semibold'>
             <span>Subtotal</span>
-            <span className="text-slate-700">Rp 100.000</span>
+            <span className='text-slate-700'>Rp 100.000</span>
           </div>
-          <div className="flex justify-between text-xs text-[var(--brand-500)] font-semibold">
+          <div className='flex justify-between text-xs text-[var(--brand-500)] font-semibold'>
             <span>Discount</span>
             <span>- Rp 10.000</span>
           </div>
-          <div className="flex justify-between text-xs text-slate-500 font-semibold">
+          <div className='flex justify-between text-xs text-slate-500 font-semibold'>
             <span>Shipping</span>
-            <span className="text-slate-700">Rp 10.000</span>
+            <span className='text-slate-700'>Rp 10.000</span>
           </div>
-          <div className="flex justify-between text-xs text-slate-500 font-semibold">
+          <div className='flex justify-between text-xs text-slate-500 font-semibold'>
             <span>VAT (11%)</span>
-            <span className="text-slate-700">Rp 11.000</span>
+            <span className='text-slate-700'>Rp 11.000</span>
           </div>
-          <div className="h-[1px] bg-slate-100 my-2" />
-          <div className="flex justify-between text-sm font-bold text-slate-800">
+          <div className='h-[1px] bg-slate-100 my-2' />
+          <div className='flex justify-between text-sm font-bold text-slate-800'>
             <span>Total</span>
-            <span className="text-[var(--brand-600)]">Rp 111.000</span>
+            <span className='text-[var(--brand-600)]'>Rp 111.000</span>
           </div>
         </div>
       </div>
 
       {/* 5. Payment */}
       <div>
-        <OrderStepHeader num="5" title="Payment" />
-        <div className="bg-white border border-slate-100 rounded-xl p-3.5 shadow-sm mt-1.5 space-y-3.5">
-          <label className="flex items-center gap-2.5 cursor-pointer group">
-            <input type="radio" name="payment-type" defaultChecked className="accent-[var(--brand-500)] h-4 w-4 border-slate-300 cursor-pointer" />
-            <span className="text-xs font-bold text-[var(--brand-600)]">Link Payment — Xendit Test</span>
+        <OrderStepHeader num='5' title='Payment' />
+        <div className='bg-white border border-slate-100 rounded-xl p-3.5 shadow-sm mt-1.5 space-y-3.5'>
+          <label className='flex items-center gap-2.5 cursor-pointer group'>
+            <input
+              type='radio'
+              name='payment-type'
+              defaultChecked
+              className='accent-[var(--brand-500)] h-4 w-4 border-slate-300 cursor-pointer'
+            />
+            <span className='text-xs font-bold text-[var(--brand-600)]'>
+              Link Payment — Xendit Test
+            </span>
           </label>
-          <label className="flex items-center gap-2.5 cursor-pointer group">
-            <input type="radio" name="payment-type" className="accent-[var(--brand-500)] h-4 w-4 border-slate-300 cursor-pointer" />
-            <span className="text-xs font-semibold text-slate-600 group-hover:text-slate-800 transition-colors">Manual Transfer</span>
+          <label className='flex items-center gap-2.5 cursor-pointer group'>
+            <input
+              type='radio'
+              name='payment-type'
+              className='accent-[var(--brand-500)] h-4 w-4 border-slate-300 cursor-pointer'
+            />
+            <span className='text-xs font-semibold text-slate-600 group-hover:text-slate-800 transition-colors'>
+              Manual Transfer
+            </span>
           </label>
-          <label className="flex items-center gap-2.5 cursor-pointer group">
-            <input type="radio" name="payment-type" className="accent-[var(--brand-500)] h-4 w-4 border-slate-300 cursor-pointer" />
-            <span className="text-xs font-semibold text-slate-600 group-hover:text-slate-800 transition-colors">Cash on Delivery</span>
+          <label className='flex items-center gap-2.5 cursor-pointer group'>
+            <input
+              type='radio'
+              name='payment-type'
+              className='accent-[var(--brand-500)] h-4 w-4 border-slate-300 cursor-pointer'
+            />
+            <span className='text-xs font-semibold text-slate-600 group-hover:text-slate-800 transition-colors'>
+              Cash on Delivery
+            </span>
           </label>
 
           {/* Gateway state */}
-          <div className="mt-3 bg-emerald-50 border border-emerald-100 rounded-xl p-3 shadow-sm text-left">
-            <div className="text-[11px] font-bold text-emerald-700 mb-0.5">Xendit Test Mode</div>
-            <div className="text-[10px] text-emerald-600/80 mb-2 leading-tight">Connected when backend Xendit Test Mode env is configured. Payment and order statuses remain separate.</div>
-            <button className="text-[10px] font-bold text-amber-700 flex items-center gap-1 hover:underline border-none bg-transparent cursor-pointer p-0" onClick={() => setIsPaymentModalOpen(true)}>
-              View setup <ArrowRight size={10} className="group-hover:translate-x-0.5 transition-transform shrink-0" />
+          <div className='mt-3 bg-emerald-50 border border-emerald-100 rounded-xl p-3 shadow-sm text-left'>
+            <div className='text-[11px] font-bold text-emerald-700 mb-0.5'>
+              Xendit Test Mode
+            </div>
+            <div className='text-[10px] text-emerald-600/80 mb-2 leading-tight'>
+              Connected when backend Xendit Test Mode env is configured. Payment
+              and order statuses remain separate.
+            </div>
+            <button
+              className='text-[10px] font-bold text-amber-700 flex items-center gap-1 hover:underline border-none bg-transparent cursor-pointer p-0'
+              onClick={() => setIsPaymentModalOpen(true)}
+            >
+              View setup{' '}
+              <ArrowRight
+                size={10}
+                className='group-hover:translate-x-0.5 transition-transform shrink-0'
+              />
             </button>
           </div>
         </div>
@@ -459,13 +713,13 @@ function CommerceTab({ chat, onOpenOrder }) {
 
       {/* 6. Actions */}
       <div>
-        <OrderStepHeader num="6" title="Actions" />
-        <div className="flex flex-col gap-2.5 mt-1.5">
-          <button className="bg-gradient-to-r from-[var(--brand-500)] to-[var(--ai-500)] w-full py-3 text-white text-sm font-bold rounded-xl shadow-lg hover:opacity-95 transition-all cursor-pointer border-none">
+        <OrderStepHeader num='6' title='Actions' />
+        <div className='flex flex-col gap-2.5 mt-1.5'>
+          <button className='bg-gradient-to-r from-[var(--brand-500)] to-[var(--ai-500)] w-full py-3 text-white text-sm font-bold rounded-xl shadow-lg hover:opacity-95 transition-all cursor-pointer border-none'>
             Create & Send Payment Link
           </button>
-          <button className="w-full py-2.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm hover:bg-slate-50 transition-colors cursor-pointer">
-            <Bookmark size={14} className="text-slate-400 shrink-0" />
+          <button className='w-full py-2.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm hover:bg-slate-50 transition-colors cursor-pointer'>
+            <Bookmark size={14} className='text-slate-400 shrink-0' />
             <span>Save Draft</span>
           </button>
         </div>
@@ -473,43 +727,83 @@ function CommerceTab({ chat, onOpenOrder }) {
 
       {/* 7. History */}
       <div>
-        <div className="bg-white border border-slate-100 rounded-xl p-3.5 shadow-sm mt-1.5">
-          <div className="flex items-center justify-between mb-3">
-            <OrderStepHeader num="7" title="Conversation orders" />
-            <button className="text-[10px] font-bold text-[var(--ai-600)] hover:underline border-none bg-transparent cursor-pointer" onClick={() => setIsOrdersModalOpen(true)}>View all</button>
+        <div className='bg-white border border-slate-100 rounded-xl p-3.5 shadow-sm mt-1.5'>
+          <div className='flex items-center justify-between mb-3'>
+            <OrderStepHeader num='7' title='Conversation orders' />
+            <button
+              className='text-[10px] font-bold text-[var(--ai-600)] hover:underline border-none bg-transparent cursor-pointer'
+              onClick={() => setIsOrdersModalOpen(true)}
+            >
+              View all
+            </button>
           </div>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between group cursor-pointer" onClick={() => onOpenOrder && onOpenOrder('ORD-1028')}>
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0" />
-                <span className="text-[10px] font-mono text-slate-500 group-hover:text-[var(--brand-600)] transition-colors truncate">ORD-1028</span>
+          <div className='space-y-3'>
+            <div
+              className='flex items-center justify-between group cursor-pointer'
+              onClick={() => onOpenOrder && onOpenOrder('ORD-1028')}
+            >
+              <div className='flex items-center gap-2 min-w-0'>
+                <div className='w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0' />
+                <span className='text-[10px] font-mono text-slate-500 group-hover:text-[var(--brand-600)] transition-colors truncate'>
+                  ORD-1028
+                </span>
               </div>
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">Draft</span>
-              <span className="text-[10px] font-bold text-slate-700 text-right">Rp 111.000</span>
-              <span className="text-[10px] text-slate-400 text-right">10:15 AM</span>
+              <span className='text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200'>
+                Draft
+              </span>
+              <span className='text-[10px] font-bold text-slate-700 text-right'>
+                Rp 111.000
+              </span>
+              <span className='text-[10px] text-slate-400 text-right'>
+                10:15 AM
+              </span>
             </div>
-            <div className="flex items-center justify-between group cursor-pointer" onClick={() => onOpenOrder && onOpenOrder('ORD-1027')}>
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                <span className="text-[10px] font-mono text-slate-500 group-hover:text-[var(--brand-600)] transition-colors truncate">ORD-1027</span>
+            <div
+              className='flex items-center justify-between group cursor-pointer'
+              onClick={() => onOpenOrder && onOpenOrder('ORD-1027')}
+            >
+              <div className='flex items-center gap-2 min-w-0'>
+                <div className='w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0' />
+                <span className='text-[10px] font-mono text-slate-500 group-hover:text-[var(--brand-600)] transition-colors truncate'>
+                  ORD-1027
+                </span>
               </div>
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100">Pending</span>
-              <span className="text-[10px] font-bold text-slate-700 text-right">Rp 98.500</span>
-              <span className="text-[10px] text-slate-400 text-right">Yesterday</span>
+              <span className='text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100'>
+                Pending
+              </span>
+              <span className='text-[10px] font-bold text-slate-700 text-right'>
+                Rp 98.500
+              </span>
+              <span className='text-[10px] text-slate-400 text-right'>
+                Yesterday
+              </span>
             </div>
-            <div className="flex items-center justify-between group cursor-pointer" onClick={() => onOpenOrder && onOpenOrder('ORD-1026')}>
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                <span className="text-[10px] font-mono text-slate-500 group-hover:text-[var(--brand-600)] transition-colors truncate">ORD-1026</span>
+            <div
+              className='flex items-center justify-between group cursor-pointer'
+              onClick={() => onOpenOrder && onOpenOrder('ORD-1026')}
+            >
+              <div className='flex items-center gap-2 min-w-0'>
+                <div className='w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0' />
+                <span className='text-[10px] font-mono text-slate-500 group-hover:text-[var(--brand-600)] transition-colors truncate'>
+                  ORD-1026
+                </span>
               </div>
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-100">Paid</span>
-              <span className="text-[10px] font-bold text-slate-700 text-right">Rp 85.000</span>
-              <span className="text-[10px] text-slate-400 text-right">2 days ago</span>
+              <span className='text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-100'>
+                Paid
+              </span>
+              <span className='text-[10px] font-bold text-slate-700 text-right'>
+                Rp 85.000
+              </span>
+              <span className='text-[10px] text-slate-400 text-right'>
+                2 days ago
+              </span>
             </div>
           </div>
         </div>
       </div>
-      {isPaymentModalOpen && <PaymentSetupModal onClose={() => setIsPaymentModalOpen(false)} />}
+      {isPaymentModalOpen && (
+        <PaymentSetupModal onClose={() => setIsPaymentModalOpen(false)} />
+      )}
       {isOrdersModalOpen && (
         <ConversationOrdersModal
           orders={filteredOrders}
@@ -519,31 +813,54 @@ function CommerceTab({ chat, onOpenOrder }) {
           onOpenOrder={onOpenOrder}
         />
       )}
-      {isQuickAddModalOpen && <QuickAddModal onClose={() => setIsQuickAddModalOpen(false)} />}
+      {isQuickAddModalOpen && (
+        <QuickAddModal onClose={() => setIsQuickAddModalOpen(false)} />
+      )}
       {isBrowseModalOpen && (
         <BrowseProductsModal
           onClose={() => setIsBrowseModalOpen(false)}
-          onViewCart={() => { setIsBrowseModalOpen(false); setIsViewCartModalOpen(true) }}
+          onViewCart={() => {
+            setIsBrowseModalOpen(false)
+            setIsViewCartModalOpen(true)
+          }}
         />
       )}
-      {isViewCartModalOpen && <ViewCartModal onClose={() => setIsViewCartModalOpen(false)} />}
+      {isViewCartModalOpen && (
+        <ViewCartModal onClose={() => setIsViewCartModalOpen(false)} />
+      )}
     </div>
   )
 }
 
-function CommerceModal({ title, subtitle, children, icon, onClose, size = 'md' }) {
+function CommerceModal({
+  title,
+  subtitle,
+  children,
+  icon,
+  onClose,
+  size = 'md',
+}) {
   return (
-    <div className="chat-prism-commerce-modal-root">
-      <button className="chat-prism-commerce-modal-backdrop" onClick={onClose} aria-label="Close modal" />
+    <div className='chat-prism-commerce-modal-root'>
+      <button
+        className='chat-prism-commerce-modal-backdrop'
+        onClick={onClose}
+        aria-label='Close modal'
+      />
       <div className={`chat-prism-commerce-modal ${size}`}>
         <header>
           <div>
-            <h2>{icon}{title}</h2>
+            <h2>
+              {icon}
+              {title}
+            </h2>
             {subtitle && <p>{subtitle}</p>}
           </div>
-          <button onClick={onClose} aria-label="Close modal"><X size={20} /></button>
+          <button onClick={onClose} aria-label='Close modal'>
+            <X size={20} />
+          </button>
         </header>
-        <div className="chat-prism-commerce-modal-body">{children}</div>
+        <div className='chat-prism-commerce-modal-body'>{children}</div>
       </div>
     </div>
   )
@@ -552,51 +869,95 @@ function CommerceModal({ title, subtitle, children, icon, onClose, size = 'md' }
 function PaymentSetupModal({ onClose }) {
   return (
     <CommerceModal
-      title="Set Up Payment"
-      subtitle="Connect a payment gateway or use manual payment to start receiving payments."
-      icon={<Sparkles className="chat-prism-payment-title-icon" size={24} />}
+      title='Set Up Payment'
+      subtitle='Connect a payment gateway or use manual payment to start receiving payments.'
+      icon={<Sparkles className='chat-prism-payment-title-icon' size={24} />}
       onClose={onClose}
-      size="md"
+      size='md'
     >
-      <h3 className="chat-prism-payment-section-title">Payment Providers</h3>
-      <div className="chat-prism-payment-providers">
-        <PaymentProviderCard provider="midtrans" recommended title="Midtrans" description="Accept payments via VA, e-Wallet, Cards, and more." action="Connect Midtrans" />
-        <PaymentProviderCard provider="xendit" title="Xendit" description="Payments for Indonesia & SEA. Cards, VA, QRIS." action="Connect Xendit" />
-        <PaymentProviderCard provider="manual" title="Manual Payment" description="Confirm payments manually (bank transfer, cash, etc)." action="Set Up Manual" />
+      <h3 className='chat-prism-payment-section-title'>Payment Providers</h3>
+      <div className='chat-prism-payment-providers'>
+        <PaymentProviderCard
+          provider='midtrans'
+          recommended
+          title='Midtrans'
+          description='Accept payments via VA, e-Wallet, Cards, and more.'
+          action='Connect Midtrans'
+        />
+        <PaymentProviderCard
+          provider='xendit'
+          title='Xendit'
+          description='Payments for Indonesia & SEA. Cards, VA, QRIS.'
+          action='Connect Xendit'
+        />
+        <PaymentProviderCard
+          provider='manual'
+          title='Manual Payment'
+          description='Confirm payments manually (bank transfer, cash, etc).'
+          action='Set Up Manual'
+        />
       </div>
 
-      <div className="chat-prism-payment-bottom">
+      <div className='chat-prism-payment-bottom'>
         <div>
           <h3>Payment Requirements</h3>
-          <p><CheckCircle2 size={16} /> Business information is complete</p>
-          <p><CheckCircle2 size={16} /> Bank account is added</p>
-          <p className="muted"><MinusCircle size={16} /> Upload identity document</p>
+          <p>
+            <CheckCircle2 size={16} /> Business information is complete
+          </p>
+          <p>
+            <CheckCircle2 size={16} /> Bank account is added
+          </p>
+          <p className='muted'>
+            <MinusCircle size={16} /> Upload identity document
+          </p>
         </div>
-        <div className="chat-prism-payment-warning">
-          <h3><AlertTriangle size={16} /> Environment keys are not configured</h3>
-          <p>You need to configure your Midtrans / Xendit environment keys to go live.</p>
+        <div className='chat-prism-payment-warning'>
+          <h3>
+            <AlertTriangle size={16} /> Environment keys are not configured
+          </h3>
+          <p>
+            You need to configure your Midtrans / Xendit environment keys to go
+            live.
+          </p>
           <button>Go to Settings</button>
         </div>
       </div>
 
-      <div className="chat-prism-modal-actions">
+      <div className='chat-prism-modal-actions'>
         <button onClick={onClose}>Not now</button>
-        <button className="primary">Continue Setup</button>
+        <button className='primary'>Continue Setup</button>
       </div>
     </CommerceModal>
   )
 }
 
-function PaymentProviderCard({ action, description, provider, recommended, title }) {
-  const icon = provider === 'midtrans'
-    ? <span className="chat-prism-midtrans-mark"><i /><i /><i /></span>
-    : provider === 'xendit'
-      ? <span className="chat-prism-xendit-mark">{'</>'}</span>
-      : <Wallet size={24} strokeWidth={2.5} />
+function PaymentProviderCard({
+  action,
+  description,
+  provider,
+  recommended,
+  title,
+}) {
+  const icon =
+    provider === 'midtrans' ? (
+      <span className='chat-prism-midtrans-mark'>
+        <i />
+        <i />
+        <i />
+      </span>
+    ) : provider === 'xendit' ? (
+      <span className='chat-prism-xendit-mark'>{'</>'}</span>
+    ) : (
+      <Wallet size={24} strokeWidth={2.5} />
+    )
 
   return (
-    <div className={`chat-prism-payment-provider ${recommended ? 'recommended' : ''}`}>
-      <div className={`chat-prism-payment-provider-icon ${provider || ''}`}>{icon}</div>
+    <div
+      className={`chat-prism-payment-provider ${recommended ? 'recommended' : ''}`}
+    >
+      <div className={`chat-prism-payment-provider-icon ${provider || ''}`}>
+        {icon}
+      </div>
       <div>
         <strong>{title}</strong>
         <p>{description}</p>
@@ -609,18 +970,28 @@ function PaymentProviderCard({ action, description, provider, recommended, title
   )
 }
 
-function ConversationOrdersModal({ orders, ordersFilter, setOrdersFilter, onClose, onOpenOrder }) {
+function ConversationOrdersModal({
+  orders,
+  ordersFilter,
+  setOrdersFilter,
+  onClose,
+  onOpenOrder,
+}) {
   return (
-    <CommerceModal title="Conversation Orders" onClose={onClose} size="lg">
-      <div className="chat-prism-order-filters">
+    <CommerceModal title='Conversation Orders' onClose={onClose} size='lg'>
+      <div className='chat-prism-order-filters'>
         {['all', 'pending', 'paid', 'completed'].map((filter) => (
-          <button key={filter} className={ordersFilter === filter ? 'active' : ''} onClick={() => setOrdersFilter(filter)}>
+          <button
+            key={filter}
+            className={ordersFilter === filter ? 'active' : ''}
+            onClick={() => setOrdersFilter(filter)}
+          >
             {filter}
           </button>
         ))}
       </div>
-      <div className="chat-prism-orders-table-wrap">
-        <table className="chat-prism-orders-table">
+      <div className='chat-prism-orders-table-wrap'>
+        <table className='chat-prism-orders-table'>
           <thead>
             <tr>
               <th>Order ID</th>
@@ -634,17 +1005,41 @@ function ConversationOrdersModal({ orders, ordersFilter, setOrdersFilter, onClos
           <tbody>
             {orders.map((order) => (
               <tr key={order.id}>
-                <td><strong>{order.id}</strong></td>
-                <td><strong>{order.date}</strong><small>{order.time}</small></td>
-                <td><strong>{order.amount}</strong></td>
-                <td><span className={order.payment.toLowerCase()}>{order.payment}</span></td>
-                <td><span className={order.status.toLowerCase()}>{order.status}</span></td>
                 <td>
-                  <div className="chat-prism-table-actions">
+                  <strong>{order.id}</strong>
+                </td>
+                <td>
+                  <strong>{order.date}</strong>
+                  <small>{order.time}</small>
+                </td>
+                <td>
+                  <strong>{order.amount}</strong>
+                </td>
+                <td>
+                  <span className={order.payment.toLowerCase()}>
+                    {order.payment}
+                  </span>
+                </td>
+                <td>
+                  <span className={order.status.toLowerCase()}>
+                    {order.status}
+                  </span>
+                </td>
+                <td>
+                  <div className='chat-prism-table-actions'>
                     {order.actions.map((action) => (
-                      <button key={action} onClick={() => action === 'Open' && onOpenOrder?.(order.id)}>{action}</button>
+                      <button
+                        key={action}
+                        onClick={() =>
+                          action === 'Open' && onOpenOrder?.(order.id)
+                        }
+                      >
+                        {action}
+                      </button>
                     ))}
-                    <button><MoreHorizontal size={14} /></button>
+                    <button>
+                      <MoreHorizontal size={14} />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -652,9 +1047,19 @@ function ConversationOrdersModal({ orders, ordersFilter, setOrdersFilter, onClos
           </tbody>
         </table>
       </div>
-      <div className="chat-prism-pagination-row">
+      <div className='chat-prism-pagination-row'>
         <span>Showing 1 to {orders.length} of 18 orders</span>
-        <div><button><ChevronLeft size={14} /></button><button className="active">1</button><button>2</button><button>3</button><button><ChevronRight size={14} /></button></div>
+        <div>
+          <button>
+            <ChevronLeft size={14} />
+          </button>
+          <button className='active'>1</button>
+          <button>2</button>
+          <button>3</button>
+          <button>
+            <ChevronRight size={14} />
+          </button>
+        </div>
       </div>
     </CommerceModal>
   )
@@ -662,39 +1067,67 @@ function ConversationOrdersModal({ orders, ordersFilter, setOrdersFilter, onClos
 
 function QuickAddModal({ onClose }) {
   return (
-    <CommerceModal title="Quick Add Item" onClose={onClose} size="lg">
-      <div className="chat-prism-quick-add-grid">
+    <CommerceModal title='Quick Add Item' onClose={onClose} size='lg'>
+      <div className='chat-prism-quick-add-grid'>
         <aside>
           <h3>Search & Add</h3>
-          <div className="chat-prism-modal-search"><Search size={14} /><input placeholder="Search product..." /></div>
+          <div className='chat-prism-modal-search'>
+            <Search size={14} />
+            <input placeholder='Search product...' />
+          </div>
           <h3>Recent / Popular</h3>
-          {['Thai Tea (Original)', 'Lemon Tea', 'Milk Tea', 'Brown Sugar Milk'].map((item) => (
-            <button key={item}><Coffee size={14} /> {item}</button>
+          {[
+            'Thai Tea (Original)',
+            'Lemon Tea',
+            'Milk Tea',
+            'Brown Sugar Milk',
+          ].map((item) => (
+            <button key={item}>
+              <Coffee size={14} /> {item}
+            </button>
           ))}
         </aside>
         <main>
           <h3>Item Details</h3>
-          <CommerceField label="Product"><select><option>Thai Tea (Original)</option><option>Lemon Tea</option></select></CommerceField>
-          <CommerceField label="Variant"><select><option>Regular (16oz)</option><option>Large (22oz)</option></select></CommerceField>
-          <div className="chat-prism-modal-two-col">
-            <CommerceField label="Quantity"><QtyInput value="1" /></CommerceField>
-            <CommerceField label="Unit Price"><input readOnly value="Rp 25.000" /></CommerceField>
+          <CommerceField label='Product'>
+            <select>
+              <option>Thai Tea (Original)</option>
+              <option>Lemon Tea</option>
+            </select>
+          </CommerceField>
+          <CommerceField label='Variant'>
+            <select>
+              <option>Regular (16oz)</option>
+              <option>Large (22oz)</option>
+            </select>
+          </CommerceField>
+          <div className='chat-prism-modal-two-col'>
+            <CommerceField label='Quantity'>
+              <QtyInput value='1' />
+            </CommerceField>
+            <CommerceField label='Unit Price'>
+              <input readOnly value='Rp 25.000' />
+            </CommerceField>
           </div>
-          <div className="chat-prism-modal-two-col">
-            <CommerceField label="Discount"><input placeholder="0" /></CommerceField>
-            <CommerceField label="Notes"><input placeholder="Tambahkan catatan..." /></CommerceField>
+          <div className='chat-prism-modal-two-col'>
+            <CommerceField label='Discount'>
+              <input placeholder='0' />
+            </CommerceField>
+            <CommerceField label='Notes'>
+              <input placeholder='Tambahkan catatan...' />
+            </CommerceField>
           </div>
         </main>
       </div>
-      <div className="chat-prism-custom-item-row">
+      <div className='chat-prism-custom-item-row'>
         <h3>Or add a custom item</h3>
-        <input placeholder="Item name" />
-        <QtyInput value="1" />
-        <input placeholder="Rp 0" />
+        <input placeholder='Item name' />
+        <QtyInput value='1' />
+        <input placeholder='Rp 0' />
       </div>
-      <div className="chat-prism-modal-actions">
+      <div className='chat-prism-modal-actions'>
         <button onClick={onClose}>Cancel</button>
-        <button className="primary">Add to Order</button>
+        <button className='primary'>Add to Order</button>
       </div>
     </CommerceModal>
   )
@@ -702,22 +1135,47 @@ function QuickAddModal({ onClose }) {
 
 function BrowseProductsModal({ onClose, onViewCart }) {
   return (
-    <CommerceModal title="Browse products" onClose={onClose} size="lg">
-      <div className="chat-prism-browse-head">
-        <span>Outlet: <b>Selalu Teh - Senayan City</b> <ChevronDown size={14} /></span>
+    <CommerceModal title='Browse products' onClose={onClose} size='lg'>
+      <div className='chat-prism-browse-head'>
+        <span>
+          Outlet: <b>Selalu Teh - Senayan City</b> <ChevronDown size={14} />
+        </span>
         <em>Open · Closes at 22:00</em>
       </div>
-      <div className="chat-prism-product-toolbar">
-        <div>{['All', 'Tea', 'Coffee', 'Snacks', 'Toppings'].map((cat, idx) => <button key={cat} className={idx === 0 ? 'active' : ''}>{cat}</button>)}</div>
-        <div className="chat-prism-modal-search"><Search size={14} /><input placeholder="Search product..." /></div>
+      <div className='chat-prism-product-toolbar'>
+        <div>
+          {['All', 'Tea', 'Coffee', 'Snacks', 'Toppings'].map((cat, idx) => (
+            <button key={cat} className={idx === 0 ? 'active' : ''}>
+              {cat}
+            </button>
+          ))}
+        </div>
+        <div className='chat-prism-modal-search'>
+          <Search size={14} />
+          <input placeholder='Search product...' />
+        </div>
       </div>
-      <div className="chat-prism-product-note"><Info size={16} /> Showing products available at this outlet. Some items may be out of stock.</div>
-      <div className="chat-prism-product-grid">
-        {PRODUCTS.map((product) => <ProductCard key={product.id} product={product} />)}
+      <div className='chat-prism-product-note'>
+        <Info size={16} /> Showing products available at this outlet. Some items
+        may be out of stock.
       </div>
-      <div className="chat-prism-sticky-cart">
-        <div><ShoppingCart size={20} /><span><strong>2 items selected</strong><small>Subtotal Rp 46.000</small></span></div>
-        <div><button onClick={onViewCart}>View cart</button><button className="primary">Add to order</button></div>
+      <div className='chat-prism-product-grid'>
+        {PRODUCTS.map((product) => (
+          <ProductCard key={product.id} product={product} />
+        ))}
+      </div>
+      <div className='chat-prism-sticky-cart'>
+        <div>
+          <ShoppingCart size={20} />
+          <span>
+            <strong>2 items selected</strong>
+            <small>Subtotal Rp 46.000</small>
+          </span>
+        </div>
+        <div>
+          <button onClick={onViewCart}>View cart</button>
+          <button className='primary'>Add to order</button>
+        </div>
       </div>
     </CommerceModal>
   )
@@ -725,39 +1183,83 @@ function BrowseProductsModal({ onClose, onViewCart }) {
 
 function ViewCartModal({ onClose }) {
   return (
-    <CommerceModal title="View Cart" subtitle="You have 3 item(s) in your cart" onClose={onClose} size="sm">
-      <div className="chat-prism-cart-items">
+    <CommerceModal
+      title='View Cart'
+      subtitle='You have 3 item(s) in your cart'
+      onClose={onClose}
+      size='sm'
+    >
+      <div className='chat-prism-cart-items'>
         {CART_ITEMS.map((item) => (
-          <div key={item.id} className="chat-prism-cart-card">
-            <div className="chat-prism-product-thumb"><ShoppingBag size={22} /></div>
+          <div key={item.id} className='chat-prism-cart-card'>
+            <div className='chat-prism-product-thumb'>
+              <ShoppingBag size={22} />
+            </div>
             <div>
-              <div className="chat-prism-cart-card-head"><strong>{item.name}</strong><button><Trash2 size={15} /></button></div>
+              <div className='chat-prism-cart-card-head'>
+                <strong>{item.name}</strong>
+                <button>
+                  <Trash2 size={15} />
+                </button>
+              </div>
               <small>{item.variant}</small>
               <b>{item.price}</b>
-              <div className="chat-prism-cart-card-foot"><QtyInput value={String(item.qty)} /><button><Edit2 size={14} /></button><strong>{item.total}</strong></div>
+              <div className='chat-prism-cart-card-foot'>
+                <QtyInput value={String(item.qty)} />
+                <button>
+                  <Edit2 size={14} />
+                </button>
+                <strong>{item.total}</strong>
+              </div>
             </div>
           </div>
         ))}
       </div>
-      <div className="chat-prism-promo-row"><Tag size={16} /><input placeholder="Promo Code" /><button>Apply</button></div>
+      <div className='chat-prism-promo-row'>
+        <Tag size={16} />
+        <input placeholder='Promo Code' />
+        <button>Apply</button>
+      </div>
       <OrderSummaryMini large />
-      <div className="chat-prism-free-shipping"><CheckCircle2 size={16} /><div><strong>Free shipping unlocked!</strong><span>Add Rp 78.615 more to get free shipping.</span></div></div>
-      <div className="chat-prism-modal-actions"><button onClick={onClose}>Continue Editing</button><button className="primary">Proceed to Order</button></div>
+      <div className='chat-prism-free-shipping'>
+        <CheckCircle2 size={16} />
+        <div>
+          <strong>Free shipping unlocked!</strong>
+          <span>Add Rp 78.615 more to get free shipping.</span>
+        </div>
+      </div>
+      <div className='chat-prism-modal-actions'>
+        <button onClick={onClose}>Continue Editing</button>
+        <button className='primary'>Proceed to Order</button>
+      </div>
     </CommerceModal>
   )
 }
 
 function ProductCard({ product }) {
   return (
-    <div className="chat-prism-product-card">
-      <div className="chat-prism-product-thumb"><Coffee size={30} /></div>
+    <div className='chat-prism-product-card'>
+      <div className='chat-prism-product-thumb'>
+        <Coffee size={30} />
+      </div>
       <div>
         <strong>{product.name}</strong>
-        {product.badge ? <span><Sparkles size={9} /> {product.badge}</span> : <i />}
+        {product.badge ? (
+          <span>
+            <Sparkles size={9} /> {product.badge}
+          </span>
+        ) : (
+          <i />
+        )}
         <b>{product.price}</b>
-        <small className={product.stock === 'Low stock' ? 'low' : ''}>{product.stock}</small>
+        <small className={product.stock === 'Low stock' ? 'low' : ''}>
+          {product.stock}
+        </small>
       </div>
-      <div><QtyInput value="1" /><button>Add</button></div>
+      <div>
+        <QtyInput value='1' />
+        <button>Add</button>
+      </div>
     </div>
   )
 }
@@ -765,21 +1267,47 @@ function ProductCard({ product }) {
 function OrderSummaryMini({ large }) {
   return (
     <div className={`chat-prism-order-summary-mini ${large ? 'large' : ''}`}>
-      <p><span>Subtotal</span><b>Rp 100.000</b></p>
-      <p className="discount"><span>Discount</span><b>- Rp 10.000</b></p>
-      <p><span>Shipping</span><b>Rp 10.000</b></p>
-      <p><span>VAT (11%)</span><b>Rp 11.000</b></p>
-      <strong><span>Total</span><b>Rp 111.000</b></strong>
+      <p>
+        <span>Subtotal</span>
+        <b>Rp 100.000</b>
+      </p>
+      <p className='discount'>
+        <span>Discount</span>
+        <b>- Rp 10.000</b>
+      </p>
+      <p>
+        <span>Shipping</span>
+        <b>Rp 10.000</b>
+      </p>
+      <p>
+        <span>VAT (11%)</span>
+        <b>Rp 11.000</b>
+      </p>
+      <strong>
+        <span>Total</span>
+        <b>Rp 111.000</b>
+      </strong>
     </div>
   )
 }
 
 function CommerceField({ children, label }) {
-  return <label className="chat-prism-commerce-field"><span>{label}</span>{children}</label>
+  return (
+    <label className='chat-prism-commerce-field'>
+      <span>{label}</span>
+      {children}
+    </label>
+  )
 }
 
 function QtyInput({ value }) {
-  return <div className="chat-prism-qty-input"><button>-</button><input readOnly value={value} /><button>+</button></div>
+  return (
+    <div className='chat-prism-qty-input'>
+      <button>-</button>
+      <input readOnly value={value} />
+      <button>+</button>
+    </div>
+  )
 }
 
 function AiTab({ chat }) {
@@ -803,7 +1331,7 @@ function AiTab({ chat }) {
     <div>
       <SectionTitle>AI Agent</SectionTitle>
       <Field
-        label="Assigned agent"
+        label='Assigned agent'
         value={
           chat.agentName ||
           chat.assignedAgentName ||
@@ -812,7 +1340,7 @@ function AiTab({ chat }) {
         }
       />
       <Field
-        label="Conversation mode"
+        label='Conversation mode'
         value={isHuman ? 'Human agent' : 'AI managed'}
       />
 
@@ -821,15 +1349,12 @@ function AiTab({ chat }) {
           <Divider />
           <SectionTitle>Takeover</SectionTitle>
           <Field
-            label="Taken over by"
+            label='Taken over by'
             value={chat.takenOverBy || chat.takenOverByName || 'Unknown'}
           />
+          <Field label='Taken over at' value={formatTs(chat.takenOverAt)} />
           <Field
-            label="Taken over at"
-            value={formatTs(chat.takenOverAt)}
-          />
-          <Field
-            label="Escalation reason"
+            label='Escalation reason'
             value={chat.escalationReason || 'Not specified'}
           />
         </>
@@ -838,50 +1363,48 @@ function AiTab({ chat }) {
       <Divider />
       <SectionTitle>Conversation</SectionTitle>
       <Field
-        label="Status"
+        label='Status'
         value={
           chat.status
             ? chat.status.charAt(0).toUpperCase() + chat.status.slice(1)
             : '—'
         }
       />
-      <Field
-        label="Last updated"
-        value={formatTs(chat.updatedAt)}
-      />
-      <Field
-        label="Created"
-        value={formatTs(chat.createdAt)}
-      />
+      <Field label='Last updated' value={formatTs(chat.updatedAt)} />
+      <Field label='Created' value={formatTs(chat.createdAt)} />
     </div>
   )
 }
 
 // ─── main component ────────────────────────────────────────────────────────
 
-export default function ChatContextPanel({ chat, onOpenOrder, onResendPaymentLink }) {
+export default function ChatContextPanel({
+  chat,
+  onOpenOrder,
+  onResendPaymentLink,
+}) {
   const [activeTab, setActiveTab] = useState('contact')
 
   if (!chat) return null
 
   return (
-    <div className="chat-prism-context-panel">
+    <div className='chat-prism-context-panel'>
       {/* Tabs */}
-      <div className="chat-prism-context-tabs">
+      <div className='chat-prism-context-tabs'>
         <Tab
-          label="Info"
+          label='Info'
           icon={<AlertCircle size={16} />}
           active={activeTab === 'contact'}
           onClick={() => setActiveTab('contact')}
         />
         <Tab
-          label="Ticket"
+          label='Ticket'
           icon={<Ticket size={16} />}
           active={activeTab === 'ai'}
           onClick={() => setActiveTab('ai')}
         />
         <Tab
-          label="Orders"
+          label='Orders'
           icon={<ShoppingBag size={16} />}
           active={activeTab === 'commerce'}
           onClick={() => setActiveTab('commerce')}
@@ -889,7 +1412,7 @@ export default function ChatContextPanel({ chat, onOpenOrder, onResendPaymentLin
       </div>
 
       {/* Panel content */}
-      <div className="chat-prism-context-content">
+      <div className='chat-prism-context-content'>
         {activeTab === 'contact' && <ContactTab chat={chat} />}
         {activeTab === 'commerce' && (
           <CommerceTab

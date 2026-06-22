@@ -65,9 +65,9 @@ export default function ConfirmDialog({
       }}
     >
       <div
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
+        role='alertdialog'
+        aria-modal='true'
+        aria-labelledby='confirm-dialog-title'
         aria-describedby={description ? 'confirm-dialog-desc' : undefined}
         style={{
           background: 'var(--surface-primary)',
@@ -80,7 +80,7 @@ export default function ConfirmDialog({
         }}
       >
         <h2
-          id="confirm-dialog-title"
+          id='confirm-dialog-title'
           style={{
             margin: '0 0 8px',
             fontSize: 16,
@@ -94,7 +94,7 @@ export default function ConfirmDialog({
 
         {description && (
           <p
-            id="confirm-dialog-desc"
+            id='confirm-dialog-desc'
             style={{
               margin: '0 0 24px',
               fontSize: 14,
@@ -116,7 +116,7 @@ export default function ConfirmDialog({
         >
           <button
             ref={cancelRef}
-            className="btn ghost"
+            className='btn ghost'
             onClick={onCancel}
             disabled={isLoading}
           >

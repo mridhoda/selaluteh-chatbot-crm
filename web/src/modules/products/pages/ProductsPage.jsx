@@ -537,7 +537,9 @@ function DetailPanel({ product, onClose, mobile = false }) {
           <div className='w-12 h-12 rounded-full bg-[#F6F8FB] flex items-center justify-center text-[#667085] mb-2 border border-dashed border-[#E1E6EF] text-lg'>
             📦
           </div>
-          <div className='text-sm font-semibold text-[#11182E]'>No Product Selected</div>
+          <div className='text-sm font-semibold text-[#11182E]'>
+            No Product Selected
+          </div>
           <div className='text-xs text-[#667085] max-w-[240px]'>
             Click on any product in the table to view its full details here.
           </div>
@@ -803,10 +805,12 @@ export default function ProductsPage() {
         setProducts(dummyProducts)
       } else {
         const res = await api.get('/products')
-        const rawProducts = Array.isArray(res.data) 
-          ? res.data 
-          : (res.data && Array.isArray(res.data.data) ? res.data.data : [])
-        
+        const rawProducts = Array.isArray(res.data)
+          ? res.data
+          : res.data && Array.isArray(res.data.data)
+            ? res.data.data
+            : []
+
         const mappedProducts = rawProducts.map((item, idx) => ({
           id: item.id || item._id,
           _id: item.id || item._id,
@@ -827,7 +831,11 @@ export default function ProductsPage() {
           tags: item.tags || [],
           tax: item.tax_label || 'PPN 11%',
           trend: item.trend || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-          inventorySummary: item.inventorySummary || { total: item.stock_quantity || 0, lowStock: 0, outOfStock: 0 }
+          inventorySummary: item.inventorySummary || {
+            total: item.stock_quantity || 0,
+            lowStock: 0,
+            outOfStock: 0,
+          },
         }))
         setProducts(mappedProducts)
       }
@@ -975,10 +983,12 @@ export default function ProductsPage() {
 
   return (
     <div className='flex flex-1 overflow-hidden bg-[#F6F8FB] -m-4 h-[calc(100vh-58px)] max-h-[calc(100vh-58px)] text-[#11182E]'>
-      <main className={cx(
-        'flex-1 flex flex-col min-w-0 p-4 pt-3 overflow-hidden transition-[padding] duration-200 motion-reduce:transition-none',
-        isDetailOpen ? 'xl:pr-[416px]' : 'xl:pr-4'
-      )}>
+      <main
+        className={cx(
+          'flex-1 flex flex-col min-w-0 p-4 pt-3 overflow-hidden transition-[padding] duration-200 motion-reduce:transition-none',
+          isDetailOpen ? 'xl:pr-[416px]' : 'xl:pr-4'
+        )}
+      >
         <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden'>
           <header className='-mx-1 shrink-0 flex flex-col gap-3 overflow-visible px-1 pt-1 pb-1 lg:flex-row lg:items-start lg:justify-between'>
             <div>
@@ -995,7 +1005,7 @@ export default function ProductsPage() {
                   type='button'
                   onClick={() => setIsDetailOpen(true)}
                   className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#D6DCE8] bg-white px-3 text-sm font-bold text-[#11182E] shadow-sm transition hover:border-[#F43F70] hover:text-[#F43F70]'
-                  title="Show product details"
+                  title='Show product details'
                 >
                   <Eye size={14} />
                   <span>{selectedProduct.sku}</span>
@@ -1290,7 +1300,7 @@ export default function ProductsPage() {
                               e.stopPropagation()
                               openProduct(item)
                             }}
-                            className="bg-white hover:bg-[#F2F4F8] border border-[#E1E6EF] text-xs font-semibold px-2.5 py-1.5 rounded-lg text-[#667085] shadow-sm transition duration-150 focus:outline-none"
+                            className='bg-white hover:bg-[#F2F4F8] border border-[#E1E6EF] text-xs font-semibold px-2.5 py-1.5 rounded-lg text-[#667085] shadow-sm transition duration-150 focus:outline-none'
                           >
                             View
                           </button>
@@ -1298,7 +1308,7 @@ export default function ProductsPage() {
                             type='button'
                             onClick={(e) => e.stopPropagation()}
                             className='border-0 text-[#667085] hover:text-[#26314D] hover:bg-[#F2F4F8] w-8 h-8 rounded-lg flex items-center justify-center transition duration-150 focus:outline-none'
-                            title="More actions"
+                            title='More actions'
                           >
                             <MoreVertical size={16} />
                           </button>
@@ -1379,7 +1389,10 @@ export default function ProductsPage() {
 
       {isDetailOpen && (
         <div className='fixed inset-y-0 right-0 z-[80] hidden xl:block w-[400px] h-[100dvh] bg-white border-l border-[#E1E6EF] overflow-hidden shadow-[-4px_0_15px_rgba(17,24,46,0.03)]'>
-          <DetailPanel product={selectedProduct} onClose={() => setIsDetailOpen(false)} />
+          <DetailPanel
+            product={selectedProduct}
+            onClose={() => setIsDetailOpen(false)}
+          />
         </div>
       )}
 

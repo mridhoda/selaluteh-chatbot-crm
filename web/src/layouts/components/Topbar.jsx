@@ -30,7 +30,9 @@ export default function Navbar({ authed, user, plan, className }) {
     }
   }, [dropdownRef])
 
-  const onlineStatusColor = isOnline ? 'var(--lp-green-500)' : 'var(--lp-slate-400)';
+  const onlineStatusColor = isOnline
+    ? 'var(--lp-green-500)'
+    : 'var(--lp-slate-400)'
 
   return (
     <div className={`navbar ${className || ''}`}>
@@ -39,7 +41,10 @@ export default function Navbar({ authed, user, plan, className }) {
         style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
       >
         <div className='logo'>
-          <div className='lp-logo-icon' style={{ width: 32, height: 32, fontSize: 18, borderRadius: 8 }}>
+          <div
+            className='lp-logo-icon'
+            style={{ width: 32, height: 32, fontSize: 18, borderRadius: 8 }}
+          >
             <FontAwesomeIcon icon={faRobot} />
           </div>
           <div>{import.meta.env.VITE_APP_NAME || 'KALIS.AI'}</div>
@@ -55,7 +60,14 @@ export default function Navbar({ authed, user, plan, className }) {
           </Link>
         </div>
       ) : (
-        <div className='row' style={{ alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <div
+          className='row'
+          style={{
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+          }}
+        >
           <span className='badge navbar-compact-hidden'>
             Paket: {plan?.plan?.toUpperCase?.() || 'PRO'}
           </span>
@@ -65,25 +77,49 @@ export default function Navbar({ authed, user, plan, className }) {
           </div>
           <div
             ref={dropdownRef}
-            style={{ display: 'flex', gap: 8, alignItems: 'center', position: 'relative', margin: 0, padding: 0 }}
+            style={{
+              display: 'flex',
+              gap: 8,
+              alignItems: 'center',
+              position: 'relative',
+              margin: 0,
+              padding: 0,
+            }}
           >
             <button
               className='btn ghost'
-              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 12px', height: '40px' }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '4px 12px',
+                height: '40px',
+              }}
               onClick={() => setShowDropdown((prev) => !prev)}
             >
               <span>{user?.name}</span>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <div style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  background: 'var(--lp-slate-100)',
+              <div
+                style={{
+                  position: 'relative',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <FontAwesomeIcon icon={faUser} style={{ fontSize: '16px', color: 'var(--muted)' }} />
+                }}
+              >
+                <div
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    background: 'var(--lp-slate-100)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <FontAwesomeIcon
+                    icon={faUser}
+                    style={{ fontSize: '16px', color: 'var(--muted)' }}
+                  />
                 </div>
                 <div
                   style={{
@@ -94,7 +130,7 @@ export default function Navbar({ authed, user, plan, className }) {
                     height: 8,
                     borderRadius: '50%',
                     background: onlineStatusColor,
-                    border: '1.5px solid white'
+                    border: '1.5px solid white',
                   }}
                 ></div>
               </div>
@@ -116,42 +152,105 @@ export default function Navbar({ authed, user, plan, className }) {
                   zIndex: 1000,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '8px'
+                  gap: '8px',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--border)', paddingBottom: 12, marginBottom: 4 }}>
-                  <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '50%',
-                    background: 'var(--lp-slate-100)',
+                <div
+                  style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
-                    <FontAwesomeIcon icon={faUser} style={{ fontSize: '20px', color: 'var(--muted)' }} />
+                    gap: 12,
+                    borderBottom: '1px solid var(--border)',
+                    paddingBottom: 12,
+                    marginBottom: 4,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      background: 'var(--lp-slate-100)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <FontAwesomeIcon
+                      icon={faUser}
+                      style={{ fontSize: '20px', color: 'var(--muted)' }}
+                    />
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        color: 'var(--text)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {user?.name}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--muted)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {user?.email}
+                    </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: onlineStatusColor }}></div>
-                    <span style={{ fontSize: '14px', color: 'var(--text)' }}>Online</span>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '4px 0',
+                  }}
+                >
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                  >
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: onlineStatusColor,
+                      }}
+                    ></div>
+                    <span style={{ fontSize: '14px', color: 'var(--text)' }}>
+                      Online
+                    </span>
                   </div>
-                  <label className="switch">
-                    <input type="checkbox" checked={isOnline} onChange={() => setIsOnline(!isOnline)} />
-                    <span className="slider"></span>
+                  <label className='switch'>
+                    <input
+                      type='checkbox'
+                      checked={isOnline}
+                      onChange={() => setIsOnline(!isOnline)}
+                    />
+                    <span className='slider'></span>
                   </label>
                 </div>
 
                 <button
                   className='btn ghost'
-                  style={{ width: '100%', textAlign: 'left', justifyContent: 'flex-start', marginTop: '4px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    justifyContent: 'flex-start',
+                    marginTop: '4px',
+                    borderTop: '1px solid var(--border)',
+                    paddingTop: '12px',
+                  }}
                   onClick={handleLogout}
                 >
                   Log out

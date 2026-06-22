@@ -1,5 +1,12 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
-import { Routes, Route, useNavigate, useParams, Navigate, useLocation } from 'react-router-dom'
+import {
+  Routes,
+  Route,
+  useNavigate,
+  useParams,
+  Navigate,
+  useLocation,
+} from 'react-router-dom'
 import Sidebar from '../../../layouts/components/Sidebar'
 import Navbar from '../../../layouts/components/Topbar'
 import api from '../../../shared/api/httpClient'
@@ -16,7 +23,17 @@ import AgentDetail from '../../agents/components/AgentDetail'
 import * as XLSX from 'xlsx'
 import { Line, Pie, Bar } from 'react-chartjs-2'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faMagnifyingGlass, faSliders, faEnvelopeOpen, faCopy, faTrash, faComments, faClock, faGlobe, faFileExcel } from '@fortawesome/free-solid-svg-icons'
+import {
+  faMagnifyingGlass,
+  faSliders,
+  faEnvelopeOpen,
+  faCopy,
+  faTrash,
+  faComments,
+  faClock,
+  faGlobe,
+  faFileExcel,
+} from '@fortawesome/free-solid-svg-icons'
 import FileInput from '../../../shared/components/ui/FileInput'
 import ProductsPage from '../../products/pages/ProductsPage'
 import OutletsPage from '../../outlets/pages/OutletsPage'
@@ -24,6 +41,7 @@ import PaymentsPage from '../../payments/pages/PaymentsPage'
 import SettingsPage from '../../settings/pages/SettingsPage'
 import ChatCenterPage from '../../chats/pages/ChatCenterPage'
 import ReportsPage from '../../reports/pages/ReportsPage'
+import Contacts from '../../contacts/pages/ContactsPage'
 import {
   Chart as ChartJS,
   ArcElement,
@@ -68,9 +86,9 @@ function Inbox() {
   // Clear reply state when chat selection changes
   useEffect(() => {
     if (selected) {
-      setReplyingTo(null);
+      setReplyingTo(null)
     }
-  }, [selected?._id]);
+  }, [selected?._id])
 
   // Filter state
   const [showFilterPopup, setShowFilterPopup] = useState(false)
@@ -85,7 +103,9 @@ function Inbox() {
     assignment: 'all',
   })
   const panelHeight = 'calc(100vh - 58px - 20px)'
-  const hasAdvancedFilters = Boolean(filters.from || filters.to || filters.tags.length)
+  const hasAdvancedFilters = Boolean(
+    filters.from || filters.to || filters.tags.length
+  )
   const searchActive = Boolean(showSearch || filters.search)
 
   // Load agents and platforms for filter dropdown and icon mapping
@@ -93,20 +113,22 @@ function Inbox() {
     Promise.all([
       api.get('/agents'),
       api.get('/platforms'), // Fetch platforms
-    ]).then(([agentsRes, platformsRes]) => {
-      const normalizedAgents = (agentsRes.data || []).map(a => ({
-        ...a,
-        _id: a._id || a.id,
-        id: a.id || a._id
-      }));
-      const normalizedPlatforms = (platformsRes.data || []).map(p => ({
-        ...p,
-        _id: p._id || p.id,
-        id: p.id || p._id
-      }));
-      setAgents(normalizedAgents)
-      setPlatforms(normalizedPlatforms)
-    }).catch(console.error)
+    ])
+      .then(([agentsRes, platformsRes]) => {
+        const normalizedAgents = (agentsRes.data || []).map((a) => ({
+          ...a,
+          _id: a._id || a.id,
+          id: a.id || a._id,
+        }))
+        const normalizedPlatforms = (platformsRes.data || []).map((p) => ({
+          ...p,
+          _id: p._id || p.id,
+          id: p.id || p._id,
+        }))
+        setAgents(normalizedAgents)
+        setPlatforms(normalizedPlatforms)
+      })
+      .catch(console.error)
   }, [])
 
   const pfById = useMemo(() => {
@@ -123,13 +145,16 @@ function Inbox() {
       tags: filters.tags.length ? filters.tags.join(',') : undefined,
     }
 
-    const currentAssignment = filters.assignment;
+    const currentAssignment = filters.assignment
 
     // For assigned/unassigned, we fetch all non-resolved and filter client-side.
     // For resolved, we use the backend filter.
     // For 'all', we don't send any assignment filter.
-    if (currentAssignment === 'assigned' || currentAssignment === 'unassigned') {
-      delete params.assignment;
+    if (
+      currentAssignment === 'assigned' ||
+      currentAssignment === 'unassigned'
+    ) {
+      delete params.assignment
     }
 
     if (!filters.agentId) delete params.agentId
@@ -138,24 +163,28 @@ function Inbox() {
     if (!filters.unreadOnly) delete params.unreadOnly
 
     const r = await api.get('/chats', { params })
-    let chatsData = (r.data || []).map(chat => ({
+    let chatsData = (r.data || []).map((chat) => ({
       ...chat,
       _id: chat._id || chat.id,
       id: chat.id || chat._id,
-      contactId: chat.contactId ? {
-        ...chat.contactId,
-        _id: chat.contactId._id || chat.contactId.id,
-        id: chat.contactId.id || chat.contactId._id
-      } : null
-    }));
+      contactId: chat.contactId
+        ? {
+            ...chat.contactId,
+            _id: chat.contactId._id || chat.contactId.id,
+            id: chat.contactId.id || chat.contactId._id,
+          }
+        : null,
+    }))
 
     // Apply client-side filtering for assigned/unassigned
     if (currentAssignment === 'assigned') {
-      chatsData = chatsData.filter(c => c.takeoverBy || c.isEscalated);
+      chatsData = chatsData.filter((c) => c.takeoverBy || c.isEscalated)
     } else if (currentAssignment === 'unassigned') {
-      chatsData = chatsData.filter(c => !c.takeoverBy && !c.isEscalated && c.status !== 'resolved');
+      chatsData = chatsData.filter(
+        (c) => !c.takeoverBy && !c.isEscalated && c.status !== 'resolved'
+      )
     } else if (currentAssignment === 'resolved') {
-      chatsData = chatsData.filter(c => c.status === 'resolved');
+      chatsData = chatsData.filter((c) => c.status === 'resolved')
     }
 
     setChats(chatsData)
@@ -166,7 +195,6 @@ function Inbox() {
     })
   }, [filters])
 
-
   useEffect(() => {
     load()
   }, [load])
@@ -174,10 +202,10 @@ function Inbox() {
   // Optimistically clear unread count when chat is selected
   useEffect(() => {
     if (selected?._id && selected.unread > 0) {
-      const updatedChat = { ...selected, unread: 0 };
-      handleChatUpdate(updatedChat);
+      const updatedChat = { ...selected, unread: 0 }
+      handleChatUpdate(updatedChat)
     }
-  }, [selected?._id]);
+  }, [selected?._id])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -245,7 +273,10 @@ function Inbox() {
     if (!selected) return
     const chatId = selected._id || selected.id
     try {
-      const res = await api.post(`/chats/${chatId}/send`, { content, attachment })
+      const res = await api.post(`/chats/${chatId}/send`, {
+        content,
+        attachment,
+      })
       const sentMsg = res.data
       const updatedChat = {
         ...selected,
@@ -276,7 +307,13 @@ function Inbox() {
 
   return (
     <>
-      <div className='inbox-modern-container' style={{ height: panelHeight, gridTemplateColumns: selected ? '280px 1fr 300px' : '280px 1fr' }}>
+      <div
+        className='inbox-modern-container'
+        style={{
+          height: panelHeight,
+          gridTemplateColumns: selected ? '280px 1fr 300px' : '280px 1fr',
+        }}
+      >
         {/* LEFT COLUMN: Chat List */}
         <div className='inbox-modern-sidebar'>
           <div className='inbox-modern-header'>
@@ -286,27 +323,43 @@ function Inbox() {
                 <button
                   className={`btn-icon ${showSearch ? 'active' : ''}`}
                   onClick={() => setShowSearch(!showSearch)}
-                  title="Search"
+                  title='Search'
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  <svg
+                    width='20'
+                    height='20'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                  >
+                    <circle cx='11' cy='11' r='8'></circle>
+                    <line x1='21' y1='21' x2='16.65' y2='16.65'></line>
                   </svg>
                 </button>
                 <button
                   className={`btn-icon ${filters.unreadOnly ? 'active' : ''}`}
-                  onClick={() => handleFilterChange({ unreadOnly: !filters.unreadOnly })}
-                  title="Toggle Unread Only"
+                  onClick={() =>
+                    handleFilterChange({ unreadOnly: !filters.unreadOnly })
+                  }
+                  title='Toggle Unread Only'
                 >
                   <FontAwesomeIcon icon={faEnvelopeOpen} />
                 </button>
                 <button
                   className={`btn-icon ${hasAdvancedFilters ? 'active' : ''}`}
                   onClick={() => setShowFilterPopup(true)}
-                  title="Filter"
+                  title='Filter'
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                  <svg
+                    width='20'
+                    height='20'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                  >
+                    <polygon points='22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3'></polygon>
                   </svg>
                 </button>
               </div>
@@ -317,7 +370,9 @@ function Inbox() {
                 <input
                   placeholder='Search messages...'
                   value={filters.search}
-                  onChange={(e) => handleFilterChange({ search: e.target.value })}
+                  onChange={(e) =>
+                    handleFilterChange({ search: e.target.value })
+                  }
                   autoFocus
                 />
               </div>
@@ -356,9 +411,14 @@ function Inbox() {
                 </div>
                 <div className='chat-item-content'>
                   <div className='chat-item-top'>
-                    <span className='chat-item-name'>{chat.contactId?.name || chat.from}</span>
+                    <span className='chat-item-name'>
+                      {chat.contactId?.name || chat.from}
+                    </span>
                     <span className='chat-item-time'>
-                      {new Date(chat.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(chat.lastMessageAt).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </span>
                   </div>
                   <div className='chat-item-preview'>
@@ -374,15 +434,28 @@ function Inbox() {
                     {chat.status !== 'resolved' && chat.takeoverBy && (
                       <span className='status-badge assigned'>Assigned</span>
                     )}
-                    {chat.status !== 'resolved' && !chat.takeoverBy && chat.isEscalated && (
-                      <span className='status-badge pending' style={{ backgroundColor: '#F97316', color: 'white' }}>Pending Human</span>
-                    )}
-                    {chat.status !== 'resolved' && !chat.takeoverBy && !chat.isEscalated && chat.agentId && (
-                      <span className='status-badge open'>Open</span>
-                    )}
-                    {chat.status !== 'resolved' && !chat.takeoverBy && !chat.isEscalated && !chat.agentId && (
-                      <span className='status-badge pending'>Pending</span>
-                    )}
+                    {chat.status !== 'resolved' &&
+                      !chat.takeoverBy &&
+                      chat.isEscalated && (
+                        <span
+                          className='status-badge pending'
+                          style={{ backgroundColor: '#F97316', color: 'white' }}
+                        >
+                          Pending Human
+                        </span>
+                      )}
+                    {chat.status !== 'resolved' &&
+                      !chat.takeoverBy &&
+                      !chat.isEscalated &&
+                      chat.agentId && (
+                        <span className='status-badge open'>Open</span>
+                      )}
+                    {chat.status !== 'resolved' &&
+                      !chat.takeoverBy &&
+                      !chat.isEscalated &&
+                      !chat.agentId && (
+                        <span className='status-badge pending'>Pending</span>
+                      )}
                     {chat.contactId?.tags?.map((tag, idx) => (
                       <span key={`${tag}-${idx}`} className='contact-tag-badge'>
                         {tag}
@@ -393,13 +466,10 @@ function Inbox() {
               </div>
             ))}
             {chats.length === 0 && (
-              <div className='empty-state'>
-                No chats found
-              </div>
+              <div className='empty-state'>No chats found</div>
             )}
           </div>
         </div>
-
 
         {/* MIDDLE COLUMN: Chat Area */}
         <div className='inbox-modern-main'>
@@ -424,10 +494,7 @@ function Inbox() {
         {/* RIGHT COLUMN: Contact Info */}
         {selected && (
           <div className='inbox-modern-details'>
-            <ContactPanel
-              selected={selected}
-              onUpdate={handleContactUpdate}
-            />
+            <ContactPanel selected={selected} onUpdate={handleContactUpdate} />
           </div>
         )}
       </div>
@@ -535,14 +602,15 @@ function Agents() {
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 20px' }}>
-
       {/* Header */}
       <div className='agents-page-header'>
         <h2>AI Agents</h2>
         <p>
-          Ini adalah halaman di mana Anda dapat mengunjungi AI yang telah Anda buat sebelumnya.
+          Ini adalah halaman di mana Anda dapat mengunjungi AI yang telah Anda
+          buat sebelumnya.
           <br />
-          Jangan ragu untuk membuat perubahan dan membuat chatbot sebanyak yang Anda inginkan kapan saja!
+          Jangan ragu untuk membuat perubahan dan membuat chatbot sebanyak yang
+          Anda inginkan kapan saja!
         </p>
       </div>
 
@@ -564,7 +632,7 @@ function Agents() {
       {/* Grid */}
       <div className='agents-grid'>
         {filtered.map((a) => {
-          const agentId = a.id || a._id;
+          const agentId = a.id || a._id
           return (
             <div key={agentId} className='agent-card'>
               <div className='agent-name'>{a.name}</div>
@@ -596,7 +664,7 @@ function Agents() {
                 </button>
               </div>
             </div>
-          );
+          )
         })}
 
         {/* Create New Card */}
@@ -685,9 +753,8 @@ function Agents() {
             </form>
           </div>
         </div>
-      )
-      }
-    </div >
+      )}
+    </div>
   )
 }
 
@@ -771,14 +838,15 @@ function Humans() {
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 20px' }}>
-
       {/* Header */}
       <div className='agents-page-header'>
         <h2>Human Agents</h2>
         <p>
-          Ini adalah halaman di mana Anda dapat mengunjungi human yang telah Anda buat sebelumnya.
+          Ini adalah halaman di mana Anda dapat mengunjungi human yang telah
+          Anda buat sebelumnya.
           <br />
-          Jangan ragu untuk membuat perubahan dan membuat human sebanyak yang Anda inginkan kapan saja!
+          Jangan ragu untuk membuat perubahan dan membuat human sebanyak yang
+          Anda inginkan kapan saja!
         </p>
       </div>
 
@@ -800,7 +868,7 @@ function Humans() {
       {/* Grid */}
       <div className='agents-grid'>
         {filtered.map((u) => {
-          const userId = u.id || u._id;
+          const userId = u.id || u._id
           return (
             <div key={userId} className='agent-card'>
               <div className='agent-name'>{u.name}</div>
@@ -810,16 +878,29 @@ function Humans() {
               </div>
 
               {/* Role Badge */}
-              <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center' }}>
-                <span style={{
-                  padding: '4px 12px',
-                  borderRadius: 12,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  background: u.role === 'owner' ? '#EF4444' : u.role === 'super' ? '#F59E0B' : '#3B82F6',
-                  color: 'white'
-                }}>
+              <div
+                style={{
+                  marginTop: 8,
+                  display: 'flex',
+                  justifyContent: 'center',
+                }}
+              >
+                <span
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: 12,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    background:
+                      u.role === 'owner'
+                        ? '#EF4444'
+                        : u.role === 'super'
+                          ? '#F59E0B'
+                          : '#3B82F6',
+                    color: 'white',
+                  }}
+                >
                   {u.role || 'agent'}
                 </span>
               </div>
@@ -834,7 +915,7 @@ function Humans() {
                 </button>
               </div>
             </div>
-          );
+          )
         })}
 
         {/* Create New Card */}
@@ -910,7 +991,7 @@ function Humans() {
           </div>
         </div>
       )}
-    </div >
+    </div>
   )
 }
 
@@ -951,10 +1032,10 @@ function AnalyticsPage() {
       {
         data: platforms.map((p) => p.count),
         backgroundColor: [
-          'rgba(249, 115, 22, 0.8)',   // Brand Orange
-          'rgba(251, 146, 60, 0.8)',   // Existing complementary orange
-          'rgba(156, 163, 175, 0.8)',  // Neutral gray
-          'rgba(249, 115, 22, 0.6)',   // Lighter Brand Orange
+          'rgba(249, 115, 22, 0.8)', // Brand Orange
+          'rgba(251, 146, 60, 0.8)', // Existing complementary orange
+          'rgba(156, 163, 175, 0.8)', // Neutral gray
+          'rgba(249, 115, 22, 0.6)', // Lighter Brand Orange
         ],
       },
     ],
@@ -1047,194 +1128,7 @@ function AnalyticsPage() {
 }
 
 /* ========================= CONTACTS ========================= */
-/* ========================= CONTACTS ========================= */
-function Contacts() {
-  const [contacts, setContacts] = useState([])
-  const [q, setQ] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(10)
-
-  useEffect(() => {
-    api.get('/contacts').then((r) => setContacts(r.data.data || r.data || []))
-  }, [])
-
-  // Filter contacts
-  const filtered = Array.isArray(contacts) ? contacts.filter((c) =>
-    c.name?.toLowerCase().includes(q.toLowerCase())
-  ) : []
-
-  // Pagination Logic
-  const totalPages = Math.ceil(filtered.length / itemsPerPage)
-
-  // Reset to page 1 when search changes
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [q, itemsPerPage])
-
-  const paginatedContacts = filtered.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  )
-
-  const handlePageChange = (p) => {
-    if (p >= 1 && p <= totalPages) {
-      setCurrentPage(p)
-    }
-  }
-
-  // Generate page numbers
-  const getPageNumbers = () => {
-    const delta = 2
-    const range = []
-    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
-      range.push(i)
-    }
-    if (currentPage - delta > 2) {
-      range.unshift('...')
-    }
-    if (currentPage + delta < totalPages - 1) {
-      range.push('...')
-    }
-    range.unshift(1)
-    if (totalPages > 1) {
-      range.push(totalPages)
-    }
-    return range
-  }
-
-
-  const exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(
-      (Array.isArray(contacts) ? contacts : []).map((c) => ({
-        'Name': c.name,
-        'ID / Phone': c.platformAccountId || c.phone || '-',
-        'Waktu Awal Chat': new Date(c.createdAt).toLocaleString(),
-        'Waktu Akhir Chat': new Date(c.lastMessageAt).toLocaleString(),
-        'Pesan Terakhir': c.lastMessage || '-',
-      }))
-    )
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Contacts')
-    XLSX.writeFile(wb, 'contacts.xlsx')
-  }
-
-  return (
-    <div className='contacts-container'>
-      {/* Header */}
-      <div className='contacts-header'>
-        <h1>Contacts</h1>
-        <div className='contacts-actions'>
-          <button className='contacts-export-btn' onClick={exportToExcel}>
-            <span style={{ fontSize: 16 }}>⬇</span> Export to Excel
-          </button>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className='contacts-search-wrapper'>
-        <input
-          className='contacts-search-input'
-          placeholder='Search contacts by name...'
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <svg className="contacts-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-      </div>
-
-      {/* Grid */}
-      <div className='contacts-grid'>
-        {paginatedContacts.map((c) => (
-          <div key={c.id || c._id} className='contact-card'>
-            <div className='contact-header'>
-              <div className='contact-avatar'>
-                {c.name?.charAt(0).toUpperCase() || '?'}
-              </div>
-              <div className='contact-info'>
-                <div className='contact-name' title={c.name}>{c.name}</div>
-                <div className='contact-phone'>{c.platformAccountId || c.phone || '-'}</div>
-              </div>
-            </div>
-
-            <div className='contact-body'>
-              <div className='contact-message-label'>Last Message</div>
-              <div className='contact-message-text'>
-                {c.lastMessage ? `"${c.lastMessage}"` : <span style={{ opacity: 0.5 }}>No messages yet</span>}
-              </div>
-            </div>
-
-            <div className='contact-footer'>
-              <div className='contact-date'>
-                <span>Started</span>
-                {new Date(c.createdAt).toLocaleDateString()}
-              </div>
-              <div className='contact-date' style={{ alignItems: 'flex-end' }}>
-                <span>Last Active</span>
-                {new Date(c.lastMessageAt).toLocaleDateString()}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className='contacts-empty'>
-          <div className='contacts-empty-icon'>📭</div>
-          <p>No contacts found matching &quot;{q}&quot;</p>
-        </div>
-      )}
-
-      {/* Pagination Footer */}
-      {filtered.length > 0 && (
-        <div className='contacts-footer-bar'>
-          <div>Total Data: <strong>{filtered.length.toLocaleString()}</strong></div>
-
-          <div className='pagination-controls'>
-            <button
-              className='page-btn'
-              disabled={currentPage === 1}
-              onClick={() => handlePageChange(currentPage - 1)}
-            >
-              &lt;
-            </button>
-
-            {getPageNumbers().map((p, i) => (
-              <button
-                key={i}
-                className={`page-btn ${currentPage === p ? 'active' : ''}`}
-                onClick={() => p !== '...' && handlePageChange(p)}
-                disabled={p === '...'}
-              >
-                {p}
-              </button>
-            ))}
-
-            <button
-              className='page-btn'
-              disabled={currentPage === totalPages}
-              onClick={() => handlePageChange(currentPage + 1)}
-            >
-              &gt;
-            </button>
-          </div>
-
-          <div className='rows-per-page-selector'>
-            <button className="btn ghost small" style={{ marginRight: 8 }}>Show per Page</button>
-            <select
-              className='rows-select'
-              value={itemsPerPage}
-              onChange={(e) => setItemsPerPage(Number(e.target.value))}
-            >
-              <option value={10}>10 rows</option>
-              <option value={20}>20 rows</option>
-              <option value={50}>50 rows</option>
-              <option value={100}>100 rows</option>
-            </select>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+/* ========================= CONTACTS (Imported from ContactsPage) ========================= */
 
 /* ========================= PROFILE ========================= */
 function Profile() {
@@ -1306,7 +1200,6 @@ function Billing() {
   )
 }
 
-
 /* ========================= MAIN LAYOUT ========================= */
 export default function Dashboard() {
   const { user } = useAuth()
@@ -1322,7 +1215,8 @@ export default function Dashboard() {
       .catch((error) => console.error('Error fetching billing info:', error))
   }, [user, navigate])
 
-  const isProductsPage = location.pathname.replace(/\/+$/, '') === '/app/products'
+  const isProductsPage =
+    location.pathname.replace(/\/+$/, '') === '/app/products'
 
   return (
     <div className='dashboard-layout'>
@@ -1331,12 +1225,13 @@ export default function Dashboard() {
       </div>
       <Navbar authed user={user} plan={plan} />
       <div className={`main ${isProductsPage ? 'main--products' : ''}`}>
-        <div className={`main-body ${isProductsPage ? 'main-body--products' : ''}`}>
+        <div
+          className={`main-body ${isProductsPage ? 'main-body--products' : ''}`}
+        >
           <Routes>
             <Route index element={<Inbox />} />
             <Route path='chats' element={<ChatCenterPage />} />
             <Route path='analytics' element={<AnalyticsPage />} />
-            <Route path='contacts' element={<Contacts />} />
             <Route path='contacts' element={<Contacts />} />
             <Route path='complaints' element={<Complaints />} />
             <Route path='orders' element={<Orders />} />
@@ -1345,7 +1240,10 @@ export default function Dashboard() {
             <Route path='payments' element={<PaymentsPage />} />
             <Route path='platforms' element={<Platforms />} />
             <Route path='agents' element={<Agents />} />
-            <Route path='agents/:id' element={<Navigate to='general' replace />} />
+            <Route
+              path='agents/:id'
+              element={<Navigate to='general' replace />}
+            />
             <Route path='agents/:id/:tab' element={<AgentDetail />} />
             <Route path='humans' element={<Humans />} />
             <Route path='human-agents' element={<Humans />} />

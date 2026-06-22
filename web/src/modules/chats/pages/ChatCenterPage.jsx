@@ -61,7 +61,9 @@ export default function ChatCenterPage() {
       const chat = chats.find((c) => (c._id || c.id) === selectedChatId)
       const isResolved =
         chat && (chat.status === 'resolved' || chat.status === 'closed')
-      toast.success(isResolved ? 'Conversation reopened' : 'Conversation resolved')
+      toast.success(
+        isResolved ? 'Conversation reopened' : 'Conversation resolved'
+      )
       refetchChats()
     } catch (e) {
       toast.error((e && e.message) || 'Action failed')
@@ -82,9 +84,9 @@ export default function ChatCenterPage() {
   // ── render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="chat-prism-shell">
+    <div className='chat-prism-shell'>
       {/* ── Left: Chat list — 320px ──────────────────────────────────────── */}
-      <div className="chat-prism-list-column">
+      <div className='chat-prism-list-column'>
         <ChatList
           chats={chats}
           selectedId={selectedChatId}
@@ -96,11 +98,11 @@ export default function ChatCenterPage() {
       </div>
 
       {/* ── Middle: Conversation panel — flex 1 ──────────────────────────── */}
-      <div className="chat-prism-main-column">
+      <div className='chat-prism-main-column'>
         {/* toggle context panel button (top-right corner of message pane) */}
         {selectedChat && (
           <button
-            className="chat-prism-info-toggle"
+            className='chat-prism-info-toggle'
             onClick={() => setContextOpen((o) => !o)}
             title={contextOpen ? 'Hide context panel' : 'Show context panel'}
           >
@@ -128,7 +130,7 @@ export default function ChatCenterPage() {
 
       {/* ── Right: Context panel — 360px, collapsible ────────────────────── */}
       {selectedChat && contextOpen && (
-        <div className="chat-prism-context-column">
+        <div className='chat-prism-context-column'>
           <ChatContextPanel
             chat={selectedChat}
             onOpenOrder={(orderId) =>

@@ -9,6 +9,7 @@ import {
   contactsSupabaseRepository,
   platformsSupabaseRepository,
   messagesSupabaseRepository,
+  productsSupabaseRepository,
 } from '../db/repositories/index.js';
 import { tgSend, waSend } from './sender.js';
 import { createOrderFromAI } from './order.service.js';
@@ -30,6 +31,65 @@ function getMimeType(filename = '') {
   if (lower.endsWith('.m4a')) return 'audio/m4a';
   // Default for safety, though Gemini supports various types
   return 'image/jpeg';
+}
+
+function formatRupiah(value) {
+  const number = Number(value || 0);
+  return `Rp ${number.toLocaleString('id-ID')}`;
+}
+
+function buildProductMenuContext(products = []) {
+  if (!products.length) {
+    return `
+
+Official Active Products from Products Page:
+- No active products are currently registered in the products page.
+
+Product/menu answer rules:
+- If the user asks for menu, products, prices, stock, or availability, answer only from this Official Active Products list.
+- Do not invent menu items, prices, variants, stock, promos, or availability.
+- If a requested item is not listed here, say it is not available in the current products page and offer listed alternatives.`;
+  }
+
+  const lines = products.slice(0, 80).map((product) => {
+    const description = product.shortDescription || product.description || '';
+    const stock = product.stockTracking
+      ? ` | stock: ${product.stockQuantity ?? 'unknown'}`
+      : '';
+    const tags = Array.isArray(product.tags) && product.tags.length > 0
+      ? ` | tags: ${product.tags.join(', ')}`
+      : '';
+    return `- ${product.name}: ${formatRupiah(product.basePrice ?? product.price)}${description ? ` | ${description}` : ''}${stock}${tags}`;
+  });
+
+  return `
+
+Official Active Products from Products Page:
+${lines.join('\n')}
+${products.length > 80 ? `- ...${products.length - 80} more active products are registered but not shown in this prompt.` : ''}
+
+Product/menu answer rules:
+- If the user asks for menu, products, prices, stock, or availability, answer only from this Official Active Products list.
+- Do not invent menu items, prices, variants, stock, promos, or availability.
+- Do not mention products that are inactive or absent from the products page.
+- If a requested item is not listed here, say it is not available in the current products page and offer listed alternatives.`;
+}
+
+async function loadProductMenuContext({ workspaceId }) {
+  if (!workspaceId) return '';
+
+  try {
+    const products = await productsSupabaseRepository.findProducts({ workspaceId, isActive: true });
+    return buildProductMenuContext(products);
+  } catch (error) {
+    console.error('[AI] Failed to load products context:', error.message);
+    return `
+
+Product/menu answer rules:
+- Product data from the products page could not be loaded right now.
+- Do not answer menu, price, stock, or availability from memory.
+- Ask the user to wait while an admin checks the current products page.`;
+  }
 }
 
 export async function generateAIReply({ system, prompt, message, knowledge, agent, chat, history = [] }) {
@@ -84,6 +144,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
   const contactId = typeof chat?.contactId === 'object' ? chat.contactId?.id : chat?.contactId;
   const contact = contactId ? await contactsSupabaseRepository.findById({ workspaceId: chat.workspaceId, contactId }) : null;
   const contactName = contact?.name ? ` The user's name is ${contact.name}.` : '';
+  const productMenuContext = await loadProductMenuContext({ workspaceId: chat?.workspaceId });
 
   let knowledgeContent = '';
   if (knowledge && knowledge.length > 0) {
@@ -117,7 +178,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
     if (effectiveOpenaiClient) {
       try {
         const openaiMessages = [
-          { role: 'system', content: (system || 'You are a helpful assistant.') + contactName + fileInstruction },
+          { role: 'system', content: (system || 'You are a helpful assistant.') + contactName + fileInstruction + productMenuContext },
         ];
 
         for (const msg of history) {
@@ -216,7 +277,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
         5. Do not add any other text if you decide to escalate.
         `;
 
-        let systemInstruction = (system || 'You are a helpful assistant.') + contactName + fileInstruction + escalationInstruction;
+        let systemInstruction = (system || 'You are a helpful assistant.') + contactName + fileInstruction + productMenuContext + escalationInstruction;
 
         // --- Tools Injection ---
         if (agent.tools && agent.tools.includes('time')) {

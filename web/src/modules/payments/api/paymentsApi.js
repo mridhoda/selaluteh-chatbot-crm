@@ -5,5 +5,6 @@ export const paymentsApi = {
   get: (id) => api.get(`/payments/${id}`),
   getEvents: (id) => api.get(`/payments/${id}/events`),
   resendLink: (id) => api.post(`/payments/${id}/resend-link`),
-  createOrderPaymentLink: (orderId) => api.post(`/orders/${orderId}/payment-link`),
+  createOrderPaymentLink: (orderId) =>
+    api.post(`/orders/${orderId}/payment-link`),
 }

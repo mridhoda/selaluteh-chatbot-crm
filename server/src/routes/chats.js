@@ -12,7 +12,7 @@ import { authRequired, attachUser } from '../middleware/auth.js';
 import { acquireTakeover, releaseTakeover } from '../services/human-takeover.service.js';
 import { chatsSupabaseRepository, messagesSupabaseRepository } from '../db/repositories/index.js';
 import { decrypt } from '../utils/encryption.js';
-import { tgSend, tgSendDocument, tgSendPhoto, waSend, waSendDocument } from '../services/sender.js';
+import { tgSend, tgSendDocument, tgSendPhoto, waSend, waSendDocument, waSendImage, waSendSticker } from '../services/sender.js';
 
 const router = express.Router();
 
@@ -108,10 +108,40 @@ router.post('/:chatId/send', authRequired, attachUser, async (req, res) => {
       return res.status(404).json({ error: 'Chat not found' });
     }
 
+    let finalMessageText = messageText || '';
+    let finalAttachment = attachment || null;
+
+    if (!finalAttachment && finalMessageText) {
+      const { agentsSupabaseRepository } = await import('../db/repositories/agents.supabase.repository.js');
+      const { findDatabaseFileMention } = await import('../utils/fileMentions.js');
+      
+      const workspaceAgents = await agentsSupabaseRepository.list({ workspaceId });
+      let agent = workspaceAgents.find((a) => a.platformId === chat.platformId);
+      if (!agent) agent = workspaceAgents[0] || null;
+
+      if (agent) {
+        const mention = findDatabaseFileMention(finalMessageText, agent);
+        if (mention && mention.file?.storedName) {
+          const cleanedText = (finalMessageText || '').replace(mention.token, mention.altText || '').trim();
+          const filename = mention.file.originalName || mention.file.storedName;
+          const isImg = mention.format === 'image' || filename.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+          
+          finalAttachment = {
+            url: `/files/${mention.file.storedName}`,
+            filename,
+            storedName: mention.file.storedName,
+            type: isImg ? 'image' : 'document',
+            format: mention.format || null,
+          };
+          finalMessageText = cleanedText || mention.altText || finalMessageText;
+        }
+      }
+    }
+
     // Resolve messageType to match database enum chat_message_type
     let messageType = 'text';
-    if (attachment) {
-      const isImg = attachment.type === 'image' || (attachment.filename && attachment.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i));
+    if (finalAttachment) {
+      const isImg = finalAttachment.type === 'image' || (finalAttachment.filename && finalAttachment.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i));
       messageType = isImg ? 'image' : 'file';
     }
 
@@ -125,8 +155,8 @@ router.post('/:chatId/send', authRequired, attachUser, async (req, res) => {
       userId: req.me.id,
       direction: 'outbound',
       messageType,
-      content: messageText || null,
-      rawPayload: attachment ? { attachment } : {},
+      content: finalMessageText || null,
+      rawPayload: finalAttachment ? { attachment: finalAttachment } : {},
     });
 
     // Update lastMessageAt
@@ -163,17 +193,17 @@ router.post('/:chatId/send', authRequired, attachUser, async (req, res) => {
         if (platform.type === 'telegram' && contact.externalId) {
           try {
             let tgResponse;
-            if (attachment && attachment.url) {
-              const filename = path.basename(attachment.url);
+            if (finalAttachment && finalAttachment.url) {
+              const filename = path.basename(finalAttachment.url);
               const localFilePath = path.resolve('uploads', filename);
-              const isImg = attachment.type === 'image' || filename.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+              const isImg = finalAttachment.type === 'image' || filename.match(/\.(jpg|jpeg|png|gif|webp)$/i);
               if (isImg) {
-                tgResponse = await tgSendPhoto(decryptedToken, contact.externalId, localFilePath, messageText || '', replyToMessageId);
+                tgResponse = await tgSendPhoto(decryptedToken, contact.externalId, localFilePath, finalMessageText || '', replyToMessageId);
               } else {
-                tgResponse = await tgSendDocument(decryptedToken, contact.externalId, localFilePath, messageText || '', replyToMessageId);
+                tgResponse = await tgSendDocument(decryptedToken, contact.externalId, localFilePath, finalMessageText || '', replyToMessageId);
               }
-            } else if (messageText) {
-              tgResponse = await tgSend(decryptedToken, contact.externalId, messageText, replyToMessageId);
+            } else if (finalMessageText) {
+              tgResponse = await tgSend(decryptedToken, contact.externalId, finalMessageText, replyToMessageId);
             }
 
             // Save platformMessageId from Telegram response to allow replies
@@ -186,14 +216,24 @@ router.post('/:chatId/send', authRequired, attachUser, async (req, res) => {
         } else if (platform.type === 'whatsapp' && contact.externalId) {
           try {
             const serverUrl = process.env.PUBLIC_BASE_URL || `http://${req.headers.host}`;
-            if (attachment && attachment.url) {
-              const fullUrl = attachment.url.startsWith('http') ? attachment.url : `${serverUrl}${attachment.url}`;
-              await waSendDocument(decryptedToken, platform.phoneNumberId, contact.externalId, fullUrl, attachment.filename || 'document');
-              if (messageText) {
-                await waSend(decryptedToken, platform.phoneNumberId, contact.externalId, messageText);
+            if (finalAttachment && finalAttachment.url) {
+              const fullUrl = finalAttachment.url.startsWith('http') ? finalAttachment.url : `${serverUrl}${finalAttachment.url}`;
+              
+              if (finalAttachment.format === 'sticker' && /\.webp$/i.test(finalAttachment.filename || finalAttachment.url)) {
+                await waSendSticker(decryptedToken, platform.phoneNumberId, contact.externalId, fullUrl);
+                if (finalMessageText) {
+                  await waSend(decryptedToken, platform.phoneNumberId, contact.externalId, finalMessageText);
+                }
+              } else if (finalAttachment.format === 'image' || finalAttachment.type === 'image' || /\.png|jpe?g|gif|webp$/i.test(finalAttachment.filename || finalAttachment.url)) {
+                await waSendImage(decryptedToken, platform.phoneNumberId, contact.externalId, fullUrl, finalMessageText || '');
+              } else {
+                await waSendDocument(decryptedToken, platform.phoneNumberId, contact.externalId, fullUrl, finalAttachment.filename || 'document');
+                if (finalMessageText) {
+                  await waSend(decryptedToken, platform.phoneNumberId, contact.externalId, finalMessageText);
+                }
               }
-            } else if (messageText) {
-              await waSend(decryptedToken, platform.phoneNumberId, contact.externalId, messageText);
+            } else if (finalMessageText) {
+              await waSend(decryptedToken, platform.phoneNumberId, contact.externalId, finalMessageText);
             }
           } catch (e) {
             console.error('[CHATS] Failed to send message to WhatsApp:', e);

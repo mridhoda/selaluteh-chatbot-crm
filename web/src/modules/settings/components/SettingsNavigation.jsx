@@ -1,5 +1,12 @@
 import React from 'react'
-import { Settings, ShoppingCart, CreditCard, Bell, Shield, Palette } from 'lucide-react'
+import {
+  Settings,
+  ShoppingCart,
+  CreditCard,
+  Bell,
+  Shield,
+  Palette,
+} from 'lucide-react'
 
 const SECTIONS = [
   { id: 'general', label: 'General', icon: Settings },
@@ -26,7 +33,9 @@ export default function SettingsNavigation({ activeSection, onSelect }) {
               padding: '9px 12px',
               background: active ? 'var(--surface-secondary)' : 'transparent',
               border: 'none',
-              borderLeft: active ? '3px solid var(--brand-500)' : '3px solid transparent',
+              borderLeft: active
+                ? '3px solid var(--brand-500)'
+                : '3px solid transparent',
               borderRadius: active ? '0 6px 6px 0' : '6px',
               cursor: 'pointer',
               color: active ? 'var(--brand-500)' : 'var(--text-muted)',

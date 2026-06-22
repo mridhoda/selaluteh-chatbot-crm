@@ -22,6 +22,7 @@ export const PG_ERRORS = {
   NOT_NULL_VIOLATION: '23502',
   CHECK_VIOLATION: '23514',
   EXCLUSION_VIOLATION: '23P01',
+  INVALID_TEXT_REPRESENTATION: '22P02',
   PGRST_NO_ROWS: 'PGRST116',
 };
 
@@ -58,6 +59,11 @@ export function mapSupabaseError(error, context = '') {
     case PG_ERRORS.CHECK_VIOLATION:
     case PG_ERRORS.EXCLUSION_VIOLATION:
       return new AppError('VALIDATION_ERROR', `Constraint violation${ctx}`, 400, {
+        detail: error.details || error.message,
+      });
+
+    case PG_ERRORS.INVALID_TEXT_REPRESENTATION:
+      return new AppError('VALIDATION_ERROR', `Invalid input syntax${ctx}`, 400, {
         detail: error.details || error.message,
       });
 

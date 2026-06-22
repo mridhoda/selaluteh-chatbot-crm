@@ -8,25 +8,32 @@ export function useChats(filters = {}) {
   const pollingRef = useRef(null)
   const loadingRef = useRef(false)
 
-  const fetch = useCallback(async (silent = false) => {
-    if (loadingRef.current) return
-    loadingRef.current = true
-    if (!silent) setIsLoading(true)
-    setError(null)
-    try {
-      const res = await chatsApi.list(filters)
-      setData(res.data || [])
-    } catch (e) {
-      if (!silent) {
-        setError(e?.response?.data?.message || e.message || 'Failed to load chats')
+  const fetch = useCallback(
+    async (silent = false) => {
+      if (loadingRef.current) return
+      loadingRef.current = true
+      if (!silent) setIsLoading(true)
+      setError(null)
+      try {
+        const res = await chatsApi.list(filters)
+        setData(res.data || [])
+      } catch (e) {
+        if (!silent) {
+          setError(
+            e?.response?.data?.message || e.message || 'Failed to load chats'
+          )
+        }
+      } finally {
+        loadingRef.current = false
+        if (!silent) setIsLoading(false)
       }
-    } finally {
-      loadingRef.current = false
-      if (!silent) setIsLoading(false)
-    }
-  }, [JSON.stringify(filters)]) // eslint-disable-line react-hooks/exhaustive-deps
+    },
+    [JSON.stringify(filters)]
+  ) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetch() }, [fetch])
+  useEffect(() => {
+    fetch()
+  }, [fetch])
 
   useEffect(() => {
     pollingRef.current = setInterval(() => fetch(true), 3000)

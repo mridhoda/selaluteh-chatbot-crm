@@ -8,26 +8,34 @@ export function useMessages(chatId) {
   const pollingRef = useRef(null)
   const loadingRef = useRef(false)
 
-  const fetch = useCallback(async (silent = false) => {
-    if (!chatId) return
-    if (loadingRef.current && !silent) return
-    if (!silent) { setIsLoading(true) }
-    loadingRef.current = true
-    try {
-      const res = await chatsApi.getMessages(chatId)
-      setMessages(res.data || [])
-      setError(null)
-    } catch (e) {
-      if (!silent) setError(e?.response?.data?.message || e.message)
-    } finally {
-      loadingRef.current = false
-      if (!silent) setIsLoading(false)
-    }
-  }, [chatId])
+  const fetch = useCallback(
+    async (silent = false) => {
+      if (!chatId) return
+      if (loadingRef.current && !silent) return
+      if (!silent) {
+        setIsLoading(true)
+      }
+      loadingRef.current = true
+      try {
+        const res = await chatsApi.getMessages(chatId)
+        setMessages(res.data || [])
+        setError(null)
+      } catch (e) {
+        if (!silent) setError(e?.response?.data?.message || e.message)
+      } finally {
+        loadingRef.current = false
+        if (!silent) setIsLoading(false)
+      }
+    },
+    [chatId]
+  )
 
   // Initial load
   useEffect(() => {
-    if (!chatId) { setMessages([]); return }
+    if (!chatId) {
+      setMessages([])
+      return
+    }
     fetch(false)
   }, [chatId, fetch])
 

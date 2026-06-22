@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useRef,
+} from 'react'
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react'
 
 const ToastContext = createContext(null)
@@ -34,8 +40,8 @@ function Toast({ id, type, message, onDismiss }) {
 
   return (
     <div
-      role="alert"
-      aria-live="assertive"
+      role='alert'
+      aria-live='assertive'
       style={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -53,11 +59,14 @@ function Toast({ id, type, message, onDismiss }) {
         width: '100%',
       }}
     >
-      <Icon size={16} style={{ color: cfg.color, flexShrink: 0, marginTop: 1 }} />
+      <Icon
+        size={16}
+        style={{ color: cfg.color, flexShrink: 0, marginTop: 1 }}
+      />
       <span style={{ flex: 1, lineHeight: 1.5 }}>{message}</span>
       <button
         onClick={() => onDismiss(id)}
-        aria-label="Dismiss notification"
+        aria-label='Dismiss notification'
         style={{
           background: 'none',
           border: 'none',
@@ -107,8 +116,8 @@ export function ToastProvider({ children }) {
     <ToastContext.Provider value={value}>
       {children}
       <div
-        aria-live="polite"
-        aria-label="Notifications"
+        aria-live='polite'
+        aria-label='Notifications'
         style={{
           position: 'fixed',
           bottom: 20,
@@ -124,7 +133,12 @@ export function ToastProvider({ children }) {
       >
         {toasts.map((t) => (
           <div key={t.id} style={{ pointerEvents: 'auto' }}>
-            <Toast id={t.id} type={t.type} message={t.message} onDismiss={dismiss} />
+            <Toast
+              id={t.id}
+              type={t.type}
+              message={t.message}
+              onDismiss={dismiss}
+            />
           </div>
         ))}
       </div>

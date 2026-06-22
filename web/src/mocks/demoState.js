@@ -319,15 +319,20 @@ export async function mockApi(method, url, payload, config = {}) {
     })
   }
 
-  if (path === '/billing' && method === 'get') return response(clone(state.billing))
+  if (path === '/billing' && method === 'get')
+    return response(clone(state.billing))
 
-  if (path === '/platforms' && method === 'get') return response(clone(state.platforms))
+  if (path === '/platforms' && method === 'get')
+    return response(clone(state.platforms))
 
-  if (path === '/agents' && method === 'get') return response(clone(state.agents))
+  if (path === '/agents' && method === 'get')
+    return response(clone(state.agents))
 
   if (path.startsWith('/agents/') && method === 'get') {
     const id = matchId(path, '/agents')
-    return response(clone(state.agents.find((agent) => agent._id === id) || null))
+    return response(
+      clone(state.agents.find((agent) => agent._id === id) || null)
+    )
   }
 
   if (path === '/agents' && method === 'post') {
@@ -390,7 +395,8 @@ export async function mockApi(method, url, payload, config = {}) {
     return response({ ok: true })
   }
 
-  if (path === '/contacts' && method === 'get') return response(clone(state.contacts))
+  if (path === '/contacts' && method === 'get')
+    return response(clone(state.contacts))
 
   if (path.startsWith('/contacts/') && method === 'put') {
     const id = matchId(path, '/contacts')
@@ -410,12 +416,20 @@ export async function mockApi(method, url, payload, config = {}) {
     return response(clone(filtered))
   }
 
-  if (path.startsWith('/chats/') && path.endsWith('/messages') && method === 'get') {
+  if (
+    path.startsWith('/chats/') &&
+    path.endsWith('/messages') &&
+    method === 'get'
+  ) {
     const chatId = path.split('/')[2]
     return response(clone(state.messages[chatId] || []))
   }
 
-  if (path.startsWith('/chats/') && path.endsWith('/send') && method === 'post') {
+  if (
+    path.startsWith('/chats/') &&
+    path.endsWith('/send') &&
+    method === 'post'
+  ) {
     const chatId = path.split('/')[2]
     const message = {
       _id: nextId('msg'),
@@ -431,7 +445,11 @@ export async function mockApi(method, url, payload, config = {}) {
     return response(clone(message))
   }
 
-  if (path.startsWith('/chats/') && path.endsWith('/takeover') && method === 'post') {
+  if (
+    path.startsWith('/chats/') &&
+    path.endsWith('/takeover') &&
+    method === 'post'
+  ) {
     const chatId = path.split('/')[2]
     const chat = state.chats.find((item) => item._id === chatId)
     if (chat) {
@@ -442,7 +460,11 @@ export async function mockApi(method, url, payload, config = {}) {
     return response(clone(ensureContact(chat || {}, state)))
   }
 
-  if (path.startsWith('/chats/') && path.endsWith('/resolve') && method === 'post') {
+  if (
+    path.startsWith('/chats/') &&
+    path.endsWith('/resolve') &&
+    method === 'post'
+  ) {
     const chatId = path.split('/')[2]
     const chat = state.chats.find((item) => item._id === chatId)
     if (chat) chat.status = 'resolved'
@@ -489,7 +511,8 @@ export async function mockApi(method, url, payload, config = {}) {
     return response({ ok: true })
   }
 
-  if (path === '/complaints' && method === 'get') return response(clone(state.complaints))
+  if (path === '/complaints' && method === 'get')
+    return response(clone(state.complaints))
 
   if (path === '/complaints' && method === 'post') {
     const next = {
@@ -572,4 +595,3 @@ export async function mockApi(method, url, payload, config = {}) {
 
   return response(method === 'get' ? [] : { ok: true })
 }
-

@@ -81,12 +81,15 @@ export default function Sidebar() {
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
 
   useEffect(() => {
-    api.get('/orders')
+    api
+      .get('/orders')
       .then((res) => {
-        const rawOrders = Array.isArray(res.data) 
-          ? res.data 
-          : (res.data && Array.isArray(res.data.data) ? res.data.data : []);
-        setOrdersCount(rawOrders.length);
+        const rawOrders = Array.isArray(res.data)
+          ? res.data
+          : res.data && Array.isArray(res.data.data)
+            ? res.data.data
+            : []
+        setOrdersCount(rawOrders.length)
       })
       .catch((err) => {
         // Fallback to default count in case of API failure or offline mode
@@ -104,7 +107,7 @@ export default function Sidebar() {
       } else {
         localStorage.removeItem('sidebarPinned')
         document.body.classList.remove('sidebar-pinned')
-        
+
         if (isExpanded) {
           localStorage.setItem('sidebarExpanded', '1')
           document.body.classList.add('sidebar-expanded')
@@ -160,7 +163,9 @@ export default function Sidebar() {
   const isSidebarOpen = isExpanded || isPinned
 
   return (
-    <div className={`sidebar ${isSidebarOpen ? 'sidebar--expanded' : ''} ${isPinned ? 'sidebar--pinned' : ''}`}>
+    <div
+      className={`sidebar ${isSidebarOpen ? 'sidebar--expanded' : ''} ${isPinned ? 'sidebar--pinned' : ''}`}
+    >
       {/* Header section */}
       {isSidebarOpen ? (
         <div className='sidebar-header-expanded'>
@@ -176,7 +181,10 @@ export default function Sidebar() {
         </div>
       ) : (
         <div className='sidebar-header-collapsed'>
-          <div className='sidebar-leaf-logo' onClick={() => setIsExpanded(true)}>
+          <div
+            className='sidebar-leaf-logo'
+            onClick={() => setIsExpanded(true)}
+          >
             <FontAwesomeIcon icon={faLeaf} />
           </div>
         </div>
@@ -199,19 +207,22 @@ export default function Sidebar() {
                     key={path}
                     to={path}
                     end={path === '/app'}
-                    className={({ isActive }) => `item ${isActive ? 'active' : ''} ${isInactive ? 'item--inactive' : ''}`}
+                    className={({ isActive }) =>
+                      `item ${isActive ? 'active' : ''} ${isInactive ? 'item--inactive' : ''}`
+                    }
                     onClick={() => {
                       if (isExpanded && !isPinned) {
                         setIsExpanded(false)
                       }
                     }}
                   >
-                    <div className='icon' title={!isSidebarOpen ? label : undefined}>
+                    <div
+                      className='icon'
+                      title={!isSidebarOpen ? label : undefined}
+                    >
                       <FontAwesomeIcon icon={icon} />
                     </div>
-                    {isSidebarOpen && (
-                      <span className='label'>{label}</span>
-                    )}
+                    {isSidebarOpen && <span className='label'>{label}</span>}
                     {isOrders && isSidebarOpen && (
                       <span className='sidebar-badge'>{ordersCount}</span>
                     )}
@@ -227,15 +238,18 @@ export default function Sidebar() {
       <div className='sidebar-footer'>
         {isSidebarOpen ? (
           <div className='sidebar-workspace-container'>
-            <div 
-              className='sidebar-workspace-header' 
+            <div
+              className='sidebar-workspace-header'
               onClick={() => setWorkspaceOpen(!workspaceOpen)}
             >
               <span>Workspace</span>
-              <FontAwesomeIcon icon={workspaceOpen ? faChevronDown : faChevronUp} className='chevron-icon' />
+              <FontAwesomeIcon
+                icon={workspaceOpen ? faChevronDown : faChevronUp}
+                className='chevron-icon'
+              />
             </div>
 
-            <div 
+            <div
               className='sidebar-workspace-card'
               onClick={() => setWorkspaceOpen(!workspaceOpen)}
             >
@@ -246,7 +260,10 @@ export default function Sidebar() {
                 <div className='workspace-name'>Selalu Teh</div>
                 <div className='workspace-role'>Owner</div>
               </div>
-              <FontAwesomeIcon icon={faChevronDown} className='workspace-dropdown-chevron' />
+              <FontAwesomeIcon
+                icon={faChevronDown}
+                className='workspace-dropdown-chevron'
+              />
             </div>
 
             {workspaceOpen && (
@@ -258,7 +275,10 @@ export default function Sidebar() {
                     <div className='dropdown-workspace-role'>Owner</div>
                   </div>
                 </div>
-                <div className='dropdown-item' onClick={() => alert("Switching workspace...")}>
+                <div
+                  className='dropdown-item'
+                  onClick={() => alert('Switching workspace...')}
+                >
                   <div className='workspace-dot inactive'></div>
                   <div className='dropdown-workspace-details'>
                     <div className='dropdown-workspace-name'>Kalis Coffee</div>
@@ -268,7 +288,10 @@ export default function Sidebar() {
               </div>
             )}
 
-            <button className='sidebar-invite-btn' onClick={() => alert("Invite Members Clicked")}>
+            <button
+              className='sidebar-invite-btn'
+              onClick={() => alert('Invite Members Clicked')}
+            >
               <FontAwesomeIcon icon={faUserPlus} />
               <span>Invite Members</span>
             </button>
@@ -280,7 +303,9 @@ export default function Sidebar() {
               title={isPinned ? 'Collapse sidebar' : 'Pin sidebar'}
             >
               <FontAwesomeIcon icon={faBars} />
-              <span>{isPinned ? 'Pinned (Click to collapse)' : 'Pin Sidebar'}</span>
+              <span>
+                {isPinned ? 'Pinned (Click to collapse)' : 'Pin Sidebar'}
+              </span>
             </button>
           </div>
         ) : (
