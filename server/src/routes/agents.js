@@ -10,10 +10,15 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { authRequired, attachUser } from '../middleware/auth.js';
+import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
+import { authorizePermission } from '../middleware/authorization.js';
+import { aiRateLimit, uploadRateLimit } from '../middleware/rate-limit.js';
 import { generateAIReply, findAndSendFile } from '../services/ai.service.js';
 import { openaiClient, geminiClient } from '../services/aiClient.js';
 import { findDatabaseFileMention } from '../utils/fileMentions.js';
 import { agentsSupabaseRepository } from '../db/repositories/index.js';
+import { validateAgentConfig } from '../ai/agents/agent-schema.js';
+import { buildManagedFileUrl, buildPublicFileUrl } from '../utils/file-urls.js';
 
 const router = express.Router();
 
@@ -27,10 +32,10 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
 
 // GET /agents (list)
-router.get('/', authRequired, attachUser, async (req, res) => {
+router.get('/', authRequired, attachUser, attachWorkspaceContext, authorizePermission('ai', 'configure'), async (req, res) => {
   try {
     const rows = await agentsSupabaseRepository.list({ workspaceId: req.me.workspaceId });
     res.json(rows);
@@ -41,12 +46,12 @@ router.get('/', authRequired, attachUser, async (req, res) => {
 });
 
 // Static sub-routes must come before /:id
-router.post('/upload', authRequired, upload.single('file'), (req, res) => {
+router.post('/upload', authRequired, attachUser, attachWorkspaceContext, authorizePermission('files', 'write'), uploadRateLimit, upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).send('No file uploaded.');
-  res.json({ filePath: `/files/${req.file.filename}`, originalName: req.file.originalname });
+  res.json({ filePath: buildPublicFileUrl(req.file.filename), originalName: req.file.originalname });
 });
 
-router.post('/knowledge/add-file', authRequired, attachUser, async (req, res) => {
+router.post('/knowledge/add-file', authRequired, attachUser, attachWorkspaceContext, authorizePermission('files', 'write'), async (req, res) => {
   try {
     const { originalName, storedName, mimetype } = req.body;
     if (!originalName || !storedName || !mimetype) {
@@ -61,7 +66,7 @@ router.post('/knowledge/add-file', authRequired, attachUser, async (req, res) =>
   }
 });
 
-router.get('/knowledge/list', authRequired, attachUser, async (req, res) => {
+router.get('/knowledge/list', authRequired, attachUser, attachWorkspaceContext, authorizePermission('files', 'read'), async (req, res) => {
   try {
     // Knowledge files are embedded in each agent's `database` JSONB column.
     // Return the combined database files across all workspace agents.
@@ -77,7 +82,7 @@ router.get('/knowledge/list', authRequired, attachUser, async (req, res) => {
 });
 
 // GET /agents/:id (detail)
-router.get('/:id', authRequired, attachUser, async (req, res) => {
+router.get('/:id', authRequired, attachUser, attachWorkspaceContext, authorizePermission('ai', 'configure'), async (req, res) => {
   try {
     const { id } = req.params;
     const row = await agentsSupabaseRepository.findById({ workspaceId: req.me.workspaceId, agentId: id });
@@ -90,10 +95,12 @@ router.get('/:id', authRequired, attachUser, async (req, res) => {
 });
 
 // POST /agents (create)
-router.post('/', authRequired, attachUser, async (req, res) => {
+router.post('/', authRequired, attachUser, attachWorkspaceContext, authorizePermission('ai', 'configure'), async (req, res) => {
   try {
     const { name, platformId, prompt, behavior, welcomeMessage, knowledge } = req.body;
     if (!name) return res.status(400).json({ error: 'Missing name' });
+    const validation = validateAgentConfig({ name, platformId, prompt, behavior, welcomeMessage, knowledge });
+    if (!validation.valid) return res.status(400).json({ error: validation.errors.join('; ') });
     const row = await agentsSupabaseRepository.create({
       workspaceId: req.me.workspaceId,
       name,
@@ -111,10 +118,12 @@ router.post('/', authRequired, attachUser, async (req, res) => {
 });
 
 // PUT /agents/:id (update)
-router.put('/:id', authRequired, attachUser, async (req, res) => {
+router.put('/:id', authRequired, attachUser, attachWorkspaceContext, authorizePermission('ai', 'configure'), async (req, res) => {
   try {
     const { id } = req.params;
     const update = { ...req.body };
+    const validation = validateAgentConfig({ ...update, name: update.name || 'existing-agent' });
+    if (!validation.valid) return res.status(400).json({ error: validation.errors.join('; ') });
 
     // Handle PDF knowledge files — store in agent's database JSONB array
     if (update.knowledge && Array.isArray(update.knowledge)) {
@@ -150,7 +159,7 @@ router.put('/:id', authRequired, attachUser, async (req, res) => {
 });
 
 // POST /agents/:id/database (upload file)
-router.post('/:id/database', authRequired, attachUser, upload.single('file'), async (req, res) => {
+router.post('/:id/database', authRequired, attachUser, attachWorkspaceContext, authorizePermission('files', 'write'), uploadRateLimit, upload.single('file'), async (req, res) => {
   try {
     const { id } = req.params;
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -176,7 +185,7 @@ router.post('/:id/database', authRequired, attachUser, upload.single('file'), as
 });
 
 // DELETE /agents/:id/database/:fileId (delete file)
-router.delete('/:id/database/:fileId', authRequired, attachUser, async (req, res) => {
+router.delete('/:id/database/:fileId', authRequired, attachUser, attachWorkspaceContext, authorizePermission('files', 'delete'), async (req, res) => {
   try {
     const { id, fileId } = req.params;
     const agent = await agentsSupabaseRepository.findById({ workspaceId: req.me.workspaceId, agentId: id });
@@ -200,7 +209,7 @@ router.delete('/:id/database/:fileId', authRequired, attachUser, async (req, res
 });
 
 // DELETE /agents/:id
-router.delete('/:id', authRequired, attachUser, async (req, res) => {
+router.delete('/:id', authRequired, attachUser, attachWorkspaceContext, authorizePermission('ai', 'configure'), async (req, res) => {
   try {
     const { id } = req.params;
     await agentsSupabaseRepository.deleteById({ workspaceId: req.me.workspaceId, agentId: id });
@@ -212,7 +221,7 @@ router.delete('/:id', authRequired, attachUser, async (req, res) => {
 });
 
 // POST /agents/:id/test (Test UI)
-router.post('/:id/test', authRequired, attachUser, async (req, res) => {
+router.post('/:id/test', authRequired, attachUser, attachWorkspaceContext, authorizePermission('ai', 'test'), aiRateLimit, async (req, res) => {
   try {
     const { id } = req.params;
     const { message, attachment, history: rawHistory } = req.body || {};
@@ -251,7 +260,7 @@ router.post('/:id/test', authRequired, attachUser, async (req, res) => {
       if (mention && mention.file?.storedName) {
         const cleanedText = (replyText || '').replace(mention.token, mention.altText || '').trim();
         replyAttachment = {
-          url: `/files/${mention.file.storedName}`,
+          url: buildManagedFileUrl(mention.file.storedName),
           filename: mention.file.originalName || mention.file.storedName,
           storedName: mention.file.storedName,
         };
@@ -272,7 +281,7 @@ router.post('/:id/test', authRequired, attachUser, async (req, res) => {
           const storedName = filename;
           const uploadsPath = path.resolve('uploads', storedName);
           await fsPromises.rename(filePath, uploadsPath);
-          replyAttachment = { url: `/files/${storedName}`, filename: originalName, storedName };
+          replyAttachment = { url: buildPublicFileUrl(storedName), filename: originalName, storedName };
           replyText = cleanedText || altText || 'File sent';
         } catch (e) {
           console.error('[test] Failed to download/upload external file:', e);

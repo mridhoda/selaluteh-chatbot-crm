@@ -1,4 +1,5 @@
 import { env } from '../../config/env.js';
+import crypto from 'node:crypto';
 
 export async function createPayment(params) {
   return {
@@ -30,6 +31,12 @@ export async function cancelPayment(providerTransactionId) {
 
 export async function verifyWebhook(rawBody, headers) {
   const parsed = typeof rawBody === 'string' ? JSON.parse(rawBody) : rawBody;
+  const expectedSignature = crypto.createHash('sha512')
+    .update(`${parsed.order_id || ''}${parsed.status_code || ''}${parsed.gross_amount || ''}${env.midtransServerKey || ''}`)
+    .digest('hex');
+  if (!env.midtransServerKey || parsed.signature_key !== expectedSignature) {
+    return { valid: false };
+  }
   const event = await normalizeEvent(parsed);
   return { valid: true, event };
 }

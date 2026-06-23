@@ -769,6 +769,60 @@ Activated `selaluteh-location-intelligence` spec from backlog, completed Section
 
 ---
 
+## 2026-06-23 — General Backend Sections 16–23
+
+### Completed
+- **Section 16**: Payment reconciliation — missing-webhook detection, fees/net handling, reconciliation audit table + audit log
+- **Section 17**: Notifications — notification.service.js (template, idempotency, delivery), notification-settings.service.js (preferences/schemas), notification.worker.js, notification_deliveries table
+- **Section 18**: Inventory — inventory_items + stock_movements tables, inventory.supabase.repository.js, inventory.service.js (adjust, reserve, release, consume, return, transfer), inventory API routes (9 endpoints), low-stock detection, concurrency tests
+- **Section 19**: Complaints (order_id, complaint_events timeline), Settings (schemas, effective resolution, secret field behavior), Files (upload, validate, retrieve, delete with MIME/size/traversal guards)
+- **Section 20**: Analytics — dashboard summary, outlet/product/channel/payment performance, CSV export
+- **Section 21**: Audit logging — audit_logs table, repository, service with sensitive action list + secret redaction + middleware helper
+- **Section 22**: Background workers — jobs table, retry-policy.js (capped exponential backoff + jitter), job-queue.service.js, payment-reconciliation.worker.js, checkout-cleanup.worker.js, refactored workers/index.js with named registration + graceful shutdown
+- **Section 23**: Repository contract tests, slow-query.js wrapper, consistency.service.js validators
+
+### Changed Files
+- `server/src/services/payment-reconciliation.service.js`
+- `server/src/routes/payments.js`
+- `server/src/services/notification.service.js`
+- `server/src/services/notification-settings.service.js`
+- `server/src/routes/notification-settings.js`
+- `server/src/workers/notification.worker.js`
+- `server/src/workers/index.js`
+- `server/src/workers/payment-reconciliation.worker.js`
+- `server/src/workers/checkout-cleanup.worker.js`
+- `server/src/services/inventory.service.js`
+- `server/src/routes/inventory.js`
+- `server/src/db/repositories/inventory.supabase.repository.js`
+- `server/src/services/complaint.service.js` + repository update (order_id, events)
+- `server/src/services/file.service.js`
+- `server/src/routes/files.js`
+- `server/src/services/settings.service.js`
+- `server/src/routes/workspace-settings.js`
+- `server/src/services/analytics.service.js`
+- `server/src/routes/analytics.js`
+- `server/src/services/audit.service.js`
+- `server/src/routes/audit.js`
+- `server/src/db/repositories/audit-logs.supabase.repository.js`
+- `server/src/db/repositories/jobs.supabase.repository.js`
+- `server/src/services/job-queue.service.js`
+- `server/src/utils/retry-policy.js`
+- `server/src/db/slow-query.js`
+- `server/src/services/consistency.service.js`
+- `server/src/index.js` (wiring)
+- Migrations: 015–020 SQL files
+- Test files: 11 new test files across unit/security/concurrency
+- `specs/active/general-backend/tasks.md` (all sections 16–23 checked)
+
+### Tests
+- Full backend test suite: 939 pass, 1 fail (tool-gateway pre-existing)
+- All new tests: 47 pass, 0 fail
+
+### Next
+- Sections 25–29 (Security, Observability, Testing, Deployment, Release) or close spec
+
+---
+
 ## 2026-06-20 — Location Intelligence Final (All Sections 0-29)
 
 ### Summary
@@ -810,3 +864,44 @@ Completed all sections of `selaluteh-location-intelligence` spec: core domain co
 - Spec: `selaluteh-location-intelligence` — active, in_progress
 - All P0 sections complete
 - Remaining P1 items: Directions API, Admin API UI pages, AI Scope Security integration
+
+---
+
+## 2026-06-23 — Outlet Management Operations (Alpha) + Cart & Order Lifecycle Activation
+
+### Summary
+- **Outlet Management**: Activated spec, completed preflight audit (10 tasks), applied migration `021_outlet_canonical_fields` (8 columns + 5 tables), implemented core contracts (outlet-status.js), computed open state (operating-hours.js), outlet policy (outlet-policy.js), outlet-management.supabase.repository.js, extended outlet.service.js, added 10+ API endpoints
+- **Cart & Order Lifecycle**: Activated spec from backlog, completed preflight audit (10 tasks), created core types (order-types.js — 15 unit tests pass), applied migration `022_cart_order_canonical.sql` (4 tables), implemented approve/reject/preparing/ready/complete services, wired inventory stock check into checkout.service.js, restored `createOrderFromAI` after accidental deletion
+
+### Files Changed
+- `server/src/outlets/outlet-status.js` — NEW
+- `server/src/outlets/operating-hours.js` — NEW
+- `server/src/outlets/outlet-policy.js` — NEW
+- `server/src/db/repositories/outlet-management.supabase.repository.js` — NEW
+- `server/src/db/migrations/021_outlet_canonical_fields.sql` — NEW (applied)
+- `server/src/orders/order-types.js` — NEW
+- `server/src/db/migrations/022_cart_order_canonical.sql` — NEW (applied)
+- `server/src/services/outlet.service.js` — extended with canonical functions
+- `server/src/routes/outlets.js` — 10+ new endpoints
+- `server/src/services/order.service.js` — added approve/reject/preparing/ready/complete, restore createOrderFromAI
+- `server/src/services/checkout.service.js` — added stock validation
+- `server/test/unit/outlets/outlet-status.test.js` — NEW (18 pass)
+- `server/test/unit/outlets/operating-hours.test.js` — NEW (7 pass)
+- `server/test/unit/orders/order-types.test.js` — NEW (15 pass)
+- `specs/active/selaluteh-outlet-management-operations/tasks.md` — tasks 0-34 updated
+- `specs/active/selaluteh-cart-order-lifecycle/tasks.md` — tasks 0, 1, 2, 9-16 updated
+- `specs/active/selaluteh-cart-order-lifecycle/spec.yaml` — status → active
+- `docs/backend/09-ai-context/current-task.md` — pointer → cart-order-lifecycle
+- `docs/backend/11-sprint/implementation-status.md` — added both sections
+- `specs/backlog/` — 7 spec.yaml files fixed (status/workflow_state mismatch for lifecycle compliance)
+
+### Tests
+- Order types unit: 15 pass, 0 fail
+- Outlet status unit: 18 pass, 0 fail
+- Operating hours unit: 7 pass, 0 fail
+- `npm run specs:check`: 11 specs validated
+
+### Next
+- Continue cart-order-lifecycle implementation (Tasks 3-8, 17-34)
+- Wire inventory commit/release into approve/reject
+- Add comprehensive test suites

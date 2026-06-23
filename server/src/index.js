@@ -2,12 +2,17 @@ import dns from 'dns';
 dns.setDefaultResultOrder('ipv4first');
 
 import express from 'express';
+import path from 'path';
 import { env } from './config/env.js';
 import { corsMiddleware } from './config/cors.js';
 import { httpLogger } from './config/logger.js';
 import { connectSupabase } from './db/supabase.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { requestId } from './middleware/request-id.js';
+import { authRequired, attachUser } from './middleware/auth.js';
+import { attachWorkspaceContext } from './middleware/workspaceContext.js';
+import { authorizePermission } from './middleware/authorization.js';
+import { isManagedStoredName, resolveFileDownload } from './services/file.service.js';
 
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
@@ -30,6 +35,11 @@ import membershipRoutes from './routes/memberships.js';
 import cartRoutes from './routes/carts.js';
 import checkoutRoutes from './routes/checkouts.js';
 import paymentRoutes from './routes/payments.js';
+import auditRoutes from './routes/audit.js';
+import fileRoutes from './routes/files.js';
+import workspaceSettingsRoutes from './routes/workspace-settings.js';
+import inventoryRoutes from './routes/inventory.js';
+import notificationSettingsRoutes from './routes/notification-settings.js';
 import createLocationAdminRouter from './routes/location-admin.js';
 import createLocationInternalRouter from './routes/location-internal.js';
 import { start as startFollowups } from './services/followups.service.js';
@@ -39,11 +49,71 @@ import { createTelegramWebhookManager } from './workers/webhook-manager.worker.j
 const app = express();
 app.set('trust proxy', 1);
 
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (env.isProduction) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
+
 app.use(requestId);
 app.use(corsMiddleware());
 app.use(express.json({ limit: '2mb' }));
 app.use(httpLogger());
-app.use('/files', express.static('uploads'));
+app.get('/public-files/:storedName', async (req, res, next) => {
+  try {
+    const storedName = path.basename(req.params.storedName || '');
+    if (!storedName || storedName !== req.params.storedName) {
+      return res.status(400).json({ error: { code: 'INVALID_FILE_NAME', message: 'Invalid file name' } });
+    }
+    if (await isManagedStoredName(storedName)) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Managed files require authorization' } });
+    }
+    res.sendFile(path.resolve('uploads', storedName));
+  } catch (err) {
+    next(err);
+  }
+});
+app.get('/files/:storedName', async (req, res, next) => {
+  try {
+    const storedName = path.basename(req.params.storedName || '');
+    if (!storedName || storedName !== req.params.storedName) {
+      return res.status(400).json({ error: { code: 'INVALID_FILE_NAME', message: 'Invalid file name' } });
+    }
+    if (await isManagedStoredName(storedName)) {
+      return next('route');
+    }
+    res.sendFile(path.resolve('uploads', storedName));
+  } catch (err) {
+    next(err);
+  }
+});
+app.get('/files/:storedName', authRequired, attachUser, attachWorkspaceContext, authorizePermission('files', 'read'), async (req, res, next) => {
+  try {
+    if (await isManagedStoredName(req.params.storedName)) {
+      const { file, absolutePath } = await resolveFileDownload({ workspaceId: req.me.workspaceId, storedName: req.params.storedName });
+      res.sendFile(path.resolve(absolutePath), {
+        headers: {
+          'Content-Type': file.mime_type || 'application/octet-stream',
+          'Content-Disposition': `inline; filename="${file.original_name || file.stored_name}"`,
+        },
+      });
+      return;
+    }
+
+    const storedName = path.basename(req.params.storedName || '');
+    if (!storedName || storedName !== req.params.storedName) {
+      return res.status(400).json({ error: { code: 'INVALID_FILE_NAME', message: 'Invalid file name' } });
+    }
+    res.sendFile(path.resolve('uploads', storedName));
+  } catch (err) {
+    next(err);
+  }
+});
 
 app.get('/', (req, res) => {
   res.json({ ok: true, name: 'Chatbot CRM API', version: '1.0.0' });
@@ -57,6 +127,7 @@ app.use('/chats', chatRoutes);
 app.use('/webhook', webhookRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/analytics', analyticsRoutes);
+app.use('/api/analytics', analyticsRoutes);
 app.use('/billing', billingRoutes);
 app.use('/profile', profileRoutes);
 app.use('/contacts', contactRoutes);
@@ -70,10 +141,17 @@ app.use('/api/outlets', outletRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/workspaces/:workspaceId/members', membershipRoutes);
+app.use('/carts', cartRoutes);
 app.use('/api/carts', cartRoutes);
 app.use('/api/checkouts', checkoutRoutes);
+app.use('/payments', paymentRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api', outletAccessRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/files', fileRoutes);
+app.use('/api/workspaces', workspaceSettingsRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api', notificationSettingsRoutes);
 
 // Location Intelligence routes
 app.use('/api/outlets/:outletId/location', createLocationAdminRouter());

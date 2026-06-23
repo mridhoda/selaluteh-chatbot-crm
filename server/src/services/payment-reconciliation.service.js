@@ -26,10 +26,18 @@ export async function reconcilePayment({ workspaceId, paymentId, providerStatus 
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId: payment.orderId });
 
   const recStatus = determineReconciliationStatus({ payment, order, providerStatus });
-  if (recStatus !== payment.reconciliationStatus) {
-    return paymentsRepository.updatePayment(paymentId, { reconciliationStatus: recStatus });
+  if (recStatus === payment.reconciliationStatus) return payment;
+
+  const updates = { reconciliation_status: recStatus };
+
+  if (providerStatus === 'paid' && payment.provider_fee !== null && payment.net_amount !== null) {
+    updates.provider_fee = payment.provider_fee;
+    updates.net_amount = payment.net_amount;
   }
-  return payment;
+
+  const updated = await paymentsRepository.updatePayment(paymentId, updates);
+  await reconcilePaymentAudit({ workspaceId, paymentId, oldStatus: payment.reconciliationStatus, newStatus: recStatus, providerStatus, order });
+  return updated;
 }
 
 export async function batchReconcileByStatus({ workspaceId, status, newStatus }) {
@@ -38,10 +46,17 @@ export async function batchReconcileByStatus({ workspaceId, status, newStatus })
   for (const payment of payments) {
     const order = payment.orderId ? await ordersRepository.workspaceFindById({ workspaceId, orderId: payment.orderId }) : null;
     const recStatus = determineReconciliationStatus({ payment, order, providerStatus: status });
-    if (recStatus !== payment.reconciliationStatus) {
-      await paymentsRepository.updatePayment(payment.id, { reconciliation_status: recStatus });
-      results.push({ paymentId: payment.id, oldStatus: payment.reconciliationStatus, newStatus: recStatus });
+    if (recStatus === payment.reconciliationStatus) continue;
+
+    const updates = { reconciliation_status: recStatus };
+    if (status === 'paid' && payment.provider_fee !== null && payment.net_amount !== null) {
+      updates.provider_fee = payment.provider_fee;
+      updates.net_amount = payment.net_amount;
     }
+
+    await paymentsRepository.updatePayment(payment.id, updates);
+    await reconcilePaymentAudit({ workspaceId, paymentId: payment.id, oldStatus: payment.reconciliationStatus, newStatus: recStatus, providerStatus: status, order });
+    results.push({ paymentId: payment.id, oldStatus: payment.reconciliationStatus, newStatus: recStatus });
   }
   return results;
 }
@@ -82,6 +97,9 @@ async function processPaidPaymentFromReconciliation({ payment, providerEvent }) 
   });
   if (!updated) return;
 
+  const feeAmount = providerEvent.feeAmount !== undefined ? providerEvent.feeAmount : 0;
+  const netAmount = providerEvent.netAmount !== undefined ? providerEvent.netAmount : (payment.amount - feeAmount);
+
   await paymentsRepository.addEvent({
     paymentId: payment.id,
     event: {
@@ -90,8 +108,8 @@ async function processPaidPaymentFromReconciliation({ payment, providerEvent }) 
       status: 'paid',
       amount: providerEvent.amount || payment.amount,
       currency: providerEvent.currency || 'IDR',
-      feeAmount: providerEvent.feeAmount || 0,
-      netAmount: providerEvent.netAmount || (payment.amount - (providerEvent.feeAmount || 0)),
+      feeAmount,
+      netAmount,
       paymentMethod: providerEvent.paymentMethod,
       paidAt: providerEvent.paidAt ? new Date(providerEvent.paidAt) : new Date(),
     },
@@ -101,7 +119,60 @@ async function processPaidPaymentFromReconciliation({ payment, providerEvent }) 
 }
 
 async function loadPaymentAdapter(provider) {
-  if (provider === 'midtrans') return import('../integrations/payments/midtrans-client.js');
   if (provider === 'xendit') return import('../integrations/payments/xendit-client.js');
   throw new AppError('UNKNOWN_PROVIDER', `Unknown payment provider: ${provider}`, 400);
+}
+
+export async function detectMissingWebhooks({ workspaceId, limit = 50 }) {
+  const data = await paymentsRepository.list({
+    workspaceId,
+    reconciliationStatus: 'missing_webhook',
+    page: 1,
+    limit,
+  });
+  const total = await paymentsRepository.count({
+    workspaceId,
+    reconciliationStatus: 'missing_webhook',
+  });
+
+  return { data, meta: { total, page: 1, limit } };
+}
+
+export async function reconcileMissingWebhook({ workspaceId, paymentId }) {
+  const payment = await paymentsRepository.findById({ workspaceId, paymentId });
+  if (!payment) throw new AppError('NOT_FOUND', 'Payment not found', 404);
+  if (payment.reconciliationStatus !== 'missing_webhook') {
+    return payment;
+  }
+
+  if (!payment.providerTransactionId) {
+    throw new AppError('MISSING_TRANSACTION', 'No provider transaction ID for this payment', 400);
+  }
+
+  const adapter = await loadPaymentAdapter(payment.provider);
+  const result = await adapter.getPayment(payment.providerTransactionId);
+
+  if (result.status === 'paid' && payment.status !== 'paid') {
+    await processPaidPaymentFromReconciliation({ payment, providerEvent: result });
+  }
+
+  const updated = await paymentsRepository.findById({ workspaceId, paymentId });
+  await reconcilePaymentAudit({ workspaceId, paymentId, oldStatus: 'missing_webhook', newStatus: updated.reconciliationStatus, providerStatus: result.status });
+  return updated;
+}
+
+export async function reconcilePaymentAudit({ workspaceId, paymentId, oldStatus, newStatus, providerStatus, order }) {
+  const client = getSupabaseServiceClient();
+  const auditLog = {
+    workspace_id: workspaceId,
+    payment_id: paymentId,
+    old_status: oldStatus,
+    new_status: newStatus,
+    provider_status: providerStatus,
+    order_id: order?.id || null,
+    order_number: order?.orderNumber || null,
+    auditor: 'system',
+    audited_at: new Date().toISOString(),
+  };
+  await client.from('reconciliation_audit').insert(auditLog);
 }

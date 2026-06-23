@@ -271,3 +271,57 @@ Test outcome: 113 tests, 44 suites, 96 pass, 0 fail, 17 skipped (after removing 
 | `find_nearest_outlet` AI tool | Registered | In domain-tools.js |
 | `googleMapsApiKey` env config | Added | Fallback only (default = Nominatim) |
 | Default provider | Nominatim | Gratis, tanpa API key |
+
+## General Backend — Sections 16–23 — 2026-06-23
+
+| Section | Status | Key Files |
+|---|---|---|
+| 16 — Payment Reconciliation | ✅ Complete | payment-reconciliation.service.js (missing-webhook detection, fees/net, reconciliation audit, reconciliation_audit table migration 015) |
+| 17 — Notifications | ✅ Complete | notification.service.js, notification-settings.service.js, notification.worker.js, notification_deliveries table migration 016 |
+| 18 — Inventory | ✅ Complete | inventory.supabase.repository.js, inventory.service.js, inventory routes, inventory_items + stock_movements migration 017, concurrency tests |
+| 19 — Complaints, Settings, Files | ✅ Complete | complaint_events migration 018, file.service.js, settings.service.js, workspace-settings routes, file security tests, complaint scope tests |
+| 20 — Analytics | ✅ Complete | analytics.service.js (summary, outlets, products, channels, payments, CSV export), analytics routes |
+| 21 — Audit Logging | ✅ Complete | audit_logs migration 019, audit-logs.supabase.repository.js, audit.service.js (SENSITIVE_ACTIONS, redactSensitiveDetails), audit routes |
+| 22 — Background Workers | ✅ Complete | jobs migration 020, retry-policy.js, job-queue.service.js, payment-reconciliation.worker.js, checkout-cleanup.worker.js, refactored workers/index.js with startWorkers/stopWorkers |
+| 23 — Query Contracts & Indexing | ✅ Complete | contract tests, slow-query.js wrapper, consistency.service.js validators |
+
+| Test Suite | Result |
+|---|---|
+| Full backend tests | 939 pass, 1 fail (tool-gateway pre-existing) |
+| Retry policy unit tests | 11 pass, 0 fail |
+| File service unit tests | 6 pass, 0 fail |
+| File security tests | 6 pass, 0 fail |
+| Settings service tests | 5 pass, 0 fail |
+| Notification service tests | 10 pass, 0 fail |
+| Analytics service tests | 2 pass, 0 fail |
+| Audit service tests | 3 pass, 0 fail |
+| Contract tests | 3 pass, 0 fail |
+| Consistency tests | 1 pass, 0 fail |
+| Inventory concurrency tests | 1 pass, 0 fail (graceful skip) |
+
+## Cart & Order Lifecycle (Alpha) — 2026-06-23
+
+| Module | Status | Key Files |
+|---|---|---|
+| Spec activation & lifecycle | ✅ Activated | Moved from backlog to active, `npm run specs:check` passes |
+| Preflight audit (Task 0) | ✅ Complete | Audit report: existing cart/order/payment services, 4 risk areas identified (AI zero-total orders, dual paymentStatus path, no inventory wiring, AI payment proof extraction) |
+| Core types (Task 1) | ✅ Complete | `order-types.js` — CartStatus (9), OrderStatus (10), FulfillmentType, ActorType, CART_TRANSITIONS, ORDER_TRANSITIONS, 14 ORDER_ERRORS — 15 unit tests pass |
+| Migration (Task 2) | ✅ Applied | `022_cart_order_canonical.sql` — order_status_history, order_inventory_links, order_notes, order_idempotency_records |
+| Cart core (Task 3-4) | ✅ Existing | carts/cart_items tables, findActiveByContact, addItem, updateQuantity, expiry |
+| Backend pricing (Task 5) | ✅ Existing | effective-price.service.js with product catalog + availability |
+| Order snapshot (Task 7) | ✅ Existing | createOrderFromCheckout with immutable items/totals/customer snapshots |
+| Checkout idempotency (Task 8) | ✅ Existing | idempotency_key in checkouts table + order_idempotency_records table |
+| Order approve/reject (Task 13-14) | ✅ Implemented | `approveOrder()`, `rejectOrder()`, `startPreparing()`, `markReady()`, `completeOrder()` in order.service.js |
+| Inventory stock check (Task 10) | ✅ Implemented | `checkout.service.js` validates available stock via inventoryRepository at checkout creation |
+| Payment integration (Task 11-12) | ✅ Existing | Xendit Payment Session, verified webhook, PAID → AWAITING_OUTLET_APPROVAL |
+| Fulfillment flow (Task 15) | ✅ Implemented | startPreparing → markReady → completeOrder with atomicStatusUpdate |
+| `createOrderFromAI` restored | ✅ Fixed | Re-added after accidental deletion during refactor |
+| Order list/detail/timeline (Task 21-22) | ✅ Existing | workspaceListOrders, workspaceGetOrder, order_events timeline |
+| Order types unit tests | 15 pass, 0 fail | order-types.test.js |
+
+| Test Suite | Result |
+|---|---|
+| Full backend tests | 939 pass, 1 fail (tool-gateway pre-existing) |
+| Order types unit tests | 15 pass, 0 fail |
+| Outlet status unit tests | 18 pass, 0 fail |
+| Operating hours unit tests | 7 pass, 0 fail |

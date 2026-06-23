@@ -19,7 +19,7 @@ status: active
 workflow_state: in_progress
 priority: high
 created_at: '2026-06-17'
-updated_at: '2026-06-17'
+updated_at: '2026-06-23'
 lifecycle:
   config: specs/specs.config.yaml
   folder_strategy: status-based

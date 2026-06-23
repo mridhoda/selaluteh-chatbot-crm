@@ -63,6 +63,8 @@ const raw = {
   localUploadRoot: process.env.LOCAL_UPLOAD_ROOT || 'server/uploads',
   publicFilesBaseUrl: process.env.PUBLIC_FILES_BASE_URL || '',
   corsOriginList: process.env.CORS_ORIGIN || '*',
+  telegramWebhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || '',
+  allowMetaTestWebhook: process.env.ALLOW_META_TEST_WEBHOOK || '',
 
   // AI Agent Architecture vars
   aiDefaultProvider: process.env.AI_DEFAULT_PROVIDER || 'local_openai_compatible',
@@ -168,6 +170,8 @@ export const env = {
   smtpFrom: raw.smtpFrom,
   localUploadRoot: raw.localUploadRoot,
   publicFilesBaseUrl: raw.publicFilesBaseUrl,
+  telegramWebhookSecret: raw.telegramWebhookSecret,
+  allowMetaTestWebhook: raw.allowMetaTestWebhook === 'true',
 
   aiDefaultProvider: raw.aiDefaultProvider,
   aiDefaultModel: raw.aiDefaultModel,
@@ -233,5 +237,7 @@ export function redactedConfig() {
     smtpFrom: env.smtpFrom,
     localUploadRoot: env.localUploadRoot,
     publicFilesBaseUrl: env.publicFilesBaseUrl,
+    telegramWebhookSecret: env.telegramWebhookSecret ? 'configured' : '',
+    allowMetaTestWebhook: env.allowMetaTestWebhook,
   };
 }

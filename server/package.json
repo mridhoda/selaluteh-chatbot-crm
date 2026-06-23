@@ -7,6 +7,8 @@
     "dev": "NODE_OPTIONS=\"--dns-result-order=ipv4first\" nodemon src/index.js",
     "start": "node src/index.js",
     "test": "NODE_ENV=test node --test \"test/**/*.test.js\"",
+    "security:test": "NODE_ENV=test node --test \"test/security/**/*.test.js\" \"test/unit/security/**/*.test.js\" \"test/unit/middleware/*.test.js\" \"test/unit/routes/authorization-routes.test.js\"",
+    "security:audit": "npm audit --omit=dev --audit-level=high",
     "test:ai:unit": "NODE_ENV=test node --test \"test/unit/ai/**/*.test.js\"",
     "test:ai:integration": "NODE_ENV=test node --test \"test/integration/ai/**/*.test.js\"",
     "test:ai:security": "NODE_ENV=test node --test \"test/security/ai/**/*.test.js\"",

@@ -7,6 +7,8 @@ import {
   contactsSupabaseRepository,
   chatsSupabaseRepository,
   messagesSupabaseRepository,
+  checkoutsRepository,
+  cartsRepository,
 } from '../../db/repositories/index.js';
 import { generateAIReply, findAndSendFile, transcribeAudio } from '../../services/ai.service.js';
 import { openaiClient, geminiClient } from '../../services/aiClient.js';
@@ -35,6 +37,9 @@ import {
   parseTelegramAction,
 } from '../../services/telegram-commerce.service.js';
 import { normalizeTelegramUpdate } from '../../integrations/telegram/telegram-parser.js';
+import { assertWebhookPayloadSafe, verifyTelegramSecret } from '../../security/webhook-security.js';
+import { env } from '../../config/env.js';
+import { buildManagedFileUrl, buildPublicFileUrl } from '../../utils/file-urls.js';
 
 const router = express.Router();
 
@@ -47,7 +52,7 @@ function isStickerFile(filename = '') {
 }
 
 function getPublicFileUrl(storedName) {
-  const base = process.env.PUBLIC_FILES_BASE_URL || `${process.env.PUBLIC_BASE_URL || 'http://localhost:5000'}/files`;
+  const base = process.env.PUBLIC_FILES_BASE_URL || `${process.env.PUBLIC_BASE_URL || 'http://localhost:5000'}/public-files`;
   return `${base.replace(/\/$/, '')}/${storedName}`;
 }
 
@@ -77,9 +82,9 @@ async function sendTelegramTextOrDatabaseAttachment({ token, chatId, text, agent
     return {
       text: caption || 'Lampiran terkirim.',
       messageType: resolveMessageType(filename, format),
-      attachment: {
-        url: `/files/${file.storedName}`,
-        filename,
+        attachment: {
+          url: buildManagedFileUrl(file.storedName),
+          filename,
         type: resolveMessageType(filename, format) === 'image' ? 'image' : 'document',
         format: format || null,
       },
@@ -134,7 +139,8 @@ router.post('/:token?', async (req, res) => {
 
   try {
     const update = req.body || {};
-    console.log('[telegram] update:', JSON.stringify(update));
+    assertWebhookPayloadSafe(update);
+    const secretHeader = req.get('x-telegram-bot-api-secret-token');
 
     const normalized = normalizeTelegramUpdate(update);
     const msgObj = normalized?.message;
@@ -162,6 +168,11 @@ router.post('/:token?', async (req, res) => {
       platform = await platformsSupabaseRepository.findLatestByType({ type: 'telegram' });
     }
 
+    if (!verifyTelegramSecret(secretHeader, env.telegramWebhookSecret)) {
+      console.warn('[telegram] invalid webhook secret');
+      return;
+    }
+
     if (!platform) {
       console.warn('[telegram] no platform/token found');
       return;
@@ -174,7 +185,7 @@ router.post('/:token?', async (req, res) => {
       workspaceId: platform.workspaceId,
       platformId: platform.id,
       payload: update,
-      signatureValid: tokenParam ? tokenParam === platform.token : null,
+          signatureValid: tokenParam ? tokenParam === platform.token : null,
     });
     webhookEvent = webhookResult.event;
     if (webhookResult.duplicate) {
@@ -192,7 +203,7 @@ router.post('/:token?', async (req, res) => {
           preferredName: `photo_${largestPhoto.file_unique_id || Date.now()}.jpg`,
         });
         incomingAttachment = {
-          url: `/files/${saved.storedName}`,
+          url: buildPublicFileUrl(saved.storedName),
           filename: saved.originalName,
           storedName: saved.storedName,
         };
@@ -210,7 +221,7 @@ router.post('/:token?', async (req, res) => {
           preferredName: msgObj.document.file_name || '',
         });
         incomingAttachment = {
-          url: `/files/${saved.storedName}`,
+          url: buildPublicFileUrl(saved.storedName),
           filename: saved.originalName,
           storedName: saved.storedName,
         };
@@ -230,7 +241,7 @@ router.post('/:token?', async (req, res) => {
           preferredName: `voice_${audioObj.file_unique_id || Date.now()}${ext}`,
         });
         incomingAttachment = {
-          url: `/files/${saved.storedName}`,
+          url: buildPublicFileUrl(saved.storedName),
           filename: saved.originalName,
           storedName: saved.storedName,
         };
@@ -341,7 +352,13 @@ router.post('/:token?', async (req, res) => {
 
     const isStartCommand = text?.trim() === '/start';
 
-    // Compute greeting flags from persistent messages (before sending any new message)
+    // ── Commerce intent: AI handles naturally with tools behind ─────────
+    // When user messages indicate ordering intent, AI will use search_products,
+    // add_cart_item, select_outlet, and create_order tools.
+    // No buttons — pure natural conversation. AI asks for confirmation,
+    // user types "iya", AI executes checkout → Xendit link sent.
+
+    // Compute greeting flags (before AI processing)
     const chatHistoryForGreeting = await loadRecentMessages({ chatId: chat.id, limit: 5 });
     const { greetingFlags: computedGreetingFlags } = await buildContext({
       chat,
@@ -388,10 +405,7 @@ router.post('/:token?', async (req, res) => {
 
     // Handle /start command specially
     if (isStartCommand) {
-      const outletSelection = !chat.currentOutletId
-        ? await buildOutletSelectionMessage({ workspaceId: platform.workspaceId })
-        : null;
-      const processedWelcome = outletSelection?.text || welcome.replace('{{name}}', contact.name);
+      const processedWelcome = welcome.replace('{{name}}', contact.name);
       let sentWelcome = { text: processedWelcome, attachment: null };
       try {
         sentWelcome = await sendTelegramTextOrDatabaseAttachment({
@@ -424,7 +438,7 @@ router.post('/:token?', async (req, res) => {
         console.error('[telegram] Failed to send welcome message for /start:', e);
       }
       await markWebhookProcessed(webhookEvent);
-      return; // Don't process /start as a regular message
+      return;
     }
 
     if (userMessage) {
@@ -497,7 +511,8 @@ router.post('/:token?', async (req, res) => {
         reply = { text: `Echo: ${userMessage.text}` };
       }
 
-      let replyText = typeof reply === 'string' ? reply : reply.text;
+      let replyText = typeof reply === 'string' ? reply : reply?.text;
+      const cartItemAdded = typeof reply === 'object' ? (reply?.cartItemAdded || false) : false;
       const attachment =
         typeof reply === 'object' && reply.attachment ? reply.attachment : null;
 
@@ -621,6 +636,51 @@ router.post('/:token?', async (req, res) => {
           text: replyText || '[Attachment]',
           attachment,
         });
+      }
+
+      // ── Show checkout button ONLY when add_cart_item was called this turn ──
+      const contactId = typeof chat?.contactId === 'object' ? chat.contactId?.id : chat?.contactId;
+      console.log(`[checkout-btn] replyText=${!!replyText} contactId=${contactId} cartItemAdded=${cartItemAdded}`);
+      if (replyText && contactId && cartItemAdded) {
+        try {
+          const cart = await cartsRepository.findActiveByContact({ workspaceId: platform.workspaceId, contactId });
+          console.log(`[checkout-btn] cart=${cart ? `id=${cart.id} status=${cart.status} items=${cart.items?.length}` : 'null'}`);
+          if (cart && cart.items?.length > 0 && !['converted', 'cancelled'].includes(cart.status)) {
+            const {
+              COMMERCE_VERSION,
+              buildCallbackKey,
+            } = await import('../../services/telegram-commerce.service.js');
+            const { createInlineKeyboard } = await import('../../integrations/telegram/telegram-keyboards.js');
+            const idempotencyKey = `tg_checkout_${cart.id}`;
+
+            // Reuse existing PENDING checkout for this cart. If checkout was already
+            // processed (confirmed/converted/expired), create a fresh one.
+            let existingCheckout = await checkoutsRepository.findByIdempotencyKey({ workspaceId: platform.workspaceId, key: idempotencyKey });
+            if (!existingCheckout || existingCheckout.status !== 'pending') {
+              const freshKey = `tg_checkout_${cart.id}_${Date.now()}`;
+              existingCheckout = await checkoutsRepository.create({
+                workspaceId: platform.workspaceId, outletId: cart.outletId,
+                contactId, chatId: chat.id, items: cart.items,
+                subtotalAmount: cart.total, totalAmount: cart.total,
+                currency: 'IDR', idempotencyKey: freshKey,
+                status: 'pending',
+                customerSnapshot: { contactName: contact?.name || '' },
+                fulfillmentSnapshot: { method: 'pickup', outletName: cart.outletName || '' },
+              });
+            }
+
+            const ver = COMMERCE_VERSION;
+            await tgSend(platform.token, chatId, 'Silakan klik tombol di bawah untuk checkout dan dapatkan link pembayaran:', null, {
+              replyMarkup: createInlineKeyboard([
+                [{ text: '✅ Checkout & Dapatkan Link Bayar', callback_data: `${buildCallbackKey('checkout', 'confirm', String(existingCheckout.id), ver)}` }],
+                [{ text: '🛒 Lihat Keranjang', callback_data: `${buildCallbackKey('cart', 'view', null, ver)}` }],
+              ]),
+            });
+            await recordOutboundMessage({ chatId: chat.id, workspaceId: platform.workspaceId, from: 'ai', text: 'Checkout button sent' });
+          }
+        } catch (checkoutBtnErr) {
+          console.error('[telegram] Failed to show checkout button:', checkoutBtnErr);
+        }
       }
     }
     await markWebhookProcessed(webhookEvent);

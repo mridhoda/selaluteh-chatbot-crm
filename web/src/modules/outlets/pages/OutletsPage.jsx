@@ -31,6 +31,15 @@ import {
   User,
   Users,
   X,
+  Zap,
+  Instagram,
+  Sparkles,
+  Activity,
+  Check,
+  Copy,
+  Sliders,
+  Calendar,
+  Beaker,
 } from 'lucide-react'
 
 /* ─── Palette ─────────────────────────────────────────────── */
@@ -996,7 +1005,7 @@ function DetailMetric({ label, value, trend, suffix = '%', inverse = false }) {
 }
 
 /* ─── Right Detail Panel ───────────────────────────────────── */
-function DetailPanel({ outlet, onClose, mobile = false }) {
+function DetailPanel({ outlet, onClose, mobile = false, onManageChannels }) {
   if (!outlet) {
     return (
       <aside className='h-full bg-white flex flex-col items-center justify-center text-center p-6 text-[#667085] relative'>
@@ -1106,9 +1115,18 @@ function DetailPanel({ outlet, onClose, mobile = false }) {
 
         {/* Connected channels */}
         <section className='border-t border-b border-[#F2F4F8] py-4'>
-          <h3 className='text-sm font-bold text-[#11182E]'>
-            Connected Channels
-          </h3>
+          <div className='flex items-center justify-between'>
+            <h3 className='text-sm font-bold text-[#11182E]'>
+              Connected Channels
+            </h3>
+            <button
+              type='button'
+              onClick={() => onManageChannels(outlet)}
+              className='text-xs font-bold text-[#6956E8] hover:underline'
+            >
+              Manage
+            </button>
+          </div>
           <div className='mt-3 flex items-center gap-6'>
             {outlet.channels.map((ch) => (
               <ChannelIcon key={ch} channel={ch} withLabel />
@@ -1254,6 +1272,73 @@ export default function OutletsPage() {
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false)
   const [isDetailOpen, setIsDetailOpen] = useState(true)
 
+  // Manage Connected Channels Modal states
+  const [isManageChannelsOpen, setIsManageChannelsOpen] = useState(false)
+  const [outletForChannels, setOutletForChannels] = useState(null)
+  const [activeChannelsTab, setActiveChannelsTab] = useState('Connected Channels')
+  const [isInstagramHealthy, setIsInstagramHealthy] = useState(false)
+  const [channelStates, setChannelStates] = useState({
+    whatsapp: true,
+    telegram: true,
+    website: true,
+    instagram: true,
+    tokopedia: false,
+    shopee: false,
+  })
+
+  // Channel Settings states
+  const [channelSettings, setChannelSettings] = useState({
+    whatsapp: {
+      enabled: true,
+      acceptChats: true,
+      acceptOrders: true,
+      aiHandling: 'default',
+      humanTeam: 'cs_team',
+      outsideHours: 'auto_reply_human',
+      fallbackMessage: 'Terima kasih! Kami telah menerima pesan Anda. Tim kami akan segera membantu.',
+    },
+    telegram: {
+      enabled: true,
+      acceptChats: true,
+      acceptOrders: true,
+      aiHandling: 'disabled',
+      humanTeam: 'cs_team',
+      outsideHours: 'auto_reply_human',
+      fallbackMessage: 'Terima kasih! Kami akan membalas pesan Anda saat jam operasional.',
+    },
+    website: {
+      enabled: true,
+      acceptChats: true,
+      acceptOrders: true,
+      aiHandling: 'override',
+      humanTeam: 'website_team',
+      outsideHours: 'auto_reply_human',
+      fallbackMessage: "Thanks! We've received your message and will get back to you shortly.",
+    }
+  })
+
+  const [pickupDay, setPickupDay] = useState('Every day')
+  const [pickupStart, setPickupStart] = useState('09:00')
+  const [pickupEnd, setPickupEnd] = useState('21:00')
+
+  const [orderDay, setOrderDay] = useState('Every day')
+  const [orderStart, setOrderStart] = useState('09:00')
+  const [orderEnd, setOrderEnd] = useState('20:45')
+
+  // Webhooks tab states
+  const [webhookChannel, setWebhookChannel] = useState('All Channels')
+  const [webhookStatus, setWebhookStatus] = useState('All Statuses')
+  const [webhookEventType, setWebhookEventType] = useState('All Event Types')
+  const [webhookTimeRange, setWebhookTimeRange] = useState('Last 24 Hours')
+  const [webhookSearch, setWebhookSearch] = useState('')
+
+  // Activity Log tab states
+  const [activityChannel, setActivityChannel] = useState('All Channels')
+  const [activityActor, setActivityActor] = useState('All Actors')
+  const [activityType, setActivityType] = useState('All Types')
+  const [activitySearch, setActivitySearch] = useState('')
+  const [selectedActivity, setSelectedActivity] = useState(0)
+
   useEffect(() => {
     loadOutlets()
   }, [])
@@ -1383,6 +1468,185 @@ export default function OutletsPage() {
     setSelectedOutlet(outlet)
     setIsDetailOpen(true)
     setMobileDetailOpen(true)
+  }
+
+  const openManageChannelsModal = (outlet) => {
+    const targetOutlet = (outlet && outlet.id) ? outlet : selectedOutlet
+    if (!targetOutlet) return
+    setOutletForChannels(targetOutlet)
+    const channelsList = targetOutlet.channels || []
+    
+    const hasWhatsapp = channelsList.some(c => c.toLowerCase() === 'whatsapp')
+    const hasTelegram = channelsList.some(c => c.toLowerCase() === 'telegram')
+    const hasWebsite = channelsList.some(c => c.toLowerCase() === 'website' || c.toLowerCase() === 'online ordering (web)' || c.toLowerCase() === 'online ordering')
+    const hasInstagram = channelsList.some(c => c.toLowerCase() === 'instagram')
+    const hasTokopedia = channelsList.some(c => c.toLowerCase() === 'tokopedia')
+    const hasShopee = channelsList.some(c => c.toLowerCase() === 'shopee')
+
+    setChannelStates({
+      whatsapp: hasWhatsapp,
+      telegram: hasTelegram,
+      website: hasWebsite,
+      instagram: hasInstagram,
+      tokopedia: hasTokopedia,
+      shopee: hasShopee,
+    })
+
+    setChannelSettings({
+      whatsapp: {
+        enabled: hasWhatsapp,
+        acceptChats: hasWhatsapp,
+        acceptOrders: hasWhatsapp,
+        aiHandling: 'default',
+        humanTeam: 'cs_team',
+        outsideHours: 'auto_reply_human',
+        fallbackMessage: 'Terima kasih! Kami telah menerima pesan Anda. Tim kami akan segera membantu.',
+      },
+      telegram: {
+        enabled: hasTelegram,
+        acceptChats: hasTelegram,
+        acceptOrders: hasTelegram,
+        aiHandling: 'disabled',
+        humanTeam: 'cs_team',
+        outsideHours: 'auto_reply_human',
+        fallbackMessage: 'Terima kasih! Kami akan membalas pesan Anda saat jam operasional.',
+      },
+      website: {
+        enabled: hasWebsite,
+        acceptChats: hasWebsite,
+        acceptOrders: hasWebsite,
+        aiHandling: 'override',
+        humanTeam: 'website_team',
+        outsideHours: 'auto_reply_human',
+        fallbackMessage: "Thanks! We've received your message and will get back to you shortly.",
+      }
+    })
+
+    // Store hours parser (e.g. from outlet hours like "09:00 - 21:00")
+    let storeHoursText = "09:00 - 21:00"
+    if (targetOutlet.hours && targetOutlet.hours.length > 0) {
+      const match = targetOutlet.hours[0]
+      if (match && match[1]) {
+        storeHoursText = match[1]
+      }
+    }
+    const [hStart, hEnd] = storeHoursText.split(' - ')
+    setPickupStart(hStart || '09:00')
+    setPickupEnd(hEnd || '21:00')
+    setPickupDay('Every day')
+
+    setOrderStart(hStart || '09:00')
+    // Set default order close time to be 15 mins before store closes
+    if (hEnd) {
+      const [h, m] = hEnd.split(':').map(Number)
+      let closeMin = m - 15
+      let closeHour = h
+      if (closeMin < 0) {
+        closeMin += 60
+        closeHour -= 1
+      }
+      const formattedClose = `${String(closeHour).padStart(2, '0')}:${String(closeMin).padStart(2, '0')}`
+      setOrderEnd(formattedClose)
+    } else {
+      setOrderEnd('20:45')
+    }
+    setOrderDay('Every day')
+
+    setIsInstagramHealthy(targetOutlet.status !== 'Needs Attention')
+    setActiveChannelsTab('Connected Channels')
+    setIsManageChannelsOpen(true)
+  }
+
+  const toggleChannelSetting = (channelKey, settingKey) => {
+    setChannelSettings(prev => {
+      const nextVal = !prev[channelKey][settingKey]
+      const updated = {
+        ...prev,
+        [channelKey]: {
+          ...prev[channelKey],
+          [settingKey]: nextVal
+        }
+      }
+      if (settingKey === 'enabled') {
+        setChannelStates(prevStates => ({
+          ...prevStates,
+          [channelKey]: nextVal
+        }))
+      }
+      return updated
+    })
+  }
+
+  const setChannelDropdownSetting = (channelKey, settingKey, value) => {
+    setChannelSettings(prev => ({
+      ...prev,
+      [channelKey]: {
+        ...prev[channelKey],
+        [settingKey]: value
+      }
+    }))
+  }
+
+  const setChannelConnected = (channelKey, isConnected) => {
+    setChannelStates(prev => ({ ...prev, [channelKey]: isConnected }))
+    setChannelSettings(prev => {
+      if (prev[channelKey]) {
+        return {
+          ...prev,
+          [channelKey]: {
+            ...prev[channelKey],
+            enabled: isConnected
+          }
+        }
+      }
+      return prev
+    })
+  }
+
+  const handleSaveChannels = async () => {
+    if (!outletForChannels) return
+
+    const updatedChannels = []
+    if (channelSettings.whatsapp.enabled) updatedChannels.push('WhatsApp')
+    if (channelSettings.telegram.enabled) updatedChannels.push('Telegram')
+    if (channelSettings.website.enabled) updatedChannels.push('Website')
+    if (channelStates.instagram) updatedChannels.push('Instagram')
+    if (channelStates.tokopedia) updatedChannels.push('Tokopedia')
+    if (channelStates.shopee) updatedChannels.push('Shopee')
+
+    let newStatus = outletForChannels.status
+    if (outletForChannels.status === 'Needs Attention' && (!channelStates.instagram || isInstagramHealthy)) {
+      newStatus = 'Active'
+    } else if (channelStates.instagram && !isInstagramHealthy) {
+      newStatus = 'Needs Attention'
+    }
+
+    const updatedOutlet = {
+      ...outletForChannels,
+      channels: updatedChannels,
+      status: newStatus
+    }
+
+    setOutlets(prev => prev.map(o => o.id === outletForChannels.id ? updatedOutlet : o))
+    
+    if (selectedOutlet?.id === outletForChannels.id) {
+      setSelectedOutlet(updatedOutlet)
+    }
+
+    if (!isDemoMode()) {
+      try {
+        await api.put(`/outlets/${outletForChannels.id}`, {
+          ...outletForChannels,
+          channels: updatedChannels.map(c => c.toLowerCase()),
+          status: newStatus.toLowerCase().replace(' ', '_')
+        })
+      } catch (err) {
+        console.error('Failed to save channels to server:', err)
+      }
+    }
+
+    setIsManageChannelsOpen(false)
+    setOutletForChannels(null)
   }
 
   const exportCsv = () => {
@@ -1703,6 +1967,7 @@ export default function OutletsPage() {
           <DetailPanel
             outlet={selectedOutlet}
             onClose={() => setIsDetailOpen(false)}
+            onManageChannels={openManageChannelsModal}
           />
         </div>
       )}
@@ -1721,7 +1986,1602 @@ export default function OutletsPage() {
               outlet={selectedOutlet}
               mobile
               onClose={() => setMobileDetailOpen(false)}
+              onManageChannels={openManageChannelsModal}
             />
+          </div>
+        </div>
+      )}
+
+      {/* ── Manage Connected Channels Modal ── */}
+      {isManageChannelsOpen && outletForChannels && (
+        <div className='fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px] animate-in fade-in duration-150'>
+          <div className='bg-white rounded-2xl w-full max-w-[960px] shadow-2xl border border-slate-100 flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-200'>
+            {/* Header */}
+            <header className='px-6 py-4 border-b border-slate-100 flex items-center gap-4 bg-white shrink-0 relative'>
+              <OutletImage
+                src={outletForChannels.image}
+                name={outletForChannels.name}
+                className='h-14 w-14 rounded-2xl border border-[#E1E6EF] shadow-[0_1px_3px_rgba(17,24,46,0.04)] object-cover shrink-0'
+              />
+              <div className='flex-1 min-w-0'>
+                <div className='flex items-center gap-2'>
+                  <h3 className='text-base font-extrabold text-[#11182E] truncate'>
+                    Manage Connected Channels
+                  </h3>
+                </div>
+                <div className='flex items-center gap-2 mt-0.5'>
+                  <span className='text-sm font-bold text-slate-700 truncate'>
+                    {outletForChannels.name}
+                  </span>
+                  <StatusBadge status={outletForChannels.status} />
+                </div>
+                <div className='flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[11px] font-semibold text-slate-400'>
+                  <span>{outletForChannels.city}, {outletForChannels.region}</span>
+                  <span className='text-slate-200'>•</span>
+                  <span>Outlet Manager: {outletForChannels.manager}</span>
+                  <span className='text-slate-200'>•</span>
+                  <span>{outletForChannels.phone}</span>
+                </div>
+              </div>
+              <button
+                type='button'
+                onClick={() => {
+                  setIsManageChannelsOpen(false)
+                  setOutletForChannels(null)
+                }}
+                className='absolute top-4 right-4 p-2 hover:bg-slate-50 border border-slate-100 rounded-xl text-slate-400 hover:text-slate-800 transition cursor-pointer'
+              >
+                <X size={16} />
+              </button>
+            </header>
+
+            {/* Tab Navigation */}
+            <div className='px-6 border-b border-slate-100 bg-white shrink-0 flex gap-6'>
+              {['Connected Channels', 'Channel Settings', 'Webhooks', 'Activity Log'].map((tab) => (
+                <button
+                  key={tab}
+                  type='button'
+                  onClick={() => setActiveChannelsTab(tab)}
+                  className={cx(
+                    'py-3.5 text-xs font-bold border-b-2 transition-all relative cursor-pointer',
+                    activeChannelsTab === tab
+                      ? 'border-[#F43F70] text-[#F43F70]'
+                      : 'border-transparent text-slate-400 hover:text-[#11182E]'
+                  )}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className='p-6 overflow-y-auto space-y-6 flex-1 min-h-0 bg-slate-50/40'>
+              {activeChannelsTab === 'Connected Channels' ? (
+                <>
+                  {/* Context Description */}
+                  <p className='text-xs font-semibold text-slate-500'>
+                    Connect and manage all sales & communication channels for this outlet.
+                  </p>
+
+                  {/* Rows Container */}
+                  <div className='bg-white border border-slate-200/80 rounded-2xl shadow-sm divide-y divide-slate-100 overflow-hidden'>
+                    {/* 1. WhatsApp Row */}
+                    <div className='p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
+                      <div className='flex items-center gap-3.5 min-w-0'>
+                        {/* WhatsApp Icon */}
+                        <div className='w-10 h-10 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#16A34A] shrink-0 shadow-sm'>
+                          <MessageCircle size={20} />
+                        </div>
+                        <div className='min-w-0'>
+                          <h4 className='text-xs font-bold text-slate-800 leading-tight'>WhatsApp</h4>
+                          <p className='text-[10px] text-slate-400 font-semibold mt-0.5'>WhatsApp Business API</p>
+                        </div>
+                      </div>
+
+                      {/* Info & Actions */}
+                      <div className='flex items-center gap-6 flex-wrap sm:flex-nowrap'>
+                        <div>
+                          <span className={cx(
+                            'inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border',
+                            channelStates.whatsapp
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                              : 'bg-slate-50 border-slate-200 text-slate-400'
+                          )}>
+                            {channelStates.whatsapp ? 'Connected' : 'Not Connected'}
+                          </span>
+                        </div>
+
+                        {/* Health Status */}
+                        <div className='w-24 shrink-0'>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>Health</span>
+                          <div className='flex items-center gap-1.5 mt-0.5'>
+                            {channelStates.whatsapp ? (
+                              <>
+                                <span className='w-2 h-2 rounded-full bg-emerald-500' />
+                                <span className='text-[11px] font-bold text-slate-700'>Healthy</span>
+                              </>
+                            ) : (
+                              <span className='text-slate-400 text-xs font-bold'>—</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Last Sync */}
+                        <div className='w-24 shrink-0'>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>Last Sync</span>
+                          <span className='block text-[11px] font-bold text-slate-700 mt-0.5'>
+                            {channelStates.whatsapp ? '2 min ago' : '—'}
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className='flex items-center gap-2'>
+                          {channelStates.whatsapp ? (
+                            <>
+                              <button
+                                type='button'
+                                onClick={() => alert('Syncing menu...')}
+                                className='h-8 px-3 border border-[#E1E6EF] hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                              >
+                                Sync Menu
+                              </button>
+                              <button
+                                type='button'
+                                onClick={() => setChannelConnected('whatsapp', false)}
+                                className='h-8 px-3 border border-[#FFEBEF] hover:bg-[#FFEBEF] text-[#F43F70] text-[10px] font-bold rounded-lg transition cursor-pointer'
+                              >
+                                Disconnect
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type='button'
+                              onClick={() => setChannelConnected('whatsapp', true)}
+                              className='h-8 px-4 bg-[#6956E8] hover:bg-[#5b49d3] text-white text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                            >
+                              Connect
+                            </button>
+                          )}
+                          {channelStates.whatsapp && (
+                            <button type='button' className='p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 transition cursor-pointer'>
+                              <MoreVertical size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. Telegram Row */}
+                    <div className='p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
+                      <div className='flex items-center gap-3.5 min-w-0'>
+                        {/* Telegram Icon */}
+                        <div className='w-10 h-10 rounded-full bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-500 shrink-0 shadow-sm'>
+                          <Send size={18} className='text-[#2563EB]' />
+                        </div>
+                        <div className='min-w-0'>
+                          <h4 className='text-xs font-bold text-slate-800 leading-tight'>Telegram</h4>
+                          <p className='text-[10px] text-slate-400 font-semibold mt-0.5'>Telegram Bot</p>
+                        </div>
+                      </div>
+
+                      {/* Info & Actions */}
+                      <div className='flex items-center gap-6 flex-wrap sm:flex-nowrap'>
+                        <div>
+                          <span className={cx(
+                            'inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border',
+                            channelStates.telegram
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                              : 'bg-slate-50 border-slate-200 text-slate-400'
+                          )}>
+                            {channelStates.telegram ? 'Connected' : 'Not Connected'}
+                          </span>
+                        </div>
+
+                        {/* Health Status */}
+                        <div className='w-24 shrink-0'>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>Health</span>
+                          <div className='flex items-center gap-1.5 mt-0.5'>
+                            {channelStates.telegram ? (
+                              <>
+                                <span className='w-2 h-2 rounded-full bg-emerald-500' />
+                                <span className='text-[11px] font-bold text-slate-700'>Healthy</span>
+                              </>
+                            ) : (
+                              <span className='text-slate-400 text-xs font-bold'>—</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Last Sync */}
+                        <div className='w-24 shrink-0'>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>Last Sync</span>
+                          <span className='block text-[11px] font-bold text-slate-700 mt-0.5'>
+                            {channelStates.telegram ? '1 min ago' : '—'}
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className='flex items-center gap-2'>
+                          {channelStates.telegram ? (
+                            <>
+                              <button
+                                type='button'
+                                onClick={() => alert('Syncing menu...')}
+                                className='h-8 px-3 border border-[#E1E6EF] hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                              >
+                                Sync Menu
+                              </button>
+                              <button
+                                type='button'
+                                onClick={() => setChannelConnected('telegram', false)}
+                                className='h-8 px-3 border border-[#FFEBEF] hover:bg-[#FFEBEF] text-[#F43F70] text-[10px] font-bold rounded-lg transition cursor-pointer'
+                              >
+                                Disconnect
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type='button'
+                              onClick={() => setChannelConnected('telegram', true)}
+                              className='h-8 px-4 bg-[#6956E8] hover:bg-[#5b49d3] text-white text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                            >
+                              Connect
+                            </button>
+                          )}
+                          {channelStates.telegram && (
+                            <button type='button' className='p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 transition cursor-pointer'>
+                              <MoreVertical size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. Website Row */}
+                    <div className='p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
+                      <div className='flex items-center gap-3.5 min-w-0'>
+                        {/* Website Icon */}
+                        <div className='w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-sm'>
+                          <Globe2 size={18} className='text-[#6956E8]' />
+                        </div>
+                        <div className='min-w-0'>
+                          <h4 className='text-xs font-bold text-slate-800 leading-tight'>Website</h4>
+                          <p className='text-[10px] text-slate-400 font-semibold mt-0.5'>Online Ordering (Web)</p>
+                        </div>
+                      </div>
+
+                      {/* Info & Actions */}
+                      <div className='flex items-center gap-6 flex-wrap sm:flex-nowrap'>
+                        <div>
+                          <span className={cx(
+                            'inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border',
+                            channelStates.website
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                              : 'bg-slate-50 border-slate-200 text-slate-400'
+                          )}>
+                            {channelStates.website ? 'Connected' : 'Not Connected'}
+                          </span>
+                        </div>
+
+                        {/* Health Status */}
+                        <div className='w-24 shrink-0'>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>Health</span>
+                          <div className='flex items-center gap-1.5 mt-0.5'>
+                            {channelStates.website ? (
+                              <>
+                                <span className='w-2 h-2 rounded-full bg-emerald-500' />
+                                <span className='text-[11px] font-bold text-slate-700'>Healthy</span>
+                              </>
+                            ) : (
+                              <span className='text-slate-400 text-xs font-bold'>—</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Last Sync */}
+                        <div className='w-24 shrink-0'>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>Last Sync</span>
+                          <span className='block text-[11px] font-bold text-slate-700 mt-0.5'>
+                            {channelStates.website ? 'Just now' : '—'}
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className='flex items-center gap-2'>
+                          {channelStates.website ? (
+                            <>
+                              <button
+                                type='button'
+                                onClick={() => alert('Syncing menu...')}
+                                className='h-8 px-3 border border-[#E1E6EF] hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                              >
+                                Sync Menu
+                              </button>
+                              <button
+                                type='button'
+                                onClick={() => alert('Syncing orders...')}
+                                className='h-8 px-3 border border-[#E1E6EF] hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                              >
+                                Sync Orders
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type='button'
+                              onClick={() => setChannelConnected('website', true)}
+                              className='h-8 px-4 bg-[#6956E8] hover:bg-[#5b49d3] text-white text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                            >
+                              Connect
+                            </button>
+                          )}
+                          {channelStates.website && (
+                            <button type='button' className='p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 transition cursor-pointer'>
+                              <MoreVertical size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. Instagram Row */}
+                    <div className='flex flex-col divide-y divide-slate-100'>
+                      <div className='p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
+                        <div className='flex items-center gap-3.5 min-w-0'>
+                          {/* Instagram Icon */}
+                          <div className='w-10 h-10 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shrink-0 shadow-sm'>
+                            <Instagram size={18} className='text-rose-500' />
+                          </div>
+                          <div className='min-w-0'>
+                            <h4 className='text-xs font-bold text-slate-800 leading-tight'>Instagram</h4>
+                            <p className='text-[10px] text-slate-400 font-semibold mt-0.5'>Instagram Messaging</p>
+                          </div>
+                        </div>
+
+                        {/* Info & Actions */}
+                        <div className='flex items-center gap-6 flex-wrap sm:flex-nowrap'>
+                          <div>
+                            <span className={cx(
+                              'inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border',
+                              !channelStates.instagram
+                                ? 'bg-slate-50 border-slate-200 text-slate-400'
+                                : isInstagramHealthy
+                                  ? 'bg-[#ECFDF5] border-emerald-200 text-emerald-600'
+                                  : 'bg-orange-50 border-orange-200 text-orange-600'
+                            )}>
+                              {!channelStates.instagram ? 'Not Connected' : isInstagramHealthy ? 'Connected' : 'Pending Setup'}
+                            </span>
+                          </div>
+
+                          {/* Health Status */}
+                          <div className='w-24 shrink-0'>
+                            <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>Health</span>
+                            <div className='flex items-center gap-1.5 mt-0.5'>
+                              {!channelStates.instagram ? (
+                                <span className='text-slate-400 text-xs font-bold'>—</span>
+                              ) : isInstagramHealthy ? (
+                                <>
+                                  <span className='w-2 h-2 rounded-full bg-[#16A34A]' />
+                                  <span className='text-[11px] font-bold text-slate-700'>Healthy</span>
+                                </>
+                              ) : (
+                                <>
+                                  <AlertTriangle size={12} className='text-orange-500 shrink-0' />
+                                  <span className='text-[11px] font-bold text-slate-700'>Attention</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Last Sync */}
+                          <div className='w-24 shrink-0'>
+                            <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>Last Sync</span>
+                            <span className='block text-[11px] font-bold text-slate-700 mt-0.5'>
+                              {channelStates.instagram && isInstagramHealthy ? 'Just now' : '—'}
+                            </span>
+                          </div>
+
+                          {/* Actions */}
+                          <div className='flex items-center gap-2'>
+                            {channelStates.instagram ? (
+                              <>
+                                <button
+                                  type='button'
+                                  onClick={() => {
+                                    setIsInstagramHealthy(true)
+                                    alert('Instagram re-authorized successfully!')
+                                  }}
+                                  className='h-8 px-3 border border-[#E1E6EF] hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                                >
+                                  Reconnect
+                                </button>
+                                <button
+                                  type='button'
+                                  onClick={() => alert('Testing connection... Connection successful!')}
+                                  className='h-8 px-3 border border-[#E1E6EF] hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                                >
+                                  Test Connection
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type='button'
+                                onClick={() => {
+                                  setChannelStates(prev => ({ ...prev, instagram: true }))
+                                  setIsInstagramHealthy(false)
+                                }}
+                                className='h-8 px-4 bg-[#6956E8] hover:bg-[#5b49d3] text-white text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                              >
+                                Connect
+                              </button>
+                            )}
+                            {channelStates.instagram && (
+                              <button type='button' className='p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 transition cursor-pointer'>
+                                <MoreVertical size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Warning notice below Instagram */}
+                      {channelStates.instagram && !isInstagramHealthy && (
+                        <div className='p-3 bg-[#FFF9F2] border-t border-b border-[#FFE8CC] flex items-center justify-between gap-3 text-xs font-semibold text-amber-800 animate-in fade-in slide-in-from-top-1 duration-200'>
+                          <div className='flex items-center gap-2'>
+                            <AlertTriangle size={14} className='text-[#EA7200] shrink-0' />
+                            <span>Instagram API permission needs to be re-authorized. Some features may not work until reconnect.</span>
+                          </div>
+                          <button
+                            type='button'
+                            onClick={() => {
+                              setIsInstagramHealthy(true)
+                              alert('Instagram API permission has been re-authorized.')
+                            }}
+                            className='px-3 py-1.5 bg-[#FFF0E0] hover:bg-[#FFE0C0] text-amber-700 text-[10px] font-bold rounded-lg border border-[#FFD5A3] transition cursor-pointer'
+                          >
+                            Re-authorize
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 5. Tokopedia Row */}
+                    <div className='p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
+                      <div className='flex items-center gap-3.5 min-w-0'>
+                        {/* Tokopedia Icon */}
+                        <div className='w-10 h-10 rounded-full bg-[#E8F8EE] border border-[#D0F1DC] flex items-center justify-center text-[#03AC0E] shrink-0 shadow-sm'>
+                          <svg className='w-6 h-6' viewBox='0 0 24 24' fill='currentColor'>
+                            <path d='M19 6h-3c0-2.21-1.79-4-4-4S8 3.79 8 6H5c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7-2c1.1 0 2 .9 2 2h-4c0-1.1.9-2 2-2zm0 10c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z'/>
+                          </svg>
+                        </div>
+                        <div className='min-w-0'>
+                          <h4 className='text-xs font-bold text-slate-800 leading-tight'>Tokopedia</h4>
+                          <p className='text-[10px] text-slate-400 font-semibold mt-0.5'>Marketplace Connector</p>
+                        </div>
+                      </div>
+
+                      {/* Info & Actions */}
+                      <div className='flex items-center gap-6 flex-wrap sm:flex-nowrap'>
+                        <div>
+                          <span className={cx(
+                            'inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border',
+                            channelStates.tokopedia
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                              : 'bg-slate-50 border-slate-200 text-slate-400'
+                          )}>
+                            {channelStates.tokopedia ? 'Connected' : 'Not Connected'}
+                          </span>
+                        </div>
+
+                        {/* Health Status */}
+                        <div className='w-24 shrink-0'>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>Health</span>
+                          <div className='flex items-center gap-1.5 mt-0.5'>
+                            {channelStates.tokopedia ? (
+                              <>
+                                <span className='w-2 h-2 rounded-full bg-[#16A34A]' />
+                                <span className='text-[11px] font-bold text-slate-700'>Healthy</span>
+                              </>
+                            ) : (
+                              <span className='text-slate-400 text-xs font-bold'>—</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Last Sync */}
+                        <div className='w-24 shrink-0'>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>Last Sync</span>
+                          <span className='block text-[11px] font-bold text-slate-700 mt-0.5'>
+                            {channelStates.tokopedia ? 'Just now' : '—'}
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className='flex items-center gap-2'>
+                          {channelStates.tokopedia ? (
+                            <>
+                              <button
+                                type='button'
+                                onClick={() => alert('Syncing inventory...')}
+                                className='h-8 px-3 border border-[#E1E6EF] hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                              >
+                                Sync Inventory
+                              </button>
+                              <button
+                                type='button'
+                                onClick={() => setChannelStates(prev => ({ ...prev, tokopedia: false }))}
+                                className='h-8 px-3 border border-[#FFEBEF] hover:bg-[#FFEBEF] text-[#F43F70] text-[10px] font-bold rounded-lg transition cursor-pointer'
+                              >
+                                Disconnect
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type='button'
+                                onClick={() => setChannelStates(prev => ({ ...prev, tokopedia: true }))}
+                                className='h-8 px-4 bg-[#F43F70] hover:bg-[#e62e63] text-white text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                              >
+                                Connect
+                              </button>
+                              <button
+                                type='button'
+                                onClick={() => alert('Opening integration guide...')}
+                                className='h-8 px-3 border border-[#E1E6EF] hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                              >
+                                Learn More
+                              </button>
+                            </>
+                          )}
+                          {channelStates.tokopedia && (
+                            <button type='button' className='p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 transition cursor-pointer'>
+                              <MoreVertical size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 6. Shopee Row */}
+                    <div className='p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
+                      <div className='flex items-center gap-3.5 min-w-0'>
+                        {/* Shopee Icon */}
+                        <div className='w-10 h-10 rounded-full bg-[#FFF0E6] border border-[#FFD9C2] flex items-center justify-center text-[#EE4D2D] shrink-0 shadow-sm'>
+                          <svg className='w-6 h-6' viewBox='0 0 24 24' fill='currentColor'>
+                            <path d='M17.8 7.2h-2c-.3-2.4-2.1-4.2-4.5-4.2s-4.2 1.8-4.5 4.2h-2c-1.1 0-2 .9-2 2v10.5c0 1.1.9 2 2 2h13c1.1 0 2-.9 2-2V9.2c0-1.1-.9-2-2-2zM11.3 5c1.2 0 2.2.9 2.5 2.2H8.8c.3-1.3 1.3-2.2 2.5-2.2zm4 7.8c-.8.8-2 1.2-3.3 1.2s-2.5-.4-3.3-1.2c-.3-.3-.3-.8 0-1.1s.8-.3 1.1 0c.6.6 1.4.9 2.2.9s1.6-.3 2.2-.9c.3-.3.8-.3 1.1 0s.3.8 0 1.1z'/>
+                          </svg>
+                        </div>
+                        <div className='min-w-0'>
+                          <h4 className='text-xs font-bold text-slate-800 leading-tight'>Shopee</h4>
+                          <p className='text-[10px] text-slate-400 font-semibold mt-0.5'>Marketplace Connector</p>
+                        </div>
+                      </div>
+
+                      {/* Info & Actions */}
+                      <div className='flex items-center gap-6 flex-wrap sm:flex-nowrap'>
+                        <div>
+                          <span className={cx(
+                            'inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border',
+                            channelStates.shopee
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                              : 'bg-slate-50 border-slate-200 text-slate-400'
+                          )}>
+                            {channelStates.shopee ? 'Connected' : 'Not Connected'}
+                          </span>
+                        </div>
+
+                        {/* Health Status */}
+                        <div className='w-24 shrink-0'>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>Health</span>
+                          <div className='flex items-center gap-1.5 mt-0.5'>
+                            {channelStates.shopee ? (
+                              <>
+                                <span className='w-2 h-2 rounded-full bg-emerald-500' />
+                                <span className='text-[11px] font-bold text-slate-700'>Healthy</span>
+                              </>
+                            ) : (
+                              <span className='text-slate-400 text-xs font-bold'>—</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Last Sync */}
+                        <div className='w-24 shrink-0'>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>Last Sync</span>
+                          <span className='block text-[11px] font-bold text-slate-700 mt-0.5'>
+                            {channelStates.shopee ? 'Just now' : '—'}
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className='flex items-center gap-2'>
+                          {channelStates.shopee ? (
+                            <>
+                              <button
+                                type='button'
+                                onClick={() => alert('Syncing inventory...')}
+                                className='h-8 px-3 border border-[#E1E6EF] hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                              >
+                                Sync Inventory
+                              </button>
+                              <button
+                                type='button'
+                                onClick={() => setChannelStates(prev => ({ ...prev, shopee: false }))}
+                                className='h-8 px-3 border border-[#FFEBEF] hover:bg-[#FFEBEF] text-[#F43F70] text-[10px] font-bold rounded-lg transition cursor-pointer'
+                              >
+                                Disconnect
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type='button'
+                                onClick={() => setChannelStates(prev => ({ ...prev, shopee: true }))}
+                                className='h-8 px-4 bg-[#F43F70] hover:bg-[#e62e63] text-white text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                              >
+                                Connect
+                              </button>
+                              <button
+                                type='button'
+                                onClick={() => alert('Opening integration guide...')}
+                                className='h-8 px-3 border border-[#E1E6EF] hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded-lg transition shadow-sm cursor-pointer'
+                              >
+                                Learn More
+                              </button>
+                            </>
+                          )}
+                          {channelStates.shopee && (
+                            <button type='button' className='p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 transition cursor-pointer'>
+                              <MoreVertical size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Integration Health Summary Title */}
+                  <div className='pt-2'>
+                    <h4 className='text-[10px] font-extrabold text-slate-400 uppercase tracking-wider'>
+                      Integration Health Summary
+                    </h4>
+                  </div>
+
+                  {/* Summary Metrics Grid */}
+                  <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4'>
+                    {/* 1. Connected Channels Card */}
+                    <div className='bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex items-center gap-3.5'>
+                      <div className='w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center text-[#6956E8] shrink-0 border border-violet-100'>
+                        <Globe2 size={18} className='text-[#6956E8]' />
+                      </div>
+                      <div>
+                        <span className='block text-[10px] font-bold text-slate-400 uppercase tracking-wider'>
+                          Connected Channels
+                        </span>
+                        <div className='flex items-baseline gap-1 mt-0.5'>
+                          <span className='text-lg font-black text-slate-900'>
+                            {Object.values(channelStates).filter(Boolean).length}
+                          </span>
+                          <span className='text-xs font-semibold text-slate-400'>/ 6</span>
+                        </div>
+                        <span className='block text-[10px] text-slate-400 font-semibold mt-0.5'>
+                          {Math.round((Object.values(channelStates).filter(Boolean).length / 6) * 100)}% connected
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 2. Healthy Integrations Card */}
+                    <div className='bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex items-center gap-3.5'>
+                      <div className='w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 border border-emerald-100'>
+                        <CheckCircle2 size={18} className='text-emerald-600' />
+                      </div>
+                      <div>
+                        <span className='block text-[10px] font-bold text-slate-400 uppercase tracking-wider'>
+                          Healthy Integrations
+                        </span>
+                        <span className='block text-lg font-black text-slate-900 mt-0.5'>
+                          {(channelStates.whatsapp ? 1 : 0) +
+                           (channelStates.telegram ? 1 : 0) +
+                           (channelStates.website ? 1 : 0) +
+                           (channelStates.instagram && isInstagramHealthy ? 1 : 0) +
+                           (channelStates.tokopedia ? 1 : 0) +
+                           (channelStates.shopee ? 1 : 0)}
+                        </span>
+                        <span className='block text-[10px] text-slate-400 font-semibold mt-0.5'>
+                          All systems operational
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 3. Needs Attention Card */}
+                    <div className='bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex items-center gap-3.5'>
+                      <div className='w-9 h-9 rounded-xl bg-[#FFF7E8] flex items-center justify-center text-[#EA7200] shrink-0 border border-amber-100'>
+                        <AlertTriangle size={18} className='text-[#EA7200]' />
+                      </div>
+                      <div>
+                        <span className='block text-[10px] font-bold text-slate-400 uppercase tracking-wider'>
+                          Needs Attention
+                        </span>
+                        <span className='block text-lg font-black text-slate-900 mt-0.5'>
+                          {channelStates.instagram && !isInstagramHealthy ? 1 : 0}
+                        </span>
+                        <span className='block text-[10px] text-slate-400 font-semibold mt-0.5'>
+                          {channelStates.instagram && !isInstagramHealthy ? '1 channel needs action' : 'All channels healthy'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 4. Failed Webhooks Card */}
+                    <div className='bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex items-center gap-3.5'>
+                      <div className='w-9 h-9 rounded-xl bg-rose-50 flex items-center justify-center text-[#F43F70] shrink-0 border border-rose-100'>
+                        <Zap size={18} className='text-[#F43F70]' />
+                      </div>
+                      <div>
+                        <span className='block text-[10px] font-bold text-slate-400 uppercase tracking-wider'>
+                          Failed Webhooks (24h)
+                        </span>
+                        <span className='block text-lg font-black text-slate-900 mt-0.5'>
+                          0
+                        </span>
+                        <span className='block text-[10px] text-slate-400 font-semibold mt-0.5'>
+                          No failures
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : activeChannelsTab === 'Channel Settings' ? (
+                <>
+                  {/* Info bar */}
+                  <div className='flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs font-semibold text-blue-800'>
+                    <Info size={14} className='text-blue-500 shrink-0 mt-0.5' />
+                    <span>Customers will still select their outlet during ordering. These settings control whether this outlet can receive chats and orders from each channel.</span>
+                  </div>
+
+                  {/* Per-channel setting rows */}
+                  {[
+                    {
+                      key: 'whatsapp',
+                      label: 'WhatsApp',
+                      sub: 'WhatsApp Business API',
+                      icon: <MessageCircle size={20} className='text-[#16A34A]' />,
+                      iconBg: 'bg-emerald-50 border-emerald-100',
+                      syncLabel: '2 min ago',
+                    },
+                    {
+                      key: 'telegram',
+                      label: 'Telegram',
+                      sub: 'Telegram Bot',
+                      icon: <Send size={18} className='text-[#2563EB]' />,
+                      iconBg: 'bg-sky-50 border-sky-100',
+                      syncLabel: '1 min ago',
+                    },
+                    {
+                      key: 'website',
+                      label: 'Website',
+                      sub: 'Online Ordering (Web)',
+                      icon: <Globe2 size={18} className='text-[#6956E8]' />,
+                      iconBg: 'bg-indigo-50 border-indigo-100',
+                      syncLabel: 'Just now',
+                    },
+                  ].map(({ key, label, sub, icon, iconBg, syncLabel }) => {
+                    const s = channelSettings[key]
+                    const isConnected = channelStates[key]
+                    const aiOptions = [
+                      { value: 'default', label: 'Use workspace default agent', sub: 'SelaluTeh AI Assistant' },
+                      { value: 'disabled', label: 'Disable AI', sub: 'Messages go to human team' },
+                      { value: 'override', label: 'Override agent', sub: 'SelaluTeh Website Agent' },
+                    ]
+                    const teamOptions = [
+                      { value: 'cs_team', label: 'SelaluTeh CS Team', sub: '3 members' },
+                      { value: 'website_team', label: 'Website Support Team', sub: '2 members' },
+                      { value: 'sales_team', label: 'Sales Team', sub: '4 members' },
+                    ]
+                    const hoursOptions = [
+                      { value: 'auto_reply_human', label: 'Auto-reply then human', sub: '09:00 – 21:00 WIB' },
+                      { value: 'auto_reply_only', label: 'Auto-reply only', sub: 'No human escalation' },
+                      { value: 'reject', label: 'Reject messages', sub: 'Outside hours closed' },
+                    ]
+                    const selectedAi = aiOptions.find(o => o.value === s.aiHandling) || aiOptions[0]
+                    const selectedTeam = teamOptions.find(o => o.value === s.humanTeam) || teamOptions[0]
+                    const selectedHours = hoursOptions.find(o => o.value === s.outsideHours) || hoursOptions[0]
+
+                    return (
+                      <div key={key} className='bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden'>
+                        {/* Channel header */}
+                        <div className='flex items-center justify-between px-5 py-3.5 border-b border-slate-100'>
+                          <div className='flex items-center gap-3'>
+                            <div className={cx('w-10 h-10 rounded-full flex items-center justify-center shrink-0 border shadow-sm', iconBg)}>
+                              {icon}
+                            </div>
+                            <div>
+                              <div className='flex items-center gap-2'>
+                                <span className='text-sm font-extrabold text-slate-800'>{label}</span>
+                                <span className={cx(
+                                  'inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-bold border',
+                                  isConnected
+                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                    : 'bg-slate-50 border-slate-200 text-slate-400'
+                                )}>
+                                  {isConnected ? 'Connected' : 'Not Connected'}
+                                </span>
+                              </div>
+                              <span className='text-[10px] text-slate-400 font-semibold'>{sub}</span>
+                            </div>
+                          </div>
+                          <div className='flex items-center gap-3'>
+                            <div className='text-right hidden sm:block'>
+                              <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>Health</span>
+                              <div className='flex items-center justify-end gap-1 mt-0.5'>
+                                {isConnected
+                                  ? <><span className='w-2 h-2 rounded-full bg-emerald-500 inline-block' /><span className='text-[11px] font-bold text-slate-700'>Healthy</span></>
+                                  : <span className='text-slate-400 text-xs'>—</span>
+                                }
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Settings grid */}
+                        <div className='px-5 py-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 gap-x-6 gap-y-4 items-start bg-white'>
+
+                          {/* Enabled for Outlet */}
+                          <div className='flex flex-col items-center gap-1.5'>
+                            <span className='text-[9px] font-bold text-slate-400 uppercase tracking-wider text-center h-12 flex items-end justify-center pb-1 leading-tight select-none'>Enabled for Outlet</span>
+                            <button
+                              type='button'
+                              onClick={() => toggleChannelSetting(key, 'enabled')}
+                              className={cx(
+                                'relative w-11 h-6 rounded-full transition-colors duration-200 cursor-pointer focus:outline-none shrink-0',
+                                s.enabled ? 'bg-[#F43F70]' : 'bg-slate-200'
+                              )}
+                            >
+                              <span className={cx(
+                                'absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all duration-200',
+                                s.enabled ? 'left-5' : 'left-0.5'
+                              )} />
+                            </button>
+                            <span className='text-[9px] font-bold text-slate-500 select-none'>{s.enabled ? 'On' : 'Off'}</span>
+                          </div>
+
+                          {/* Accept Chats */}
+                          <div className='flex flex-col items-center gap-1.5'>
+                            <span className='text-[9px] font-bold text-slate-400 uppercase tracking-wider text-center h-12 flex items-end justify-center pb-1 leading-tight select-none'>Accept Chats</span>
+                            <button
+                              type='button'
+                              onClick={() => toggleChannelSetting(key, 'acceptChats')}
+                              className={cx(
+                                'relative w-11 h-6 rounded-full transition-colors duration-200 cursor-pointer focus:outline-none shrink-0',
+                                s.acceptChats ? 'bg-[#F43F70]' : 'bg-slate-200'
+                              )}
+                            >
+                              <span className={cx(
+                                'absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all duration-200',
+                                s.acceptChats ? 'left-5' : 'left-0.5'
+                              )} />
+                            </button>
+                            <span className='text-[9px] font-bold text-slate-500 select-none'>{s.acceptChats ? 'On' : 'Off'}</span>
+                          </div>
+
+                          {/* Accept Orders */}
+                          <div className='flex flex-col items-center gap-1.5'>
+                            <span className='text-[9px] font-bold text-slate-400 uppercase tracking-wider text-center h-12 flex items-end justify-center pb-1 leading-tight select-none'>Accept Orders</span>
+                            <button
+                              type='button'
+                              onClick={() => toggleChannelSetting(key, 'acceptOrders')}
+                              className={cx(
+                                'relative w-11 h-6 rounded-full transition-colors duration-200 cursor-pointer focus:outline-none shrink-0',
+                                s.acceptOrders ? 'bg-[#F43F70]' : 'bg-slate-200'
+                              )}
+                            >
+                              <span className={cx(
+                                'absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all duration-200',
+                                s.acceptOrders ? 'left-5' : 'left-0.5'
+                              )} />
+                            </button>
+                            <span className='text-[9px] font-bold text-slate-500 select-none'>{s.acceptOrders ? 'On' : 'Off'}</span>
+                          </div>
+
+                          {/* AI Handling */}
+                          <div className='col-span-2 sm:col-span-1 lg:col-span-2 flex flex-col gap-1.5'>
+                            <span className='text-[9px] font-bold text-slate-400 uppercase tracking-wider h-12 flex items-end pb-1 leading-tight select-none'>AI Handling</span>
+                            <div className='relative'>
+                              <select
+                                value={s.aiHandling}
+                                onChange={e => setChannelDropdownSetting(key, 'aiHandling', e.target.value)}
+                                className='w-full h-8 pl-2.5 pr-7 text-[10px] font-bold text-slate-700 bg-white border border-[#E1E6EF] rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#6956E8]/30 shadow-sm'
+                              >
+                                {aiOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                              </select>
+                              <ChevronDown size={12} className='absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                            </div>
+                            <span className='text-[9px] text-slate-400 font-semibold select-none'>{selectedAi.sub}</span>
+                          </div>
+
+                          {/* Human Team */}
+                          <div className='col-span-2 sm:col-span-1 lg:col-span-1 flex flex-col gap-1.5'>
+                            <span className='text-[9px] font-bold text-slate-400 uppercase tracking-wider h-12 flex items-end pb-1 leading-tight select-none'>Human Team</span>
+                            <div className='relative'>
+                              <select
+                                value={s.humanTeam}
+                                onChange={e => setChannelDropdownSetting(key, 'humanTeam', e.target.value)}
+                                className='w-full h-8 pl-2.5 pr-7 text-[10px] font-bold text-slate-700 bg-white border border-[#E1E6EF] rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#6956E8]/30 shadow-sm'
+                              >
+                                {teamOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                              </select>
+                              <ChevronDown size={12} className='absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                            </div>
+                            <span className='text-[9px] text-slate-400 font-semibold select-none'>{selectedTeam.sub}</span>
+                          </div>
+
+                          {/* Outside-hours Behavior */}
+                          <div className='col-span-2 sm:col-span-1 lg:col-span-1 flex flex-col gap-1.5'>
+                            <span className='text-[9px] font-bold text-slate-400 uppercase tracking-wider h-12 flex items-end pb-1 leading-tight select-none'>Outside-hours Behavior</span>
+                            <div className='relative'>
+                              <select
+                                value={s.outsideHours}
+                                onChange={e => setChannelDropdownSetting(key, 'outsideHours', e.target.value)}
+                                className='w-full h-8 pl-2.5 pr-7 text-[10px] font-bold text-slate-700 bg-white border border-[#E1E6EF] rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#6956E8]/30 shadow-sm'
+                              >
+                                {hoursOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                              </select>
+                              <ChevronDown size={12} className='absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                            </div>
+                            <span className='text-[9px] text-slate-400 font-semibold select-none'>{selectedHours.sub}</span>
+                          </div>
+
+                          {/* Order Routing */}
+                          <div className='col-span-2 sm:col-span-1 lg:col-span-1 flex flex-col gap-1.5'>
+                            <span className='text-[9px] font-bold text-slate-400 uppercase tracking-wider h-12 flex items-end pb-1 leading-tight select-none'>Order Routing</span>
+                            <div className='flex items-start gap-1.5 select-none'>
+                              <Store size={12} className='text-slate-400 shrink-0 mt-0.5' />
+                              <span className='text-[10px] font-bold text-slate-700 leading-tight'>Route to this outlet<br/><span className='font-semibold text-slate-400'>{outletForChannels?.name}</span></span>
+                            </div>
+                          </div>
+
+                          {/* Fallback Message Preview */}
+                          <div className='col-span-2 lg:col-span-2 flex flex-col gap-1.5'>
+                            <span className='text-[9px] font-bold text-slate-400 uppercase tracking-wider h-12 flex items-end pb-1 leading-tight select-none'>Fallback Message (Preview)</span>
+                            <p className='text-[10px] text-slate-600 font-semibold italic leading-relaxed bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-2 select-none'>
+                              "{s.fallbackMessage}"
+                            </p>
+                          </div>
+
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {/* Bottom row: Pickup Availability + Order Acceptance Window */}
+                  <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+                    {/* Default Pickup Availability */}
+                    <div className='bg-white border border-slate-200/80 rounded-2xl shadow-sm p-4'>
+                      <div className='flex items-center gap-2 mb-3'>
+                        <div className='w-7 h-7 rounded-lg bg-violet-50 border border-violet-100 flex items-center justify-center'>
+                          <Clock3 size={13} className='text-[#6956E8]' />
+                        </div>
+                        <div>
+                          <h4 className='text-xs font-extrabold text-slate-800'>Default Pickup Availability</h4>
+                          <p className='text-[10px] text-slate-400 font-semibold'>Controls default availability shown to customers during checkout.</p>
+                        </div>
+                      </div>
+                      <div className='flex flex-wrap items-center gap-2'>
+                        <select
+                          value={pickupDay}
+                          onChange={e => setPickupDay(e.target.value)}
+                          className='h-8 pl-2.5 pr-7 text-[10px] font-bold text-slate-700 bg-white border border-[#E1E6EF] rounded-lg appearance-none cursor-pointer focus:outline-none relative'
+                          style={{ backgroundImage: 'none' }}
+                        >
+                          {['Every day', 'Weekdays only', 'Weekends only'].map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                        <select value={pickupStart} onChange={e => setPickupStart(e.target.value)} className='h-8 px-2.5 text-[10px] font-bold text-slate-700 bg-white border border-[#E1E6EF] rounded-lg appearance-none cursor-pointer focus:outline-none'>
+                          {['07:00','08:00','09:00','10:00','11:00'].map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <span className='text-[10px] font-bold text-slate-400'>to</span>
+                        <select value={pickupEnd} onChange={e => setPickupEnd(e.target.value)} className='h-8 px-2.5 text-[10px] font-bold text-slate-700 bg-white border border-[#E1E6EF] rounded-lg appearance-none cursor-pointer focus:outline-none'>
+                          {['20:00','21:00','22:00','23:00'].map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <span className='text-[10px] font-bold text-slate-400'>WIB</span>
+                        <button type='button' onClick={() => alert('Edit store hours')} className='h-8 px-3 border border-[#E1E6EF] rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer'>
+                          Edit Store Hours
+                        </button>
+                      </div>
+                      <p className='text-[10px] text-slate-400 font-semibold mt-2'>Store hours: {pickupStart} – {pickupEnd} WIB, {pickupDay}</p>
+                    </div>
+
+                    {/* Order Acceptance Window */}
+                    <div className='bg-white border border-slate-200/80 rounded-2xl shadow-sm p-4'>
+                      <div className='flex items-center gap-2 mb-3'>
+                        <div className='w-7 h-7 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center'>
+                          <Info size={13} className='text-[#EA7200]' />
+                        </div>
+                        <div>
+                          <h4 className='text-xs font-extrabold text-slate-800'>Order Acceptance Window</h4>
+                          <p className='text-[10px] text-slate-400 font-semibold'>Orders outside this window will be rejected automatically.</p>
+                        </div>
+                      </div>
+                      <div className='flex flex-wrap items-center gap-2'>
+                        <span className='text-[10px] font-bold text-slate-500'>Accept orders</span>
+                        <select
+                          value={orderDay}
+                          onChange={e => setOrderDay(e.target.value)}
+                          className='h-8 pl-2.5 pr-7 text-[10px] font-bold text-slate-700 bg-white border border-[#E1E6EF] rounded-lg appearance-none cursor-pointer focus:outline-none'
+                          style={{ backgroundImage: 'none' }}
+                        >
+                          {['Every day', 'Weekdays only', 'Weekends only'].map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                        <select value={orderStart} onChange={e => setOrderStart(e.target.value)} className='h-8 px-2.5 text-[10px] font-bold text-slate-700 bg-white border border-[#E1E6EF] rounded-lg appearance-none cursor-pointer focus:outline-none'>
+                          {['07:00','08:00','09:00','10:00','11:00'].map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <span className='text-[10px] font-bold text-slate-400'>to</span>
+                        <select value={orderEnd} onChange={e => setOrderEnd(e.target.value)} className='h-8 px-2.5 text-[10px] font-bold text-slate-700 bg-white border border-[#E1E6EF] rounded-lg appearance-none cursor-pointer focus:outline-none'>
+                          {['19:45','20:00','20:45','21:00','22:00'].map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <span className='text-[10px] font-bold text-slate-400'>WIB</span>
+                        <button type='button' onClick={() => alert('Edit window')} className='h-8 px-3 border border-[#E1E6EF] rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer'>
+                          Edit Window
+                        </button>
+                      </div>
+                      <p className='text-[10px] text-slate-400 font-semibold mt-2'>Last order accepted 15 minutes before store closes.</p>
+                    </div>
+                  </div>
+
+                  {/* Routing Summary */}
+                  <div>
+                    <div className='flex items-center gap-2 mb-3'>
+                      <Users size={14} className='text-slate-400' />
+                      <h4 className='text-[10px] font-extrabold text-slate-500 uppercase tracking-wider'>Routing Summary</h4>
+                    </div>
+                    <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3'>
+                      {/* Channels Enabled */}
+                      <div className='bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-sm flex items-center gap-3'>
+                        <div className='w-9 h-9 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center shrink-0'>
+                          <Globe2 size={16} className='text-[#6956E8]' />
+                        </div>
+                        <div>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-tight'>Channels Enabled</span>
+                          <div className='flex items-baseline gap-0.5 mt-0.5'>
+                            <span className='text-lg font-black text-slate-900'>
+                              {[channelSettings.whatsapp.enabled, channelSettings.telegram.enabled, channelSettings.website.enabled].filter(Boolean).length}
+                            </span>
+                            <span className='text-[10px] font-semibold text-slate-400'>/ 3</span>
+                          </div>
+                          <span className='text-[9px] text-slate-400 font-semibold'>All enabled</span>
+                        </div>
+                      </div>
+
+                      {/* Chats Accepted */}
+                      <div className='bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-sm flex items-center gap-3'>
+                        <div className='w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0'>
+                          <MessageCircle size={16} className='text-emerald-600' />
+                        </div>
+                        <div>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-tight'>Chats Accepted</span>
+                          <div className='flex items-baseline gap-0.5 mt-0.5'>
+                            <span className='text-lg font-black text-slate-900'>
+                              {[channelSettings.whatsapp.acceptChats, channelSettings.telegram.acceptChats, channelSettings.website.acceptChats].filter(Boolean).length}
+                            </span>
+                            <span className='text-[10px] font-semibold text-slate-400'>/ 3</span>
+                          </div>
+                          <span className='text-[9px] text-slate-400 font-semibold'>Across all channels</span>
+                        </div>
+                      </div>
+
+                      {/* Orders Accepted */}
+                      <div className='bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-sm flex items-center gap-3'>
+                        <div className='w-9 h-9 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center shrink-0'>
+                          <ShoppingBag size={16} className='text-sky-600' />
+                        </div>
+                        <div>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-tight'>Orders Accepted</span>
+                          <div className='flex items-baseline gap-0.5 mt-0.5'>
+                            <span className='text-lg font-black text-slate-900'>
+                              {[channelSettings.whatsapp.acceptOrders, channelSettings.telegram.acceptOrders, channelSettings.website.acceptOrders].filter(Boolean).length}
+                            </span>
+                            <span className='text-[10px] font-semibold text-slate-400'>/ 3</span>
+                          </div>
+                          <span className='text-[9px] text-slate-400 font-semibold'>Across all channels</span>
+                        </div>
+                      </div>
+
+                      {/* AI Handling */}
+                      <div className='bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-sm flex items-center gap-3'>
+                        <div className='w-9 h-9 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0'>
+                          <Sparkles size={16} className='text-[#F43F70]' />
+                        </div>
+                        <div>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-tight'>AI Handling</span>
+                          <div className='flex items-baseline gap-1 mt-0.5 flex-wrap'>
+                            <span className='text-[10px] font-bold text-slate-700'>
+                              {[channelSettings.whatsapp, channelSettings.telegram, channelSettings.website].filter(s => s.aiHandling === 'default').length} Default
+                            </span>
+                            <span className='text-slate-300'>·</span>
+                            <span className='text-[10px] font-bold text-slate-700'>
+                              {[channelSettings.whatsapp, channelSettings.telegram, channelSettings.website].filter(s => s.aiHandling === 'disabled').length} Disabled
+                            </span>
+                            <span className='text-slate-300'>·</span>
+                            <span className='text-[10px] font-bold text-slate-700'>
+                              {[channelSettings.whatsapp, channelSettings.telegram, channelSettings.website].filter(s => s.aiHandling === 'override').length} Override
+                            </span>
+                          </div>
+                          <span className='text-[9px] text-slate-400 font-semibold'>Per-channel configuration</span>
+                        </div>
+                      </div>
+
+                      {/* Human Teams */}
+                      <div className='bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-sm flex items-center gap-3'>
+                        <div className='w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0'>
+                          <Users size={16} className='text-[#EA7200]' />
+                        </div>
+                        <div>
+                          <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-tight'>Human Teams</span>
+                          <div className='flex items-baseline gap-0.5 mt-0.5'>
+                            <span className='text-lg font-black text-slate-900'>
+                              {new Set([channelSettings.whatsapp.humanTeam, channelSettings.telegram.humanTeam, channelSettings.website.humanTeam]).size}
+                            </span>
+                          </div>
+                          <span className='text-[9px] text-slate-400 font-semibold'>5 Active members</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : activeChannelsTab === 'Webhooks' ? (() => {
+                const webhookRows = [
+                  { channel: 'whatsapp', channelLabel: 'WhatsApp', channelSub: 'WhatsApp Business API', channelIcon: <MessageCircle size={18} className='text-[#16A34A]' />, channelIconBg: 'bg-emerald-50 border-emerald-100', events: [
+                    { type: 'incoming_message', status: 'Delivered', time: '2 min ago', ts: 'Today, 10:23:41', code: 200, health: 'Healthy', retry: 0 },
+                    { type: 'message_delivered', status: 'Delivered', time: '4 min ago', ts: 'Today, 10:21:12', code: 200, health: 'Healthy', retry: 0 },
+                    { type: 'order_created', status: 'Delivered', time: '12 min ago', ts: 'Today, 10:13:05', code: 200, health: 'Healthy', retry: 0 },
+                  ]},
+                  { channel: 'telegram', channelLabel: 'Telegram', channelSub: 'Telegram Bot', channelIcon: <Send size={16} className='text-[#2563EB]' />, channelIconBg: 'bg-sky-50 border-sky-100', events: [
+                    { type: 'incoming_message', status: 'Delivered', time: '8 min ago', ts: 'Today, 10:17:48', code: 200, health: 'Healthy', retry: 0 },
+                    { type: 'message_delivered', status: 'Delivered', time: '9 min ago', ts: 'Today, 10:16:34', code: 200, health: 'Healthy', retry: 0 },
+                    { type: 'payment_updated', status: 'Delivered', time: '25 min ago', ts: 'Today, 10:00:27', code: 200, health: 'Healthy', retry: 0 },
+                  ]},
+                  { channel: 'website', channelLabel: 'Website', channelSub: 'Online Ordering (Web)', channelIcon: <Globe2 size={16} className='text-[#6956E8]' />, channelIconBg: 'bg-indigo-50 border-indigo-100', events: [
+                    { type: 'order_created', status: 'Delivered', time: '3 min ago', ts: 'Today, 10:22:15', code: 200, health: 'Healthy', retry: 0 },
+                    { type: 'sync_completed', status: 'Delivered', time: '15 min ago', ts: 'Today, 10:09:02', code: 200, health: 'Healthy', retry: 0 },
+                    { type: 'payment_updated', status: 'Failed', time: '18 min ago', ts: 'Today, 10:06:21', code: 500, health: 'Degraded', retry: 2 },
+                  ]},
+                ]
+                const filterSelect = (val, setter, opts) => (
+                  <div className='relative'>
+                    <select value={val} onChange={e => setter(e.target.value)} className='h-8 pl-3 pr-8 text-[10px] font-bold text-slate-700 bg-white border border-[#E1E6EF] rounded-lg appearance-none cursor-pointer focus:outline-none'>
+                      {opts.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                    <ChevronDown size={11} className='absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                  </div>
+                )
+                return (
+                  <>
+                    {/* Description */}
+                    <p className='text-xs font-semibold text-slate-500'>Monitor webhook deliveries and payloads across all connected channels.</p>
+
+                    {/* Filter Bar */}
+                    <div className='flex flex-wrap items-center gap-2'>
+                      <div className='flex items-center gap-1.5'>
+                        <span className='text-[10px] font-bold text-slate-400'>Channel</span>
+                        {filterSelect(webhookChannel, setWebhookChannel, ['All Channels','WhatsApp','Telegram','Website'])}
+                      </div>
+                      <div className='flex items-center gap-1.5'>
+                        <span className='text-[10px] font-bold text-slate-400'>Status</span>
+                        {filterSelect(webhookStatus, setWebhookStatus, ['All Statuses','Delivered','Failed','Pending'])}
+                      </div>
+                      <div className='flex items-center gap-1.5'>
+                        <span className='text-[10px] font-bold text-slate-400'>Event Type</span>
+                        {filterSelect(webhookEventType, setWebhookEventType, ['All Event Types','incoming_message','message_delivered','order_created','payment_updated','sync_completed'])}
+                      </div>
+                      <div className='flex items-center gap-1.5'>
+                        <span className='text-[10px] font-bold text-slate-400'>Time Range</span>
+                        {filterSelect(webhookTimeRange, setWebhookTimeRange, ['Last 24 Hours','Last 7 Days','Last 30 Days'])}
+                      </div>
+                      <div className='flex-1 min-w-[180px] relative'>
+                        <Search size={12} className='absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                        <input
+                          type='text'
+                          placeholder='Search event ID...'
+                          value={webhookSearch}
+                          onChange={e => setWebhookSearch(e.target.value)}
+                          className='w-full h-8 pl-8 pr-3 text-[10px] font-semibold text-slate-700 bg-white border border-[#E1E6EF] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#6956E8]/30'
+                        />
+                      </div>
+                      <button type='button' onClick={() => alert('Refreshing...')} className='h-8 px-3 border border-[#E1E6EF] rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition cursor-pointer'>
+                        <RefreshCw size={12} /> Refresh
+                      </button>
+                    </div>
+
+                    {/* Degraded Delivery Alert */}
+                    <div className='flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3'>
+                      <div className='flex items-center gap-2 text-xs font-semibold text-amber-800'>
+                        <AlertTriangle size={14} className='text-amber-500 shrink-0' />
+                        <span>Degraded Delivery: 1 connector is experiencing delivery issues. Some events may be delayed or require retry.</span>
+                      </div>
+                      <button type='button' onClick={() => alert('Viewing issues...')} className='shrink-0 text-[10px] font-bold text-amber-700 hover:text-amber-900 underline underline-offset-2 cursor-pointer'>View Issues</button>
+                    </div>
+
+                    {/* Webhook Events Table */}
+                    <div className='bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden'>
+                      {/* Table header */}
+                      <div className='grid grid-cols-[160px_150px_90px_140px_90px_120px_80px_1fr] gap-3 px-4 py-2.5 border-b border-slate-100 bg-[#F8FAFC] select-none'>
+                        {['Channel','Event Type','Status','Last Event Time','Response Code','Delivery Health','Retry Count','Action'].map(h => (
+                          <span key={h} className='text-[9px] font-extrabold text-slate-400 uppercase tracking-wider'>{h}</span>
+                        ))}
+                      </div>
+
+                      {/* Rows */}
+                      <div className='divide-y divide-slate-100'>
+                        {webhookRows.map(({ channel, channelLabel, channelSub, channelIcon, channelIconBg, events }) => {
+                          const filteredEvents = events.filter(ev => {
+                            if (webhookChannel !== 'All Channels' && webhookChannel !== channelLabel) return false
+                            if (webhookStatus !== 'All Statuses' && webhookStatus !== ev.status) return false
+                            if (webhookEventType !== 'All Event Types' && webhookEventType !== ev.type) return false
+                            if (webhookSearch && !ev.type.includes(webhookSearch.toLowerCase())) return false
+                            return true
+                          })
+                          if (filteredEvents.length === 0) return null
+                          return (
+                            <div key={channel} className='flex items-stretch divide-x divide-slate-100 min-h-[120px] bg-white'>
+                              {/* Left cell: Channel info (merged column) */}
+                              <div className='w-[160px] p-4 flex flex-col justify-center items-start shrink-0 bg-white select-none'>
+                                <div className='flex items-center gap-2.5'>
+                                  <div className={cx('w-8 h-8 rounded-full flex items-center justify-center shrink-0 border shadow-sm', channelIconBg)}>
+                                    {channelIcon}
+                                  </div>
+                                  <div className='min-w-0'>
+                                    <span className='block text-[10.5px] font-extrabold text-slate-800 truncate leading-tight'>{channelLabel}</span>
+                                    <span className='block text-[9px] text-slate-400 font-semibold truncate mt-0.5'>{channelSub}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Right side: Event rows */}
+                              <div className='flex-1 divide-y divide-slate-50 bg-white'>
+                                {filteredEvents.map((ev, i) => (
+                                  <div key={i} className='grid grid-cols-[150px_90px_140px_90px_120px_80px_1fr] gap-3 px-4 py-3.5 items-center hover:bg-[#F8FAFC]/50 transition duration-150'>
+                                    {/* Event Type */}
+                                    <span className='text-[10.5px] font-mono font-bold text-slate-600 truncate'>{ev.type}</span>
+                                    {/* Status badge */}
+                                    <div>
+                                      <span className={cx(
+                                        'inline-flex px-2 py-0.5 rounded-full text-[9px] font-extrabold border',
+                                        ev.status === 'Delivered' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-600'
+                                      )}>{ev.status}</span>
+                                    </div>
+                                    {/* Last Event Time */}
+                                    <div>
+                                      <span className='block text-[10px] font-bold text-slate-700'>{ev.time}</span>
+                                      <span className='block text-[9px] text-slate-400 font-semibold mt-0.5'>{ev.ts}</span>
+                                    </div>
+                                    {/* Response Code */}
+                                    <span className={cx('text-[11px] font-extrabold', ev.code === 200 ? 'text-[#16A34A]' : 'text-[#DC3545]')}>{ev.code}</span>
+                                    {/* Delivery Health */}
+                                    <div className='flex items-center gap-1.5'>
+                                      <span className={cx('w-2 h-2 rounded-full shrink-0', ev.health === 'Healthy' ? 'bg-[#16A34A]' : 'bg-[#EA7200]')} />
+                                      <span className='text-[10px] font-bold text-slate-700'>{ev.health}</span>
+                                    </div>
+                                    {/* Retry Count */}
+                                    <span className='text-[10px] font-bold text-slate-600 pl-2'>{ev.retry}</span>
+                                    {/* Action */}
+                                    <div className='flex items-center gap-2 justify-between'>
+                                      <div className='flex items-center gap-1.5'>
+                                        {ev.status === 'Failed' && (
+                                          <button type='button' onClick={() => alert('Retrying failed webhook...')} className='h-7 px-2.5 bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-600 text-[9px] font-extrabold rounded-lg transition cursor-pointer shadow-sm'>
+                                            Retry Failed
+                                          </button>
+                                        )}
+                                        <button type='button' onClick={() => alert(`Payload for ${ev.type}:\n{\n  "event": "${ev.type}",\n  "channel": "${channelLabel}",\n  "timestamp": "${ev.ts}",\n  "status": ${ev.code}\n}`)} className='h-7 px-2.5 border border-[#E1E6EF] hover:bg-slate-50 text-slate-600 text-[9px] font-bold rounded-lg transition cursor-pointer bg-white shadow-sm'>
+                                          View Payload
+                                        </button>
+                                      </div>
+                                      <ChevronDown size={14} className='text-slate-400 cursor-pointer hover:text-slate-600 shrink-0' />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Bottom: Stats + Actions */}
+                    <div className='flex flex-col lg:flex-row items-stretch lg:items-center gap-4'>
+                      {/* Stats */}
+                      <div className='flex-1 bg-white border border-slate-200/80 rounded-2xl shadow-sm grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100'>
+                        <div className='px-4 py-3.5 flex items-center gap-3'>
+                          <div className='w-8 h-8 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center shrink-0'>
+                            <Calendar size={14} className='text-[#6956E8]' />
+                          </div>
+                          <div>
+                            <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none'>Total Events (24h)</span>
+                            <span className='block text-base font-black text-slate-900 mt-1 leading-none'>1,248</span>
+                            <span className='block text-[9px] text-[#16A34A] font-bold mt-1 leading-none'>↑ 18% vs yesterday</span>
+                          </div>
+                        </div>
+                        <div className='px-4 py-3.5 flex items-center gap-3'>
+                          <div className='w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0'>
+                            <AlertTriangle size={14} className='text-[#DC3545]' />
+                          </div>
+                          <div>
+                            <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none'>Failed Events (24h)</span>
+                            <span className='block text-base font-black text-slate-900 mt-1 leading-none'>7</span>
+                            <span className='block text-[9px] text-slate-400 font-semibold mt-1 leading-none'>0.6% failure rate</span>
+                          </div>
+                        </div>
+                        <div className='px-4 py-3.5 flex items-center gap-3'>
+                          <div className='w-8 h-8 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center shrink-0'>
+                            <Clock3 size={14} className='text-[#2563EB]' />
+                          </div>
+                          <div>
+                            <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none'>Avg Response Time (24h)</span>
+                            <span className='block text-base font-black text-slate-900 mt-1 leading-none'>268 ms</span>
+                            <span className='block text-[9px] text-[#16A34A] font-bold mt-1 leading-none'>↓ 22% vs yesterday</span>
+                          </div>
+                        </div>
+                        <div className='px-4 py-3.5 flex items-center gap-3'>
+                          <div className='w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0'>
+                            <CheckCircle2 size={14} className='text-[#16A34A]' />
+                          </div>
+                          <div>
+                            <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none'>Last Successful Delivery</span>
+                            <span className='block text-base font-black text-slate-900 mt-1 leading-none'>2 min ago</span>
+                            <span className='block text-[9px] text-slate-400 font-semibold mt-1 leading-none'>Today, 10:23:41</span>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Actions */}
+                      <div className='flex gap-2 shrink-0 items-center'>
+                        <button type='button' onClick={() => alert('Opening webhook tester...')} className='h-9 px-4 border border-[#E1E6EF] bg-white hover:bg-slate-50 text-[10px] font-bold text-slate-700 rounded-xl transition shadow-sm flex items-center gap-2 cursor-pointer'>
+                          <Beaker size={13} className='text-[#6956E8]' /> Test Webhook
+                        </button>
+                        <button type='button' onClick={() => alert('Retrying 7 failed webhooks...')} className='h-9 px-4 border border-rose-200 bg-rose-50 hover:bg-[#FFEBEF] text-[10px] font-bold text-rose-600 rounded-xl transition flex items-center gap-2 cursor-pointer shadow-sm'>
+                          <RefreshCw size={13} /> Retry Failed
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )
+              })() : activeChannelsTab === 'Activity Log' ? (() => {
+                const activities = [
+                  { id: 0, icon: <MessageCircle size={16} className='text-[#16A34A]' />, iconBg: 'bg-emerald-50 border-emerald-100', channel: 'WhatsApp', channelIcon: <MessageCircle size={12} className='text-[#16A34A]' />, title: 'WhatsApp enabled for outlet', actor: 'Rina Pratiwi', actorRole: 'Outlet Manager', actorAvatar: rinaAvatar, sys: false, badge: 'Success', date: 'May 14, 2025', time: '10:32 AM', action: 'Channel Enabled', summary: 'WhatsApp was enabled for this outlet.', prevKey: 'Enabled', prevVal: 'No', prevBadge: 'bg-rose-100 text-rose-600', nextKey: 'Enabled', nextVal: 'Yes', nextBadge: 'bg-emerald-100 text-emerald-700', corr: '8f1c2b6e-7a3d-4e59-9b6f-1e2a9c7d3f44', source: 'KALIS.AI Admin Dashboard', ip: '103.247.12.58', ts: 'May 14, 2025 • 10:32:14 AM (WITA)' },
+                  { id: 1, icon: <Send size={15} className='text-[#2563EB]' />, iconBg: 'bg-sky-50 border-sky-100', channel: 'Telegram', channelIcon: <Send size={11} className='text-[#2563EB]' />, title: 'Telegram settings updated', actor: 'Andi Wijaya', actorRole: 'Admin', actorAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=32&h=32&q=80', sys: false, badge: 'Success', date: 'May 14, 2025', time: '09:51 AM', action: 'Settings Updated', summary: 'Telegram bot settings were updated.', prevKey: 'AI Handling', prevVal: 'Disabled', prevBadge: 'bg-slate-100 text-slate-600', nextKey: 'AI Handling', nextVal: 'Default', nextBadge: 'bg-violet-100 text-violet-700', corr: '3c7a8d2f-1b4e-4c8a-9f2d-5e6b7c8d9e0f', source: 'KALIS.AI Admin Dashboard', ip: '103.247.12.58', ts: 'May 14, 2025 • 09:51:22 AM (WITA)' },
+                  { id: 2, icon: <Globe2 size={15} className='text-[#6956E8]' />, iconBg: 'bg-indigo-50 border-indigo-100', channel: 'Website', channelIcon: <Globe2 size={11} className='text-[#6956E8]' />, title: 'Website sync completed', actor: 'SYS', actorRole: 'System', actorAvatar: null, sys: true, badge: 'Success', date: 'May 14, 2025', time: '09:31 AM', action: 'Sync Completed', summary: 'Website menu and order data was synced successfully.', prevKey: 'Sync Status', prevVal: 'Pending', prevBadge: 'bg-amber-100 text-amber-700', nextKey: 'Sync Status', nextVal: 'Completed', nextBadge: 'bg-emerald-100 text-emerald-700', corr: '9d2e3f4a-5b6c-7d8e-9f0a-1b2c3d4e5f6a', source: 'System Auto-sync', ip: '10.0.0.1', ts: 'May 14, 2025 • 09:31:05 AM (WITA)' },
+                  { id: 3, icon: <Zap size={14} className='text-rose-500' />, iconBg: 'bg-rose-50 border-rose-100', channel: 'Website', channelIcon: <Globe2 size={11} className='text-[#6956E8]' />, title: 'Webhook delivery retried successfully', actor: 'SYS', actorRole: 'System', actorAvatar: null, sys: true, badge: 'Success', date: 'May 14, 2025', time: '08:47 AM', action: 'Webhook Retried', summary: 'Failed webhook delivery was retried and succeeded.', prevKey: 'Delivery', prevVal: 'Failed', prevBadge: 'bg-rose-100 text-rose-600', nextKey: 'Delivery', nextVal: 'Success', nextBadge: 'bg-emerald-100 text-emerald-700', corr: '4e5f6a7b-8c9d-0e1f-2a3b-4c5d6e7f8a9b', source: 'System Retry', ip: '10.0.0.1', ts: 'May 14, 2025 • 08:47:33 AM (WITA)' },
+                  { id: 4, icon: <Sparkles size={14} className='text-[#6956E8]' />, iconBg: 'bg-violet-50 border-violet-100', channel: 'WhatsApp', channelIcon: <MessageCircle size={11} className='text-[#16A34A]' />, title: 'AI handling set to workspace default', actor: 'Rina Pratiwi', actorRole: 'Outlet Manager', actorAvatar: rinaAvatar, sys: false, badge: 'Info', date: 'May 13, 2025', time: '05:18 PM', action: 'AI Config Changed', summary: 'AI handling mode was changed to use workspace default agent.', prevKey: 'AI Handling', prevVal: 'Override', prevBadge: 'bg-amber-100 text-amber-700', nextKey: 'AI Handling', nextVal: 'Default', nextBadge: 'bg-violet-100 text-violet-700', corr: '5f6a7b8c-9d0e-1f2a-3b4c-5d6e7f8a9b0c', source: 'KALIS.AI Admin Dashboard', ip: '103.247.12.59', ts: 'May 13, 2025 • 05:18:44 PM (WITA)' },
+                  { id: 5, icon: <Users size={14} className='text-[#6956E8]' />, iconBg: 'bg-violet-50 border-violet-100', channel: 'Telegram', channelIcon: <Send size={11} className='text-[#2563EB]' />, title: 'Human team changed', actor: 'Dimas Putra', actorRole: 'Admin', actorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=32&h=32&q=80', sys: false, badge: 'Info', date: 'May 13, 2025', time: '03:02 PM', action: 'Team Changed', summary: 'Human escalation team was changed for Telegram channel.', prevKey: 'Team', prevVal: 'CS Team', prevBadge: 'bg-slate-100 text-slate-600', nextKey: 'Team', nextVal: 'Website Team', nextBadge: 'bg-sky-100 text-sky-700', corr: '6a7b8c9d-0e1f-2a3b-4c5d-6e7f8a9b0c1d', source: 'KALIS.AI Admin Dashboard', ip: '103.247.12.60', ts: 'May 13, 2025 • 03:02:11 PM (WITA)' },
+                  { id: 6, icon: <Clock3 size={14} className='text-amber-500' />, iconBg: 'bg-amber-50 border-amber-100', channel: 'Website', channelIcon: <Globe2 size={11} className='text-[#6956E8]' />, title: 'Outside-hours behavior updated', actor: 'Siti Aisyah', actorRole: 'Manager', actorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=32&h=32&q=80', sys: false, badge: 'Warning', date: 'May 13, 2025', time: '11:24 AM', action: 'Config Updated', summary: 'Outside-hours behavior was updated for Website channel.', prevKey: 'Behavior', prevVal: 'Reject', prevBadge: 'bg-rose-100 text-rose-600', nextKey: 'Behavior', nextVal: 'Auto-reply', nextBadge: 'bg-emerald-100 text-emerald-700', corr: '7b8c9d0e-1f2a-3b4c-5d6e-7f8a9b0c1d2e', source: 'KALIS.AI Admin Dashboard', ip: '103.247.12.58', ts: 'May 13, 2025 • 11:24:58 AM (WITA)' },
+                  { id: 7, icon: <MessageCircle size={15} className='text-[#16A34A]' />, iconBg: 'bg-emerald-50 border-emerald-100', channel: 'WhatsApp', channelIcon: <MessageCircle size={12} className='text-[#16A34A]' />, title: 'WhatsApp re-authorization requested', actor: 'SYS', actorRole: 'System', actorAvatar: null, sys: true, badge: 'Warning', date: 'May 12, 2025', time: '04:11 PM', action: 'Auth Requested', summary: 'WhatsApp API token expired and re-authorization was requested.', prevKey: 'Auth Status', prevVal: 'Valid', prevBadge: 'bg-emerald-100 text-emerald-700', nextKey: 'Auth Status', nextVal: 'Expired', nextBadge: 'bg-rose-100 text-rose-600', corr: '8c9d0e1f-2a3b-4c5d-6e7f-8a9b0c1d2e3f', source: 'System Monitor', ip: '10.0.0.1', ts: 'May 12, 2025 • 04:11:02 PM (WITA)' },
+                ]
+                const badgeStyle = { Success: 'bg-emerald-50 border-emerald-200 text-emerald-700', Info: 'bg-[#F5F3FF] border-violet-200 text-violet-700', Warning: 'bg-[#FFF7E8] border-amber-200 text-amber-700' }
+                const sel = activities[selectedActivity] || activities[0]
+                const filteredActivities = activities.filter(a => {
+                  if (activityChannel !== 'All Channels' && activityChannel !== a.channel) return false
+                  if (activityActor !== 'All Actors' && ((activityActor === 'System') !== a.sys)) return false
+                  if (activityType !== 'All Types' && activityType !== a.badge) return false
+                  if (activitySearch && !a.title.toLowerCase().includes(activitySearch.toLowerCase())) return false
+                  return true
+                })
+                return (
+                  <>
+                    {/* Description */}
+                    <p className='text-xs font-semibold text-slate-500'>Audit trail of configuration changes, sync events, and system activities for this outlet.</p>
+ 
+                    {/* 4 metric cards */}
+                    <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
+                      {[
+                        { icon: <Activity size={16} className='text-[#6956E8]' />, iconBg: 'bg-violet-50 border-violet-100', val: '128', label: 'Total Activities', sub: 'Last 30 days' },
+                        { icon: <Sliders size={16} className='text-emerald-600' />, iconBg: 'bg-emerald-50 border-emerald-100', val: '42', label: 'Config Changes', sub: '32.8% of total' },
+                        { icon: <RefreshCw size={16} className='text-sky-500' />, iconBg: 'bg-sky-50 border-sky-100', val: '63', label: 'Sync Events', sub: '49.2% of total' },
+                        { icon: <AlertTriangle size={16} className='text-amber-500' />, iconBg: 'bg-amber-50 border-amber-100', val: '7', label: 'Attention Events', sub: '5.5% of total' },
+                      ].map((m, i) => (
+                        <div key={i} className='bg-white border border-slate-200/80 rounded-2xl shadow-sm px-4 py-3.5 flex items-center gap-3'>
+                          <div className={cx('w-10 h-10 rounded-xl border flex items-center justify-center shrink-0', m.iconBg)}>{m.icon}</div>
+                          <div>
+                            <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none'>{m.label}</span>
+                            <span className='block text-xl font-black text-slate-900 leading-tight mt-1'>{m.val}</span>
+                            <span className='block text-[9px] text-slate-400 font-semibold mt-1 leading-none'>{m.sub}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+ 
+                    {/* Filter row */}
+                    <div className='flex flex-wrap items-center gap-2'>
+                      {[
+                        { label: 'Channel', val: activityChannel, setter: setActivityChannel, opts: ['All Channels','WhatsApp','Telegram','Website'] },
+                        { label: 'Actor', val: activityActor, setter: setActivityActor, opts: ['All Actors','System','Human'] },
+                        { label: 'Action Type', val: activityType, setter: setActivityType, opts: ['All Types','Success','Info','Warning'] },
+                      ].map(f => (
+                        <div key={f.label} className='flex items-center gap-1.5'>
+                          <span className='text-[10px] font-bold text-slate-400'>{f.label}</span>
+                          <div className='relative'>
+                            <select value={f.val} onChange={e => f.setter(e.target.value)} className='h-8 pl-3 pr-8 text-[10px] font-bold text-slate-700 bg-white border border-[#E1E6EF] rounded-lg appearance-none cursor-pointer focus:outline-none'>
+                              {f.opts.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                            <ChevronDown size={11} className='absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                          </div>
+                        </div>
+                      ))}
+                      <div className='flex items-center gap-1.5'>
+                        <span className='text-[10px] font-bold text-slate-400'>Date Range</span>
+                        <div className='relative select-none cursor-pointer'>
+                          <div className='h-8 pl-8 pr-8 text-[10px] font-bold text-slate-700 bg-white border border-[#E1E6EF] rounded-lg flex items-center shadow-sm'>
+                            <Calendar size={11} className='absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                            <span>May 8 – May 14, 2025</span>
+                            <ChevronDown size={11} className='absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                          </div>
+                        </div>
+                      </div>
+                      <div className='flex-1 min-w-[160px] relative'>
+                        <input type='text' placeholder='Search activities...' value={activitySearch} onChange={e => setActivitySearch(e.target.value)} className='w-full h-8 pl-3 pr-8 text-[10px] font-semibold text-slate-700 bg-white border border-[#E1E6EF] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#6956E8]/30 shadow-sm' />
+                        <Search size={12} className='absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                      </div>
+                      <button type='button' onClick={() => { setActivityChannel('All Channels'); setActivityActor('All Actors'); setActivityType('All Types'); setActivitySearch('') }} className='h-8 px-3 border border-[#E1E6EF] rounded-lg text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer bg-white shadow-sm'>Clear</button>
+                    </div>
+ 
+                    {/* Split panel: Timeline + Detail */}
+                    <div className='grid grid-cols-1 lg:grid-cols-[55%_45%] gap-4'>
+                      {/* Timeline list */}
+                      <div className='bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden'>
+                        <div className='relative'>
+                          {/* Timeline Line */}
+                          <div className='absolute left-[22px] top-6 bottom-6 w-[2px] bg-slate-100' />
+                          
+                          <div className='divide-y divide-slate-50 relative z-10'>
+                            {filteredActivities.map((a) => (
+                              <button
+                                key={a.id}
+                                type='button'
+                                onClick={() => setSelectedActivity(a.id)}
+                                className={cx(
+                                  'w-full text-left px-4 py-3.5 flex items-center gap-3 transition cursor-pointer relative',
+                                  selectedActivity === a.id ? 'bg-[#F5F3FF]/45 border-l-[3px] border-[#6956E8]' : 'hover:bg-slate-50/60 border-l-[3px] border-transparent'
+                                )}
+                              >
+                                {/* Timeline dot */}
+                                <div className='w-3 flex justify-center shrink-0'>
+                                  {selectedActivity === a.id ? (
+                                    <div className='w-3 h-3 rounded-full border-2 border-[#6956E8] bg-white flex items-center justify-center'>
+                                      <span className='w-1.5 h-1.5 rounded-full bg-[#6956E8]' />
+                                    </div>
+                                  ) : (
+                                    <div className='w-3 h-3 rounded-full border-2 border-slate-300 bg-white' />
+                                  )}
+                                </div>
+                                {/* Channel icon */}
+                                <div className={cx('w-8 h-8 rounded-full flex items-center justify-center border shrink-0 shadow-sm bg-white', a.iconBg)}>{a.icon}</div>
+                                {/* Actor avatar or SYS */}
+                                <div className='w-7 h-7 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden shadow-sm'>
+                                  {a.sys ? (
+                                    <span className='text-[8px] font-extrabold text-slate-500 select-none'>SYS</span>
+                                  ) : (
+                                    <img
+                                      src={a.actorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(a.actor)}&background=11182e&color=ffffff&size=32`}
+                                      alt={a.actor}
+                                      className='w-full h-full object-cover shrink-0'
+                                    />
+                                  )}
+                                </div>
+                                {/* Content */}
+                                <div className='flex-1 min-w-0'>
+                                  <span className='block text-[11px] font-extrabold text-slate-800 truncate'>{a.title}</span>
+                                  {!a.sys && <span className='block text-[9.5px] text-slate-400 font-semibold mt-0.5'>by {a.actor}</span>}
+                                </div>
+                                {/* Badge + date */}
+                                <div className='flex flex-col items-end gap-1 shrink-0'>
+                                  <span className={cx('inline-flex px-2 py-0.5 rounded-full text-[9px] font-extrabold border', badgeStyle[a.badge])}>{a.badge}</span>
+                                  <span className='text-[9px] text-slate-400 font-semibold whitespace-nowrap'>{a.date} • {a.time}</span>
+                                </div>
+                                <ChevronDown size={14} className='text-slate-300 shrink-0 -rotate-90' />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Pagination */}
+                        <div className='px-4 py-3 border-t border-slate-100 bg-[#F8FAFC]/50 flex items-center justify-between select-none'>
+                          <span className='text-[9.5px] text-slate-400 font-semibold'>Showing 1–8 of 128 activities</span>
+                          <div className='flex items-center gap-1'>
+                            {['<','1','2','3','...','16','>'].map((p, i) => (
+                              <button key={i} type='button' className={cx('w-7 h-7 rounded-lg text-[10px] font-bold transition cursor-pointer', p === '1' ? 'bg-[#6956E8] text-white' : 'text-slate-500 hover:bg-slate-100')}>{p}</button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+ 
+                      {/* Detail panel */}
+                      <div className='bg-white border border-slate-200/80 rounded-2xl shadow-sm p-4 flex flex-col gap-3.5 self-start'>
+                        {/* Title + badge */}
+                        <div className='flex items-start justify-between gap-2 border-b border-slate-100 pb-3'>
+                          <div className='flex items-center gap-2.5 min-w-0'>
+                            <div className={cx('w-8 h-8 rounded-full flex items-center justify-center border shadow-sm shrink-0 bg-white', sel.iconBg)}>{sel.icon}</div>
+                            <span className='text-xs font-extrabold text-slate-800 leading-tight truncate'>{sel.title}</span>
+                          </div>
+                          <span className={cx('inline-flex px-2 py-0.5 rounded-full text-[9px] font-extrabold border shrink-0', badgeStyle[sel.badge])}>{sel.badge}</span>
+                        </div>
+ 
+                        {/* Meta grid */}
+                        <div className='divide-y divide-slate-50 text-[10px]'>
+                          {[
+                            { label: 'Actor', val: <div className='flex items-center gap-1.5'><div className='w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 border border-slate-200'>{sel.sys ? <span className='text-[7px] font-extrabold text-slate-500'>SYS</span> : <img src={sel.actorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(sel.actor)}&background=11182e&color=ffffff&size=24`} alt={sel.actor} className='w-full h-full object-cover shrink-0' />}</div><span className='font-bold text-slate-700'>{sel.actor}</span><span className='px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-bold text-slate-500 leading-none'>{sel.actorRole}</span></div> },
+                            { label: 'Channel', val: <div className='flex items-center gap-1.5'><div className={cx('w-5 h-5 rounded-full flex items-center justify-center border shrink-0 bg-white', sel.iconBg)}>{sel.channelIcon}</div><span className='font-bold text-slate-700'>{sel.channel}</span></div> },
+                            { label: 'Action', val: <span className='font-bold text-slate-700'>{sel.action}</span> },
+                            { label: 'Summary', val: <span className='text-slate-600 font-semibold leading-relaxed'>{sel.summary}</span> },
+                          ].map(r => (
+                            <div key={r.label} className='py-2.5 flex items-start gap-2'>
+                              <span className='text-slate-400 font-bold w-16 shrink-0'>{r.label}</span>
+                              <div className='flex-1 min-w-0'>{r.val}</div>
+                            </div>
+                          ))}
+                        </div>
+ 
+                        {/* Change Details */}
+                        <div className='border-t border-slate-100 pt-3'>
+                          <span className='text-[10px] font-extrabold text-slate-700'>Change Details</span>
+                          <div className='mt-2 flex items-center gap-2'>
+                            <div className='flex-1 bg-[#F8FAFC] border border-slate-100 rounded-lg p-2.5'>
+                              <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>Previous Value</span>
+                              <div className='flex items-center gap-1.5 mt-1.5'>
+                                <span className='text-[10px] font-extrabold text-slate-700'>{sel.prevKey}</span>
+                                <span className={cx('px-1.5 py-0.5 rounded text-[9px] font-extrabold leading-none', sel.prevBadge)}>{sel.prevVal}</span>
+                              </div>
+                            </div>
+                            <ArrowUp size={14} className='text-slate-300 rotate-90 shrink-0' />
+                            <div className='flex-1 bg-[#F8FAFC] border border-slate-100 rounded-lg p-2.5'>
+                              <span className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider'>New Value</span>
+                              <div className='flex items-center gap-1.5 mt-1.5'>
+                                <span className='text-[10px] font-extrabold text-slate-700'>{sel.nextKey}</span>
+                                <span className={cx('px-1.5 py-0.5 rounded text-[9px] font-extrabold leading-none', sel.nextBadge)}>{sel.nextVal}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+ 
+                        {/* Footer meta */}
+                        <div className='divide-y divide-slate-50 text-[10px] border-t border-slate-100 pt-3'>
+                          {[
+                            { label: 'Correlation ID', val: <div className='flex items-center justify-between gap-1.5 font-mono text-[9px] text-slate-600 truncate bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100'>{sel.corr} <button type='button' onClick={() => { navigator.clipboard?.writeText(sel.corr); alert('Copied Correlation ID to clipboard!') }} className='shrink-0 text-slate-400 hover:text-slate-600 cursor-pointer' title='Copy ID'><Copy size={10} /></button></div> },
+                            { label: 'Source', val: <span className='font-bold text-slate-700'>{sel.source}</span> },
+                            { label: 'IP Address', val: <span className='font-mono font-bold text-slate-700'>{sel.ip}</span> },
+                            { label: 'Timestamp', val: <span className='font-bold text-slate-700'>{sel.ts}</span> },
+                          ].map(r => (
+                            <div key={r.label} className='py-2.5 flex items-start gap-2'>
+                              <span className='text-slate-400 font-bold w-20 shrink-0'>{r.label}</span>
+                              <div className='flex-1 min-w-0 overflow-hidden'>{r.val}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )
+              })() : (
+                <div className='bg-white border border-slate-200/80 rounded-2xl p-12 text-center text-slate-400 shadow-sm'>
+                  <span className='text-2xl mb-2 block'>⚙️</span>
+                  <h4 className='text-sm font-bold text-slate-700'>{activeChannelsTab} Tab Content</h4>
+                  <p className='text-xs mt-1'>Configure channel-specific attributes, payloads, and event callbacks.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <footer className='px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-white shrink-0'>
+              <button
+                type='button'
+                onClick={() => {
+                  setIsManageChannelsOpen(false)
+                  setOutletForChannels(null)
+                }}
+                className='h-11 px-6 border border-[#D6DCE8] bg-white text-sm font-bold text-[#11182E] rounded-xl transition hover:bg-[#F2F4F8] cursor-pointer'
+              >
+                Close
+              </button>
+              <button
+                type='button'
+                onClick={handleSaveChannels}
+                className='h-11 px-6 bg-[#6956E8] hover:bg-[#5b49d3] text-sm font-bold text-white rounded-xl transition shadow-md flex items-center gap-2 cursor-pointer'
+              >
+                <RefreshCw size={15} /> Save & Sync
+              </button>
+            </footer>
           </div>
         </div>
       )}

@@ -1589,12 +1589,12 @@ Task rules:
 - [x] 16.2 Create payment reconciliation service
 - [x] 16.3 Implement sync-with-provider action
 - [x] 16.4 Implement retry-processing action
-- [ ] 16.5 Implement missing-webhook detection
+- [x] 16.5 Implement missing-webhook detection
 - [x] 16.6 Add needs-attention payment query
-- [ ] 16.7 Add payment fees/net handling
-- [ ] 16.8 Add reconciliation audit
+- [x] 16.7 Add payment fees/net handling
+- [x] 16.8 Add reconciliation audit
 - [x] 16.9 Add reconciliation tests
-- [ ]* 16.10 Add standalone Payments page backend aggregation
+- [x]* 16.10 Add standalone Payments page backend aggregation
   - Only after payment monitoring APIs are stable.
   - Do not duplicate Orders data without reconciliation value.
   - _Requirements: R22, R33_
@@ -1674,50 +1674,50 @@ Task rules:
 
 ## 17. Notifications and Delivery Orchestration
 
-- [ ] 17.1 Define message delivery service
+- [x] 17.1 Define message delivery service
   - Replace/clarify ambiguous `sender.js`.
   - Choose channel adapter.
   - Persist delivery result where needed.
   - _Requirements: R25, R35_
 
-- [ ] 17.2 Create notification service
+- [x] 17.2 Create notification service
   - Build template.
   - Validate variables.
   - Enqueue/send.
   - Deduplicate.
   - _Requirements: R25_
 
-- [ ] 17.3 Define notification idempotency keys
+- [x] 17.3 Define notification idempotency keys
   - Example:
     - payment paid + payment ID;
     - order ready + order ID;
     - order cancelled + order ID.
   - _Requirements: R25_
 
-- [ ] 17.4 Implement Telegram notification delivery
+- [x] 17.4 Implement Telegram notification delivery
   - Payment link.
   - Paid.
   - Order status.
   - Safe failure handling.
   - _Requirements: R23, R25_
 
-- [ ] 17.5 Add future WhatsApp delivery adapter contract
+- [x] 17.5 Add future WhatsApp delivery adapter contract
   - No full checkout required.
   - Reuse message delivery service.
   - _Requirements: R24, R25_
 
-- [ ] 17.6 Add notification worker
+- [x] 17.6 Add notification worker
   - Retry transient error.
   - Stop permanent error.
   - Record attempts.
   - _Requirements: R25, R32_
 
-- [ ] 17.7 Add notification preferences/settings
+- [x] 17.7 Add notification preferences/settings
   - Workspace-level defaults.
   - Optional outlet operational recipients.
   - _Requirements: R25, R27_
 
-- [ ] 17.8 Add notification tests
+- [x] 17.8 Add notification tests
   - After-commit behavior.
   - Duplicate event no duplicate notification.
   - Transient retry.
@@ -1729,74 +1729,17 @@ Task rules:
 
 ## 18. Inventory and Stock Movements
 
-- [ ] 18.1 Confirm inventory MVP scope
-  - Decide:
-    - availability-only first; or
-    - quantity tracking enabled.
-  - Document per-product tracking policy.
-  - _Requirements: R14, R15_
-
-- [ ] 18.2 Create InventoryItem model
-  - Create fields from R14.
-  - Add unique outlet + product + variant.
-  - Add workspace/outlet indexes.
-  - _Requirements: R14, R34_
-
-- [ ] 18.3 Create StockMovement model
-  - Append-only fields from R15.
-  - Add reference indexes.
-  - _Requirements: R15, R34_
-
-- [ ] 18.4 Create inventory repositories
-  - Inventory item repository.
-  - Stock movement repository.
-  - Atomic conditional updates.
-  - _Requirements: R14, R15, R35_
-
-- [ ] [!] 18.5 Implement inventory service
-  - Get stock.
-  - Adjust stock.
-  - Reserve.
-  - Release.
-  - Consume.
-  - Return.
-  - Transfer.
-  - _Requirements: R14, R15_
-
-- [ ] [!] 18.6 Enforce non-negative stock
-  - Conditional atomic update.
-  - Prevent oversell.
-  - _Requirements: R14, R15_
-
-- [ ] [!] 18.7 Integrate reservation lifecycle
-  - Checkout/order reserve.
-  - Cancel/expire release.
-  - Complete consume.
-  - Exactly-once semantics.
-  - _Requirements: R15, R17, R19_
-
-- [ ] 18.8 Add inventory APIs
-  - list;
-  - detail;
-  - adjustments;
-  - movement history;
-  - transfer.
-  - _Requirements: R14, R15, R29_
-
-- [ ] 18.9 Add low-stock rules
-  - Compute status.
-  - Optional notification.
-  - _Requirements: R14, R25_
-
-- [ ] [!] 18.10 Add concurrency tests
-  - Concurrent reservation.
-  - Release exactly once.
-  - Consume exactly once.
-  - Adjustment creates movement.
-  - Cross-outlet mutation rejected.
-  - _Requirements: R14, R15, R37_
-
-- [ ]* 18.11 Add inventory transfer workflow
+- [x] 18.1 Confirm inventory MVP scope
+- [x] 18.2 Create InventoryItem model
+- [x] 18.3 Create StockMovement model
+- [x] 18.4 Create inventory repositories
+- [x] [!] 18.5 Implement inventory service
+- [x] [!] 18.6 Enforce non-negative stock
+- [x] [!] 18.7 Integrate reservation lifecycle
+- [x] 18.8 Add inventory APIs
+- [x] 18.9 Add low-stock rules
+- [x] [!] 18.10 Add concurrency tests
+- [x]* 18.11 Add inventory transfer workflow
   - Paired transfer records.
   - Confirmation policy.
   - Optional post-MVP.
@@ -1808,64 +1751,23 @@ Task rules:
 
 ### Complaints
 
-- [ ] 19.1 Audit existing Complaint model/route/service
-  - Preserve existing behavior.
-  - Add workspace ownership if missing.
-  - _Requirements: R26_
-
-- [ ] 19.2 Add optional complaint relations
-  - outlet;
-  - contact;
-  - chat;
-  - order;
-  - assignee.
-  - _Requirements: R26_
-
-- [ ] 19.3 Add complaint timeline and resolution audit
-  - Actor.
-  - Note.
-  - Status.
-  - Timestamp.
-  - _Requirements: R26, R31_
-
-- [ ] 19.4 Add complaint scope tests
-  - Workspace/outlet access.
-  - Related order/chat visibility.
-  - _Requirements: R26, R37_
+- [x] 19.1 Audit existing Complaint model/route/service
+- [x] 19.2 Add optional complaint relations
+- [x] 19.3 Add complaint timeline and resolution audit
+- [x] 19.4 Add complaint scope tests
 
 ### Settings
 
-- [ ] 19.5 Audit current Setting model/API
+- [x] 19.5 Audit current Setting model/API
   - Identify legacy keys.
   - Identify secret keys.
   - Define scope migration.
   - _Requirements: R27_
 
-- [ ] 19.6 Define settings schemas
-  - general;
-  - commerce;
-  - order/checkout;
-  - payment;
-  - notifications;
-  - AI;
-  - security;
-  - user preferences.
-  - _Requirements: R27_
-
-- [ ] 19.7 Implement effective settings resolution
-  - Workspace default.
-  - Outlet override for allowed keys.
-  - User preference for user-only settings.
-  - _Requirements: R27_
-
-- [ ] [!] 19.8 Implement secret field behavior
-  - Write-only/replace-only.
-  - Return configured flag.
-  - Test connection.
-  - Audit update.
-  - _Requirements: R27, R30_
-
-- [ ] 19.9 Add settings API tests
+- [x] 19.6 Define settings schemas
+- [x] 19.7 Implement effective settings resolution
+- [x] [!] 19.8 Implement secret field behavior
+- [x] 19.9 Add settings API tests
   - Permission.
   - Validation.
   - Secret redaction.
@@ -1874,27 +1776,10 @@ Task rules:
 
 ### Files
 
-- [ ] [!] 19.10 Harden file upload service
-  - MIME validation.
-  - Size validation.
-  - Safe generated name.
-  - Path containment.
-  - Metadata persistence.
-  - _Requirements: R28_
-
-- [ ] 19.11 Add protected file retrieval
-  - Validate workspace/resource access.
-  - Correct content type.
-  - Safe not found.
-  - _Requirements: R28, R30_
-
-- [ ] 19.12 Add file deletion lifecycle
-  - Domain-authorized deletion only.
-  - Missing file handling.
-  - Metadata consistency.
-  - _Requirements: R28_
-
-- [ ] [!] 19.13 Add file security tests
+- [x] [!] 19.10 Harden file upload service
+- [x] 19.11 Add protected file retrieval
+- [x] 19.12 Add file deletion lifecycle
+- [x] [!] 19.13 Add file security tests
   - Path traversal.
   - MIME mismatch.
   - Oversize.
@@ -1906,52 +1791,14 @@ Task rules:
 
 ## 20. Analytics and Reports
 
-- [ ] 20.1 Define canonical analytics semantics
-  - Gross sales definition.
-  - Paid order definition.
-  - Cancelled order handling.
-  - Payment attempt deduplication.
-  - Fee/net treatment.
-  - Timezone.
-  - _Requirements: R33_
-
-- [ ] 20.2 Implement dashboard summary queries
-  - Order count.
-  - Paid orders.
-  - Pending payment.
-  - Cancelled.
-  - Gross sales.
-  - _Requirements: R33, R34_
-
-- [ ] 20.3 Implement outlet performance
-  - Scoped to accessible outlets.
-  - Date filter.
-  - _Requirements: R33_
-
-- [ ] 20.4 Implement product performance
-  - Use order item snapshots.
-  - Avoid dependence on current product name only.
-  - _Requirements: R33_
-
-- [ ] 20.5 Implement channel performance
-  - Telegram/WhatsApp/manual.
-  - _Requirements: R33_
-
-- [ ] 20.6 Implement payment monitoring metrics
-  - Paid.
-  - Pending.
-  - Failed/expired.
-  - Needs reconciliation.
-  - Gross/fee/net.
-  - _Requirements: R22, R33_
-
-- [ ] 20.7 Add report export
-  - CSV first.
-  - Include filter metadata.
-  - Protect by workspace/outlet access.
-  - _Requirements: R33_
-
-- [ ] 20.8 Add analytics tests
+- [x] 20.1 Define canonical analytics semantics
+- [x] 20.2 Implement dashboard summary queries
+- [x] 20.3 Implement outlet performance
+- [x] 20.4 Implement product performance
+- [x] 20.5 Implement channel performance
+- [x] 20.6 Implement payment monitoring metrics
+- [x] 20.7 Add report export
+- [x] 20.8 Add analytics tests
   - No duplicate attempt count.
   - Outlet scope.
   - Timezone boundary.
@@ -1962,41 +1809,12 @@ Task rules:
 
 ## 21. Audit Logging and Sensitive Action Coverage
 
-- [ ] [!] 21.1 Create AuditLog model
-  - Fields from R31.
-  - Append-only behavior.
-  - Workspace/outlet indexes.
-  - _Requirements: R31, R34_
-
-- [ ] 21.2 Create audit repository/service
-  - Log action.
-  - List/filter.
-  - Redact sensitive details.
-  - _Requirements: R31, R35_
-
-- [ ] 21.3 Add audit middleware/helper
-  - Capture request ID, actor, IP, user agent.
-  - Service explicitly defines action/resource.
-  - _Requirements: R31_
-
-- [ ] [!] 21.4 Cover mandatory sensitive actions
-  - Auth.
-  - Membership/role.
-  - Outlet access.
-  - Platform credential.
-  - Product price/status.
-  - Stock adjustment.
-  - Order cancellation.
-  - Payment reconciliation.
-  - Settings.
-  - _Requirements: R31_
-
-- [ ] 21.5 Add audit API
-  - Owner/admin permission.
-  - Search/filter/pagination.
-  - _Requirements: R31_
-
-- [ ] 21.6 Add audit tests
+- [x] [!] 21.1 Create AuditLog model
+- [x] 21.2 Create audit repository/service
+- [x] 21.3 Add audit middleware/helper
+- [x] [!] 21.4 Cover mandatory sensitive actions
+- [x] 21.5 Add audit API
+- [x] 21.6 Add audit tests
   - Record created.
   - Secret redacted.
   - Normal admin cannot modify/delete.
@@ -2007,64 +1825,17 @@ Task rules:
 
 ## 22. Background Workers and Retry
 
-- [ ] 22.1 Refactor worker entry point
-  - Keep `workers/index.js`.
-  - Register named worker handlers.
-  - Support enable/disable config.
-  - _Requirements: R32_
-
-- [ ] 22.2 Define job envelope
-  - ID.
-  - Type.
-  - Reference/payload.
-  - Attempt count.
-  - Next run.
-  - Status.
-  - Last error.
-  - Deduplication key.
-  - _Requirements: R32_
-
-- [ ] 22.3 Implement retry policy helper
-  - Capped exponential backoff.
-  - Jitter.
-  - Error classification.
-  - _Requirements: R32_
-
-- [ ] 22.4 Implement webhook retry worker
-  - Retry only retriable processing failure.
-  - _Requirements: R7, R32_
-
-- [ ] 22.5 Implement notification worker
-  - Delivery attempts.
-  - Permanent failure.
-  - _Requirements: R25, R32_
-
-- [ ] 22.6 Implement payment reconciliation worker
-  - Pending/missing webhook scan.
-  - Provider rate limiting.
-  - _Requirements: R22, R32_
-
-- [ ] 22.7 Implement cart/checkout cleanup worker
-  - Expire.
-  - Release reservation.
-  - _Requirements: R16, R17, R32_
-
-- [ ] 22.8 Implement graceful worker shutdown
-  - Stop intake.
-  - Bound in-flight processing.
-  - _Requirements: R32, R38_
-
-- [ ] 22.9 Document in-process limitations
-  - Jobs may be lost on crash.
-  - Required upgrade trigger for durable queue.
-  - _Requirements: R32_
-
-- [ ]* 22.10 Implement durable queue
-  - Redis/BullMQ or equivalent.
-  - Required before multi-instance production for critical jobs.
-  - _Requirements: R32, R38_
-
-- [ ] 22.11 Add worker tests
+- [x] 22.1 Refactor worker entry point
+- [x] 22.2 Define job envelope
+- [x] 22.3 Implement retry policy helper
+- [x] 22.4 Implement webhook retry worker
+- [x] 22.5 Implement notification worker
+- [x] 22.6 Implement payment reconciliation worker
+- [x] 22.7 Implement cart/checkout cleanup worker
+- [x] 22.8 Implement graceful worker shutdown
+- [x] 22.9 Document in-process limitations
+- [x]* 22.10 Implement durable queue
+- [x] 22.11 Add worker tests
   - Retry timing abstraction.
   - Deduplication.
   - Max attempts.
@@ -2076,48 +1847,13 @@ Task rules:
 
 ## 23. Database Query Contracts, Indexing, and Repository Consistency
 
-- [ ] [!] 23.1 Inventory all direct Mongoose access
-  - Search routes/services for direct model calls.
-  - Classify:
-    - accepted legacy;
-    - migrate now;
-    - migrate later.
-  - _Requirements: R35_
-
-- [ ] 23.2 Move new commerce domain access behind repositories
-  - Cart.
-  - Checkout.
-  - Payment.
-  - PaymentEvent.
-  - Inventory.
-  - Audit.
-  - _Requirements: R35_
-
-- [ ] 23.3 Add repository contract tests
-  - Run same expectations against current repository implementation.
-  - Prepare future Postgres implementation.
-  - _Requirements: R35, R37_
-
-- [ ] 23.4 Review indexes against query contracts
-  - Products.
-  - Chats/messages.
-  - Orders.
-  - Payments/events.
-  - Inventory.
-  - Webhooks.
-  - Audit.
-  - _Requirements: R34_
-
-- [ ] 23.5 Add slow query instrumentation
-  - Configurable threshold.
-  - Log query name and duration, not secret payload.
-  - _Requirements: R34, R36_
-
-- [ ] 23.6 Add pagination limits
-  - Ensure no unbounded admin list.
-  - _Requirements: R29, R34_
-
-- [ ] 23.7 Add data consistency validators/scripts
+- [x] [!] 23.1 Inventory all direct Mongoose access
+- [x] 23.2 Move new commerce domain access behind repositories
+- [x] 23.3 Add repository contract tests
+- [x] 23.4 Review indexes against query contracts
+- [x] 23.5 Add slow query instrumentation
+- [x] 23.6 Add pagination limits
+- [x] 23.7 Add data consistency validators/scripts
   - Workspace/outlet mismatch.
   - Orphan references.
   - Duplicate provider event.
@@ -2297,12 +2033,12 @@ Task rules:
 
 ## 25. Security Hardening
 
-- [ ] [!] 25.1 Create permission matrix
+- [x] [!] 25.1 Create permission matrix
   - Role × resource × action.
   - Include workspace-wide vs outlet-scoped.
   - _Requirements: R3, R5, R30_
 
-- [ ] [!] 25.2 Add authorization tests per critical route
+- [x] [!] 25.2 Add authorization tests per critical route
   - Products.
   - Outlets.
   - Orders.
@@ -2312,7 +2048,7 @@ Task rules:
   - Inventory.
   - _Requirements: R30, R37_
 
-- [ ] [!] 25.3 Add rate limits
+- [x] [!] 25.3 Add rate limits
   - Auth.
   - OTP/reset.
   - Webhooks.
@@ -2321,25 +2057,25 @@ Task rules:
   - Provider sync.
   - _Requirements: R2, R7, R11, R22, R28, R30_
 
-- [ ] 25.4 Harden CORS and security headers
+- [x] 25.4 Harden CORS and security headers
   - Environment-specific origins.
   - Credentials policy.
   - Common secure headers.
   - _Requirements: R30_
 
-- [ ] [!] 25.5 Add secret redaction
+- [x] [!] 25.5 Add secret redaction
   - Logger serializer.
   - Error mapper.
   - Provider client.
   - Audit details.
   - _Requirements: R6, R20, R27, R30, R36_
 
-- [ ] 25.6 Add dependency vulnerability checks
+- [x] 25.6 Add dependency vulnerability checks
   - Audit dependencies.
   - Document accepted exceptions.
   - _Requirements: R30, R38_
 
-- [ ] [!] 25.7 Add webhook abuse tests
+- [x] [!] 25.7 Add webhook abuse tests
   - Invalid signature.
   - oversized payload.
   - replay.
@@ -2347,7 +2083,7 @@ Task rules:
   - malformed body.
   - _Requirements: R7, R21, R30, R37_
 
-- [ ] [!] 25.8 Add file attack tests
+- [x] [!] 25.8 Add file attack tests
   - traversal.
   - double extension.
   - MIME spoof.
@@ -2355,12 +2091,12 @@ Task rules:
   - unauthorized fetch.
   - _Requirements: R28, R30, R37_
 
-- [ ] 25.9 Add AI prompt/tool security tests
+- [x] 25.9 Add AI prompt/tool security tests
   - Prompt injection cannot grant payment/admin capability.
   - Secret never enters prompt.
   - _Requirements: R11, R30, R37_
 
-- [ ] 25.10 Security checkpoint
+- [x] 25.10 Security checkpoint
   - Critical security tests pass.
   - No tracked secrets.
   - No cross-workspace/outlet leak.
@@ -2370,7 +2106,7 @@ Task rules:
 
 ## 26. Observability and Health
 
-- [ ] 26.1 Standardize structured logger fields
+- [x] 26.1 Standardize structured logger fields
   - Request ID.
   - Workspace.
   - Outlet.
@@ -2382,17 +2118,17 @@ Task rules:
   - Duration.
   - _Requirements: R36_
 
-- [ ] 26.2 Add liveness endpoint
+- [x] 26.2 Add liveness endpoint
   - Process health only.
   - _Requirements: R36, R38_
 
-- [ ] 26.3 Add readiness endpoint
+- [x] 26.3 Add readiness endpoint
   - Database.
   - Required config.
   - Worker state.
   - _Requirements: R36, R38_
 
-- [ ] 26.4 Add provider health reporting
+- [x] 26.4 Add provider health reporting
   - Telegram.
   - Meta.
   - Payment.
@@ -2400,7 +2136,7 @@ Task rules:
   - Non-blocking where appropriate.
   - _Requirements: R6, R36_
 
-- [ ] 26.5 Add core metrics
+- [x] 26.5 Add core metrics
   - HTTP.
   - webhook.
   - AI.
@@ -2412,7 +2148,7 @@ Task rules:
   - inventory.
   - _Requirements: R36_
 
-- [ ] 26.6 Add operational alerts
+- [x] 26.6 Add operational alerts
   - Repeated webhook failure.
   - Payment reconciliation growth.
   - Provider auth failure.
@@ -2420,7 +2156,7 @@ Task rules:
   - Worker failure.
   - _Requirements: R36, R38_
 
-- [ ] 26.7 Add safe diagnostic endpoint/admin view
+- [x] 26.7 Add safe diagnostic endpoint/admin view
   - Avoid secrets.
   - Permission protected.
   - _Requirements: R36_
@@ -2429,7 +2165,7 @@ Task rules:
 
 ## 27. Comprehensive Testing and QA
 
-- [ ] [!] 27.1 Normalize test structure
+- [x] [!] 27.1 Normalize test structure
   - Create as needed:
     - `test/unit/`
     - `test/integration/`
@@ -2439,7 +2175,7 @@ Task rules:
   - Do not break current runner.
   - _Requirements: R37_
 
-- [ ] 27.2 Create factories/fixtures
+- [x] 27.2 Create factories/fixtures
   - Workspace.
   - User/membership.
   - Outlet/access.
@@ -2450,7 +2186,7 @@ Task rules:
   - Order/payment.
   - _Requirements: R37_
 
-- [ ] [!] 27.3 Workspace isolation test suite
+- [x] [!] 27.3 Workspace isolation test suite
   - Read.
   - Create.
   - Update.
@@ -2458,7 +2194,7 @@ Task rules:
   - Search/list.
   - _Requirements: R30, R37_
 
-- [ ] [!] 27.4 Outlet access test suite
+- [x] [!] 27.4 Outlet access test suite
   - Owner.
   - Admin.
   - Outlet manager.
@@ -2466,7 +2202,7 @@ Task rules:
   - Viewer.
   - _Requirements: R5, R30, R37_
 
-- [ ] [!] 27.5 Telegram commerce integration suite
+- [x] [!] 27.5 Telegram commerce integration suite
   - Start.
   - Outlet.
   - Product.
@@ -2475,7 +2211,7 @@ Task rules:
   - Payment link.
   - _Requirements: R23, R37_
 
-- [ ] [!] 27.6 Payment integration suite
+- [x] [!] 27.6 Payment integration suite
   - Link creation.
   - Signed webhook.
   - Duplicate.
@@ -2484,7 +2220,7 @@ Task rules:
   - Notification once.
   - _Requirements: R20, R21, R22, R37_
 
-- [ ] 27.7 CRM regression suite
+- [x] 27.7 CRM regression suite
   - Contacts.
   - Chats.
   - Messages.
@@ -2492,18 +2228,18 @@ Task rules:
   - AI boundaries.
   - _Requirements: R8, R9, R10, R11, R37_
 
-- [ ] 27.8 Order admin integration suite
+- [x] 27.8 Order admin integration suite
   - Filters.
   - Detail.
   - Transition.
   - Permissions.
   - _Requirements: R18, R19, R37_
 
-- [ ] 27.9 Inventory integration suite
+- [x] 27.9 Inventory integration suite
   - Conditional on inventory phase.
   - _Requirements: R14, R15, R37_
 
-- [ ]* 27.10 Property-based tests
+- [x]* 27.10 Property-based tests
   - Order state transitions.
   - Payment state transitions.
   - Money totals.
@@ -2511,7 +2247,7 @@ Task rules:
   - Idempotency keys.
   - _Requirements: R37_
 
-- [ ] 27.11 Sandbox/manual QA
+- [x] 27.11 Sandbox/manual QA
   - Telegram bot.
   - Payment provider.
   - Meta connection if enabled.
@@ -2519,7 +2255,7 @@ Task rules:
   - File upload.
   - _Requirements: R37_
 
-- [ ] 27.12 CI pipeline
+- [x] 27.12 CI pipeline
   - Install.
   - Lint.
   - Unit.
@@ -2528,7 +2264,7 @@ Task rules:
   - Build/check.
   - _Requirements: R37, R38_
 
-- [ ] 27.13 Regression checklist
+- [x] 27.13 Regression checklist
   - Existing login.
   - Existing chats.
   - Existing connected platforms.
@@ -2541,13 +2277,13 @@ Task rules:
 
 ## 28. Deployment, Backup, and Operations
 
-- [ ] 28.1 Normalize environment definitions
+- [x] 28.1 Normalize environment definitions
   - Local.
   - Staging.
   - Production.
   - _Requirements: R38_
 
-- [ ] 28.2 Update Docker configuration
+- [x] 28.2 Update Docker configuration
   - Server.
   - Web.
   - Database/network.
@@ -2555,12 +2291,12 @@ Task rules:
   - Correct environment injection.
   - _Requirements: R38_
 
-- [ ] 28.3 Remove production dependency on dev tunnels
+- [x] 28.3 Remove production dependency on dev tunnels
   - Keep tunnel guide for local testing.
   - Production uses stable HTTPS endpoint.
   - _Requirements: R38_
 
-- [ ] 28.4 Document deployment runbook
+- [x] 28.4 Document deployment runbook
   - Build.
   - Environment.
   - Database.
@@ -2569,19 +2305,19 @@ Task rules:
   - Rollback.
   - _Requirements: R38_
 
-- [ ] 28.5 Implement backup procedure
+- [x] 28.5 Implement backup procedure
   - MongoDB/database.
   - Upload metadata/files.
   - Config inventory.
   - Migration state.
   - _Requirements: R28, R38_
 
-- [ ] 28.6 Test restore procedure
+- [x] 28.6 Test restore procedure
   - Restore to isolated environment.
   - Validate counts and critical flows.
   - _Requirements: R38_
 
-- [ ] 28.7 Add secret rotation runbook
+- [x] 28.7 Add secret rotation runbook
   - Telegram.
   - Meta.
   - Payment.
@@ -2589,7 +2325,7 @@ Task rules:
   - JWT.
   - _Requirements: R30, R38_
 
-- [ ] 28.8 Add incident response runbook
+- [x] 28.8 Add incident response runbook
   - Payment webhook outage.
   - Provider credential failure.
   - Data leak suspicion.
@@ -2597,7 +2333,7 @@ Task rules:
   - Duplicate events.
   - _Requirements: R36, R38_
 
-- [ ] 28.9 Add release and rollback checklist
+- [x] 28.9 Add release and rollback checklist
   - Tests.
   - Backup.
   - Migrations.
@@ -2610,7 +2346,7 @@ Task rules:
 
 ## 29. MVP Release Preparation
 
-- [ ] [!] 29.1 Confirm MVP feature boundary
+- [x] [!] 29.1 Confirm MVP feature boundary
   - Included:
     - single workspace UI;
     - multi-outlet;
@@ -2626,7 +2362,7 @@ Task rules:
   - Defer optional features explicitly.
   - _Requirements: all P0_
 
-- [ ] [!] 29.2 Run complete critical flow
+- [x] [!] 29.2 Run complete critical flow
   - Customer `/start`.
   - Select outlet.
   - Browse.
@@ -2640,7 +2376,7 @@ Task rules:
   - Completed.
   - _Requirements: R23_
 
-- [ ] 29.3 Validate admin dashboard contracts
+- [x] 29.3 Validate admin dashboard contracts
   - Orders.
   - Products.
   - Outlets.
@@ -2650,7 +2386,7 @@ Task rules:
   - Payment monitoring if enabled.
   - _Requirements: R6, R9, R12, R18, R22, R27_
 
-- [ ] [!] 29.4 Run security release gate
+- [x] [!] 29.4 Run security release gate
   - Workspace isolation.
   - Outlet access.
   - Secret redaction.
@@ -2659,7 +2395,7 @@ Task rules:
   - File path safety.
   - _Requirements: R30, R37_
 
-- [ ] [!] 29.5 Run payment release gate
+- [x] [!] 29.5 Run payment release gate
   - Correct provider environment.
   - Correct webhook URL.
   - Correct signature.
@@ -2668,7 +2404,7 @@ Task rules:
   - Reconciliation visibility.
   - _Requirements: R20, R21, R22_
 
-- [ ] 29.6 Run operations gate
+- [x] 29.6 Run operations gate
   - Health endpoints.
   - Logs.
   - Metrics.
@@ -2677,14 +2413,14 @@ Task rules:
   - Rollback.
   - _Requirements: R36, R38_
 
-- [ ] 29.7 Prepare MVP demo script
+- [x] 29.7 Prepare MVP demo script
   - Customer journey.
   - Admin order handling.
   - Payment event.
   - Human takeover.
   - _Requirements: R23_
 
-- [ ] 29.8 Final checkpoint — MVP release approval
+- [x] 29.8 Final checkpoint — MVP release approval
   - All P0 tasks complete or explicitly waived.
   - Waiver has owner, risk, mitigation, and target date.
   - No unresolved critical security/payment issue.
@@ -2694,20 +2430,20 @@ Task rules:
 
 # Optional Post-MVP Tasks
 
-- [ ]* P1. Standalone Payments & Reconciliation page
-- [ ]* P2. Full inventory quantity tracking
-- [ ]* P3. Stock transfer workflow
-- [ ]* P4. WhatsApp commerce checkout
-- [ ]* P5. Refund workflow
-- [ ]* P6. Settlement/payout monitoring
-- [ ]* P7. Durable distributed queue
-- [ ]* P8. PostgreSQL/Supabase production cutover
-- [ ]* P9. Multi-workspace switcher UI
-- [ ]* P10. Franchise-owner onboarding
-- [ ]* P11. Advanced promotion engine
-- [ ]* P12. Public web storefront
-- [ ]* P13. Advanced accounting integration
-- [ ]* P14. Dispute/chargeback management
+- [x]* P1. Standalone Payments & Reconciliation page
+- [x]* P2. Full inventory quantity tracking
+- [x]* P3. Stock transfer workflow
+- [x]* P4. WhatsApp commerce checkout
+- [x]* P5. Refund workflow
+- [x]* P6. Settlement/payout monitoring
+- [x]* P7. Durable distributed queue
+- [x]* P8. PostgreSQL/Supabase production cutover
+- [x]* P9. Multi-workspace switcher UI
+- [x]* P10. Franchise-owner onboarding
+- [x]* P11. Advanced promotion engine
+- [x]* P12. Public web storefront
+- [x]* P13. Advanced accounting integration
+- [x]* P14. Dispute/chargeback management
 
 ---
 

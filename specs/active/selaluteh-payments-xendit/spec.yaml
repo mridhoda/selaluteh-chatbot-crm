@@ -1,0 +1,678 @@
+schema_version: 2
+spec_version: 1.0.0
+
+id: selaluteh-payments-xendit
+title: SelaluTeh Payments — Xendit
+description: >-
+  Dedicated requirements-first specification for secure Xendit payment
+  collection using Payment Session hosted payment links, workspace and outlet
+  scoping, payment aggregates, sessions and attempts, webhook verification,
+  idempotent status processing, order transition, WhatsApp and Telegram link
+  delivery, expiry and regeneration, reconciliation, refunds, operations UI,
+  audit, observability, migration, testing, and production readiness.
+
+type: feature
+workflow: requirements-first
+
+status: active
+workflow_state: in_progress
+priority: critical
+created_at: '2026-06-22'
+updated_at: '2026-06-23'
+
+owners:
+  product_owner: SelaluTeh product owner
+  technical_owner: project-maintainer
+  security_owner: project-maintainer
+  financial_operations_owner: project-maintainer
+  implementation_actor: coding-agent
+  review_required: true
+  security_review_required: true
+  live_activation_review_required: true
+
+tags:
+  - payments
+  - xendit
+  - payment-session
+  - payment-link
+  - webhooks
+  - reconciliation
+  - refunds
+  - multi-outlet
+  - multi-workspace
+  - supabase
+  - security
+  - tdd
+
+lifecycle:
+  config: docs/specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: docs/specs/active/selaluteh-payments-xendit
+  move_entire_spec_directory: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    dry_run_command: npm run specs:sync:dry
+    sync_command: npm run specs:sync
+    check_command: npm run specs:check
+    automatic_local_move: false
+    ci_check_only: true
+
+  completion_requirements:
+    - all-p0-tasks-completed
+    - approved-p1-p2-deferrals-documented
+    - definition-of-done-passed
+    - xendit-provider-contract-revalidated
+    - workspace-outlet-isolation-passed
+    - test-live-isolation-passed
+    - secret-redaction-passed
+    - backend-amount-authority-passed
+    - payment-session-link-flow-passed
+    - webhook-verification-and-replay-protection-passed
+    - payment-paid-invariant-passed
+    - order-transition-idempotency-passed
+    - ai-and-outlet-mark-paid-denial-passed
+    - reconciliation-passed
+    - refund-invariants-passed-when-enabled
+    - security-property-concurrency-resilience-performance-tests-passed
+    - migration-and-rollback-documented
+    - operational-runbooks-documented
+    - documentation-updated
+    - implementation-status-updated
+    - specs-check-passed
+
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+  reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md
+  definition_of_done: docs/backend/11-sprint/definition-of-done.md
+
+document_authority:
+  precedence:
+    - latest-approved-payment-decision
+    - official-xendit-current-contract
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+    - current-task
+    - implementation-status-for-reality
+    - external-domain-contracts
+    - legacy-documents
+
+  responsibilities:
+    spec: identity-scope-status-boundaries-provider-baseline-and-release-control
+    requirements: what-payments-xendit-must-do
+    design: how-payments-xendit-is-designed
+    tasks: tdd-implementation-order-and-verification
+
+product:
+  name: SelaluTeh Marketplace
+  area: payments-xendit
+  stage: full-product-design-with-alpha-slice
+  architecture:
+    - xendit-only
+    - payment-session
+    - hosted-payment-link
+    - webhook-authoritative
+    - multi-workspace-ready
+    - multi-outlet
+    - supabase-postgresql
+    - whatsapp-and-telegram
+
+spec_relationships:
+  umbrella:
+    id: selaluteh-backend-marketplace
+    relationship: backend-architecture-and-shared-rules
+
+  depends_on:
+    - id: selaluteh-workspace-access-control
+      relationship: workspace-outlet-and-action-authorization
+    - id: selaluteh-outlet-management-operations
+      relationship: outlet-identity-and-operational-state
+    - id: selaluteh-product-catalog
+      relationship: product-and-price-snapshot-input
+    - id: selaluteh-cart-order-lifecycle
+      relationship: payable-order-and-post-payment-order-transition
+    - id: selaluteh-channel-connections-sync
+      relationship: whatsapp-telegram-link-and-status-delivery
+    - id: selaluteh-ai-agent-architecture
+      relationship: payment-tool-execution
+    - id: selaluteh-ai-agent-scope-security
+      relationship: immutable-ai-payment-boundaries
+    - id: selaluteh-notification-attention-engine
+      relationship: operational-and-customer-notifications
+    - id: selaluteh-audit-activity-timeline
+      relationship: immutable-audit-storage
+    - id: selaluteh-analytics-read-models
+      relationship: payment-and-revenue-read-models
+
+  does_not_replace:
+    - selaluteh-backend-marketplace
+    - selaluteh-cart-order-lifecycle
+    - selaluteh-workspace-access-control
+    - selaluteh-channel-connections-sync
+    - selaluteh-ai-agent-architecture
+
+scope:
+  included:
+    - xendit-workspace-connection
+    - test-and-live-environments
+    - secret-reference-management
+    - payment-aggregate
+    - order-payment-linkage
+    - internal-payment-state-machine
+    - payment-sessions
+    - payment-attempts
+    - xendit-payment-session-adapter
+    - hosted-payment-links
+    - legacy-invoice-compatibility-boundary
+    - backend-authoritative-amount
+    - idempotent-payment-creation
+    - link-delivery
+    - expiry
+    - resend-and-regeneration
+    - customer-provider-payload
+    - allowed-payment-channels
+    - return-urls
+    - webhook-intake
+    - webhook-authentication
+    - webhook-idempotency
+    - provider-event-normalization
+    - out-of-order-event-processing
+    - payment-success-failure-expiry-cancellation
+    - reconciliation
+    - order-transition
+    - outlet-scoped-payment-visibility
+    - ai-payment-tools
+    - whatsapp-telegram-notifications
+    - payment-list-and-detail-read-models
+    - payment-method-channel-display
+    - refunds
+    - partial-refunds
+    - refund-webhooks
+    - mismatch-review-queue
+    - dispute-readiness
+    - domain-events
+    - outbox
+    - audit
+    - observability
+    - api-contracts
+    - admin-ui-states
+    - optimistic-concurrency
+    - retries-and-resilience
+    - legacy-migration
+    - testing
+    - production-readiness
+    - provider-contract-versioning
+
+  deferred:
+    - saved-payment-methods
+    - payment-tokens
+    - subscriptions
+    - recurring-payments
+    - xendit-components-embedded-checkout
+    - manual-capture
+    - installments
+    - split-payments
+    - xenplatform-subaccounts
+    - payouts
+    - settlement-ledger
+    - chargeback-evidence-workflow
+    - multi-currency
+    - other-payment-providers
+    - cash-on-delivery
+    - manual-bank-transfer-confirmation
+
+  excluded:
+    - order-total-calculation
+    - product-pricing
+    - order-approval
+    - inventory-reservation
+    - channel-transport-internals
+    - authentication
+    - generic-notification-engine
+    - generic-audit-store
+    - analytics-aggregation
+    - frontend-as-payment-authority
+
+fixed_decisions:
+  provider: XENDIT
+  active_provider_count: 1
+  midtrans_active: false
+  cash_on_delivery: false
+  manual_bank_transfer_confirmation: false
+
+  country: ID
+  currency: IDR
+  internal_money_storage: integer-minor-units
+
+  alpha_environment: TEST
+  live_environment_requires_gate: true
+
+  primary_integration:
+    adapter: XENDIT_PAYMENT_SESSION
+    endpoint: POST /sessions
+    session_type: PAY
+    mode: PAYMENT_LINK
+    capture_method: AUTOMATIC
+    allow_save_payment_method: DISABLED
+    hosted_checkout: true
+
+  compatibility_integration:
+    adapter: XENDIT_LEGACY_INVOICE
+    endpoint: POST /v2/invoices
+    preferred: false
+    allowed_only_if_required: true
+    simultaneous_active_with_primary: false
+
+  provider_docs:
+    verified_at: '2026-06-22'
+    official_sources:
+      - Xendit Payment Sessions Overview
+      - Xendit Create a Session API
+      - Xendit Get Session API
+      - Xendit Payment Webhook Notification
+      - Xendit Handling Webhooks
+      - Xendit Payment Link Migration Guidance
+      - Xendit Refund Payment Request
+
+  credential_scope: workspace
+  outlet_owns_provider_secret: false
+
+  payment_truth:
+    authority:
+      - verified-xendit-webhook
+      - verified-server-side-reconciliation
+    frontend_return_url_authoritative: false
+    ai_authoritative: false
+    outlet_authoritative: false
+    admin_manual_mark_paid: false
+
+  order:
+    amount_authority: order-payable-snapshot
+    payment_paid_status_separate_from_order_approved: true
+    paid_next_order_state: AWAITING_OUTLET_APPROVAL
+
+  webhook:
+    server_side_only: true
+    primary_verification: x-callback-token
+    durable_intake: true
+    idempotent: true
+    out_of_order_safe: true
+
+  payment_statuses:
+    - CREATED
+    - PENDING
+    - PROCESSING
+    - PAID
+    - FAILED
+    - EXPIRED
+    - CANCELLED
+    - REVIEW_REQUIRED
+    - REFUND_PENDING
+    - PARTIALLY_REFUNDED
+    - REFUNDED
+    - DISPUTED
+
+  refund:
+    return_to_original_method: true
+    full_supported_when_provider_channel_supports: true
+    partial_supported_when_provider_channel_supports: true
+    ai_can_execute: false
+
+requirements_registry:
+  prefix: PAY-R
+  total: 54
+
+  groups:
+    authority-and-provider:
+      - PAY-R1
+      - PAY-R2
+      - PAY-R3
+      - PAY-R4
+      - PAY-R5
+
+    payment-core:
+      - PAY-R6
+      - PAY-R7
+      - PAY-R8
+      - PAY-R9
+      - PAY-R10
+      - PAY-R11
+      - PAY-R12
+      - PAY-R13
+      - PAY-R14
+
+    link-and-customer-flow:
+      - PAY-R15
+      - PAY-R16
+      - PAY-R17
+      - PAY-R18
+      - PAY-R19
+      - PAY-R20
+
+    webhook-and-processing:
+      - PAY-R21
+      - PAY-R22
+      - PAY-R23
+      - PAY-R24
+      - PAY-R25
+      - PAY-R26
+      - PAY-R27
+      - PAY-R28
+      - PAY-R29
+      - PAY-R30
+
+    authorization-and-experience:
+      - PAY-R31
+      - PAY-R32
+      - PAY-R33
+      - PAY-R34
+      - PAY-R35
+      - PAY-R36
+
+    refunds-and-exceptions:
+      - PAY-R37
+      - PAY-R38
+      - PAY-R39
+      - PAY-R40
+      - PAY-R41
+      - PAY-R42
+
+    correctness-and-readiness:
+      - PAY-R43
+      - PAY-R44
+      - PAY-R45
+      - PAY-R46
+      - PAY-R47
+      - PAY-R48
+      - PAY-R49
+      - PAY-R50
+      - PAY-R51
+      - PAY-R52
+      - PAY-R53
+      - PAY-R54
+
+correctness_invariants:
+  - every-payment-belongs-to-one-workspace-order-and-outlet
+  - order-payment-workspace-and-outlet-match
+  - amount-is-derived-from-order
+  - client-ai-outlet-admin-cannot-mark-paid
+  - only-verified-provider-truth-can-produce-paid
+  - amount-currency-reference-environment-must-match-before-paid
+  - payment-paid-and-order-approved-are-separate
+  - duplicate-create-does-not-create-duplicate-payment
+  - duplicate-webhook-has-one-business-effect
+  - out-of-order-event-does-not-downgrade-paid
+  - one-order-has-at-most-one-current-active-payment-session
+  - test-event-never-mutates-live-payment
+  - other-outlet-never-sees-payment
+  - refund-total-never-exceeds-paid-amount
+  - provider-secret-never-reaches-client-ai-or-logs
+  - redirect-never-proves-payment
+  - unknown-or-mismatched-event-fails-to-review-required
+  - notification-failure-does-not-change-payment-truth
+  - order-transition-failure-does-not-lose-paid-state
+
+security:
+  untrusted_inputs:
+    - workspace-id
+    - outlet-id
+    - order-id
+    - payment-id
+    - customer-id
+    - client-amount
+    - client-currency
+    - return-url
+    - payment-link-request
+    - webhook-headers
+    - webhook-body
+    - provider-reference
+    - refund-amount
+    - reconciliation-request
+    - ai-tool-arguments
+
+  immutable_controls:
+    - xendit-only
+    - server-only-secrets
+    - backend-amount-authority
+    - verified-webhook-or-reconciliation-for-paid
+    - no-manual-mark-paid
+    - payment-order-status-separation
+    - workspace-outlet-isolation
+    - webhook-replay-protection
+    - test-live-separation
+    - ai-cannot-change-payment-truth
+
+  release_blockers:
+    - forged-webhook-can-mark-paid
+    - duplicate-webhook-double-advances-order
+    - client-ai-outlet-admin-can-mark-paid
+    - amount-mismatch-marks-paid
+    - cross-workspace-or-outlet-access
+    - test-live-secret-or-event-mixing
+    - provider-secret-leak
+    - redirect-marks-paid
+    - refund-exceeds-paid
+    - paid-event-lost-before-order-transition-recovery
+    - unscoped-payment-query
+    - live-key-or-real-money-in-automated-tests
+
+testing:
+  methodology: test-driven-development
+  deterministic_ci_default: true
+  live_keys_prohibited_in_tests: true
+  real_money_prohibited_in_tests: true
+  production_data_prohibited: true
+  production_secrets_prohibited: true
+
+  layers:
+    unit:
+      path: server/test/unit/payments-xendit
+      required: true
+    component:
+      path: server/test/component/payments-xendit
+      required: true
+    integration:
+      path: server/test/integration/payments-xendit
+      required: true
+    security:
+      path: server/test/security/payments-xendit
+      required: true
+    property:
+      path: server/test/property/payments-xendit
+      required: true
+    concurrency:
+      path: server/test/concurrency/payments-xendit
+      required: true
+    resilience:
+      path: server/test/resilience/payments-xendit
+      required: true
+    performance:
+      path: server/test/performance/payments-xendit
+      required: true
+
+  required_properties:
+    - only-verified-provider-truth-produces-paid
+    - paid-amount-equals-order-payable-amount
+    - refund-total-never-exceeds-paid
+    - one-current-active-session-per-order
+    - duplicate-event-one-business-effect
+    - paid-never-downgraded-by-stale-event
+    - cross-workspace-never-allowed
+    - cross-outlet-never-allowed
+    - test-never-mutates-live
+    - ai-cannot-mark-paid
+
+  release_gate_commands:
+    spec_check: npm run specs:check
+    unit: npm run test:payments:unit
+    component: npm run test:payments:component
+    integration: npm run test:payments:integration
+    security: npm run test:payments:security
+    property: npm run test:payments:property
+    concurrency: npm run test:payments:concurrency
+    resilience: npm run test:payments:resilience
+    performance: npm run test:payments:performance
+    all: npm run test:payments:all
+
+implementation:
+  current_phase: preflight-and-provider-contract-verification
+  task_source: tasks.md
+  active_task_pointer: docs/backend/09-ai-context/current-task.md
+  recommended_first_task: 0.1-confirm-authority
+
+  phases:
+    - id: 0
+      name: preflight-contract-and-schema
+      task_sections: [ 0, 1, 2, 3 ]
+    - id: 1
+      name: provider-create-link-and-delivery
+      task_sections: [ 4, 5, 6, 7, 8 ]
+    - id: 2
+      name: webhook-processing-and-order
+      task_sections: [ 9, 10, 11, 12, 13, 14 ]
+    - id: 3
+      name: reconciliation-cancellation-refunds
+      task_sections: [ 15, 16, 17 ]
+    - id: 4
+      name: read-models-ui-events-observability
+      task_sections: [ 18, 19, 20, 21 ]
+    - id: 5
+      name: security-correctness-resilience-performance
+      task_sections: [ 22, 23, 24, 25 ]
+    - id: 6
+      name: migration-alpha-live-release
+      task_sections: [ 26, 27, 28, 29, 30 ]
+
+  fastest_safe_alpha_order:
+    - task-section-0
+    - task-section-1
+    - task-section-2
+    - task-section-3
+    - task-section-4
+    - task-section-5
+    - task-section-6
+    - task-section-7
+    - task-section-8
+    - task-section-9
+    - task-section-10
+    - task-section-11
+    - task-section-12
+    - task-section-13
+    - task-section-14
+    - task-section-15
+    - task-section-18
+    - task-section-20
+    - task-section-21
+    - task-section-22
+    - task-section-23
+    - task-section-24
+    - task-section-27
+    - task-section-29
+    - task-section-30
+
+  may_defer_after_alpha:
+    - refunds
+    - partial-refunds
+    - legacy-invoice-adapter-unless-required
+    - advanced-review-ui
+    - dispute-readiness
+    - live-activation
+    - advanced-analytics
+
+  must_not_defer:
+    - xendit-test-connection
+    - test-live-isolation
+    - secret-management
+    - payment-aggregate
+    - payment-session-create
+    - backend-amount-authority
+    - idempotency
+    - payment-link-delivery
+    - expiry-regeneration
+    - webhook-verification
+    - webhook-replay-protection
+    - event-normalization
+    - paid-invariant
+    - order-transition
+    - outlet-scope
+    - ai-mark-paid-denial
+    - reconciliation-basic
+    - critical-security-concurrency-resilience-tests
+
+status_workflow:
+  initial_status: active
+  initial_workflow_state: draft
+
+  folder_statuses:
+    backlog:
+      folder: docs/specs/backlog
+      workflow_states: [ draft, review, approved ]
+    active:
+      folder: docs/specs/active
+      workflow_states: [ in_progress, blocked, verifying ]
+    completed:
+      folder: docs/specs/completed
+      workflow_states: [ done, archived ]
+
+  folder_move_rule: edit-status-then-run-npm-run-specs-sync
+  completed_guard: required-unchecked-tasks-must-be-zero
+
+references:
+  own_documents:
+    - docs/specs/active/selaluteh-payments-xendit/requirements.md
+    - docs/specs/active/selaluteh-payments-xendit/design.md
+    - docs/specs/active/selaluteh-payments-xendit/tasks.md
+
+  umbrella:
+    - docs/specs/active/selaluteh-backend-marketplace/spec.yaml
+    - docs/specs/active/selaluteh-backend-marketplace/requirements.md
+    - docs/specs/active/selaluteh-backend-marketplace/design.md
+    - docs/specs/active/selaluteh-backend-marketplace/tasks.md
+
+  related:
+    - docs/specs/active/selaluteh-workspace-access-control/spec.yaml
+    - docs/specs/active/selaluteh-outlet-management-operations/spec.yaml
+    - docs/specs/active/selaluteh-product-catalog/spec.yaml
+    - docs/specs/active/selaluteh-cart-order-lifecycle/spec.yaml
+    - docs/specs/active/selaluteh-channel-connections-sync/spec.yaml
+    - docs/specs/active/selaluteh-ai-agent-architecture/spec.yaml
+    - docs/specs/active/selaluteh-ai-agent-scope-security/spec.yaml
+
+  global_entry:
+    - docs/backend/READING-ORDER.md
+    - docs/backend/09-ai-context/current-task.md
+
+metadata:
+  generated_for: selaluteh-payments-xendit
+  generated_at: '2026-06-22'
+  provider_docs_verified_at: '2026-06-22'
+
+  based_on:
+    - selaluteh-backend-marketplace
+    - selaluteh-workspace-access-control
+    - selaluteh-outlet-management-operations
+    - selaluteh-product-catalog
+    - latest-alpha-order-payment-decisions
+    - latest-payments-page-ui-design
+    - official-xendit-payment-session-and-webhook-documentation
+    - specs-lifecycle-config
+
+  notes:
+    - This is a full-product spec with an explicit fastest safe alpha slice.
+    - Xendit Payment Session PAYMENT_LINK is the preferred current integration.
+    - Legacy /v2/invoices is compatibility-only.
+    - Payment PAID and Order APPROVED are intentionally separate.
+    - No admin, outlet, frontend, or AI actor can manually mark a payment as
+      paid.
+    - Official provider documentation must be revalidated before implementation
+      and LIVE release.

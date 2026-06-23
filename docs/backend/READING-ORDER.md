@@ -925,6 +925,86 @@ docs/backend/12-ops/incident-response-runbook.md
 docs/backend/12-ops/production-readiness.md
 ```
 
+## 9.17 Notifications
+
+```text
+docs/backend/03-business-rules/notification-rules.md
+docs/backend/09-ai-context/notification-context.md
+docs/backend/05-api-spec/analytics-api.md — GET /api/settings/notifications, PUT /api/settings/notifications
+server/src/services/notification.service.js — sendNotification, enqueueNotification, deliverMessage
+server/src/services/notification-settings.service.js — getNotificationSettings, updateNotificationSettings, setOutletRecipient
+server/src/workers/notification.worker.js — processPendingNotifications
+server/test/unit/services/notification.service.test.js
+```
+
+Invariant:
+
+```text
+notifikasi tidak boleh mendahului state change (payment → notification, bukan sebaliknya)
+idempotency key mencegah duplicate notification
+failure notification dicatat dan dapat di-retry
+```
+
+## 9.18 Inventory
+
+```text
+server/src/db/repositories/inventory.supabase.repository.js — findByProduct, list, atomicAdjust
+server/src/services/inventory.service.js — adjustStock, reserveStock, releaseStock, consumeStock, returnStock, transferStock
+server/src/routes/inventory.js — GET/POST /api/inventory, transfer, movements
+server/test/concurrency/inventory-concurrency.test.js
+server/src/db/migrations/017_inventory.sql — inventory_items + stock_movements tables
+```
+
+Invariant:
+
+```text
+quantity tidak negatif
+setiap mutation memiliki stock movement record
+reserve/release/consume traceable dengan reference
+inventory outlet tidak bercampur
+```
+
+## 9.19 Audit Logging
+
+```text
+server/src/db/repositories/audit-logs.supabase.repository.js — log, list, count
+server/src/services/audit.service.js — SENSITIVE_ACTIONS, auditLog, listAuditLogs, redactSensitiveDetails
+server/src/routes/audit.js — GET /api/audit/logs
+server/src/db/migrations/019_audit_logs.sql — audit_logs table + indexes
+server/test/unit/services/audit.service.test.js
+```
+
+Invariant:
+
+```text
+audit_logs append-only (tidak ada update/delete di repository)
+secret/token/password otomatis di-redact sebelum disimpan
+semua SENSITIVE_ACTIONS wajib log
+```
+
+## 9.20 Jobs dan Background Workers
+
+```text
+server/src/utils/retry-policy.js — computeBackoff (capped + jitter), isRetriableError, computeNextRun
+server/src/db/repositories/jobs.supabase.repository.js — create, claimNext, complete, fail
+server/src/services/job-queue.service.js — enqueueJob, processJob
+server/src/workers/index.js — startWorkers/stopWorkers with enable/disable config
+server/src/workers/notification.worker.js — pending notification delivery
+server/src/workers/payment-reconciliation.worker.js — missing-webhook scan
+server/src/workers/checkout-cleanup.worker.js — expired checkout cleanup
+server/src/workers/cart-expiry.worker.js — expired cart cleanup
+server/src/db/migrations/020_jobs.sql — jobs table
+server/test/unit/utils/retry-policy.test.js
+```
+
+Invariant:
+
+```text
+in-process workers untuk MVP; jobs dapat hilang saat crash tanpa durable queue
+retry policy: capped exponential backoff + jitter
+deduplication key mencegah job duplicate
+```
+
 ---
 
 # 10. Langkah Keenam — Inspeksi Existing Source Code

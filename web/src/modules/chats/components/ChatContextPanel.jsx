@@ -1,4 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import api from '../../../shared/api/httpClient'
+import { isDemoMode } from '../../../mocks/demoState'
 import {
   Copy,
   ExternalLink,
@@ -129,135 +131,100 @@ function Divider() {
   )
 }
 
-const OUTLETS = [
-  {
-    id: 'ST_SMG',
-    name: 'Selalu Teh - Semarang City',
-    location: 'Semarang, Central Java',
-    status: 'Active',
-    initials: 'ST',
-  },
-  {
-    id: 'ST_BDO',
-    name: 'Selalu Teh - Bandung',
-    location: 'Bandung, West Java',
-    status: 'Active',
-    initials: 'SB',
-  },
-  {
-    id: 'ST_JKT',
-    name: 'Selalu Teh - Jakarta',
-    location: 'Jakarta, DKI Jakarta',
-    status: 'Active',
-    initials: 'SJ',
-  },
-  {
-    id: 'ST_SUB',
-    name: 'Selalu Teh - Surabaya',
-    location: 'Surabaya, East Java',
-    status: 'Busy',
-    initials: 'SS',
-  },
-  {
-    id: 'ST_YOG',
-    name: 'Selalu Teh - Yogyakarta',
-    location: 'Yogyakarta, DI Yogyakarta',
-    status: 'Offline',
-    initials: 'SY',
-  },
+// ── mock fallback data (used when live API returns empty) ─────────────────
+const FALLBACK_OUTLETS = [
+  { id: 'ST_SMG', name: 'Selalu Teh - Semarang City', location: 'Semarang, Central Java', status: 'Active', initials: 'ST' },
+  { id: 'ST_BDO', name: 'Selalu Teh - Bandung', location: 'Bandung, West Java', status: 'Active', initials: 'SB' },
 ]
+const FALLBACK_ORDERS = [
+  { id: 'ORD-1028', date: 'May 7, 2025', time: '10:15 AM', amount: 'Rp 111.000', payment: 'Paid', status: 'Completed' },
+  { id: 'ORD-1027', date: 'May 7, 2025', time: '09:15 AM', amount: 'Rp 91.500', payment: 'Pending', status: 'Preparing' },
+]
+const FALLBACK_PRODUCTS = []
+const FALLBACK_CART = []
 
-const CONVERSATION_ORDERS = [
-  {
-    id: 'ORD-1028',
-    date: 'May 7, 2025',
-    time: '10:15 AM',
-    amount: 'Rp 111.000',
-    payment: 'Paid',
-    status: 'Completed',
-    actions: ['Open', 'Duplicate'],
-  },
-  {
-    id: 'ORD-1027',
-    date: 'May 7, 2025',
-    time: '09:15 AM',
-    amount: 'Rp 91.500',
-    payment: 'Pending',
-    status: 'Preparing',
-    actions: ['Open', 'Resend'],
-  },
-  {
-    id: 'ORD-1026',
-    date: 'May 6, 2025',
-    time: '02:49 PM',
-    amount: 'Rp 85.000',
-    payment: 'Paid',
-    status: 'Completed',
-    actions: ['Open', 'Duplicate'],
-  },
-  {
-    id: 'ORD-1025',
-    date: 'May 4, 2025',
-    time: '11:42 AM',
-    amount: 'Rp 65.000',
-    payment: 'Paid',
-    status: 'Completed',
-    actions: ['Open', 'Duplicate'],
-  },
-  {
-    id: 'ORD-1024',
-    date: 'May 2, 2025',
-    time: '04:22 PM',
-    amount: 'Rp 120.000',
-    payment: 'Pending',
-    status: 'Preparing',
-    actions: ['Open', 'Resend'],
-  },
-]
+function useLiveOrFallback(live, fallback) {
+  return (Array.isArray(live) && live.length > 0) ? live : fallback
+}
 
-const PRODUCTS = [
-  {
-    id: 'p1',
-    name: 'Matcha Latte',
-    price: 'Rp 28.000',
-    stock: 'In stock',
-    badge: 'Bestseller',
-  },
-  { id: 'p2', name: 'Lemon Tea', price: 'Rp 18.000', stock: 'In stock' },
-  {
-    id: 'p3',
-    name: 'Kopi Susu Gula Aren',
-    price: 'Rp 24.000',
-    stock: 'Low stock',
-  },
-]
+const formatRupiah = (value = 0) => `Rp ${Number(value || 0).toLocaleString('id-ID')}`
 
-const CART_ITEMS = [
-  {
-    id: 'c1',
-    name: 'Selkop Hoodie',
-    variant: 'Navy / L',
-    qty: 1,
-    price: 'Rp 120.000',
-    total: 'Rp 120.000',
-  },
-  {
-    id: 'c2',
-    name: 'Selkop Tumbler',
-    variant: 'White / 500ml',
-    qty: 2,
-    price: 'Rp 85.000',
-    total: 'Rp 170.000',
-  },
-  {
-    id: 'c3',
-    name: 'Selkop Tote Bag',
-    variant: 'Canvas / Natural',
-    qty: 1,
-    price: 'Rp 65.000',
-    total: 'Rp 65.000',
-  },
-]
+const asNumber = (value) => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  if (typeof value === 'string') {
+    const normalized = value.replace(/[^0-9,-]/g, '').replace(',', '.')
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  return 0
+}
+
+const getItemQty = (item = {}) => asNumber(item.quantity ?? item.qty ?? 1) || 1
+
+const getItemUnitPrice = (item = {}) => asNumber(
+  item.unitPrice ??
+  item.effectivePrice ??
+  item.price ??
+  item.basePrice ??
+  item.base_price ??
+  0
+)
+
+const getItemSubtotal = (item = {}) => {
+  const explicit = asNumber(item.subtotal ?? item.subtotalAmount ?? item.line_total_minor ?? item.total)
+  if (explicit > 0) return explicit
+  return getItemUnitPrice(item) * getItemQty(item)
+}
+
+const buildCartSummary = (items = []) => {
+  const list = Array.isArray(items) ? items : []
+  const itemCount = list.reduce((sum, item) => sum + getItemQty(item), 0)
+  const subtotal = list.reduce((sum, item) => sum + getItemSubtotal(item), 0)
+  return {
+    itemCount,
+    subtotal,
+    discount: 0,
+    shipping: 0,
+    vat: 0,
+    total: subtotal,
+  }
+}
+
+const normalizeText = (value = '') => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+const getMessageText = (message = {}) => message.content || message.text || message.message || ''
+
+const isInboundMessage = (message = {}) => {
+  const role = message.senderType || message.role || message.sender || message.from
+  return message.direction === 'inbound' || role === 'user' || role === 'customer'
+}
+
+function inferCartItemsFromConversation(messages = [], products = []) {
+  if (!Array.isArray(messages) || !Array.isArray(products) || products.length === 0) return []
+  const inboundText = messages.filter(isInboundMessage).map(getMessageText).join('\n')
+  const normalizedConversation = normalizeText(inboundText)
+  if (!normalizedConversation) return []
+
+  return products
+    .filter((product) => {
+      const productName = normalizeText(product.name)
+      return productName && normalizedConversation.includes(productName)
+    })
+    .map((product) => ({
+      id: product.id || product._id,
+      productId: product.id || product._id,
+      name: product.name,
+      unitPrice: asNumber(product.basePrice ?? product.base_price ?? product.price),
+      quantity: 1,
+      subtotal: asNumber(product.basePrice ?? product.base_price ?? product.price),
+      inferred: true,
+    }))
+}
+
+const getInitials = (name) => (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+
+const PRODUCTS = []
+const CART_ITEMS = []
 
 // ─── tab panels ────────────────────────────────────────────────────────────
 
@@ -482,26 +449,75 @@ function OrderStepHeader({ num, title }) {
   )
 }
 
-function CommerceTab({ chat, onOpenOrder }) {
+function CommerceTab({
+  chat,
+  messages = [],
+  onOpenOrder,
+  liveOutlets = [],
+  liveProducts = [],
+  liveCartItems = [],
+  liveCartOutletId = null,
+  liveOrders = [],
+  outletProductMap = {},
+}) {
   const ctx = chat.commerceContext || {}
-  const outlet = chat.outletName || ctx.outletName || null
-  const [selectedOutletId, setSelectedOutletId] = useState('ST_SMG')
+  const [selectedOutletId, setSelectedOutletId] = useState(null)
   const [isOutletDropdownOpen, setIsOutletDropdownOpen] = useState(false)
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false)
-  const [ordersFilter, setOrdersFilter] = useState('all')
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false)
   const [isBrowseModalOpen, setIsBrowseModalOpen] = useState(false)
   const [isViewCartModalOpen, setIsViewCartModalOpen] = useState(false)
+  const [ordersFilter, setOrdersFilter] = useState('all')
+  const [isClearingCart, setIsClearingCart] = useState(false)
+  const toast = useToast()
 
-  const selectedOutlet =
-    OUTLETS.find((item) => item.id === selectedOutletId) || OUTLETS[0]
-  const filteredOrders = CONVERSATION_ORDERS.filter((order) => {
+  const displayOutlets = useLiveOrFallback(liveOutlets, FALLBACK_OUTLETS)
+  const displayProducts = useLiveOrFallback(liveProducts, FALLBACK_PRODUCTS)
+  const inferredCart = inferCartItemsFromConversation(messages, displayProducts)
+  const displayCart = useLiveOrFallback(liveCartItems, inferredCart.length ? inferredCart : FALLBACK_CART)
+  const cartSummary = buildCartSummary(displayCart)
+
+  // Sync outlet dropdown: prioritize cart's outlet, then first available outlet
+  useEffect(() => {
+    if (liveCartOutletId) {
+      setSelectedOutletId(liveCartOutletId)
+    } else if (!selectedOutletId && displayOutlets.length > 0) {
+      setSelectedOutletId(displayOutlets[0].id)
+    }
+  }, [liveCartOutletId, displayOutlets])
+
+  const selectedOutlet = displayOutlets.find((item) => item.id === selectedOutletId) || displayOutlets[0]
+  const displayOrders = useLiveOrFallback(liveOrders, FALLBACK_ORDERS)
+
+  // Only show products available at selected outlet
+  const availableProductIds = outletProductMap[selectedOutletId] || []
+  const availableProducts = displayOutlets.length > 0
+    ? displayProducts.filter((p) => availableProductIds.includes(p.id || p._id))
+    : displayProducts
+
+  const filteredOrders = displayOrders.filter((order) => {
     if (ordersFilter === 'all') return true
     if (ordersFilter === 'paid') return order.payment === 'Paid'
     if (ordersFilter === 'pending') return order.payment === 'Pending'
     return order.status.toLowerCase() === ordersFilter
   })
+
+  const handleClearCart = async () => {
+    if (!window.confirm('Yakin ingin menghapus semua item dari keranjang aktif user ini?')) return
+    setIsClearingCart(true)
+    try {
+      const contactId = typeof chat.contactId === 'object' ? chat.contactId?.id : chat.contactId
+      await api.post('/carts/clear-active', { contactId, chatId: chat.id })
+      toast.success('Keranjang berhasil dikosongkan')
+      // trigger parent re-poll by dispatching a storage event (picked up by polling effect)
+      window.dispatchEvent(new Event('cart-cleared'))
+    } catch (err) {
+      toast.error('Gagal mengosongkan keranjang')
+    } finally {
+      setIsClearingCart(false)
+    }
+  }
 
   return (
     <div className='space-y-6 pb-6'>
@@ -513,7 +529,7 @@ function CommerceTab({ chat, onOpenOrder }) {
             className={`chat-prism-commerce-select ${isOutletDropdownOpen ? 'open' : ''}`}
             onClick={() => setIsOutletDropdownOpen((open) => !open)}
           >
-            <span>{outlet || selectedOutlet.name}</span>
+            <span>{selectedOutlet?.name || 'Pilih outlet...'}</span>
             <ChevronDown
               size={14}
               className={isOutletDropdownOpen ? 'open' : ''}
@@ -526,23 +542,7 @@ function CommerceTab({ chat, onOpenOrder }) {
                 <Search size={14} />
                 <input type='text' placeholder='Search outlet...' />
               </div>
-              <button
-                className='chat-prism-outlet-option current'
-                onClick={() => {
-                  setSelectedOutletId('ST_SMG')
-                  setIsOutletDropdownOpen(false)
-                }}
-              >
-                <span className='chat-prism-outlet-icon'>
-                  <MapPin size={14} />
-                </span>
-                <span className='chat-prism-outlet-copy'>
-                  <strong>Use current outlet</strong>
-                  <small>Selalu Teh - Semarang City</small>
-                </span>
-                {selectedOutletId === 'ST_SMG' && <CheckCircle2 size={16} />}
-              </button>
-              {OUTLETS.map((item) => {
+              {displayOutlets.map((item) => {
                 const isSelected = selectedOutletId === item.id
                 return (
                   <button
@@ -554,13 +554,13 @@ function CommerceTab({ chat, onOpenOrder }) {
                     }}
                   >
                     <span className='chat-prism-outlet-initials'>
-                      {item.initials}
+                      {item.initials || (item.name || '?').slice(0, 2).toUpperCase()}
                     </span>
                     <span className='chat-prism-outlet-copy'>
                       <strong>{item.name}</strong>
-                      <small>{item.location}</small>
+                      <small>{item.location || item.city || ''}</small>
                     </span>
-                    <em className={item.status.toLowerCase()}>{item.status}</em>
+                    <em className={(item.status || 'active').toLowerCase()}>{item.status || 'Active'}</em>
                     {isSelected && <Check size={14} />}
                   </button>
                 )
@@ -570,6 +570,7 @@ function CommerceTab({ chat, onOpenOrder }) {
               </button>
             </div>
           )}
+
         </div>
       </div>
 
@@ -579,16 +580,26 @@ function CommerceTab({ chat, onOpenOrder }) {
         <div className='mt-1.5 flex items-center justify-between bg-white border border-slate-100 rounded-xl p-3 shadow-sm'>
           <div className='flex items-center gap-2 text-xs font-semibold text-slate-600'>
             <ShoppingCart size={14} className='text-slate-400 shrink-0' />
-            <span>3 items</span>
+            <span>{cartSummary.itemCount} item{cartSummary.itemCount === 1 ? '' : 's'}</span>
             <span className='text-slate-300'>•</span>
-            <span>Rp 110.000</span>
+            <span>{formatRupiah(cartSummary.subtotal)}</span>
           </div>
-          <button
-            className='px-3 py-1.5 bg-[var(--brand-50)] text-[var(--brand-600)] border border-[var(--brand-100)] rounded-lg text-xs font-bold hover:bg-[var(--brand-100)] transition-colors cursor-pointer'
-            onClick={() => setIsViewCartModalOpen(true)}
-          >
-            View cart
-          </button>
+          <div className='flex items-center gap-1.5'>
+            <button
+              className='px-3 py-1.5 bg-[var(--brand-50)] text-[var(--brand-600)] border border-[var(--brand-100)] rounded-lg text-xs font-bold hover:bg-[var(--brand-100)] transition-colors cursor-pointer'
+              onClick={() => setIsViewCartModalOpen(true)}
+            >
+              View cart
+            </button>
+            <button
+              title='Kosongkan keranjang'
+              disabled={isClearingCart}
+              onClick={handleClearCart}
+              className='p-1.5 rounded-lg border border-red-100 bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors cursor-pointer disabled:opacity-50'
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -630,24 +641,24 @@ function CommerceTab({ chat, onOpenOrder }) {
         <div className='bg-white border border-slate-100 rounded-xl p-3.5 shadow-sm mt-1.5 space-y-2.5'>
           <div className='flex justify-between text-xs text-slate-500 font-semibold'>
             <span>Subtotal</span>
-            <span className='text-slate-700'>Rp 100.000</span>
+            <span className='text-slate-700'>{formatRupiah(cartSummary.subtotal)}</span>
           </div>
           <div className='flex justify-between text-xs text-[var(--brand-500)] font-semibold'>
             <span>Discount</span>
-            <span>- Rp 10.000</span>
+            <span>- {formatRupiah(cartSummary.discount)}</span>
           </div>
           <div className='flex justify-between text-xs text-slate-500 font-semibold'>
             <span>Shipping</span>
-            <span className='text-slate-700'>Rp 10.000</span>
+            <span className='text-slate-700'>{formatRupiah(cartSummary.shipping)}</span>
           </div>
           <div className='flex justify-between text-xs text-slate-500 font-semibold'>
             <span>VAT (11%)</span>
-            <span className='text-slate-700'>Rp 11.000</span>
+            <span className='text-slate-700'>{formatRupiah(cartSummary.vat)}</span>
           </div>
           <div className='h-[1px] bg-slate-100 my-2' />
           <div className='flex justify-between text-sm font-bold text-slate-800'>
             <span>Total</span>
-            <span className='text-[var(--brand-600)]'>Rp 111.000</span>
+            <span className='text-[var(--brand-600)]'>{formatRupiah(cartSummary.total)}</span>
           </div>
         </div>
       </div>
@@ -738,66 +749,35 @@ function CommerceTab({ chat, onOpenOrder }) {
             </button>
           </div>
           <div className='space-y-3'>
-            <div
-              className='flex items-center justify-between group cursor-pointer'
-              onClick={() => onOpenOrder && onOpenOrder('ORD-1028')}
-            >
-              <div className='flex items-center gap-2 min-w-0'>
-                <div className='w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0' />
-                <span className='text-[10px] font-mono text-slate-500 group-hover:text-[var(--brand-600)] transition-colors truncate'>
-                  ORD-1028
-                </span>
-              </div>
-              <span className='text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200'>
-                Draft
-              </span>
-              <span className='text-[10px] font-bold text-slate-700 text-right'>
-                Rp 111.000
-              </span>
-              <span className='text-[10px] text-slate-400 text-right'>
-                10:15 AM
-              </span>
-            </div>
-            <div
-              className='flex items-center justify-between group cursor-pointer'
-              onClick={() => onOpenOrder && onOpenOrder('ORD-1027')}
-            >
-              <div className='flex items-center gap-2 min-w-0'>
-                <div className='w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0' />
-                <span className='text-[10px] font-mono text-slate-500 group-hover:text-[var(--brand-600)] transition-colors truncate'>
-                  ORD-1027
-                </span>
-              </div>
-              <span className='text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100'>
-                Pending
-              </span>
-              <span className='text-[10px] font-bold text-slate-700 text-right'>
-                Rp 98.500
-              </span>
-              <span className='text-[10px] text-slate-400 text-right'>
-                Yesterday
-              </span>
-            </div>
-            <div
-              className='flex items-center justify-between group cursor-pointer'
-              onClick={() => onOpenOrder && onOpenOrder('ORD-1026')}
-            >
-              <div className='flex items-center gap-2 min-w-0'>
-                <div className='w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0' />
-                <span className='text-[10px] font-mono text-slate-500 group-hover:text-[var(--brand-600)] transition-colors truncate'>
-                  ORD-1026
-                </span>
-              </div>
-              <span className='text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-100'>
-                Paid
-              </span>
-              <span className='text-[10px] font-bold text-slate-700 text-right'>
-                Rp 85.000
-              </span>
-              <span className='text-[10px] text-slate-400 text-right'>
-                2 days ago
-              </span>
-            </div>
+            {displayOrders.slice(0, 3).length > 0 ? displayOrders.slice(0, 3).map((order) => {
+              const id = order.id || order._id || order.orderNumber || order.order_number
+              const status = order.status || order.payment || order.paymentStatus || 'Draft'
+              const amount = order.amount || order.total || order.totalAmount || order.grandTotal || 0
+              const time = order.time || order.date || (order.createdAt ? new Date(order.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '—')
+              return (
+                <div
+                  key={id}
+                  className='flex items-center justify-between group cursor-pointer'
+                  onClick={() => onOpenOrder && id && onOpenOrder(id)}
+                >
+                  <div className='flex items-center gap-2 min-w-0'>
+                    <div className='w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0' />
+                    <span className='text-[10px] font-mono text-slate-500 group-hover:text-[var(--brand-600)] transition-colors truncate'>
+                      {id || 'ORDER'}
+                    </span>
+                  </div>
+                  <span className='text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200'>
+                    {status}
+                  </span>
+                  <span className='text-[10px] font-bold text-slate-700 text-right'>
+                    {typeof amount === 'string' ? amount : formatRupiah(amount)}
+                  </span>
+                  <span className='text-[10px] text-slate-400 text-right'>
+                    {time}
+                  </span>
+                </div>
+              )
+            }) : <p className='text-[10px] text-slate-400'>No orders yet.</p>}
           </div>
         </div>
       </div>
@@ -823,10 +803,14 @@ function CommerceTab({ chat, onOpenOrder }) {
             setIsBrowseModalOpen(false)
             setIsViewCartModalOpen(true)
           }}
+          products={availableProducts}
+          cartItems={displayCart}
+          outletName={selectedOutlet?.name || 'Outlet'}
+          outletStatus={selectedOutlet?.operational_status || selectedOutlet?.status || 'Active'}
         />
       )}
       {isViewCartModalOpen && (
-        <ViewCartModal onClose={() => setIsViewCartModalOpen(false)} />
+        <ViewCartModal onClose={() => setIsViewCartModalOpen(false)} cartItems={displayCart} />
       )}
     </div>
   )
@@ -1133,14 +1117,15 @@ function QuickAddModal({ onClose }) {
   )
 }
 
-function BrowseProductsModal({ onClose, onViewCart }) {
+function BrowseProductsModal({ onClose, onViewCart, products = [], cartItems = [], outletName = 'Outlet', outletStatus = 'Active' }) {
+  const summary = buildCartSummary(cartItems)
   return (
     <CommerceModal title='Browse products' onClose={onClose} size='lg'>
       <div className='chat-prism-browse-head'>
         <span>
-          Outlet: <b>Selalu Teh - Senayan City</b> <ChevronDown size={14} />
+          Outlet: <b>{outletName}</b> <ChevronDown size={14} />
         </span>
-        <em>Open · Closes at 22:00</em>
+        <em>{outletStatus}</em>
       </div>
       <div className='chat-prism-product-toolbar'>
         <div>
@@ -1160,16 +1145,16 @@ function BrowseProductsModal({ onClose, onViewCart }) {
         may be out of stock.
       </div>
       <div className='chat-prism-product-grid'>
-        {PRODUCTS.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
+        {products.length > 0 ? products.map((product) => (
+          <ProductCard key={product.id || product._id} product={product} />
+        )) : <p style={{padding: 20, color: 'var(--text-muted)'}}>No products available at this outlet</p>}
       </div>
       <div className='chat-prism-sticky-cart'>
         <div>
           <ShoppingCart size={20} />
           <span>
-            <strong>2 items selected</strong>
-            <small>Subtotal Rp 46.000</small>
+            <strong>{summary.itemCount} item(s) selected</strong>
+            <small>Subtotal {formatRupiah(summary.subtotal)}</small>
           </span>
         </div>
         <div>
@@ -1181,46 +1166,47 @@ function BrowseProductsModal({ onClose, onViewCart }) {
   )
 }
 
-function ViewCartModal({ onClose }) {
+function ViewCartModal({ onClose, cartItems = [] }) {
+  const summary = buildCartSummary(cartItems)
   return (
     <CommerceModal
       title='View Cart'
-      subtitle='You have 3 item(s) in your cart'
+      subtitle={`You have ${summary.itemCount} item(s) in your cart`}
       onClose={onClose}
       size='sm'
     >
       <div className='chat-prism-cart-items'>
-        {CART_ITEMS.map((item) => (
-          <div key={item.id} className='chat-prism-cart-card'>
+        {cartItems.length > 0 ? cartItems.slice(0, 10).map((item) => (
+          <div key={item.id || item.product_id} className='chat-prism-cart-card'>
             <div className='chat-prism-product-thumb'>
               <ShoppingBag size={22} />
             </div>
             <div>
               <div className='chat-prism-cart-card-head'>
-                <strong>{item.name}</strong>
+                <strong>{item.name || item.productNameSnapshot || 'Product'}</strong>
                 <button>
                   <Trash2 size={15} />
                 </button>
               </div>
-              <small>{item.variant}</small>
-              <b>{item.price}</b>
+              <small>{item.variant || item.variantNameSnapshot || (item.inferred ? 'Dari percakapan' : '')}</small>
+              <b>{formatRupiah(getItemUnitPrice(item))}</b>
               <div className='chat-prism-cart-card-foot'>
-                <QtyInput value={String(item.qty)} />
+                <QtyInput value={String(getItemQty(item))} />
                 <button>
                   <Edit2 size={14} />
                 </button>
-                <strong>{item.total}</strong>
+                <strong>{formatRupiah(getItemSubtotal(item))}</strong>
               </div>
             </div>
           </div>
-        ))}
+        )) : <p style={{ padding: 16, color: 'var(--text-muted)' }}>Cart masih kosong.</p>}
       </div>
       <div className='chat-prism-promo-row'>
         <Tag size={16} />
         <input placeholder='Promo Code' />
         <button>Apply</button>
       </div>
-      <OrderSummaryMini large />
+      <OrderSummaryMini large summary={summary} />
       <div className='chat-prism-free-shipping'>
         <CheckCircle2 size={16} />
         <div>
@@ -1237,6 +1223,7 @@ function ViewCartModal({ onClose }) {
 }
 
 function ProductCard({ product }) {
+  const price = product.basePrice ?? product.base_price ?? product.price ?? 0
   return (
     <div className='chat-prism-product-card'>
       <div className='chat-prism-product-thumb'>
@@ -1251,7 +1238,7 @@ function ProductCard({ product }) {
         ) : (
           <i />
         )}
-        <b>{product.price}</b>
+        <b>{formatRupiah(price)}</b>
         <small className={product.stock === 'Low stock' ? 'low' : ''}>
           {product.stock}
         </small>
@@ -1264,28 +1251,28 @@ function ProductCard({ product }) {
   )
 }
 
-function OrderSummaryMini({ large }) {
+function OrderSummaryMini({ large, summary = buildCartSummary([]) }) {
   return (
     <div className={`chat-prism-order-summary-mini ${large ? 'large' : ''}`}>
       <p>
         <span>Subtotal</span>
-        <b>Rp 100.000</b>
+        <b>{formatRupiah(summary.subtotal)}</b>
       </p>
       <p className='discount'>
         <span>Discount</span>
-        <b>- Rp 10.000</b>
+        <b>- {formatRupiah(summary.discount)}</b>
       </p>
       <p>
         <span>Shipping</span>
-        <b>Rp 10.000</b>
+        <b>{formatRupiah(summary.shipping)}</b>
       </p>
       <p>
         <span>VAT (11%)</span>
-        <b>Rp 11.000</b>
+        <b>{formatRupiah(summary.vat)}</b>
       </p>
       <strong>
         <span>Total</span>
-        <b>Rp 111.000</b>
+        <b>{formatRupiah(summary.total)}</b>
       </strong>
     </div>
   )
@@ -1380,10 +1367,107 @@ function AiTab({ chat }) {
 
 export default function ChatContextPanel({
   chat,
+  messages = [],
   onOpenOrder,
   onResendPaymentLink,
 }) {
   const [activeTab, setActiveTab] = useState('contact')
+
+  // ── Live data ─────────────────────────────────────────────────────────────
+  const [liveOutlets, setLiveOutlets] = useState([])
+  const [liveProducts, setLiveProducts] = useState([])
+  const [liveCartItems, setLiveCartItems] = useState([])
+  // Initialize outlet from chat.currentOutletId so sidebar shows correct outlet immediately
+  const [liveCartOutletId, setLiveCartOutletId] = useState(
+    chat?.currentOutletId || chat?.current_outlet_id || null
+  )
+  const [liveOrders, setLiveOrders] = useState([])
+  const [outletProductMap, setOutletProductMap] = useState({})
+
+  // ── Fetch static data (outlets, products, orders) once per chat ───────────
+  useEffect(() => {
+    if (isDemoMode() || !chat?.workspaceId) return
+    ;(async () => {
+      try {
+        const [oRes, pRes, ordRes] = await Promise.all([
+          api.get('/outlets'),
+          api.get('/products'),
+          api.get('/orders'),
+        ])
+        const outlets = Array.isArray(oRes.data?.data) ? oRes.data.data : Array.isArray(oRes.data) ? oRes.data : []
+        const products = Array.isArray(pRes.data?.data) ? pRes.data.data : Array.isArray(pRes.data) ? pRes.data : []
+        const orders = Array.isArray(ordRes.data?.data) ? ordRes.data.data.slice(0, 5) : Array.isArray(ordRes.data) ? ordRes.data.slice(0, 5) : []
+
+        setLiveOutlets(outlets)
+        setLiveProducts(products)
+        setLiveOrders(orders)
+
+        // Build outlet → product ID map
+        const map = {}
+        for (const p of products) {
+          try {
+            const aRes = await api.get(`/products/${p.id || p._id}/outlet-availability`).catch(() => null)
+            const avail = aRes?.data?.data || []
+            for (const a of avail) {
+              const oid = a.outletId || a.outlet_id
+              if (!map[oid]) map[oid] = []
+              map[oid].push(p.id || p._id)
+            }
+          } catch {}
+        }
+        setOutletProductMap(map)
+      } catch (e) {
+        console.warn('[ContextPanel] static data error:', e.message)
+      }
+    })()
+  }, [chat?.workspaceId])
+
+  // ── Poll cart every 5s so sidebar stays in sync with AI actions ───────────
+  useEffect(() => {
+    if (isDemoMode() || !chat?.workspaceId) return
+    const chatId = chat?.id || chat?._id
+    const contactId = typeof chat?.contactId === 'object' ? chat?.contactId?.id : chat?.contactId
+    if (!chatId && !contactId) return
+
+    const fetchCart = async () => {
+      try {
+        const params = {}
+        if (chatId) params.chat_id = chatId
+        if (contactId) params.contact_id = contactId
+        const cRes = await api.get('/carts/current', { params }).catch(() => null)
+        const httpStatus = cRes?.status
+        const cart = cRes?.data?.data || cRes?.data || null
+        if (cart && (cart.outletId || cart.outlet_id)) {
+          // Cart exists → sync from it
+          setLiveCartItems(cart.items || [])
+          setLiveCartOutletId(cart.outletId || cart.outlet_id)
+        } else if (httpStatus === 404 || !cart) {
+          // No active cart — clear items but keep outlet from chat record
+          setLiveCartItems([])
+          // Refetch chat to get latest currentOutletId
+          try {
+            const chatRes = await api.get(`/chats/${chatId}`).catch(() => null)
+            const updatedChat = chatRes?.data?.data || chatRes?.data || null
+            const latestOutletId = updatedChat?.currentOutletId || updatedChat?.current_outlet_id
+            if (latestOutletId) setLiveCartOutletId(latestOutletId)
+          } catch {}
+        } else {
+          setLiveCartItems(cart.items || [])
+        }
+      } catch (e) {
+        // silent — don't break UI if cart fetch fails
+      }
+    }
+
+    fetchCart() // immediate
+    const interval = setInterval(fetchCart, 5000)
+    // Also refresh immediately when cart is cleared from sidebar
+    window.addEventListener('cart-cleared', fetchCart)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('cart-cleared', fetchCart)
+    }
+  }, [chat?.id, chat?._id, chat?.contactId])
 
   if (!chat) return null
 
@@ -1417,8 +1501,15 @@ export default function ChatContextPanel({
         {activeTab === 'commerce' && (
           <CommerceTab
             chat={chat}
+            messages={messages}
             onOpenOrder={onOpenOrder}
             onResendPaymentLink={onResendPaymentLink}
+            liveOutlets={liveOutlets}
+            liveProducts={liveProducts}
+            liveCartItems={liveCartItems}
+            liveCartOutletId={liveCartOutletId}
+            liveOrders={liveOrders}
+            outletProductMap={outletProductMap}
           />
         )}
         {activeTab === 'ai' && <AiTab chat={chat} />}

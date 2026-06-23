@@ -1,0 +1,491 @@
+schema_version: 2
+spec_version: 1.0.0
+
+id: selaluteh-inventory-stock-ledger
+title: SelaluTeh Inventory & Stock Ledger
+description: >-
+  Dedicated requirements-first specification for workspace inventory items,
+  ingredients and finished goods, outlet stock accounts, immutable stock ledger
+  entries, on-hand/reserved/available balance projections, order reservations
+  and consumption, receipts, adjustments, waste, returns, transfers, stocktakes,
+  batch and expiry tracking, product availability, reconciliation, audit,
+  security, testing, migration, and production readiness.
+
+type: feature
+workflow: requirements-first
+
+status: active
+workflow_state: in_progress
+priority: critical
+
+created_at: '2026-06-23'
+updated_at: '2026-06-23'
+
+owners:
+  product_owner: SelaluTeh product owner
+  technical_owner: project-maintainer
+  security_owner: project-maintainer
+  inventory_operations_owner: project-maintainer
+  implementation_actor: coding-agent
+  review_required: true
+  security_review_required: true
+  data_integrity_review_required: true
+
+tags:
+  - inventory
+  - stock
+  - ledger
+  - reservations
+  - multi-outlet
+  - products
+  - ingredients
+  - transfers
+  - stocktake
+  - supabase
+  - security
+  - tdd
+
+lifecycle:
+  config: docs/specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: docs/specs/active/selaluteh-inventory-stock-ledger
+  move_entire_spec_directory: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    dry_run_command: npm run specs:sync:dry
+    sync_command: npm run specs:sync
+    check_command: npm run specs:check
+    automatic_local_move: false
+    ci_check_only: true
+
+  completion_requirements:
+    - all-p0-tasks-completed
+    - approved-p1-p2-deferrals-documented
+    - definition-of-done-passed
+    - immutable-ledger-passed
+    - balance-equation-passed
+    - no-oversell-concurrency-passed
+    - workspace-outlet-isolation-passed
+    - order-payment-reservation-flow-passed
+    - product-availability-integration-passed
+    - ai-mutation-denial-passed
+    - projection-rebuild-passed
+    - security-property-concurrency-resilience-performance-tests-passed
+    - migration-and-rollback-documented
+    - operational-runbooks-documented
+    - documentation-updated
+    - implementation-status-updated
+    - specs-check-passed
+
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+  reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md
+  definition_of_done: docs/backend/11-sprint/definition-of-done.md
+
+document_authority:
+  precedence:
+    - latest-approved-inventory-decision
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+    - current-task
+    - implementation-status-for-reality
+    - external-domain-contracts
+    - legacy-documents
+
+product:
+  name: SelaluTeh Marketplace
+  area: inventory-stock-ledger
+  stage: full-product-design-with-alpha-slice
+  architecture:
+    - immutable-ledger
+    - projected-balances
+    - multi-workspace-ready
+    - multi-outlet
+    - order-reservations
+    - direct-and-recipe-tracking
+    - supabase-postgresql
+    - event-driven-integration
+
+spec_relationships:
+  umbrella:
+    id: selaluteh-backend-marketplace
+    relationship: backend-architecture-and-shared-rules
+
+  depends_on:
+    - id: selaluteh-workspace-access-control
+      relationship: workspace-outlet-and-action-authorization
+    - id: selaluteh-outlet-management-operations
+      relationship: outlet-identity-and-operational-state
+    - id: selaluteh-product-catalog
+      relationship: canonical-product-variant-and-modifier-definitions
+    - id: selaluteh-cart-order-lifecycle
+      relationship: availability-reservation-release-and-commit-commands
+    - id: selaluteh-payments-xendit
+      relationship: payment-events-through-order-policy
+    - id: selaluteh-audit-activity-timeline
+      relationship: immutable-administrative-activity
+    - id: selaluteh-notification-attention-engine
+      relationship: low-stock-and-integrity-alerts
+    - id: selaluteh-analytics-read-models
+      relationship: stock-consumption-waste-and-variance-analytics
+    - id: selaluteh-admin-data-operations
+      relationship: bulk-import-export-reconciliation-and-migration-jobs
+    - id: selaluteh-media-storage
+      relationship: waste-and-quality-evidence-attachments
+
+  does_not_replace:
+    - selaluteh-product-catalog
+    - selaluteh-cart-order-lifecycle
+    - selaluteh-payments-xendit
+    - selaluteh-outlet-management-operations
+    - selaluteh-workspace-access-control
+
+scope:
+  included:
+    - inventory-item-definitions
+    - product-variant-inventory-mappings
+    - direct-stock-tracking
+    - ingredient-and-recipe-tracking
+    - units-and-conversions
+    - item-and-stock-account-lifecycle
+    - outlet-stock-accounts
+    - immutable-stock-ledger
+    - inventory-transactions
+    - on-hand-reserved-available-in-transit
+    - projected-balances
+    - opening-balances
+    - receipts
+    - manual-adjustments
+    - waste-damage-loss
+    - operational-returns
+    - order-reservations
+    - reservation-expiry-and-release
+    - reservation-commit-and-consumption
+    - negative-stock-policy
+    - low-stock-thresholds
+    - product-availability-integration
+    - outlet-transfers
+    - transfer-approval-and-variance
+    - stocktakes
+    - cycle-counts
+    - batch-lot-expiry
+    - quarantine
+    - cost-metadata-boundary
+    - supplier-procurement-boundary
+    - inventory-search-and-read-models
+    - ledger-timeline
+    - reservation-transfer-stocktake-read-models
+    - ai-read-tools
+    - order-payment-product-outlet-integration
+    - authorization-and-rls
+    - api-contracts
+    - admin-ui-states
+    - domain-events
+    - audit
+    - observability
+    - optimistic-concurrency
+    - ledger-reconciliation
+    - projection-repair
+    - legacy-migration
+    - testing
+    - scalability
+    - operational-readiness
+
+  deferred:
+    - full-procurement-suite
+    - supplier-contract-management
+    - accounts-payable
+    - financial-general-ledger
+    - automated-purchase-order-placement
+    - warehouse-robotics
+    - serial-number-tracking
+    - regulated-pharmaceutical-traceability
+    - unrestricted-negative-stock
+    - ai-stock-mutation
+    - cross-workspace-stock-sharing
+    - advanced-demand-forecasting
+
+  excluded:
+    - product-catalog-ownership
+    - order-lifecycle-ownership
+    - payment-truth
+    - outlet-lifecycle
+    - generic-audit-store
+    - generic-notification-delivery
+    - media-binary-storage
+    - frontend-as-inventory-authority
+    - direct-balance-overwrite
+
+fixed_decisions:
+  ledger:
+    append_only: true
+    correction_strategy: compensating-entry
+    direct_edit_delete_allowed: false
+    authoritative_history: true
+
+  balances:
+    projected: true
+    fields:
+      - on_hand
+      - reserved
+      - available
+      - in_transit
+    equation: available-equals-on-hand-minus-active-reserved
+    rebuildable: true
+
+  ownership:
+    item_definition_scope: workspace
+    quantity_scope: outlet
+    cross_workspace_inventory: false
+
+  tracking_modes:
+    - NONE
+    - DIRECT
+    - RECIPE
+
+  negative_stock:
+    default_allowed: false
+    override_requires_permission: true
+    ai_can_override: false
+
+  alpha_order_policy:
+    reserve_at: PAYABLE_ORDER_OR_PAYMENT_LINK_CREATION
+    preserve_after_payment_success: true
+    commit_at: OUTLET_APPROVAL
+    release_on:
+      - PAYMENT_EXPIRED
+      - ORDER_REJECTED
+      - ORDER_CANCELLED
+      - RESERVATION_EXPIRED
+
+  ai:
+    read_only_tools: true
+    mutation_tools_allowed: false
+
+requirements_registry:
+  prefix: INV-R
+  total: 58
+
+correctness_invariants:
+  - posted-ledger-entry-is-immutable
+  - correction-uses-compensating-entry
+  - every-mutation-has-one-inventory-transaction
+  - duplicate-idempotency-key-has-one-business-effect
+  - on-hand-equals-posted-physical-ledger-deltas
+  - reserved-equals-active-reservations
+  - available-equals-on-hand-minus-reserved
+  - no-oversell-when-negative-stock-disabled
+  - commit-reduces-on-hand-and-reserved-atomically
+  - release-reduces-reserved-without-changing-on-hand
+  - product-and-inventory-identities-remain-separate
+  - workspace-and-outlet-isolation-always-applies
+  - ai-never-creates-inventory-mutation
+  - balance-projection-can-be-rebuilt
+  - payment-event-does-not-bypass-order-policy
+  - other-outlet-stock-is-not-mutated
+  - transfer-received-never-exceeds-resolved-dispatched-quantity
+
+security:
+  immutable_controls:
+    - append-only-ledger
+    - workspace-outlet-isolation
+    - rls-defense-in-depth
+    - no-direct-balance-write
+    - negative-stock-denied-by-default
+    - ai-read-only
+    - idempotent-order-integration
+    - frontend-not-authority
+
+  release_blockers:
+    - posted-ledger-entry-editable
+    - direct-balance-overwrite-path
+    - concurrent-reservations-oversell
+    - duplicate-order-event-duplicates-consumption
+    - cross-workspace-or-outlet-access
+    - ai-can-adjust-stock
+    - projection-cannot-reconcile
+    - negative-stock-without-authorized-policy
+    - commit-release-race-corrupts-balance
+    - production-data-or-secret-used-in-tests
+
+testing:
+  methodology: test-driven-development
+  production_data_prohibited: true
+  production_secrets_prohibited: true
+
+  layers:
+    unit:
+      path: server/test/unit/inventory-stock-ledger
+      required: true
+    component:
+      path: server/test/component/inventory-stock-ledger
+      required: true
+    integration:
+      path: server/test/integration/inventory-stock-ledger
+      required: true
+    security:
+      path: server/test/security/inventory-stock-ledger
+      required: true
+    property:
+      path: server/test/property/inventory-stock-ledger
+      required: true
+    concurrency:
+      path: server/test/concurrency/inventory-stock-ledger
+      required: true
+    resilience:
+      path: server/test/resilience/inventory-stock-ledger
+      required: true
+    performance:
+      path: server/test/performance/inventory-stock-ledger
+      required: true
+
+  required_properties:
+    - ledger-immutability
+    - on-hand-ledger-equation
+    - reserved-active-reservation-equation
+    - available-balance-equation
+    - duplicate-command-one-effect
+    - no-oversell
+    - reversal-restores-net-quantity
+    - ai-no-mutation
+    - cross-workspace-outlet-never-allowed
+
+  release_gate_commands:
+    spec_check: npm run specs:check
+    unit: npm run test:inventory:unit
+    component: npm run test:inventory:component
+    integration: npm run test:inventory:integration
+    security: npm run test:inventory:security
+    property: npm run test:inventory:property
+    concurrency: npm run test:inventory:concurrency
+    resilience: npm run test:inventory:resilience
+    performance: npm run test:inventory:performance
+    all: npm run test:inventory:all
+
+implementation:
+  current_phase: preflight-and-legacy-stock-audit
+  task_source: tasks.md
+  active_task_pointer: docs/backend/09-ai-context/current-task.md
+  recommended_first_task: 0-confirm-authority-and-audit
+
+  fastest_safe_alpha_order:
+    - task-section-0
+    - task-section-1
+    - task-section-2
+    - task-section-3
+    - task-section-5
+    - task-section-6
+    - task-section-7
+    - task-section-8
+    - task-section-9
+    - task-section-11
+    - task-section-12
+    - task-section-13
+    - task-section-14
+    - task-section-15
+    - task-section-16
+    - task-section-17
+    - task-section-23
+    - task-section-24
+    - task-section-26
+    - task-section-27
+    - task-section-28
+    - task-section-29
+    - task-section-30
+    - task-section-31
+    - task-section-32
+    - task-section-33
+    - task-section-35
+    - task-section-36
+    - task-section-37
+    - task-section-38
+
+  may_defer_after_alpha:
+    - recipes-and-ingredients
+    - batch-expiry
+    - waste-evidence
+    - returns
+    - transfers
+    - stocktake-scheduling
+    - cost-valuation
+    - procurement-integration
+    - quarantine
+
+  must_not_defer:
+    - inventory-items-and-units
+    - product-direct-mapping
+    - outlet-stock-accounts
+    - immutable-ledger
+    - balance-projection
+    - opening-balance
+    - receipt-and-adjustment
+    - reservation-release-commit
+    - order-payment-integration
+    - availability-reason-codes
+    - low-stock
+    - authorization-and-rls
+    - idempotency-and-concurrency
+    - reconciliation-and-repair
+    - critical-e2e-tests
+
+status_workflow:
+  initial_status: active
+  initial_workflow_state: in_progress
+
+  folder_statuses:
+    backlog:
+      folder: docs/specs/backlog
+      workflow_states: [ draft, review, approved ]
+    active:
+      folder: docs/specs/active
+      workflow_states: [ in_progress, blocked, verifying ]
+    completed:
+      folder: docs/specs/completed
+      workflow_states: [ done, archived ]
+
+  folder_move_rule: edit-status-then-run-npm-run-specs-sync
+  completed_guard: required-unchecked-tasks-must-be-zero
+
+references:
+  own_documents:
+    - docs/specs/active/selaluteh-inventory-stock-ledger/requirements.md
+    - docs/specs/active/selaluteh-inventory-stock-ledger/design.md
+    - docs/specs/active/selaluteh-inventory-stock-ledger/tasks.md
+
+  related:
+    - docs/specs/active/selaluteh-backend-marketplace/spec.yaml
+    - docs/specs/active/selaluteh-workspace-access-control/spec.yaml
+    - docs/specs/active/selaluteh-outlet-management-operations/spec.yaml
+    - docs/specs/active/selaluteh-product-catalog/spec.yaml
+    - docs/specs/active/selaluteh-cart-order-lifecycle/spec.yaml
+    - docs/specs/active/selaluteh-payments-xendit/spec.yaml
+    - docs/specs/active/selaluteh-ai-agent-architecture/spec.yaml
+    - docs/specs/active/selaluteh-ai-agent-scope-security/spec.yaml
+
+metadata:
+  generated_for: selaluteh-inventory-stock-ledger
+  generated_at: '2026-06-23'
+  based_on:
+    - latest-product-catalog-boundary
+    - latest-multi-outlet-architecture
+    - latest-alpha-order-payment-approval-flow
+    - latest-workspace-access-control-plan
+    - legacy-modernization-and-supabase-cutover-plan
+
+  notes:
+    - This is a full-product spec with an explicit fastest safe alpha slice.
+    - Product Catalog and Inventory remain separate domains.
+    - Inventory history is append-only; balances are rebuildable projections.
+    - Alpha reserves stock before payment and commits at outlet approval.
+    - AI tools are read-only and cannot mutate stock.

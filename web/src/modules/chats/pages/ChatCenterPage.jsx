@@ -133,6 +133,7 @@ export default function ChatCenterPage() {
         <div className='chat-prism-context-column'>
           <ChatContextPanel
             chat={selectedChat}
+            messages={messages}
             onOpenOrder={(orderId) =>
               window.open('/app/orders?id=' + orderId, '_blank')
             }

@@ -1,6 +1,7 @@
 import express from 'express';
 import { authRequired, attachUser } from '../middleware/auth.js';
 import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
+import { authorizePermission } from '../middleware/authorization.js';
 import { validateBody } from '../middleware/validate.js';
 import { validateProductCreate, validateProductUpdate, validateProductAvailability } from '../validators/products.schema.js';
 import {
@@ -14,7 +15,7 @@ const router = express.Router();
 
 router.use(authRequired, attachUser, attachWorkspaceContext);
 
-router.get('/', async (req, res, next) => {
+router.get('/', authorizePermission('products', 'read'), async (req, res, next) => {
   try {
     const result = await listProducts({
       user: req.me,
@@ -31,7 +32,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.get('/export.csv', async (req, res, next) => {
+router.get('/export.csv', authorizePermission('products', 'export'), async (req, res, next) => {
   try {
     const products = await productsRepository.findProducts({ workspaceId: req.me.workspaceId });
     res.setHeader('content-type', 'text/csv; charset=utf-8');
@@ -42,7 +43,7 @@ router.get('/export.csv', async (req, res, next) => {
   }
 });
 
-router.post('/import/validate', async (req, res, next) => {
+router.post('/import/validate', authorizePermission('products', 'write'), async (req, res, next) => {
   try {
     const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
     res.json({ data: validateProductImportRows(rows) });
@@ -51,7 +52,7 @@ router.post('/import/validate', async (req, res, next) => {
   }
 });
 
-router.get('/:productId', async (req, res, next) => {
+router.get('/:productId', authorizePermission('products', 'read'), async (req, res, next) => {
   try {
     const outletId = req.query.outlet_id || req.query.outletId;
     const product = outletId
@@ -63,7 +64,7 @@ router.get('/:productId', async (req, res, next) => {
   }
 });
 
-router.post('/', validateBody(validateProductCreate), async (req, res, next) => {
+router.post('/', authorizePermission('products', 'write'), validateBody(validateProductCreate), async (req, res, next) => {
   try {
     const product = await createProduct({ user: req.me, data: req.body });
     res.status(201).json({ data: product });
@@ -72,7 +73,7 @@ router.post('/', validateBody(validateProductCreate), async (req, res, next) => 
   }
 });
 
-router.put('/:productId', validateBody(validateProductUpdate), async (req, res, next) => {
+router.put('/:productId', authorizePermission('products', 'write'), validateBody(validateProductUpdate), async (req, res, next) => {
   try {
     const product = await updateProduct({ user: req.me, productId: req.params.productId, data: req.body });
     res.json({ data: product });
@@ -81,7 +82,7 @@ router.put('/:productId', validateBody(validateProductUpdate), async (req, res, 
   }
 });
 
-router.delete('/:productId', async (req, res, next) => {
+router.delete('/:productId', authorizePermission('products', 'write'), async (req, res, next) => {
   try {
     await archiveProduct({ user: req.me, productId: req.params.productId });
     res.json({ ok: true });
@@ -90,7 +91,7 @@ router.delete('/:productId', async (req, res, next) => {
   }
 });
 
-router.put('/:productId/outlet-availability', validateBody(validateProductAvailability), async (req, res, next) => {
+router.put('/:productId/outlet-availability', authorizePermission('products', 'write'), validateBody(validateProductAvailability), async (req, res, next) => {
   try {
     const rows = await updateOutletAvailability({
       user: req.me,
@@ -103,7 +104,7 @@ router.put('/:productId/outlet-availability', validateBody(validateProductAvaila
   }
 });
 
-router.get('/:productId/outlet-availability', async (req, res, next) => {
+router.get('/:productId/outlet-availability', authorizePermission('products', 'read'), async (req, res, next) => {
   try {
     const availability = await productsRepository.findAvailabilityByProduct({
       workspaceId: req.me.workspaceId,

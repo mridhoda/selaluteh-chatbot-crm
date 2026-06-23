@@ -6,9 +6,10 @@ import { listTelegramProductsForOutlet } from './product.service.js';
 import { addItem, removeItem, clearCart, getCartSummary } from './cart.service.js';
 import { createCheckout, confirmCheckout } from './checkout.service.js';
 import { createOrderFromCheckout } from './order.service.js';
-import { buildPaymentInstruction, createPaymentForOrder } from './payment.service.js';
+import { buildPaymentInstruction, createPaymentForOrder, createXenditPaymentSessionForOrder } from './payment.service.js';
+import { env } from '../config/env.js';
 
-const COMMERCE_VERSION = 1;
+export const COMMERCE_VERSION = 1;
 const MAX_PRODUCTS_PER_PAGE = 8;
 
 export function parseTelegramAction(data = '') {
@@ -28,7 +29,7 @@ export function parseTelegramAction(data = '') {
   return result;
 }
 
-function buildCallbackKey(scope, action, id, version) {
+export function buildCallbackKey(scope, action, id, version) {
   const v = version ?? COMMERCE_VERSION;
   const idPart = id != null ? `:${id}` : '';
   return `act:${scope}:${action}${idPart}:v${v}`;
@@ -405,23 +406,39 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
     const checkoutId = action.id;
     try {
       const confirmed = await confirmCheckout({ workspaceId, checkoutId });
-      const order = await createOrderFromCheckout({ workspaceId, checkout: confirmed, user: { name: contact?.name || 'customer' } });
-      const payment = await createPaymentForOrder({
-        workspaceId,
-        orderId: order.id,
-        customer: {
-          name: contact?.name || '',
-          phone: contact?.phone || contact?.platformAccountId || '',
-        },
-        paymentMethod: 'manual',
-      });
+      // Pass null for user: this is a Telegram (bot) context, not an HTTP user session.
+      // assertOutletAccess is only needed for human admin actions, not bot-triggered orders.
+      const order = await createOrderFromCheckout({ workspaceId, checkout: confirmed, user: null });
+
+      let payment;
+      let paymentInstruction;
+      if (env.paymentProvider === 'xendit') {
+        payment = await createXenditPaymentSessionForOrder({
+          workspaceId,
+          orderId: order.id,
+          customer: {
+            name: contact?.name || '',
+            phone: contact?.phone || contact?.platformAccountId || '',
+          },
+        });
+        paymentInstruction = `🔗 *Link Pembayaran:* ${payment.paymentUrl || payment.paymentLink}\n\nSilakan klik link di atas untuk menyelesaikan pembayaran. Link berlaku ${payment.expiresAt ? 'hingga ' + new Date(payment.expiresAt).toLocaleString('id-ID') : '30 menit'}.`;
+      } else {
+        payment = await createPaymentForOrder({
+          workspaceId,
+          orderId: order.id,
+          customer: {
+            name: contact?.name || '',
+            phone: contact?.phone || contact?.platformAccountId || '',
+          },
+        });
+        paymentInstruction = buildPaymentInstruction(payment);
+      }
       await checkoutsRepository.updateStatus({ workspaceId, checkoutId, status: 'converted' });
       const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId: contact.id, outletId: chat.currentOutletId });
       if (cart) {
         await cartsRepository.setStatus({ workspaceId, cartId: cart.id, status: 'converted' });
       }
       const ver = COMMERCE_VERSION;
-      const paymentInstruction = buildPaymentInstruction(payment);
       return {
         text: `✅ Pesanan berhasil dibuat!\n\nNo. Pesanan: ${order.orderNumber}\nTotal: Rp ${order.totals.total.toLocaleString('id-ID')}\n\n${paymentInstruction}\n\nKami akan segera proses pesananmu.`,
         keyboard: createInlineKeyboard([

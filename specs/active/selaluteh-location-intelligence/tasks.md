@@ -522,7 +522,7 @@ test:location:all
 - [x] Preserve existing test runner — uses `node --test` same as AI tests.
 - [x] Return non-zero on failure — `node --test` returns non-zero on failure by default.
 - [x] Exclude live Google tests from default CI — Google sandbox excluded from `test:location:all`.
-- [ ] Add optional:
+- [x] Add optional:
   ```text
   test:location:google:sandbox
   ```
@@ -922,7 +922,7 @@ Redis MAY cache.
 - [~] Update atomically. (memory-backed repository update exists; database atomic update is not wired)
 - [x] Expire.
 - [x] Cancel.
-- [ ] Confirm.
+- [x] Confirm.
 - [x] Idempotency by message ID.
 - [x] Workspace/contact/chat scope.
 - [x] Protected coordinate storage.
@@ -931,7 +931,7 @@ Redis MAY cache.
 
 - [x] CRUD.
 - [x] Duplicate message.
-- [ ] Concurrent update.
+- [x] Concurrent update.
 - [x] Expiry.
 - [x] Cross-workspace access denied.
 
@@ -962,8 +962,8 @@ ulang dari awal
 ```
 
 - [x] Clear flow.
-- [ ] Do not clear selected outlet unless marketplace command says so.
-- [ ] New flow gets new ID.
+- [x] Do not clear selected outlet unless marketplace command says so.
+- [x] New flow gets new ID.
 - [x] Duplicate cancellation idempotent.
 
 _Requirements: LINT-R2, LINT-R3_
@@ -1061,8 +1061,8 @@ _Requirements: LINT-R4_
 - [x] Alias.
 - [x] Unsupported city.
 - [x] Missing city.
-- [ ] Similar spelling.
-- [ ] Province mismatch.
+- [x] Similar spelling.
+- [x] Province mismatch.
 - [x] Cross-workspace city support.
 
 _Requirements: LINT-R4, LINT-R6_
@@ -1072,7 +1072,7 @@ _Requirements: LINT-R4, LINT-R6_
 - [x] Short TTL.
 - [x] Invalidate on outlet eligibility/location change.
 - [x] Workspace-safe cache key.
-- [ ] Cache failure fallback.
+- [x] Cache failure fallback.
 
 _Requirements: LINT-R4, LINT-R22_
 
@@ -1156,8 +1156,8 @@ LOCATION_PROVIDER_RETRY_MAX
 ```
 
 - [x] Validate missing key.
-- [ ] Validate timeout bounds.
-- [ ] Validate retry bounds.
+- [x] Validate timeout bounds.
+- [x] Validate retry bounds.
 - [x] No key in logs.
 - [x] No key in error messages.
 
@@ -1182,7 +1182,7 @@ to stable domain errors.
 
 - [x] Each mapping.
 - [x] Unknown error.
-- [ ] Cancellation.
+- [x] Cancellation.
 - [x] Safe customer error.
 
 _Requirements: LINT-R5, LINT-R25_
@@ -1272,7 +1272,7 @@ Implementation: `server/src/services/location-intelligence/strategy-selector.js`
 - [x] Validate coordinates.
 - [x] Hide raw response.
 - [x] Handle no result.
-- [ ] Handle multiple results.
+- [x] Handle multiple results.
 
 _Requirements: LINT-R5, LINT-R6_
 
@@ -1293,8 +1293,8 @@ _Requirements: LINT-R5, LINT-R7_
 - [x] Candidate city matches requested supported city.
 - [x] Candidate outside city rejected/ambiguous.
 - [x] Missing candidate city handled conservatively.
-- [ ] Alias resolution.
-- [ ] Province mismatch.
+- [x] Alias resolution.
+- [x] Province mismatch.
 
 _Requirements: LINT-R4, LINT-R6, LINT-R13_
 
@@ -1370,7 +1370,7 @@ _Requirements: LINT-R6, LINT-R7, LINT-R13, LINT-R22, LINT-R25_
 - [x] Samarinda without detail.
 - [x] Empty input.
 - [x] Expired flow.
-- [ ] Duplicate clarification.
+- [x] Duplicate clarification.
 
 Provider calls must equal zero.
 
@@ -1442,9 +1442,9 @@ goo.gl
 ```
 
 - [x] Central config.
-- [ ] Reviewed production list.
+- [x] Reviewed production list.
 - [x] Exact/suffix matching done safely.
-- [ ] Punycode normalization.
+- [x] Punycode normalization.
 - [x] No wildcard broadening.
 
 _Requirements: LINT-R9, LINT-R10, LINT-R24_
@@ -1457,8 +1457,8 @@ Implementation: `server/src/services/location-intelligence/secure-url-resolver.j
 - [x] Reject malformed URL.
 - [x] Reject credentials in URL.
 - [x] Normalize host.
-- [ ] Strip fragments when unnecessary.
-- [ ] Strip secret query parameters before persistence.
+- [x] Strip fragments when unnecessary.
+- [x] Strip secret query parameters before persistence.
 - [x] Block unsupported protocols.
 
 **Tests**
@@ -1469,7 +1469,7 @@ Implementation: `server/src/services/location-intelligence/secure-url-resolver.j
 - [x] ftp://.
 - [x] data:.
 - [x] username@host tricks.
-- [ ] encoded host tricks.
+- [x] encoded host tricks.
 
 _Requirements: LINT-R24_
 
@@ -1487,9 +1487,9 @@ metadata IP
 ```
 
 - [x] Validate every resolved address.
-- [ ] Reject mixed public/private answers.
+- [x] Reject mixed public/private answers.
 - [x] Revalidate redirects.
-- [ ] Add DNS rebinding mitigation.
+- [x] Add DNS rebinding mitigation.
 
 **Security tests**
 
@@ -1500,8 +1500,8 @@ metadata IP
 - [x] ::1.
 - [x] fc00::.
 - [x] fe80::.
-- [ ] hostname resolving private.
-- [ ] rebinding simulation.
+- [x] hostname resolving private.
+- [x] rebinding simulation.
 
 _Requirements: LINT-R24_
 
@@ -1510,10 +1510,10 @@ _Requirements: LINT-R24_
 - [x] Maximum 5 redirects.
 - [x] Validate each Location header.
 - [x] Detect loops.
-- [ ] Short timeout.
-- [ ] Response-size limit.
-- [ ] GET/HEAD only.
-- [ ] No cookies/auth forwarding.
+- [x] Short timeout.
+- [x] Response-size limit.
+- [x] GET/HEAD only.
+- [x] No cookies/auth forwarding.
 - [x] No JavaScript.
 
 **Tests**
@@ -1523,7 +1523,7 @@ _Requirements: LINT-R24_
 - [x] Redirect to private IP.
 - [x] Redirect to non-Google host.
 - [x] Too many redirects.
-- [ ] Oversized response.
+- [x] Oversized response.
 
 _Requirements: LINT-R9, LINT-R10, LINT-R24_
 
@@ -1542,7 +1542,7 @@ place path
 - [x] Short URL.
 - [x] Coordinate URL.
 - [x] Place URL.
-- [ ] Search URL.
+- [x] Search URL.
 - [x] Unsupported URL.
 
 _Requirements: LINT-R9, LINT-R10_
@@ -1551,7 +1551,7 @@ _Requirements: LINT-R9, LINT-R10_
 
 - [~] Place ID → Place Details. (resolved to normalized candidate without real provider details)
 - [x] Coordinates → normalized location.
-- [ ] Query → geocode/place search.
+- [x] Query → geocode/place search.
 - [x] No Google Maps HTML scraping.
 - [x] Return normalized candidate/preview.
 
@@ -1626,11 +1626,11 @@ authorize
 
 **Tests**
 
-- [ ] Valid full URL.
-- [ ] Valid short URL.
-- [ ] Unsupported URL.
-- [ ] SSRF blocked.
-- [ ] Provider timeout.
+- [x] Valid full URL.
+- [x] Valid short URL.
+- [x] Unsupported URL.
+- [x] SSRF blocked.
+- [x] Provider timeout.
 - [x] Existing outlet location unchanged.
 - [x] Cross-workspace denied.
 
@@ -1658,7 +1658,7 @@ coordinate bounds
 
 - [x] Atomic canonical update.
 - [x] Audit record.
-- [ ] Cache invalidation.
+- [x] Cache invalidation.
 - [x] Set VERIFIED.
 - [x] Clear preview.
 
@@ -1669,7 +1669,7 @@ _Requirements: LINT-R10, LINT-R11, LINT-R12, LINT-R27_
 - [x] Accept valid coordinate.
 - [x] Preserve provider original coordinate.
 - [x] Set source `manual_adjustment`.
-- [ ] Audit old/provider/adjusted values.
+- [x] Audit old/provider/adjusted values.
 - [x] Require confirmation.
 - [x] Reject extreme/invalid adjustment according to policy.
 
@@ -1680,7 +1680,7 @@ _Requirements: LINT-R10, LINT-R11, LINT-R12_
 - [x] Expected outlet version required.
 - [x] Conflict returns stable error.
 - [x] Preview cannot overwrite newer outlet edit.
-- [ ] Concurrent confirm test.
+- [x] Concurrent confirm test.
 
 _Requirements: LINT-R10, LINT-R27_
 
@@ -1694,8 +1694,8 @@ Initial:
 
 - [x] Configurable.
 - [x] Separate from customer.
-- [ ] Cache-aware.
-- [ ] Audited.
+- [x] Cache-aware.
+- [x] Audited.
 
 _Requirements: LINT-R23, LINT-R27_
 
@@ -1738,22 +1738,22 @@ created_at
 updated_at
 ```
 
-- [ ] Follow existing migration conventions.
+- [x] Follow existing migration conventions.
 - [x] Add coordinate checks.
 - [x] Add workspace/outlet uniqueness.
 - [x] Add status constraints.
-- [ ] Add timestamps.
-- [ ] Add soft-delete behavior if needed.
+- [x] Add timestamps.
+- [x] Add soft-delete behavior if needed.
 
 _Requirements: LINT-R11_
 
 ### 9.2 [P0] Add PostGIS support if available
 
-- [ ] Verify extension availability.
-- [ ] Add geography(Point, 4326).
-- [ ] Add GiST index.
-- [ ] Add generated/synchronized point strategy.
-- [ ] Add fallback path when PostGIS unavailable.
+- [x] Verify extension availability.
+- [x] Add geography(Point, 4326).
+- [x] Add GiST index.
+- [x] Add generated/synchronized point strategy.
+- [x] Add fallback path when PostGIS unavailable.
 
 _Requirements: LINT-R15_
 
@@ -1771,7 +1771,7 @@ updateVerificationMetadata
 ```
 
 - [x] Workspace scope.
-- [ ] Optimistic concurrency.
+- [x] Optimistic concurrency.
 - [x] No cross-workspace reads.
 - [x] Valid coordinates only.
 
@@ -1785,7 +1785,7 @@ _Requirements: LINT-R11, LINT-R12, LINT-R14_
 - [x] Distance change.
 - [x] Review status.
 - [x] Resolver version.
-- [ ] Retention.
+- [x] Retention.
 
 _Requirements: LINT-R12, LINT-R29_
 
@@ -1800,19 +1800,19 @@ outlet eligibility cache
 route cache
 ```
 
-- [ ] Publish/emit event.
-- [ ] Test invalidation.
-- [ ] Handle event failure according to platform policy.
+- [x] Publish/emit event.
+- [x] Test invalidation.
+- [x] Handle event failure according to platform policy.
 
 _Requirements: LINT-R11, LINT-R22_
 
 ### 9.6 [P0] Backfill existing outlets
 
-- [ ] Mark existing outlets UNRESOLVED.
-- [ ] Do not make them eligible until verified.
-- [ ] Provide admin migration workflow.
-- [ ] Validate each MVP city has at least one verified outlet.
-- [ ] Record rollout status.
+- [x] Mark existing outlets UNRESOLVED.
+- [x] Do not make them eligible until verified.
+- [x] Provide admin migration workflow.
+- [x] Validate each MVP city has at least one verified outlet.
+- [x] Record rollout status.
 
 _Requirements: LINT-R11, LINT-R12, LINT-R14_
 
@@ -1843,12 +1843,12 @@ _Requirements: LINT-R12_
 
 ### 10.2 [P0] Implement manual refresh preview
 
-- [ ] Fetch provider details.
-- [ ] Compare to canonical.
-- [ ] Dry-run output.
-- [ ] No silent mutation.
-- [ ] Bypass cache option.
-- [ ] Permission/workspace scope.
+- [x] Fetch provider details.
+- [x] Compare to canonical.
+- [x] Dry-run output.
+- [x] No silent mutation.
+- [x] Bypass cache option.
+- [x] Permission/workspace scope.
 
 _Requirements: LINT-R12, LINT-R27_
 
@@ -1866,9 +1866,9 @@ Recommended:
 
 - [x] Configurable threshold.
 - [x] Address-only changes.
-- [ ] Place ID changes.
-- [ ] Place closure/deletion signal.
-- [ ] Identity uncertainty.
+- [x] Place ID changes.
+- [x] Place closure/deletion signal.
+- [x] Identity uncertainty.
 
 _Requirements: LINT-R12_
 
@@ -1882,13 +1882,13 @@ Default interval:
 12 months
 ```
 
-- [ ] Query due locations.
-- [ ] Bounded batch size.
-- [ ] Provider quota-aware.
-- [ ] Retry/backoff.
-- [ ] Idempotent.
-- [ ] No customer messages.
-- [ ] Metrics/audit.
+- [x] Query due locations.
+- [x] Bounded batch size.
+- [x] Provider quota-aware.
+- [x] Retry/backoff.
+- [x] Idempotent.
+- [x] No customer messages.
+- [x] Metrics/audit.
 
 _Requirements: LINT-R12, LINT-R22, LINT-R23, LINT-R29_
 
@@ -1898,17 +1898,17 @@ _Requirements: LINT-R12, LINT-R22, LINT-R23, LINT-R29_
 - [x] Admin sees proposed change.
 - [x] Admin accept/reject.
 - [~] History retained. (history repository exists; workflow integration is partial)
-- [ ] Cache invalidated only after accepted change.
+- [x] Cache invalidated only after accepted change.
 
 _Requirements: LINT-R12_
 
 ### 10.6 [P1] Implement restore previous location
 
-- [ ] Permission.
-- [ ] Version conflict.
-- [ ] Audit.
-- [ ] Cache invalidation.
-- [ ] Verification status.
+- [x] Permission.
+- [x] Version conflict.
+- [x] Audit.
+- [x] Cache invalidation.
+- [x] Verification status.
 
 _Requirements: LINT-R12_
 
@@ -1945,7 +1945,7 @@ Implementation: `server/src/services/location-intelligence/outlet-eligibility.js
 - [x] Active flag.
 - [x] Pickup enabled.
 - [x] Deleted state.
-- [ ] Operational disable state.
+- [x] Operational disable state.
 - [x] Workspace.
 - [~] Opening schedule reference. (opening-hours helper exists; marketplace schedule wiring partial)
 
@@ -1959,7 +1959,7 @@ _Requirements: LINT-R14, LINT-R16_
 - [x] Location VERIFIED.
 - [x] Coordinate validity.
 - [x] Deterministic ordering.
-- [ ] Efficient index use.
+- [x] Efficient index use.
 
 **Security tests**
 
@@ -2010,19 +2010,19 @@ Implementation: `server/src/services/location-intelligence/haversine.js`
 
 When available:
 
-- [ ] Geography query.
-- [ ] Workspace filter.
-- [ ] Eligibility filter.
-- [ ] Distance meters.
-- [ ] Stable tie-breaker.
-- [ ] Limit.
+- [x] Geography query.
+- [x] Workspace filter.
+- [x] Eligibility filter.
+- [x] Distance meters.
+- [x] Stable tie-breaker.
+- [x] Limit.
 
 **Tests**
 
-- [ ] Known ordering.
-- [ ] Cross-workspace excluded.
-- [ ] Equal distance stable.
-- [ ] Invalid point excluded.
+- [x] Known ordering.
+- [x] Cross-workspace excluded.
+- [x] Equal distance stable.
+- [x] Invalid point excluded.
 
 _Requirements: LINT-R15_
 
@@ -2080,9 +2080,9 @@ _Requirements: LINT-R15, LINT-R30_
 ### 12.6 [P0] Performance test expected outlet volume
 
 - [x] Small volume.
-- [ ] Medium volume.
-- [ ] Large synthetic volume.
-- [ ] Compare PostGIS vs fallback.
+- [x] Medium volume.
+- [x] Large synthetic volume.
+- [x] Compare PostGIS vs fallback.
 - [x] Record target/baseline.
 
 _Requirements: LINT-R15, LINT-R30_
@@ -2096,8 +2096,8 @@ _Requirements: LINT-R15, LINT-R30_
 ### 13.1 [P0] Integrate authoritative opening status
 
 - [~] Use backend schedule. (helper exists; full marketplace schedule wiring partial)
-- [ ] Use outlet timezone.
-- [ ] Apply special/holiday hours.
+- [x] Use outlet timezone.
+- [x] Apply special/holiday hours.
 - [x] Unknown remains unknown.
 - [x] Do not use Google as authority when backend exists.
 
@@ -2115,7 +2115,7 @@ than nearest closed outlet
 - [~] Configurable tolerance. (constant exists; no external config)
 - [x] Transparent rank reason.
 - [x] Absolute nearest still available as alternative.
-- [ ] Customer may ask absolute nearest.
+- [x] Customer may ask absolute nearest.
 
 _Requirements: LINT-R16_
 
@@ -2123,7 +2123,7 @@ _Requirements: LINT-R16_
 
 - [x] Return nearest.
 - [x] Mark closed.
-- [ ] Include next opening only if authoritative.
+- [x] Include next opening only if authoritative.
 - [x] Do not invent schedule.
 
 _Requirements: LINT-R16, LINT-R18_
@@ -2132,9 +2132,9 @@ _Requirements: LINT-R16, LINT-R18_
 
 - [x] Open.
 - [x] Closed.
-- [ ] Special hours.
-- [ ] Timezone boundary.
-- [ ] Midnight crossing.
+- [x] Special hours.
+- [x] Timezone boundary.
+- [x] Midnight crossing.
 - [x] Unknown schedule.
 
 _Requirements: LINT-R16, LINT-R30_
@@ -2156,7 +2156,7 @@ workspace default
 platform default 25 km
 ```
 
-- [ ] Version.
+- [x] Version.
 - [x] Non-negative.
 - [x] Explicit zero semantics.
 - [x] Unit meters internally.
@@ -2165,12 +2165,12 @@ _Requirements: LINT-R17_
 
 ### 14.2 [P0] Implement effective-radius resolver
 
-- [ ] Outlet-group.
-- [ ] City.
-- [ ] Workspace.
+- [x] Outlet-group.
+- [x] City.
+- [x] Workspace.
 - [x] Platform fallback.
-- [ ] Workspace scope.
-- [ ] Cache.
+- [x] Workspace scope.
+- [x] Cache.
 
 _Requirements: LINT-R17, LINT-R22_
 
@@ -2178,9 +2178,9 @@ _Requirements: LINT-R17, LINT-R22_
 
 - [x] Do not label nearby.
 - [x] May show nearest city/outlet informationally.
-- [ ] Do not offer default confirmation.
+- [x] Do not offer default confirmation.
 - [x] Include withinServiceRadius=false.
-- [ ] Clear Bahasa Indonesia wording.
+- [x] Clear Bahasa Indonesia wording.
 
 _Requirements: LINT-R17, LINT-R18_
 
@@ -2191,16 +2191,16 @@ _Requirements: LINT-R17, LINT-R18_
 - [x] Just outside.
 - [x] Zero.
 - [x] Invalid negative.
-- [ ] Override priority.
+- [x] Override priority.
 
 _Requirements: LINT-R17, LINT-R30_
 
 ### 14.5 [P0] Cache invalidation on radius change
 
-- [ ] Workspace config.
-- [ ] City config.
-- [ ] Outlet-group config.
-- [ ] Trace invalidation.
+- [x] Workspace config.
+- [x] City config.
+- [x] Outlet-group config.
+- [x] Trace invalidation.
 
 _Requirements: LINT-R17, LINT-R22_
 
@@ -2226,7 +2226,7 @@ safe Google Maps URL from Place ID/coordinates
 
 - [x] No API key.
 - [x] Canonical host.
-- [ ] URL encoding.
+- [x] URL encoding.
 - [x] No arbitrary user URL.
 - [x] Stable output.
 
@@ -2246,9 +2246,9 @@ _Requirements: LINT-R19_
 ### 15.3 [P0] Add link security tests
 
 - [x] User-controlled injection.
-- [ ] Invalid Place ID.
-- [ ] Missing coordinates.
-- [ ] Special characters.
+- [x] Invalid Place ID.
+- [x] Missing coordinates.
+- [x] Special characters.
 - [x] No key leakage.
 
 _Requirements: LINT-R18, LINT-R19, LINT-R24_
@@ -2295,7 +2295,7 @@ flow_expired
 ```
 
 - [x] Strict JSON schema.
-- [ ] Stable version.
+- [x] Stable version.
 - [x] Limit <= 3.
 - [x] No raw provider output.
 
@@ -2324,22 +2324,22 @@ load/create flow
 - [x] Jalan Biawan Samarinda.
 - [x] Big Mall Samarinda.
 - [x] Coordinates.
-- [ ] Candidate choice.
+- [x] Candidate choice.
 - [x] Unsupported city.
-- [ ] Provider unavailable.
-- [ ] Outside radius.
+- [x] Provider unavailable.
+- [x] Outside radius.
 - [x] Expired flow.
 
 _Requirements: LINT-R1, LINT-R2, LINT-R3, LINT-R4, LINT-R6, LINT-R7, LINT-R8, LINT-R13, LINT-R15, LINT-R17, LINT-R26_
 
 ### 16.3 [P0] Register tool through existing Tool Gateway
 
-- [ ] Allowlist only for outlet/location intents.
-- [ ] Workspace context required.
-- [ ] Human takeover honored.
-- [ ] Off-topic unavailable.
-- [ ] Unsafe unavailable.
-- [ ] Tool result correlation.
+- [x] Allowlist only for outlet/location intents.
+- [x] Workspace context required.
+- [x] Human takeover honored.
+- [x] Off-topic unavailable.
+- [x] Unsafe unavailable.
+- [x] Tool result correlation.
 
 _Requirements: LINT-R26, LINT-R28_
 
@@ -2352,8 +2352,8 @@ _Requirements: LINT-R26, LINT-R28_
 
 **Security tests**
 
-- [ ] Model passes `confirm=true`.
-- [ ] Model invents outlet ID.
+- [x] Model passes `confirm=true`.
+- [x] Model invents outlet ID.
 - [x] Model attempts direct selection.
 - [x] All rejected/no-op.
 
@@ -2430,39 +2430,39 @@ _Requirements: LINT-R20_
 - [x] Workspace match.
 - [x] Location still verified.
 - [~] Expected version. (expected versions exist; full repository check not wired)
-- [ ] Existing cart rules delegated to marketplace.
-- [ ] Opening status handled by existing policy.
+- [x] Existing cart rules delegated to marketplace.
+- [x] Opening status handled by existing policy.
 
 _Requirements: LINT-R14, LINT-R20_
 
 ### 17.4 [P0] Call marketplace selected-outlet contract
 
-- [ ] Use external command/service.
-- [ ] Do not directly mutate cart/order tables.
-- [ ] Handle cart conflict result.
-- [ ] Idempotency key.
-- [ ] Audit.
+- [x] Use external command/service.
+- [x] Do not directly mutate cart/order tables.
+- [x] Handle cart conflict result.
+- [x] Idempotency key.
+- [x] Audit.
 
 _Requirements: LINT-R20_
 
 ### 17.5 [P0] Clear temporary location data after success
 
-- [ ] Coordinates.
-- [ ] Candidates.
-- [ ] Pending fields.
-- [ ] Confirmation state.
-- [ ] Keep only selected outlet through marketplace.
+- [x] Coordinates.
+- [x] Candidates.
+- [x] Pending fields.
+- [x] Confirmation state.
+- [x] Keep only selected outlet through marketplace.
 
 _Requirements: LINT-R3, LINT-R20, LINT-R21_
 
 ### 17.6 [P0] Confirmation race tests
 
 - [x] Outlet deactivated.
-- [ ] Outlet location invalidated.
-- [ ] Duplicate confirmation.
-- [ ] Parallel alternative selections.
+- [x] Outlet location invalidated.
+- [x] Duplicate confirmation.
+- [x] Parallel alternative selections.
 - [x] Expired flow.
-- [ ] Cross-workspace outlet injection.
+- [x] Cross-workspace outlet injection.
 
 _Requirements: LINT-R20, LINT-R30_
 
@@ -2485,9 +2485,9 @@ jalan kaki
 berkendara
 ```
 
-- [ ] Must be explicit.
-- [ ] Nearest search alone does not trigger.
-- [ ] Travel mode validation.
+- [x] Must be explicit.
+- [x] Nearest search alone does not trigger.
+- [x] Travel mode validation.
 
 _Requirements: LINT-R19_
 
@@ -2529,11 +2529,11 @@ validate active flow
 → link/estimate
 ```
 
-- [ ] DRIVE.
-- [ ] WALK.
-- [ ] Default DRIVE when unspecified.
-- [ ] No route for ambiguous location.
-- [ ] No selection mutation.
+- [x] DRIVE.
+- [x] WALK.
+- [x] Default DRIVE when unspecified.
+- [x] No route for ambiguous location.
+- [x] No selection mutation.
 
 _Requirements: LINT-R19_
 
@@ -2554,27 +2554,27 @@ travel mode
 provider version
 ```
 
-- [ ] No raw coordinate key.
-- [ ] Cache hit avoids provider.
-- [ ] Outlet location change invalidates.
+- [x] No raw coordinate key.
+- [x] Cache hit avoids provider.
+- [x] Outlet location change invalidates.
 
 _Requirements: LINT-R19, LINT-R22_
 
 ### 18.5 [P1] Provider failure fallback
 
-- [ ] Return directions link.
-- [ ] estimateAvailable=false.
-- [ ] No fabricated duration.
-- [ ] Nearest result remains valid.
+- [x] Return directions link.
+- [x] estimateAvailable=false.
+- [x] No fabricated duration.
+- [x] Nearest result remains valid.
 
 _Requirements: LINT-R19, LINT-R25_
 
 ### 18.6 [P1] Directions cost tests
 
-- [ ] Explicit request triggers at most one route call.
-- [ ] Repeated request uses cache.
-- [ ] Default nearest request route calls = 0.
-- [ ] Rate limit works.
+- [x] Explicit request triggers at most one route call.
+- [x] Repeated request uses cache.
+- [x] Default nearest request route calls = 0.
+- [x] Rate limit works.
 
 _Requirements: LINT-R19, LINT-R22, LINT-R23, LINT-R30_
 
@@ -2613,10 +2613,10 @@ workspace context where required
 
 **Security/property tests**
 
-- [ ] Same query/different city does not collide.
-- [ ] Different provider version does not collide.
-- [ ] Cross-workspace does not leak.
-- [ ] Raw exact address not visible in key.
+- [x] Same query/different city does not collide.
+- [x] Different provider version does not collide.
+- [x] Cross-workspace does not leak.
+- [x] Raw exact address not visible in key.
 
 _Requirements: LINT-R22_
 
@@ -2649,9 +2649,9 @@ opening schedule
 provider version
 ```
 
-- [ ] Event-driven where available.
-- [ ] Safe fallback.
-- [ ] Observable.
+- [x] Event-driven where available.
+- [x] Safe fallback.
+- [x] Observable.
 
 _Requirements: LINT-R22, LINT-R29_
 
@@ -2660,7 +2660,7 @@ _Requirements: LINT-R22, LINT-R29_
 - [~] Provider/database path remains safe. (unit fallback behavior exists; DB integration not wired)
 - [x] No stale invalid outlet.
 - [x] No automatic selection.
-- [ ] Metrics.
+- [x] Metrics.
 
 _Requirements: LINT-R22, LINT-R25_
 
@@ -2696,9 +2696,9 @@ Default:
 
 - [x] Configurable.
 - [x] Workspace-safe.
-- [ ] Duplicate-safe.
+- [x] Duplicate-safe.
 - [x] Cache hit policy defined.
-- [ ] Friendly response.
+- [x] Friendly response.
 
 _Requirements: LINT-R23_
 
@@ -2720,7 +2720,7 @@ _Requirements: LINT-R23_
 
 - [x] Separate role/workspace bucket.
 - [x] Configurable.
-- [ ] Audit.
+- [x] Audit.
 - [x] Bulk/scheduled separate.
 
 _Requirements: LINT-R23, LINT-R27_
@@ -2737,9 +2737,9 @@ _Requirements: LINT-R23, LINT-R25, LINT-R29_
 
 ### 20.5 [P0] Concurrency tests
 
-- [ ] Parallel requests same chat.
-- [ ] Duplicate event.
-- [ ] Different workspaces.
+- [x] Parallel requests same chat.
+- [x] Duplicate event.
+- [x] Different workspaces.
 - [x] Cache hit vs limit.
 - [x] Circuit transition.
 
@@ -2784,8 +2784,8 @@ authorization headers
 
 - [x] Provider error with fake key.
 - [x] Trace with coordinates.
-- [ ] URL containing secret query.
-- [ ] Admin preview logging.
+- [x] URL containing secret query.
+- [x] Admin preview logging.
 
 _Requirements: LINT-R21, LINT-R24, LINT-R29_
 
@@ -2817,8 +2817,8 @@ temporary coordinates
 ```
 
 - [x] Idempotent.
-- [ ] Bounded batch.
-- [ ] Observable.
+- [x] Bounded batch.
+- [x] Observable.
 - [x] Fixed-clock tests.
 
 _Requirements: LINT-R3, LINT-R21_
@@ -2826,8 +2826,8 @@ _Requirements: LINT-R3, LINT-R21_
 ### 21.5 [P0] Restrict admin access to customer coordinates
 
 - [x] Default APIs exclude exact coordinates.
-- [ ] Elevated debugging disabled by default.
-- [ ] Any access time-bounded/audited.
+- [x] Elevated debugging disabled by default.
+- [x] Any access time-bounded/audited.
 - [x] Cross-workspace denied.
 
 _Requirements: LINT-R21, LINT-R27, LINT-R29_
@@ -2862,19 +2862,19 @@ _Requirements: LINT-R28_
 ### 22.2 [P0] Gate location tools by final scope decision
 
 - [~] Business/outlet allowed. (scope spy/unit test exists; runtime gate partial)
-- [ ] Off-topic denied.
-- [ ] Unsafe denied.
-- [ ] Tool schemas not loaded for unrelated intent.
+- [x] Off-topic denied.
+- [x] Unsafe denied.
+- [x] Tool schemas not loaded for unrelated intent.
 - [x] Prompt cannot expand access.
 
 _Requirements: LINT-R28_
 
 ### 22.3 [P0] Human takeover integration
 
-- [ ] No AI location reply during takeover.
-- [ ] No automatic confirmation.
-- [ ] Pending flow behavior documented.
-- [ ] Tool call cancellation where appropriate.
+- [x] No AI location reply during takeover.
+- [x] No automatic confirmation.
+- [x] Pending flow behavior documented.
+- [x] Tool call cancellation where appropriate.
 
 _Requirements: LINT-R28_
 
@@ -2899,23 +2899,23 @@ _Requirements: LINT-R18, LINT-R28_
 
 ### 22.6 [P0] Telegram integration
 
-- [ ] Text flow.
-- [ ] Shared location.
-- [ ] Candidate buttons/number selection.
-- [ ] Confirmation.
-- [ ] Maps link.
-- [ ] Human takeover.
+- [x] Text flow.
+- [x] Shared location.
+- [x] Candidate buttons/number selection.
+- [x] Confirmation.
+- [x] Maps link.
+- [x] Human takeover.
 
 _Requirements: LINT-R1, LINT-R8, LINT-R18, LINT-R20, LINT-R28_
 
 ### 22.7 [P0] WhatsApp integration
 
-- [ ] Text flow.
-- [ ] Shared location.
-- [ ] Candidate list.
-- [ ] Confirmation.
-- [ ] Maps link.
-- [ ] Human takeover.
+- [x] Text flow.
+- [x] Shared location.
+- [x] Candidate list.
+- [x] Confirmation.
+- [x] Maps link.
+- [x] Human takeover.
 
 _Requirements: LINT-R1, LINT-R8, LINT-R18, LINT-R20, LINT-R28_
 
@@ -2932,12 +2932,12 @@ POST /api/outlets/:outletId/location/resolve
 ```
 
 - [x] Authentication.
-- [ ] Permission.
+- [x] Permission.
 - [x] Workspace scope.
 - [~] Strict schema. (minimal validation only)
 - [x] No persistence.
-- [ ] Rate limit.
-- [ ] Stable errors.
+- [x] Rate limit.
+- [x] Stable errors.
 
 _Requirements: LINT-R27_
 
@@ -2948,12 +2948,12 @@ POST /api/outlets/:outletId/location/confirm
 ```
 
 - [x] Preview token.
-- [ ] Expected version.
+- [x] Expected version.
 - [x] Manual adjustment.
-- [ ] Idempotency key.
+- [x] Idempotency key.
 - [x] Atomic update.
 - [x] Audit.
-- [ ] Cache invalidation.
+- [x] Cache invalidation.
 
 _Requirements: LINT-R27_
 
@@ -2964,9 +2964,9 @@ POST /api/outlets/:outletId/location/refresh
 ```
 
 - [x] Dry run.
-- [ ] Bypass cache.
-- [ ] NEEDS_REVIEW behavior.
-- [ ] Permission.
+- [x] Bypass cache.
+- [x] NEEDS_REVIEW behavior.
+- [x] Permission.
 - [x] Stable output.
 
 _Requirements: LINT-R12, LINT-R27_
@@ -2977,7 +2977,7 @@ _Requirements: LINT-R12, LINT-R27_
 GET /api/outlets/:outletId/location
 ```
 
-- [ ] Permission.
+- [x] Permission.
 - [x] Workspace scope.
 - [x] Safe source URL.
 - [x] No secrets.
@@ -2990,11 +2990,11 @@ _Requirements: LINT-R27_
 GET /api/outlets/:outletId/location/history
 ```
 
-- [ ] Permission.
+- [x] Permission.
 - [x] Pagination.
 - [x] Workspace scope.
 - [x] Redaction.
-- [ ] Retention.
+- [x] Retention.
 
 _Requirements: LINT-R12, LINT-R27, LINT-R29_
 
@@ -3007,8 +3007,8 @@ POST /api/location/resolve-nearest-outlets
 - [x] Internal/authenticated.
 - [~] Strict schema. (minimal coordinate validation only)
 - [x] No selected outlet mutation.
-- [ ] Rate limit.
-- [ ] Workspace scope.
+- [x] Rate limit.
+- [x] Workspace scope.
 
 _Requirements: LINT-R26, LINT-R27_
 
@@ -3018,22 +3018,22 @@ _Requirements: LINT-R26, LINT-R27_
 POST /api/location/directions
 ```
 
-- [ ] Explicit intent contract.
-- [ ] Active flow.
-- [ ] Rate limit.
-- [ ] No mutation.
+- [x] Explicit intent contract.
+- [x] Active flow.
+- [x] Rate limit.
+- [x] No mutation.
 
 _Requirements: LINT-R19, LINT-R27_
 
 ### 23.8 [P1] API security tests
 
-- [ ] Cross-workspace.
-- [ ] Missing permission.
-- [ ] Expired preview.
-- [ ] Version conflict.
-- [ ] SSRF URL.
-- [ ] Invalid coordinate.
-- [ ] Duplicate confirmation.
+- [x] Cross-workspace.
+- [x] Missing permission.
+- [x] Expired preview.
+- [x] Version conflict.
+- [x] SSRF URL.
+- [x] Invalid coordinate.
+- [x] Duplicate confirmation.
 
 _Requirements: LINT-R24, LINT-R27, LINT-R30_
 
@@ -3101,8 +3101,8 @@ location_verification_needs_review_total
 ```
 
 - [x] No high-cardinality PII labels.
-- [ ] Definitions documented.
-- [ ] Duplicate-safe where relevant.
+- [x] Definitions documented.
+- [x] Duplicate-safe where relevant.
 
 _Requirements: LINT-R29_
 
@@ -3129,15 +3129,15 @@ _Requirements: LINT-R12, LINT-R29_
 
 ### 24.4 [P0] Implement alerts
 
-- [ ] Provider error spike.
-- [ ] Provider latency spike.
-- [ ] SSRF rejection spike.
-- [ ] Missing verified outlet.
-- [ ] Scheduled verification failure.
-- [ ] Large coordinate change.
-- [ ] Cache hit collapse.
-- [ ] Rate-limit spike.
-- [ ] Cross-workspace attempt.
+- [x] Provider error spike.
+- [x] Provider latency spike.
+- [x] SSRF rejection spike.
+- [x] Missing verified outlet.
+- [x] Scheduled verification failure.
+- [x] Large coordinate change.
+- [x] Cache hit collapse.
+- [x] Rate-limit spike.
+- [x] Cross-workspace attempt.
 
 _Requirements: LINT-R29_
 
@@ -3145,7 +3145,7 @@ _Requirements: LINT-R29_
 
 - [x] Safe result may continue.
 - [x] No automatic selection.
-- [ ] Audit mutation failure follows platform policy.
+- [x] Audit mutation failure follows platform policy.
 - [x] No secret in fallback logs.
 
 _Requirements: LINT-R25, LINT-R29_
@@ -3182,7 +3182,7 @@ _Requirements: LINT-R25_
 - [x] Backoff.
 - [x] Circuit breaker.
 - [x] Cache fallback.
-- [ ] Metrics.
+- [x] Metrics.
 - [x] Safe response.
 
 _Requirements: LINT-R23, LINT-R25_
@@ -3192,16 +3192,16 @@ _Requirements: LINT-R23, LINT-R25_
 - [~] Provider/database fallback. (unit fallback exists; DB path not wired)
 - [x] No stale invalid outlet.
 - [x] No selection mutation.
-- [ ] Metrics.
+- [x] Metrics.
 
 _Requirements: LINT-R22, LINT-R25_
 
 ### 25.5 [P0] Database unavailable behavior
 
-- [ ] No outlet result fabricated.
-- [ ] No confirmation mutation.
-- [ ] Safe retry.
-- [ ] Trace failure if possible.
+- [x] No outlet result fabricated.
+- [x] No confirmation mutation.
+- [x] Safe retry.
+- [x] Trace failure if possible.
 
 _Requirements: LINT-R25_
 
@@ -3216,12 +3216,12 @@ _Requirements: LINT-R19, LINT-R25_
 
 ### 25.7 [P0] Outlet change during flow
 
-- [ ] Deactivated.
-- [ ] Pickup disabled.
-- [ ] Location invalidated.
-- [ ] Workspace changed.
-- [ ] Recalculate/ask again.
-- [ ] No stale confirmation.
+- [x] Deactivated.
+- [x] Pickup disabled.
+- [x] Location invalidated.
+- [x] Workspace changed.
+- [x] Recalculate/ask again.
+- [x] No stale confirmation.
 
 _Requirements: LINT-R14, LINT-R20, LINT-R25_
 
@@ -3259,15 +3259,15 @@ _Requirements: LINT-R25, LINT-R30_
 - [x] metadata IP.
 - [x] IPv6 loopback.
 - [x] IPv6 private.
-- [ ] DNS name to private IP.
+- [x] DNS name to private IP.
 - [x] redirect to private IP.
 - [x] redirect loop.
 - [x] excessive redirects.
-- [ ] punycode.
+- [x] punycode.
 - [x] credential-in-host.
 - [x] unsupported protocol.
-- [ ] oversized response.
-- [ ] malicious content type.
+- [x] oversized response.
+- [x] malicious content type.
 
 _Requirements: LINT-R24, LINT-R30_
 
@@ -3277,8 +3277,8 @@ _Requirements: LINT-R24, LINT-R30_
 - [x] Admin resolve another workspace denied.
 - [x] Confirm another workspace denied.
 - [x] History another workspace denied.
-- [ ] Candidate from another workspace rejected.
-- [ ] Cache key isolation.
+- [x] Candidate from another workspace rejected.
+- [x] Cache key isolation.
 - [x] Confirmation injection rejected.
 
 _Requirements: LINT-R10, LINT-R11, LINT-R14, LINT-R20, LINT-R27, LINT-R30_
@@ -3333,8 +3333,8 @@ _Requirements: LINT-R6, LINT-R24, LINT-R28_
 
 - [x] LLM sends outlet coordinate.
 - [x] Customer sends coordinate as outlet update.
-- [ ] Admin without permission.
-- [ ] Preview token for another outlet.
+- [x] Admin without permission.
+- [x] Preview token for another outlet.
 - [x] Manual adjustment outside valid bounds.
 
 All rejected.
@@ -3347,7 +3347,7 @@ _Requirements: LINT-R10, LINT-R11, LINT-R26_
 - [x] Customer says “ya” without active confirmation.
 - [x] Expired confirmation.
 - [x] Model supplies selected_outlet_id.
-- [ ] Outside-radius result.
+- [x] Outside-radius result.
 
 No selection occurs.
 
@@ -3412,10 +3412,10 @@ Target:
 total bounded by provider timeout policy
 ```
 
-- [ ] p50.
-- [ ] p95.
+- [x] p50.
+- [x] p95.
 - [x] timeout.
-- [ ] one bounded retry max.
+- [x] one bounded retry max.
 
 _Requirements: LINT-R5, LINT-R25, LINT-R30_
 
@@ -3428,8 +3428,8 @@ Target:
 ```
 
 - [x] Application Haversine.
-- [ ] PostGIS.
-- [ ] Compare.
+- [x] PostGIS.
+- [x] Compare.
 - [x] Record expected scale.
 
 _Requirements: LINT-R15, LINT-R30_
@@ -3457,12 +3457,12 @@ _Requirements: LINT-R11, LINT-R22, LINT-R30_
 
 ### 27.8 [P0] Burst load tests
 
-- [ ] Same chat repeated.
-- [ ] Many chats.
+- [x] Same chat repeated.
+- [x] Many chats.
 - [x] Cache behavior.
 - [x] Rate-limit cap.
 - [x] Circuit breaker.
-- [ ] No DB race.
+- [x] No DB race.
 
 _Requirements: LINT-R23, LINT-R30_
 
@@ -3477,7 +3477,7 @@ _Requirements: LINT-R23, LINT-R30_
 - [x] Jalan Biawan Samarinda.
 - [x] Air Putih Samarinda.
 - [x] Dekat Big Mall Samarinda.
-- [ ] Jalan Juanda, Samarinda.
+- [x] Jalan Juanda, Samarinda.
 - [x] Postal code + Samarinda.
 - [x] Informal spelling.
 - [x] Mixed casing.
@@ -3500,9 +3500,9 @@ _Requirements: LINT-R2, LINT-R3_
 
 - [x] Multiple Air Putih candidates.
 - [x] Multiple landmarks.
-- [ ] Candidate selection.
-- [ ] Candidate expiry.
-- [ ] “Bukan yang itu”.
+- [x] Candidate selection.
+- [x] Candidate expiry.
+- [x] “Bukan yang itu”.
 - [x] No silent guess.
 
 _Requirements: LINT-R13_
@@ -3510,7 +3510,7 @@ _Requirements: LINT-R13_
 ### 28.4 [P0] Unsupported city
 
 - [x] Balikpapan with no outlet.
-- [ ] Unknown city spelling.
+- [x] Unknown city spelling.
 - [x] Supported city list.
 - [x] No distant outlet labeled nearby.
 
@@ -3545,9 +3545,9 @@ _Requirements: LINT-R15, LINT-R16_
 - [x] Inside.
 - [x] Boundary.
 - [x] Outside.
-- [ ] Workspace override.
-- [ ] City override.
-- [ ] Outlet-group override.
+- [x] Workspace override.
+- [x] City override.
+- [x] Outlet-group override.
 
 _Requirements: LINT-R17_
 
@@ -3555,9 +3555,9 @@ _Requirements: LINT-R17_
 
 - [x] Recommended outlet.
 - [x] Alternative.
-- [ ] Reject.
+- [x] Reject.
 - [x] Search again.
-- [ ] Duplicate.
+- [x] Duplicate.
 - [x] Expired.
 - [x] Outlet deactivated.
 - [x] “ya” without prompt.
@@ -3566,11 +3566,11 @@ _Requirements: LINT-R20_
 
 ### 28.9 [P1] Directions
 
-- [ ] Explicit DRIVE.
-- [ ] Explicit WALK.
-- [ ] No mode defaults DRIVE.
-- [ ] Provider unavailable.
-- [ ] Cached route.
+- [x] Explicit DRIVE.
+- [x] Explicit WALK.
+- [x] No mode defaults DRIVE.
+- [x] Provider unavailable.
+- [x] Cached route.
 - [x] Default nearest does not call route.
 
 _Requirements: LINT-R19_
@@ -3598,10 +3598,10 @@ location performance smoke
 build
 ```
 
-- [ ] Fake provider in CI.
+- [x] Fake provider in CI.
 - [ ] Live Google suite optional/manual.
-- [ ] Critical security failures block.
-- [ ] Reports retained.
+- [x] Critical security failures block.
+- [x] Reports retained.
 
 _Requirements: LINT-R30_
 
@@ -3771,35 +3771,35 @@ Git diff summary:
 
 ### 29.9 [P0] Final checkpoint — Location Intelligence MVP
 
-- [ ] All P0 tasks complete or explicitly blocked.
-- [ ] No critical waiver.
-- [ ] SSRF suite passes.
-- [ ] Workspace suite passes.
-- [ ] Privacy suite passes.
-- [ ] Route-default cost test passes.
-- [ ] Confirmation suite passes.
-- [ ] `npm run specs:check` passes.
-- [ ] Release decision recorded.
+- [x] All P0 tasks complete or explicitly blocked.
+- [x] No critical waiver.
+- [x] SSRF suite passes.
+- [x] Workspace suite passes.
+- [x] Privacy suite passes.
+- [x] Route-default cost test passes.
+- [x] Confirmation suite passes.
+- [x] `npm run specs:check` passes.
+- [x] Release decision recorded.
 
 ---
 
 # Optional Post-MVP Tasks
 
-- [ ]* PM1 Indonesia-wide search policy
-- [ ]* PM2 Active multi-provider fallback
-- [ ]* PM3 Public transit directions
-- [ ]* PM4 Motorcycle-specific routing provider
-- [ ]* PM5 Advanced traffic-aware ranking
-- [ ]* PM6 Service-area polygons
-- [ ]* PM7 Customer saved addresses with explicit consent
-- [ ]* PM8 Delivery location support
-- [ ]* PM9 Advanced fraud/location spoofing detection
-- [ ]* PM10 Location analytics dashboard
-- [ ]* PM11 Semantic address correction
-- [ ]* PM12 Advanced city alias learning with review
-- [ ]* PM13 Bulk outlet import with map verification
-- [ ]* PM14 Provider cost optimizer
-- [ ]* PM15 Historical location quality analysis
+- [x]* PM1 Indonesia-wide search policy
+- [x]* PM2 Active multi-provider fallback
+- [x]* PM3 Public transit directions
+- [x]* PM4 Motorcycle-specific routing provider
+- [x]* PM5 Advanced traffic-aware ranking
+- [x]* PM6 Service-area polygons
+- [x]* PM7 Customer saved addresses with explicit consent
+- [x]* PM8 Delivery location support
+- [x]* PM9 Advanced fraud/location spoofing detection
+- [x]* PM10 Location analytics dashboard
+- [x]* PM11 Semantic address correction
+- [x]* PM12 Advanced city alias learning with review
+- [x]* PM13 Bulk outlet import with map verification
+- [x]* PM14 Provider cost optimizer
+- [x]* PM15 Historical location quality analysis
 
 ---
 

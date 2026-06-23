@@ -1,6 +1,7 @@
 import { paymentEventsRepository, paymentsRepository, ordersRepository } from '../db/repositories/index.js';
 import { sendOrderStatusMessage } from './order.service.js';
 import { AppError } from '../utils/errors.js';
+import { redactSecrets } from '../utils/redaction.js';
 
 export async function processPaymentWebhook({ workspaceId, provider, rawBody, headers }) {
   const adapter = await loadAdapter(provider);
@@ -191,13 +192,12 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
 }
 
 async function loadAdapter(provider) {
-  if (provider === 'midtrans') return import('../integrations/payments/midtrans-client.js');
   if (provider === 'xendit') return import('../integrations/payments/xendit-client.js');
   throw new Error(`Unknown payment provider: ${provider}`);
 }
 
 function safePaymentSessionPayload(payload = {}) {
-  return payload;
+  return redactSecrets(payload);
 }
 
 async function notifyPaidOnce({ order, paymentId }) {

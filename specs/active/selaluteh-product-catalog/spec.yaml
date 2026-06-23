@@ -1,0 +1,611 @@
+schema_version: 2
+spec_version: 1.0.0
+
+id: selaluteh-product-catalog
+title: SelaluTeh Product Catalog
+description: >-
+  Dedicated requirements-first specification for the workspace-owned canonical
+  product catalog, categories, product lifecycle, base and outlet pricing,
+  multi-outlet assignments, availability policies, variants, modifier groups,
+  bundles, add-ons, media references, AI catalog tools, order snapshot
+  integration, inventory boundaries, channel publishing contracts, audit,
+  caching, migration, testing, and production readiness.
+
+type: feature
+workflow: requirements-first
+
+status: active
+workflow_state: in_progress
+priority: critical
+
+created_at: '2026-06-22'
+updated_at: '2026-06-23'
+
+owners:
+  product_owner: SelaluTeh product owner
+  technical_owner: project-maintainer
+  implementation_actor: coding-agent
+  review_required: true
+  security_review_required: true
+
+tags:
+  - product-catalog
+  - products
+  - categories
+  - multi-outlet
+  - pricing
+  - availability
+  - variants
+  - modifiers
+  - bundles
+  - ai-tools
+  - supabase
+  - marketplace
+  - tdd
+
+lifecycle:
+  config: docs/specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: docs/specs/active/selaluteh-product-catalog
+  move_entire_spec_directory: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    dry_run_command: npm run specs:sync:dry
+    sync_command: npm run specs:sync
+    check_command: npm run specs:check
+    automatic_local_move: false
+    ci_check_only: true
+
+  completion_requirements:
+    - all-p0-tasks-completed
+    - approved-p1-deferrals-documented
+    - definition-of-done-passed
+    - workspace-and-outlet-isolation-passed
+    - sku-uniqueness-passed
+    - backend-pricing-authority-passed
+    - availability-resolution-passed
+    - order-snapshot-contract-passed
+    - inventory-boundary-passed
+    - ai-tool-contracts-passed
+    - cache-search-event-audit-passed
+    - security-property-concurrency-resilience-performance-tests-passed
+    - migration-and-rollback-documented
+    - documentation-updated
+    - implementation-status-updated
+    - specs-check-passed
+
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+  reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md
+  definition_of_done: docs/backend/11-sprint/definition-of-done.md
+
+document_authority:
+  precedence:
+    - latest-approved-product-catalog-decision
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+    - current-task
+    - implementation-status-for-reality
+    - external-domain-contracts
+    - legacy-documents
+
+  responsibilities:
+    spec: identity-scope-status-boundaries-and-release-control
+    requirements: what-product-catalog-must-do
+    design: how-product-catalog-is-designed
+    tasks: tdd-implementation-order-and-verification
+
+product:
+  name: SelaluTeh Marketplace
+  area: product-catalog
+  stage: full-product-design-with-alpha-slice
+  architecture:
+    - multi-workspace-ready
+    - multi-outlet
+    - canonical-catalog
+    - outlet-price-overrides
+    - outlet-availability
+    - supabase-postgresql
+    - ai-tool-ready
+
+spec_relationships:
+  umbrella:
+    id: selaluteh-backend-marketplace
+    relationship: backend-architecture-and-shared-rules
+
+  depends_on:
+    - id: selaluteh-workspace-access-control
+      relationship: workspace-and-outlet-authorization
+    - id: selaluteh-outlet-management-operations
+      relationship: outlet-lifecycle-hours-order-acceptance
+    - id: selaluteh-inventory-stock-ledger
+      relationship: stock-availability-reservation-and-ledger
+    - id: selaluteh-cart-order-lifecycle
+      relationship: cart-validation-and-order-snapshot-consumer
+    - id: selaluteh-channel-connections-sync
+      relationship: provider-publishing-and-sync
+    - id: selaluteh-ai-agent-architecture
+      relationship: catalog-tool-execution
+    - id: selaluteh-ai-agent-scope-security
+      relationship: tool-scope-and-business-domain-guard
+    - id: selaluteh-media-assets
+      relationship: product-image-storage-and-processing
+    - id: selaluteh-admin-data-operations
+      relationship: import-export-and-large-bulk-jobs
+    - id: selaluteh-audit-activity-timeline
+      relationship: immutable-activity-storage
+    - id: selaluteh-analytics-read-models
+      relationship: product-sales-and-performance-read-models
+
+  does_not_replace:
+    - selaluteh-backend-marketplace
+    - selaluteh-inventory-stock-ledger
+    - selaluteh-cart-order-lifecycle
+    - selaluteh-channel-connections-sync
+    - selaluteh-media-assets
+
+scope:
+  included:
+    - workspace-owned-products
+    - product-identity
+    - product-types
+    - product-lifecycle
+    - sku-and-product-code
+    - categories
+    - tags-and-search-metadata
+    - descriptions-and-publishable-content
+    - media-references
+    - base-pricing
+    - outlet-product-assignment
+    - outlet-price-overrides
+    - outlet-visibility-and-orderability
+    - scheduled-availability
+    - variants
+    - modifier-groups
+    - modifier-options
+    - bundles
+    - add-ons
+    - dietary-and-allergen-metadata
+    - tax-and-service-classification
+    - preparation-and-fulfillment-metadata
+    - duplicate-archive-restore
+    - bulk-operations-contract
+    - import-export-contract
+    - product-search-filter-sort-pagination
+    - product-detail-read-model
+    - outlet-catalog-read-model
+    - channel-publishing-contract
+    - ai-catalog-tools
+    - cart-selection-validation
+    - order-item-snapshot-contract
+    - inventory-integration-contract
+    - effective-price-resolution
+    - effective-availability-resolution
+    - authorization
+    - optimistic-concurrency
+    - idempotency
+    - domain-events
+    - outbox
+    - audit
+    - cache-and-search-index
+    - api-contracts
+    - admin-ui-states
+    - legacy-migration
+    - testing
+    - production-readiness
+
+  deferred:
+    - dynamic-rule-based-pricing-engine
+    - promotions-and-coupons
+    - multi-currency
+    - marketplace-wide-shared-global-catalog
+    - vendor-supplier-catalog
+    - recipe-costing
+    - nutrition-calculation
+    - automated-image-generation
+    - advanced-localization
+    - customer-personalized-pricing
+    - subscription-products
+    - digital-download-products
+    - auction-products
+    - regulated-product-age-verification
+
+  excluded:
+    - stock-quantity
+    - stock-reservation
+    - stock-adjustment-ledger
+    - payment-state
+    - order-state-machine
+    - outlet-operational-lifecycle
+    - provider-oauth-and-credentials
+    - provider-specific-menu-sync-logic
+    - media-binary-storage
+    - generic-job-runner
+    - analytics-aggregation-engine
+    - frontend-only-validation
+
+fixed_decisions:
+  owner: workspace
+  operational_scope: outlet
+  database: supabase-postgresql
+  currency:
+    alpha: IDR
+    storage: integer-minor-units
+
+  product_types:
+    - STANDARD
+    - VARIANT_PARENT
+    - BUNDLE
+    - ADD_ON_ONLY
+
+  product_statuses:
+    - DRAFT
+    - ACTIVE
+    - INACTIVE
+    - ARCHIVED
+
+  price_authority: backend-catalog-service
+  client-price-trusted: false
+  ai-price-trusted: false
+
+  effective_price_precedence:
+    - variant-outlet-override-future
+    - product-outlet-override
+    - variant-explicit-price
+    - product-base-plus-variant-adjustment
+    - modifier-adjustments
+
+  availability_dimensions:
+    - global-product-status
+    - outlet-assignment
+    - customer-visibility
+    - orderable
+    - outlet-operational-state
+    - product-schedule
+    - manual-temporary-unavailable
+    - inventory-signal
+
+  inventory:
+    owned-by: selaluteh-inventory-stock-ledger
+    catalog-stores-quantity: false
+    default-failure-policy-for-controlled-items: fail-closed
+
+  order:
+    selection-must-be-revalidated: true
+    immutable-snapshot-required: true
+    historical-orders-depend-on-current-catalog: false
+
+  ai:
+    structured-tools-only: true
+    can-invent-products: false
+    can-invent-prices: false
+    can-invent-options: false
+
+  outlet_assignment:
+    explicit: true
+    unassigned-product-orderable: false
+
+requirements_registry:
+  prefix: PC-R
+  total: 46
+
+  groups:
+    authority-and-core:
+      - PC-R1
+      - PC-R2
+      - PC-R3
+      - PC-R4
+      - PC-R5
+      - PC-R6
+
+    taxonomy-and-content:
+      - PC-R7
+      - PC-R8
+      - PC-R9
+      - PC-R10
+
+    pricing-and-outlets:
+      - PC-R11
+      - PC-R12
+      - PC-R13
+      - PC-R14
+      - PC-R15
+
+    product-configuration:
+      - PC-R16
+      - PC-R17
+      - PC-R18
+      - PC-R19
+      - PC-R20
+      - PC-R21
+      - PC-R22
+      - PC-R23
+
+    operations:
+      - PC-R24
+      - PC-R25
+      - PC-R26
+      - PC-R27
+      - PC-R28
+      - PC-R29
+      - PC-R30
+      - PC-R31
+
+    integrations:
+      - PC-R32
+      - PC-R33
+      - PC-R34
+      - PC-R35
+      - PC-R36
+
+    correctness-and-readiness:
+      - PC-R37
+      - PC-R38
+      - PC-R39
+      - PC-R40
+      - PC-R41
+      - PC-R42
+      - PC-R43
+      - PC-R44
+      - PC-R45
+      - PC-R46
+
+correctness_invariants:
+  - every-product-belongs-to-one-workspace
+  - sku-is-unique-per-workspace
+  - archived-or-inactive-product-is-not-newly-orderable
+  - unassigned-product-is-not-orderable-at-outlet
+  - effective-price-is-calculated-server-side
+  - client-and-ai-price-is-ignored
+  - effective-price-is-never-negative
+  - effective-availability-is-deterministic-for-same-input
+  - unknown-availability-fails-closed
+  - invalid-variant-or-modifier-selection-is-rejected
+  - order-snapshot-does-not-change-after-catalog-edit
+  - catalog-does-not-own-stock-quantity
+  - outlet-price-mutation-requires-outlet-scope
+  - customer-catalog-never-exposes-internal-notes
+  - cache-never-authorizes-stale-checkout-price
+  - provider-sync-failure-does-not-corrupt-canonical-catalog
+
+security:
+  untrusted_inputs:
+    - workspace-id
+    - outlet-id
+    - product-id
+    - category-id
+    - sku
+    - price
+    - variant-id
+    - modifier-selection
+    - bundle-selection
+    - media-id
+    - import-row
+    - filter-and-sort
+    - channel-publish-request
+    - ai-tool-arguments
+
+  immutable_controls:
+    - workspace-isolation
+    - outlet-scope
+    - backend-price-authority
+    - order-selection-revalidation
+    - immutable-order-snapshot
+    - inventory-boundary
+    - ai-cannot-invent-catalog
+    - archived-products-not-orderable
+    - frontend-not-authority
+
+  release_blockers:
+    - cross-workspace-product-access
+    - cross-outlet-price-or-availability-mutation
+    - client-or-ai-price-trusted
+    - inactive-or-archived-product-orderable
+    - invalid-modifier-selection-accepted
+    - mutable-order-snapshot
+    - inventory-quantity-owned-by-catalog
+    - stale-cache-price-accepted-at-checkout
+    - unscoped-product-query
+    - internal-notes-exposed
+
+testing:
+  methodology: test-driven-development
+  deterministic_ci_default: true
+  production_data_prohibited: true
+  production_secrets_prohibited: true
+
+  layers:
+    unit:
+      path: server/test/unit/product-catalog
+      required: true
+    component:
+      path: server/test/component/product-catalog
+      required: true
+    integration:
+      path: server/test/integration/product-catalog
+      required: true
+    security:
+      path: server/test/security/product-catalog
+      required: true
+    property:
+      path: server/test/property/product-catalog
+      required: true
+    concurrency:
+      path: server/test/concurrency/product-catalog
+      required: true
+    resilience:
+      path: server/test/resilience/product-catalog
+      required: true
+    performance:
+      path: server/test/performance/product-catalog
+      required: true
+
+  required_properties:
+    - effective-price-non-negative
+    - archived-inactive-never-orderable
+    - unassigned-outlet-never-orderable
+    - modifier-constraints-always-enforced
+    - bundle-constraints-always-enforced
+    - snapshot-total-equals-validated-total
+    - cross-workspace-never-allowed
+    - client-ai-price-never-authoritative
+    - inventory-boundary-preserved
+
+  release_gate_commands:
+    spec_check: npm run specs:check
+    unit: npm run test:catalog:unit
+    component: npm run test:catalog:component
+    integration: npm run test:catalog:integration
+    security: npm run test:catalog:security
+    property: npm run test:catalog:property
+    concurrency: npm run test:catalog:concurrency
+    resilience: npm run test:catalog:resilience
+    performance: npm run test:catalog:performance
+    all: npm run test:catalog:all
+
+implementation:
+  current_phase: preflight-and-repository-audit
+  task_source: tasks.md
+  active_task_pointer: docs/backend/09-ai-context/current-task.md
+  recommended_first_task: 0.1-confirm-spec-authority
+
+  phases:
+    - id: 0
+      name: preflight-shared-types-and-schema
+      task_sections: [ 0, 1, 2 ]
+    - id: 1
+      name: category-product-content-and-outlet-foundation
+      task_sections: [ 3, 4, 5, 6 ]
+    - id: 2
+      name: pricing-availability-and-rich-configuration
+      task_sections: [ 7, 8, 9, 10, 11, 12 ]
+    - id: 3
+      name: operations-search-read-model-and-order-integration
+      task_sections: [ 13, 14, 15, 16 ]
+    - id: 4
+      name: ai-channel-bulk-import-export
+      task_sections: [ 17, 18, 19, 20 ]
+    - id: 5
+      name: cache-events-api-ui-and-security
+      task_sections: [ 21, 22, 23, 24, 25, 26 ]
+    - id: 6
+      name: performance-migration-release
+      task_sections: [ 27, 28, 29, 30 ]
+
+  fastest_safe_alpha_order:
+    - task-section-0
+    - task-section-1
+    - task-section-2
+    - task-section-3
+    - task-section-4
+    - task-section-6
+    - task-section-7
+    - task-section-8
+    - task-section-14
+    - task-section-15
+    - task-section-16
+    - task-section-17
+    - task-section-21
+    - task-section-22
+    - task-section-23
+    - task-section-25
+    - task-section-26
+    - task-section-28
+    - task-section-29
+    - task-section-30
+
+  may_defer_after-alpha:
+    - variants
+    - modifier-groups
+    - bundles
+    - scheduled-availability
+    - dietary-allergen-tax-fulfillment-metadata
+    - advanced-tags
+    - import-export
+    - channel-publishing
+
+  must_not_defer:
+    - workspace-scoped-products
+    - product-lifecycle
+    - sku-uniqueness
+    - category-basic
+    - base-price
+    - outlet-assignment
+    - outlet-price-override
+    - manual-availability
+    - outlet-catalog-read-model
+    - selection-validation
+    - immutable-order-snapshot
+    - ai-catalog-read-tools
+    - authorization
+    - critical-security-tests
+
+status_workflow:
+  initial_status: active
+  initial_workflow_state: in_progress
+
+  folder_statuses:
+    backlog:
+      folder: docs/specs/backlog
+      workflow_states: [ draft, review, approved ]
+    active:
+      folder: docs/specs/active
+      workflow_states: [ in_progress, blocked, verifying ]
+    completed:
+      folder: docs/specs/completed
+      workflow_states: [ done, archived ]
+
+  folder_move_rule: edit-status-then-run-npm-run-specs-sync
+  completed_guard: required-unchecked-tasks-must-be-zero
+
+references:
+  own_documents:
+    - docs/specs/active/selaluteh-product-catalog/requirements.md
+    - docs/specs/active/selaluteh-product-catalog/design.md
+    - docs/specs/active/selaluteh-product-catalog/tasks.md
+
+  umbrella:
+    - docs/specs/active/selaluteh-backend-marketplace/spec.yaml
+    - docs/specs/active/selaluteh-backend-marketplace/requirements.md
+    - docs/specs/active/selaluteh-backend-marketplace/design.md
+    - docs/specs/active/selaluteh-backend-marketplace/tasks.md
+
+  related:
+    - docs/specs/active/selaluteh-workspace-access-control/spec.yaml
+    - docs/specs/active/selaluteh-outlet-management-operations/spec.yaml
+    - docs/specs/backlog/selaluteh-inventory-stock-ledger/spec.yaml
+    - docs/specs/backlog/selaluteh-cart-order-lifecycle/spec.yaml
+
+  global_entry:
+    - docs/backend/READING-ORDER.md
+    - docs/backend/09-ai-context/current-task.md
+
+metadata:
+  generated_for: selaluteh-product-catalog
+  generated_at: '2026-06-22'
+  based_on:
+    - selaluteh-backend-marketplace
+    - selaluteh-workspace-access-control
+    - selaluteh-outlet-management-operations
+    - latest-product-page-ui-designs
+    - latest-multi-outlet-decisions
+    - specs-lifecycle-config
+
+  notes:
+    - This is a full-product spec with an explicit fastest safe alpha slice.
+    - Product Catalog owns canonical definitions, pricing, outlet assignment,
+      and catalog availability policy.
+    - Inventory remains the authority for stock quantity and stock movements.
+    - Orders must use immutable product snapshots.
+    - AI and clients cannot provide authoritative prices.

@@ -15,6 +15,7 @@ import { getSupabaseServiceClient } from '../supabase.js';
 import { mapRow, mapRows } from '../supabase-mapper.js';
 import { extractData, extractSingle } from '../supabase-errors.js';
 import { requireWorkspaceId } from '../supabase-query.js';
+import { buildPublicFileUrl } from '../../utils/file-urls.js';
 
 const TABLE = 'chat_messages';
 
@@ -28,7 +29,7 @@ function normalizeAttachment(attachment, messageType = '') {
   if (!attachment) return null;
   const normalized = { ...attachment };
   if (!normalized.type) normalized.type = isImageAttachment(normalized, messageType) ? 'image' : 'document';
-  if (!normalized.url && normalized.storedName) normalized.url = `/files/${normalized.storedName}`;
+  if (!normalized.url && normalized.storedName) normalized.url = buildPublicFileUrl(normalized.storedName);
   return normalized;
 }
 

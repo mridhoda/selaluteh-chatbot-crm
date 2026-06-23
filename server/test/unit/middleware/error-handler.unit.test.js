@@ -48,4 +48,17 @@ describe('errorHandler', () => {
     assert.strictEqual(mockRes.body.error.code, 'NOT_FOUND');
     assert.strictEqual(mockRes.body.error.message, 'Not found');
   });
+
+  it('honors err.httpStatus and redacts details for exposed errors', () => {
+    const err = new Error('Provider failed');
+    err.httpStatus = 502;
+    err.code = 'UPSTREAM_ERROR';
+    err.details = { token: 'super-secret-token' };
+
+    errorHandler(err, mockReq, mockRes, null);
+
+    assert.strictEqual(mockRes.statusCode, 502);
+    assert.strictEqual(mockRes.body.error.code, 'UPSTREAM_ERROR');
+    assert.ok(!mockRes.body.error.details);
+  });
 });

@@ -10,11 +10,12 @@
  */
 
 import { outletsSupabaseRepository, membershipsSupabaseRepository } from '../db/repositories/index.js';
+import { getRoleScope, normalizeRole, hasPermission, listPermissions } from '../security/permission-matrix.js';
 
 
 const ALL_OUTLET_WORKSPACE_ROLES = new Set(['owner', 'super', 'admin']);
 const WRITE_WORKSPACE_ROLES = new Set(['owner', 'super', 'admin']);
-const WORKSPACE_WIDE_ROLES = new Set(['owner', 'admin']);
+const WORKSPACE_WIDE_ROLES = new Set(['owner', 'super', 'admin']);
 
 /**
  * Resolve the active workspace context for a user.
@@ -56,7 +57,7 @@ function resolveUserId(user) {
 }
 
 export function canManageWorkspace(user) {
-  return WRITE_WORKSPACE_ROLES.has(user?.role);
+  return WRITE_WORKSPACE_ROLES.has(user?.role) || hasPermission(getEffectiveWorkspaceRole(user), 'settings', 'write');
 }
 
 export function canAccessAllOutlets(user) {
@@ -64,7 +65,15 @@ export function canAccessAllOutlets(user) {
 }
 
 export function isWorkspaceWideRole(role) {
-  return WORKSPACE_WIDE_ROLES.has(role);
+  return getRoleScope(role) === 'workspace' || WORKSPACE_WIDE_ROLES.has(role);
+}
+
+export function getEffectiveWorkspaceRole(user) {
+  return normalizeRole(user?.workspaceRole || user?.role);
+}
+
+export function getPermissionMatrixForUser(user) {
+  return listPermissions(getEffectiveWorkspaceRole(user));
 }
 
 
@@ -119,7 +128,7 @@ export async function getAllowedOutletIds(user) {
 
   const userId = resolveUserId(user);
 
-  if (canAccessAllOutlets(user)) {
+  if (canAccessAllOutlets(user) || isWorkspaceWideRole(getEffectiveWorkspaceRole(user))) {
     const outlets = await outletsSupabaseRepository.findActiveIdsByWorkspace(workspaceId);
     return outlets.map((o) => o.id);
   }
@@ -154,7 +163,7 @@ export async function assertOutletAccess(user, outletId) {
     throw err;
   }
 
-  if (canAccessAllOutlets(user)) return outlet;
+  if (canAccessAllOutlets(user) || isWorkspaceWideRole(getEffectiveWorkspaceRole(user))) return outlet;
 
   const userId = resolveUserId(user);
   const access = await outletsSupabaseRepository.findOneUserAccess({
@@ -198,7 +207,7 @@ export async function buildOutletScopedQuery(user, requestedOutletId) {
   }
 
   // For non-admin roles, filter to allowed outlet IDs (array of UUIDs)
-  if (!canAccessAllOutlets(user)) {
+  if (!canAccessAllOutlets(user) && !isWorkspaceWideRole(getEffectiveWorkspaceRole(user))) {
     query.outletIds = await getAllowedOutletIds(user);
   }
 

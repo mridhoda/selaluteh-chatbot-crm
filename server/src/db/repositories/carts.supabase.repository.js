@@ -79,6 +79,24 @@ export const cartsSupabaseRepository = {
     return mapCart(extractSingle(result, 'carts.create'));
   },
 
+  async upsertByContact({ workspaceId, contactId, outletId, chatId }) {
+    requireWorkspaceId(workspaceId);
+    // Try to find existing active cart for this contact+outlet
+    const existing = await this.findActiveByContact({ workspaceId, contactId, outletId });
+    if (existing) {
+      // If outlet changed, update it
+      if (outletId && String(existing.outletId) !== String(outletId)) {
+        const client = getSupabaseServiceClient();
+        await client.from(TABLE).update({ outlet_id: outletId }).eq('workspace_id', workspaceId).eq('id', existing.id);
+        return this.findById({ workspaceId, cartId: existing.id });
+      }
+      return existing;
+    }
+    // No active cart — create a new one
+    return this.create({ workspaceId, outletId, contactId, chatId: chatId || null });
+  },
+
+
   async update({ workspaceId, cartId, updates }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
@@ -139,7 +157,24 @@ export const cartsSupabaseRepository = {
   async updateItem({ workspaceId, cartId, itemId, productId, updates }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    let q = client.from(ITEMS_TABLE).update(updates).eq('cart_id', cartId).eq('workspace_id', workspaceId);
+    const set = {};
+    const fieldMap = {
+      productId: 'product_id',
+      variantId: 'variant_id',
+      productNameSnapshot: 'product_name_snapshot',
+      variantNameSnapshot: 'variant_name_snapshot',
+      unitPrice: 'unit_price',
+      effectivePrice: 'unit_price',
+      quantity: 'quantity',
+      subtotal: 'subtotal_amount',
+      subtotalAmount: 'subtotal_amount',
+      notes: 'notes',
+      metadata: 'metadata',
+    };
+    for (const [key, value] of Object.entries(updates || {})) {
+      set[fieldMap[key] || key] = value;
+    }
+    let q = client.from(ITEMS_TABLE).update(set).eq('cart_id', cartId).eq('workspace_id', workspaceId);
     q = itemId ? q.eq('id', itemId) : q.eq('product_id', productId);
     await q;
     return this.findById({ workspaceId, cartId });

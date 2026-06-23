@@ -60,6 +60,7 @@ export const complaintsSupabaseRepository = {
       chat_id: data.chatId || null,
       platform_id: data.platformId || null,
       agent_id: data.agentId || null,
+      order_id: data.orderId || null,
       subject: data.subject || data.text || '',
       description: data.description || data.text || null,
       status: data.status || 'open',
@@ -89,6 +90,7 @@ export const complaintsSupabaseRepository = {
         set[dbKey] = updates[key];
       }
     }
+    const { data: before } = await client.from(TABLE).select('status, priority').eq('id', complaintId).maybeSingle();
     const result = await client
       .from(TABLE)
       .update(set)
@@ -97,7 +99,32 @@ export const complaintsSupabaseRepository = {
       .select()
       .maybeSingle();
     const row = extractSingle(result, 'complaints.update');
+    if (row && before && (before.status !== row.status || before.priority !== row.priority)) {
+      await this.addEvent({
+        complaintId,
+        actor: updates.actor || 'system',
+        eventType: before.status !== row.status ? 'status_change' : 'priority_change',
+        oldStatus: before.status,
+        newStatus: row.status !== before.status ? row.status : row.priority !== before.priority ? row.priority : undefined,
+        note: updates.updateNote || null,
+      });
+    }
     return row ? mapRow(row) : null;
+  },
+
+  async addEvent({ complaintId, actor, eventType, oldStatus, newStatus, note, metadata }) {
+    const client = getSupabaseServiceClient();
+    await client.from('complaint_events').insert({
+      complaint_id: complaintId, actor, event_type: eventType,
+      old_status: oldStatus, new_status: newStatus, note: note || null,
+      metadata: metadata || {},
+    });
+  },
+
+  async getEvents(complaintId) {
+    const client = getSupabaseServiceClient();
+    const result = await client.from('complaint_events').select('*').eq('complaint_id', complaintId).order('created_at', { ascending: true });
+    return extractData(result, 'complaints.getEvents') ?? [];
   },
 
   /**

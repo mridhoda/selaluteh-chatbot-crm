@@ -1,0 +1,622 @@
+schema_version: 2
+spec_version: 1.0.0
+
+id: selaluteh-workspace-access-control
+title: SelaluTeh Workspace Access Control
+description: >-
+  Dedicated requirements-first specification for multi-workspace tenancy,
+  memberships, system and custom roles, permission registry, outlet-scoped
+  authorization, teams, invitations, access requests, ownership transfer, policy
+  evaluation, Supabase RLS defense-in-depth, service identities, platform
+  support access, audit, observability, migration, testing, and production
+  readiness.
+
+type: feature
+workflow: requirements-first
+
+status: active
+workflow_state: in_progress
+priority: critical
+
+created_at: '2026-06-22'
+updated_at: '2026-06-23'
+
+owners:
+  product_owner: SelaluTeh product owner
+  technical_owner: project-maintainer
+  security_owner: project-maintainer
+  implementation_actor: coding-agent
+  review_required: true
+  security_review_required: true
+  privacy_review_required: true
+
+tags:
+  - workspace
+  - access-control
+  - authorization
+  - multi-tenant
+  - membership
+  - roles
+  - permissions
+  - outlet-scope
+  - teams
+  - invitations
+  - owner-transfer
+  - supabase
+  - rls
+  - security
+  - tdd
+
+lifecycle:
+  config: docs/specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: docs/specs/active/selaluteh-workspace-access-control
+  move_entire_spec_directory: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    dry_run_command: npm run specs:sync:dry
+    sync_command: npm run specs:sync
+    check_command: npm run specs:check
+    automatic_local_move: false
+    ci_check_only: true
+
+  completion_requirements:
+    - all-p0-tasks-completed
+    - approved-p1-deferrals-documented
+    - definition-of-done-passed
+    - workspace-isolation-passed
+    - outlet-isolation-passed
+    - owner-invariant-passed
+    - privilege-escalation-tests-passed
+    - invitation-security-tests-passed
+    - rls-tests-passed
+    - authorization-cache-invalidation-passed
+    - ai-and-service-identity-tests-passed
+    - security-property-concurrency-resilience-performance-tests-passed
+    - migration-and-rollback-documented
+    - documentation-updated
+    - implementation-status-updated
+    - specs-check-passed
+
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+  reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md
+  definition_of_done: docs/backend/11-sprint/definition-of-done.md
+
+document_authority:
+  precedence:
+    - latest-approved-access-control-decision
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+    - current-task
+    - implementation-status-for-reality
+    - external-domain-contracts
+    - legacy-documents
+
+  responsibilities:
+    spec: identity-scope-status-boundaries-and-release-control
+    requirements: what-workspace-access-control-must-do
+    design: how-workspace-access-control-is-designed
+    tasks: tdd-implementation-order-and-verification
+
+product:
+  name: SelaluTeh Marketplace
+  area: workspace-access-control
+  stage: full-product-design-with-alpha-slice
+  architecture:
+    - multi-account-ready
+    - multi-workspace
+    - multi-outlet
+    - role-based-access-control
+    - outlet-scoped-authorization
+    - custom-backend-auth
+    - supabase-postgresql
+
+spec_relationships:
+  umbrella:
+    id: selaluteh-backend-marketplace
+    relationship: backend-architecture-and-shared-rules
+
+  depends_on:
+    - id: existing-backend-authentication
+      relationship: verified-identity-session-jwt-and-otp
+    - id: selaluteh-outlet-management-operations
+      relationship: outlet-lifecycle-and-operational-data
+    - id: selaluteh-cart-order-lifecycle
+      relationship: order-resource-and-outlet-order-actions
+    - id: selaluteh-crm-inbox-contacts
+      relationship: contact-conversation-assignment-semantics
+    - id: selaluteh-channel-connections-sync
+      relationship: channel-configuration-resource-actions
+    - id: selaluteh-ai-agent-architecture
+      relationship: ai-tool-gateway-and-execution-identity
+    - id: selaluteh-ai-agent-scope-security
+      relationship: ai-business-scope-and-tool-gating
+    - id: selaluteh-audit-activity-timeline
+      relationship: immutable-audit-storage
+    - id: selaluteh-admin-data-operations
+      relationship: generic-bulk-and-export-jobs
+
+  does_not_replace:
+    - selaluteh-backend-marketplace
+    - existing-backend-authentication
+    - selaluteh-outlet-management-operations
+    - selaluteh-cart-order-lifecycle
+    - selaluteh-ai-agent-architecture
+
+scope:
+  included:
+    - workspace-identity-and-lifecycle
+    - user-workspace-memberships
+    - membership-status-lifecycle
+    - system-roles
+    - permission-registry
+    - custom-roles
+    - role-assignment
+    - effective-permission-evaluation
+    - outlet-scope-modes
+    - multi-outlet-member-assignment
+    - workspace-wide-access
+    - teams
+    - team-membership
+    - team-resource-validation
+    - member-invitations
+    - invitation-expiry-revoke-resend
+    - access-requests
+    - owner-protection
+    - owner-transfer
+    - member-suspend-remove-leave
+    - permission-middleware
+    - service-level-authorization
+    - repository-query-scoping
+    - supabase-rls-defense-in-depth
+    - service-identities
+    - background-job-identities
+    - ai-execution-authorization
+    - platform-admin-support-access
+    - break-glass-and-impersonation
+    - resource-assignment-validation
+    - field-and-action-level-restrictions
+    - optimistic-concurrency
+    - idempotency
+    - authorization-cache
+    - cache-invalidation
+    - audit-events
+    - decision-tracing
+    - observability
+    - admin-ui-state-support
+    - api-contracts
+    - legacy-migration
+    - security-testing
+    - production-readiness
+
+  deferred:
+    - attribute-based-access-control
+    - policy-as-code-external-engine
+    - organization-hierarchy-above-workspace
+    - multi-owner-workspace
+    - temporary-guest-members
+    - advanced-approval-chains
+    - hardware-security-key-step-up
+    - automated-role-mining
+    - just-in-time-enterprise-provisioning
+    - scim
+    - saml-sso
+    - fine-grained-column-policy-for-every-domain
+    - cross-workspace-shared-resources
+
+  excluded:
+    - password-and-otp-implementation
+    - jwt-signing-and-session-issuance
+    - supabase-auth-migration
+    - outlet-operational-lifecycle
+    - cart-order-state-machine
+    - channel-oauth-and-credentials
+    - payment-gateway-authorization
+    - ai-domain-scope-classification
+    - immutable-audit-store-internals
+    - generic-export-engine
+    - customer-authentication
+    - frontend-only-permission-enforcement
+
+fixed_decisions:
+  tenant_boundary: workspace_id
+  operational_subscope: outlet_id
+  database: supabase-postgresql
+  authentication: custom-backend-auth-for-mvp
+  authorization: centralized-backend-policy-engine
+  default_policy: deny
+  rls_role: defense-in-depth
+  frontend_is_security_boundary: false
+
+  membership_statuses:
+    - INVITED
+    - ACTIVE
+    - SUSPENDED
+    - REMOVED
+    - EXPIRED
+
+  workspace_statuses:
+    - ACTIVE
+    - SUSPENDED
+    - ARCHIVED
+
+  system_roles:
+    - OWNER
+    - ADMIN
+    - OUTLET_MANAGER
+    - OUTLET_STAFF
+    - CUSTOMER_SUPPORT
+    - FINANCE_VIEWER
+    - ANALYST
+
+  outlet_scope_modes:
+    - ALL_OUTLETS
+    - SELECTED_OUTLETS
+    - NO_OUTLET_ACCESS
+
+  owner_model:
+    canonical_owner_count: 1
+    generic_role-update-can-change-owner: false
+    owner-can-be-removed-before-transfer: false
+    owner-outlet-scope: ALL_OUTLETS
+
+  custom_roles:
+    enabled: true
+    workspace-scoped: true
+    cannot-grant-platform-reserved-permissions: true
+    cannot-exceed-actor-delegable-permissions: true
+
+  role_combination:
+    alpha: single-primary-role
+    full-product: multiple-role-ready
+    grant-combination: union
+    platform-deny-overrides: true
+
+  invitation:
+    token-storage: hash-only
+    single-use: true
+    identity-match-required: true
+    rate-limited: true
+
+  cache:
+    authoritative: false
+    bounded-ttl: true
+    immediate-invalidation-for-suspension-removal: true
+
+  ai:
+    can-manage-memberships: false
+    can-manage-roles: false
+    can-transfer-ownership: false
+    can-expand-permissions-through-prompt: false
+
+  service_identity:
+    explicit: true
+    least-privilege: true
+    arbitrary-user-session-inheritance: false
+
+requirements_registry:
+  prefix: WAC-R
+  total: 45
+
+  groups:
+    authority-and-tenancy:
+      - WAC-R1
+      - WAC-R2
+      - WAC-R3
+
+    membership-and-role:
+      - WAC-R4
+      - WAC-R5
+      - WAC-R6
+      - WAC-R7
+      - WAC-R8
+      - WAC-R9
+      - WAC-R10
+
+    outlet-and-team-scope:
+      - WAC-R11
+      - WAC-R12
+      - WAC-R13
+      - WAC-R14
+      - WAC-R15
+      - WAC-R16
+
+    invitation-access-and-owner:
+      - WAC-R17
+      - WAC-R18
+      - WAC-R19
+      - WAC-R20
+      - WAC-R21
+      - WAC-R22
+      - WAC-R23
+      - WAC-R24
+
+    enforcement-and-data:
+      - WAC-R25
+      - WAC-R26
+      - WAC-R27
+      - WAC-R28
+      - WAC-R29
+      - WAC-R30
+      - WAC-R31
+      - WAC-R32
+      - WAC-R33
+      - WAC-R34
+
+    correctness-and-operations:
+      - WAC-R35
+      - WAC-R36
+      - WAC-R37
+      - WAC-R38
+      - WAC-R39
+      - WAC-R40
+      - WAC-R41
+      - WAC-R42
+      - WAC-R43
+      - WAC-R44
+      - WAC-R45
+
+correctness_invariants:
+  - every-tenant-resource-belongs-to-one-workspace
+  - every-active-member-has-valid-role
+  - owner-membership-is-active
+  - workspace-has-exactly-one-canonical-owner
+  - owner-has-all-outlet-scope
+  - unknown-permission-denies
+  - inactive-membership-denies
+  - workspace-mismatch-denies
+  - unassigned-outlet-denies
+  - effective-grants-never-exceed-platform-maximum
+  - custom-role-never-exceeds-creator-delegability
+  - invitation-token-is-single-use
+  - duplicate-invitation-accept-does-not-create-duplicate-membership
+  - suspension-removal-invalidates-access
+  - frontend-visibility-is-not-authority
+  - ai-prompt-does-not-expand-permissions
+  - service-job-has-explicit-identity-and-workspace
+  - cross-workspace-resource-existence-is-not-leaked
+  - owner-transfer-is-atomic
+  - audit-records-real-actor-during-impersonation
+
+security:
+  untrusted_inputs:
+    - workspace-id
+    - outlet-id
+    - membership-id
+    - role-id
+    - permission-key
+    - invitation-token
+    - requested-outlet-ids
+    - custom-role-permission-list
+    - api-tool-arguments
+
+  immutable_controls:
+    - deny-by-default
+    - owner-protection
+    - workspace-isolation
+    - outlet-scope-enforcement
+    - platform-reserved-permissions
+    - ai-membership-management-denied
+    - service-role-secret-backend-only
+    - frontend-not-authority
+
+  release_blockers:
+    - cross-workspace-access
+    - cross-outlet-access
+    - owner-removal
+    - stale-access-after-suspension
+    - privilege-escalation
+    - invitation-token-replay
+    - unknown-permission-allow
+    - ai-role-management
+    - service-role-key-exposure
+    - unscoped-repository-query
+    - frontend-only-enforcement
+
+testing:
+  methodology: test-driven-development
+  deterministic_ci_default: true
+  production_data_prohibited: true
+  production_secrets_prohibited: true
+
+  layers:
+    unit:
+      path: server/test/unit/workspace-access-control
+      required: true
+    component:
+      path: server/test/component/workspace-access-control
+      required: true
+    integration:
+      path: server/test/integration/workspace-access-control
+      required: true
+    security:
+      path: server/test/security/workspace-access-control
+      required: true
+    property:
+      path: server/test/property/workspace-access-control
+      required: true
+    concurrency:
+      path: server/test/concurrency/workspace-access-control
+      required: true
+    resilience:
+      path: server/test/resilience/workspace-access-control
+      required: true
+    performance:
+      path: server/test/performance/workspace-access-control
+      required: true
+
+  required_properties:
+    - default-deny
+    - owner-count-exactly-one
+    - owner-active
+    - owner-all-outlets
+    - suspended-member-always-denied
+    - unknown-permission-always-denied
+    - effective-permissions-subset-of-platform-maximum
+    - returned-outlets-subset-of-assigned-outlets
+    - duplicate-invitation-accept-idempotent
+    - cross-workspace-never-allowed
+    - ai-cannot-manage-access-control
+
+  release_gate_commands:
+    spec_check: npm run specs:check
+    unit: npm run test:access:unit
+    component: npm run test:access:component
+    integration: npm run test:access:integration
+    security: npm run test:access:security
+    property: npm run test:access:property
+    concurrency: npm run test:access:concurrency
+    resilience: npm run test:access:resilience
+    performance: npm run test:access:performance
+    all: npm run test:access:all
+
+implementation:
+  current_phase: preflight-and-repository-audit
+  task_source: tasks.md
+  active_task_pointer: docs/backend/09-ai-context/current-task.md
+  recommended_first_task: 0.1-confirm-spec-authority
+
+  phases:
+    - id: 0
+      name: preflight-and-test-harness
+      task_sections: [ 0 ]
+    - id: 1
+      name: permission-role-workspace-membership-foundation
+      task_sections: [ 1, 2, 3, 4 ]
+    - id: 2
+      name: outlet-scope-and-policy-engine
+      task_sections: [ 5, 6, 7, 8 ]
+    - id: 3
+      name: supabase-invitations-and-member-admin
+      task_sections: [ 9, 10, 11, 12 ]
+    - id: 4
+      name: advanced-organization-and-cache
+      task_sections: [ 13, 14, 15, 16 ]
+    - id: 5
+      name: service-platform-and-field-policies
+      task_sections: [ 17, 18, 19 ]
+    - id: 6
+      name: api-ui-observability-and-integration
+      task_sections: [ 20, 21, 22, 23 ]
+    - id: 7
+      name: security-performance-migration-release
+      task_sections: [ 24, 25, 26, 27, 28, 29 ]
+
+  fastest_safe_alpha_order:
+    - task-section-0
+    - task-section-1
+    - task-section-2
+    - task-section-3
+    - task-section-4
+    - task-section-5
+    - task-section-6
+    - task-section-7
+    - task-section-8
+    - task-section-9
+    - task-section-10
+    - task-section-11
+    - task-section-12
+    - task-section-16
+    - task-section-22
+    - task-section-23
+    - task-section-24
+    - task-section-25
+    - task-section-27
+    - task-section-28
+    - task-section-29
+
+  may_defer_after-alpha:
+    - custom-roles
+    - teams
+    - access-requests
+    - platform-support-impersonation
+    - break-glass
+    - advanced-field-level-redaction
+    - multiple-roles-per-membership
+
+  must_not_defer:
+    - workspace-isolation
+    - membership-status
+    - system-roles
+    - permission-registry
+    - outlet-scope
+    - owner-guard
+    - policy-engine
+    - middleware-and-service-guards
+    - repository-scoping
+    - supabase-rls-tests
+    - invitation-security
+    - suspension-removal-revocation
+    - order-outlet-authorization
+    - critical-security-tests
+
+status_workflow:
+  initial_status: active
+  initial_workflow_state: in_progress
+
+  folder_statuses:
+    backlog:
+      folder: docs/specs/backlog
+      workflow_states: [ draft, review, approved ]
+    active:
+      folder: docs/specs/active
+      workflow_states: [ in_progress, blocked, verifying ]
+    completed:
+      folder: docs/specs/completed
+      workflow_states: [ done, archived ]
+
+  folder_move_rule: edit-status-then-run-npm-run-specs-sync
+  completed_guard: required-unchecked-tasks-must-be-zero
+
+references:
+  own_documents:
+    - docs/specs/active/selaluteh-workspace-access-control/requirements.md
+    - docs/specs/active/selaluteh-workspace-access-control/design.md
+    - docs/specs/active/selaluteh-workspace-access-control/tasks.md
+
+  umbrella:
+    - docs/specs/active/selaluteh-backend-marketplace/spec.yaml
+    - docs/specs/active/selaluteh-backend-marketplace/requirements.md
+    - docs/specs/active/selaluteh-backend-marketplace/design.md
+    - docs/specs/active/selaluteh-backend-marketplace/tasks.md
+
+  outlet_management:
+    - docs/specs/active/selaluteh-outlet-management-operations/spec.yaml
+    - docs/specs/active/selaluteh-outlet-management-operations/requirements.md
+    - docs/specs/active/selaluteh-outlet-management-operations/design.md
+    - docs/specs/active/selaluteh-outlet-management-operations/tasks.md
+
+  global_entry:
+    - docs/backend/READING-ORDER.md
+    - docs/backend/09-ai-context/current-task.md
+
+metadata:
+  generated_for: selaluteh-workspace-access-control
+  generated_at: '2026-06-22'
+  based_on:
+    - selaluteh-backend-marketplace
+    - selaluteh-outlet-management-operations
+    - latest-multi-workspace-multi-outlet-decisions
+    - specs-lifecycle-config
+
+  notes:
+    - Authentication remains external and custom backend auth is retained for
+      MVP.
+    - Workspace is the tenant boundary and outlet is the operational sub-scope.
+    - Owner protection, workspace isolation, and outlet isolation are
+      release-critical.
+    - Supabase RLS is defense-in-depth and does not replace backend
+      authorization.
+    - This is a full-product spec with an explicit fastest safe alpha slice.

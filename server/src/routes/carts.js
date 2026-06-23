@@ -21,6 +21,22 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get('/current', async (req, res, next) => {
+  try {
+    const chatId = req.query.chat_id || req.query.chatId;
+    const contactId = req.query.contact_id || req.query.contactId;
+    const outletId = req.query.outlet_id || req.query.outletId;
+    let cart = null;
+    if (chatId) {
+      cart = await cartsRepository.findActiveByChat({ workspaceId: req.me.workspaceId, chatId });
+    }
+    if (!cart && contactId) {
+      cart = await cartsRepository.findActiveByContact({ workspaceId: req.me.workspaceId, contactId, outletId });
+    }
+    res.json({ data: cart ? getCartSummary(cart) : { items: [], total: 0, itemCount: 0 } });
+  } catch (err) { next(err); }
+});
+
 router.get('/:cartId', async (req, res, next) => {
   try {
     const cart = await cartsRepository.findById({ workspaceId: req.me.workspaceId, cartId: req.params.cartId });
@@ -84,5 +100,23 @@ router.delete('/:cartId', async (req, res, next) => {
     res.json({ data: getCartSummary(updated) });
   } catch (err) { next(err); }
 });
+
+// Clear active cart by contactId or chatId (used by CRM sidebar)
+router.post('/clear-active', async (req, res, next) => {
+  try {
+    const { contactId, chatId } = req.body;
+    let cart = null;
+    if (chatId) {
+      cart = await cartsRepository.findActiveByChat({ workspaceId: req.me.workspaceId, chatId });
+    }
+    if (!cart && contactId) {
+      cart = await cartsRepository.findActiveByContact({ workspaceId: req.me.workspaceId, contactId });
+    }
+    if (!cart) return res.json({ data: null, message: 'No active cart found' });
+    const updated = await clearCart({ workspaceId: req.me.workspaceId, cartId: cart.id });
+    res.json({ data: getCartSummary(updated) });
+  } catch (err) { next(err); }
+});
+
 
 export default router;

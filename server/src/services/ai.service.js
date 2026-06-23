@@ -15,6 +15,12 @@ import { tgSend, waSend } from './sender.js';
 import { createOrderFromAI } from './order.service.js';
 import { createComplaintFromAI } from './complaint.service.js';
 import { executeAIAction } from './ai-actions.service.js';
+import { redactSecretsInText } from '../utils/redaction.js';
+import { extractStoredNameFromUrl } from '../utils/file-urls.js';
+
+export function sanitizePromptText(value = '') {
+  return redactSecretsInText(String(value || ''));
+}
 
 // Helper to get MIME type from filename
 function getMimeType(filename = '') {
@@ -93,7 +99,7 @@ Product/menu answer rules:
 }
 
 export async function generateAIReply({ system, prompt, message, knowledge, agent, chat, history = [] }) {
-  const currentMessageText = message.text || (message.attachment ? '[Attachment]' : '');
+  const currentMessageText = sanitizePromptText(message.text || (message.attachment ? '[Attachment]' : ''));
 
   // --- Per-agent AI settings override ---
   // If the agent has its own aiSettings configured, those take priority over global env
@@ -148,7 +154,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
 
   let knowledgeContent = '';
   if (knowledge && knowledge.length > 0) {
-    knowledgeContent = knowledge.map(k => {
+        knowledgeContent = knowledge.map(k => {
       if (k.kind === 'url') {
         return `URL: ${k.value}`;
       } else if (k.kind === 'text') {
@@ -160,6 +166,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
       }
     }).join('\n');
   }
+  knowledgeContent = sanitizePromptText(knowledgeContent);
 
   const databaseFiles = Array.isArray(agent?.database) ? agent.database : [];
   const fileCatalog = databaseFiles.length > 0
@@ -176,37 +183,207 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
     let reply = '';
     // Prioritize OpenAI (or per-agent override) if available
     if (effectiveOpenaiClient) {
+      const commerceInstructions = '\n\nORDER FLOW (only activate when customer explicitly wants to place an order):\n' +
+        'STEP 1: Only when customer says they want to order/buy something, call get_outlets to get the list, then present the outlet NAMES as a simple numbered text list. NEVER send location pins or links.\n' +
+        'STEP 2: After customer picks an outlet by name/number, call select_outlet with the correct outletId from the get_outlets result.\n' +
+        'STEP 3: Ask what items the customer wants. Use search_products to find them.\n' +
+        'STEP 4: Call add_cart_item for each item (use productId from search result, NEVER invent IDs).\n' +
+        'STEP 5: After ALL items added, summarize the order and say: "Pesananmu sudah saya siapkan! Silakan klik tombol Checkout yang akan muncul."\n' +
+        'CRITICAL RULES:\n' +
+        '- Do NOT call get_outlets or show outlets unless the customer explicitly wants to ORDER something.\n' +
+        '- Do NOT send location links, maps, or coordinates. Only show outlet names as plain text.\n' +
+        '- Always call select_outlet BEFORE add_cart_item.\n' +
+        '- Never fabricate product IDs or prices. Only use IDs from search_products results.\n' +
+        '- If customer just asks about menu/prices, answer from the products list without starting the order flow.';
+
+
+      // ── Commerce tool definitions for OpenAI function calling ──────────────
+      const commerceTools = [
+        {
+          type: 'function',
+          function: {
+            name: 'get_outlets',
+            description: 'List all available pickup outlets',
+            parameters: { type: 'object', properties: {}, required: [] },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'search_products',
+            description: 'Search products by name or keyword. Returns productId, name, price.',
+            parameters: {
+              type: 'object',
+              properties: {
+                query: { type: 'string', description: 'Product name or keyword' },
+              },
+              required: ['query'],
+            },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'select_outlet',
+            description: 'Select the outlet for the current order. Must be called before add_cart_item.',
+            parameters: {
+              type: 'object',
+              properties: {
+                outletId: { type: 'string', description: 'The outlet ID from get_outlets result' },
+              },
+              required: ['outletId'],
+            },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'add_cart_item',
+            description: 'Add a product to the cart. Requires select_outlet to have been called first.',
+            parameters: {
+              type: 'object',
+              properties: {
+                productId: { type: 'string', description: 'Product ID from search_products result' },
+                quantity: { type: 'number', description: 'Number of items' },
+              },
+              required: ['productId', 'quantity'],
+            },
+          },
+        },
+      ];
+
+      // ── Execute a commerce tool call against the real DB ───────────────────
+      let cartItemAdded = false;
+      const executeToolCall = async (toolName, toolArgs) => {
+        try {
+          console.log(`[ai-tool] ${toolName}`, toolArgs);
+          const workspaceId = chat?.workspaceId;
+          const contactId = typeof chat?.contactId === 'object' ? chat.contactId?.id : chat?.contactId;
+
+          const { cartsRepository, productsRepository, outletsSupabaseRepository } =
+            await import('../db/repositories/index.js');
+
+          if (toolName === 'get_outlets') {
+            const outlets = await outletsSupabaseRepository.list({ workspaceId });
+            return JSON.stringify((outlets || []).map(o => ({ id: o.id, name: o.name, city: o.city })));
+          }
+
+          if (toolName === 'search_products') {
+            const results = await productsRepository.list({ workspaceId, search: toolArgs.query || '', limit: 10 });
+            const items = Array.isArray(results) ? results : (results?.data || results?.items || []);
+            return JSON.stringify(items.slice(0, 10).map(p => ({
+              productId: p.id || p._id,
+              name: p.name,
+              price: p.basePrice ?? p.price ?? 0,
+            })));
+          }
+
+          if (toolName === 'select_outlet') {
+            const outlet = await outletsSupabaseRepository.findById({ workspaceId, outletId: toolArgs.outletId });
+            if (!outlet) return JSON.stringify({ error: 'Outlet not found' });
+            // Create/update cart linked to this outlet
+            await cartsRepository.upsertByContact({ workspaceId, contactId, outletId: toolArgs.outletId, chatId: chat?.id || null });
+            // Persist outlet selection to chat record so sidebar polling picks it up
+            if (chat?.id) {
+              await chatsSupabaseRepository.setCurrentOutlet(chat.id, toolArgs.outletId);
+            }
+            console.log(`[ai-tool] select_outlet: cart+chat updated for contact=${contactId} outlet=${toolArgs.outletId} (${outlet.name})`);
+            return JSON.stringify({ success: true, outletId: toolArgs.outletId, name: outlet.name });
+          }
+
+          if (toolName === 'add_cart_item') {
+            const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId });
+            if (!cart) return JSON.stringify({ error: 'No active cart. Call select_outlet first.' });
+            const product = await productsRepository.findById({ workspaceId, productId: toolArgs.productId });
+            await cartsRepository.addItem({
+              workspaceId,
+              cartId: cart.id,
+              item: {
+                productId: toolArgs.productId,
+                quantity: toolArgs.quantity || 1,
+                name: product?.name || '',
+                productNameSnapshot: product?.name || '',
+                unitPrice: product?.basePrice ?? product?.price ?? 0,
+                effectivePrice: product?.basePrice ?? product?.price ?? 0,
+              },
+            });
+            cartItemAdded = true; // ← mark that items were added this turn
+            console.log(`[ai-tool] add_cart_item: added ${toolArgs.quantity}x ${product?.name} to cart ${cart.id}`);
+            return JSON.stringify({ success: true, productId: toolArgs.productId, name: product?.name, quantity: toolArgs.quantity });
+          }
+
+          return JSON.stringify({ error: 'Unknown tool' });
+        } catch (err) {
+          console.error(`[ai-tool] ${toolName} error:`, err.message);
+          return JSON.stringify({ error: err.message });
+        }
+      };
+
       try {
         const openaiMessages = [
-          { role: 'system', content: (system || 'You are a helpful assistant.') + contactName + fileInstruction + productMenuContext },
+          { role: 'system', content: sanitizePromptText((system || 'You are a helpful assistant.') + contactName + fileInstruction + productMenuContext + commerceInstructions) },
         ];
 
         for (const msg of history) {
           const isUser = msg.senderType === 'customer' || msg.direction === 'inbound';
           openaiMessages.push({
             role: isUser ? 'user' : 'assistant',
-            content: msg.content || msg.text || '',
+            content: sanitizePromptText(msg.content || msg.text || ''),
           });
         }
 
         openaiMessages.push({
           role: 'user',
-          content: `${prompt || ''}\n\nKnowledge:\n${knowledgeContent}${fileInstruction}\n\nUser: ${currentMessageText}`,
+          content: sanitizePromptText(`${prompt || ''}\n\nKnowledge:\n${knowledgeContent}${fileInstruction}\n\nUser: ${currentMessageText}`),
         });
 
-        const createParams = {
-          model: effectiveOpenaiModel,
-          messages: openaiMessages,
-          temperature: effectiveTemperature,
-        };
-        if (effectiveMaxTokens) createParams.max_tokens = effectiveMaxTokens;
-        const resp = await effectiveOpenaiClient.chat.completions.create(createParams);
-        reply = resp.choices?.[0]?.message?.content || '...';
-        console.log('OpenAI reply:', reply);
+        // ── Agentic tool loop: run until AI produces text or max iterations ──
+        const MAX_TOOL_ITERATIONS = 6;
+        let iterations = 0;
+        while (iterations < MAX_TOOL_ITERATIONS) {
+          iterations++;
+          const createParams = {
+            model: effectiveOpenaiModel,
+            messages: openaiMessages,
+            temperature: effectiveTemperature,
+            tools: commerceTools,
+            tool_choice: 'auto',
+          };
+          if (effectiveMaxTokens) createParams.max_tokens = effectiveMaxTokens;
+
+          const resp = await effectiveOpenaiClient.chat.completions.create(createParams);
+          const choice = resp.choices?.[0];
+          const assistantMsg = choice?.message;
+
+          // Add assistant message to history
+          openaiMessages.push(assistantMsg);
+
+          // If no tool calls → final reply
+          if (!assistantMsg?.tool_calls || assistantMsg.tool_calls.length === 0) {
+            reply = assistantMsg?.content || '...';
+            console.log('OpenAI reply:', reply);
+            break;
+          }
+
+          // Execute each tool call and add results
+          for (const tc of assistantMsg.tool_calls) {
+            const toolArgs = JSON.parse(tc.function.arguments || '{}');
+            const toolResult = await executeToolCall(tc.function.name, toolArgs);
+            openaiMessages.push({
+              role: 'tool',
+              tool_call_id: tc.id,
+              content: toolResult,
+            });
+          }
+        }
+
+        if (!reply) reply = 'Maaf, ada gangguan sementara. Silakan coba lagi.';
       } catch (e) {
         console.error('OpenAI error:', e.message);
       }
-    }
+      // Return cartItemAdded flag alongside reply
+      if (reply) return { text: reply, cartItemAdded };
+    } // end if (effectiveOpenaiClient)
 
     // Fallback to Gemini if OpenAI fails or is not available
     if (geminiClient && !reply) {
@@ -277,7 +454,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
         5. Do not add any other text if you decide to escalate.
         `;
 
-        let systemInstruction = (system || 'You are a helpful assistant.') + contactName + fileInstruction + productMenuContext + escalationInstruction;
+        let systemInstruction = sanitizePromptText((system || 'You are a helpful assistant.') + contactName + fileInstruction + productMenuContext + escalationInstruction);
 
         // --- Tools Injection ---
         if (agent.tools && agent.tools.includes('time')) {
@@ -306,11 +483,11 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
           const parts = [];
 
           if (msg.text) {
-            parts.push({ text: msg.text });
+            parts.push({ text: sanitizePromptText(msg.text) });
           }
 
           if (msg.attachment?.url) {
-            const storedName = msg.attachment.url.split('/files/')[1];
+            const storedName = extractStoredNameFromUrl(msg.attachment.url);
             if (storedName) {
               // Only add inlineData (images) for USER messages. Model cannot have inlineData.
               if (role === 'user') {
@@ -356,11 +533,11 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
           hour12: false
         });
 
-        const promptText = `${prompt || ''}\n\nKnowledge:\n${knowledgeContent}\n\n[CURRENT TIME RIGHT NOW: ${currentTime} WITA - This is the ACTUAL real-time clock for THIS message. Do NOT use time from previous messages.]\n\nUser: ${currentMessageText}`;
+        const promptText = sanitizePromptText(`${prompt || ''}\n\nKnowledge:\n${knowledgeContent}\n\n[CURRENT TIME RIGHT NOW: ${currentTime} WITA - This is the ACTUAL real-time clock for THIS message. Do NOT use time from previous messages.]\n\nUser: ${currentMessageText}`);
         const promptParts = [{ text: promptText }];
 
         if (message.attachment?.url) {
-          const storedName = message.attachment.url.split('/files/')[1];
+          const storedName = extractStoredNameFromUrl(message.attachment.url);
           if (storedName) {
             try {
               const filePath = path.resolve('uploads', storedName);
@@ -613,14 +790,14 @@ export async function findAndSendFile({ agent, message, openaiClient, geminiClie
               const file = agent.database.find(f => f.id.includes(fileId));
               if (file) {
                 console.log('File found for user message based on prompt:', file.originalName);
-                const serverUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:5000';
-                return {
-                  text: `Tentu, ini file ${file.originalName} yang Anda minta.`,
-                  attachment: {
-                    url: `${serverUrl}/files/${file.storedName}`,
-                    filename: file.originalName,
-                    storedName: file.storedName,
-                  }
+      const serverUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:5000';
+      return {
+        text: `Tentu, ini file ${file.originalName} yang Anda minta.`,
+        attachment: {
+          url: `${serverUrl}${buildManagedFileUrl(file.storedName)}`,
+          filename: file.originalName,
+          storedName: file.storedName,
+        }
                 };
               }
             }
@@ -645,7 +822,7 @@ export async function findAndSendFile({ agent, message, openaiClient, geminiClie
         return {
           text: `Tentu, ini file ${simpleMatch.originalName} yang Anda minta.`,
           attachment: {
-            url: `${serverUrl}/files/${simpleMatch.storedName}`,
+            url: `${serverUrl}${buildManagedFileUrl(simpleMatch.storedName)}`,
             filename: simpleMatch.originalName,
             storedName: simpleMatch.storedName,
           },

@@ -736,11 +736,11 @@ _Requirements: AIA-R2, AIA-R5, AIA-R6, AIA-R33_
 
 **Tests**
 
-- [ ] Same Telegram conversation resolves same chat.
-- [ ] Same WhatsApp conversation resolves same chat.
-- [ ] Same external conversation in another workspace resolves different chat.
-- [ ] Different platform connections do not collide.
-- [ ] Parallel resolution creates at most one chat.
+- [x] Same Telegram conversation resolves same chat.
+- [x] Same WhatsApp conversation resolves same chat.
+- [x] Same external conversation in another workspace resolves different chat.
+- [x] Different platform connections do not collide.
+- [x] Parallel resolution creates at most one chat.
 
 _Requirements: AIA-R2, AIA-R3_
 
@@ -754,11 +754,11 @@ _Requirements: AIA-R2, AIA-R3_
 
 **Tests**
 
-- [ ] Current message appears exactly once.
-- [ ] Previous assistant message is loaded.
-- [ ] Chronological order is correct.
-- [ ] Duplicate provider message creates one internal message.
-- [ ] Duplicate provider message triggers one AI run.
+- [x] Current message appears exactly once.
+- [x] Previous assistant message is loaded.
+- [x] Chronological order is correct.
+- [x] Duplicate provider message creates one internal message.
+- [x] Duplicate provider message triggers one AI run.
 
 _Requirements: AIA-R3, AIA-R6_
 
@@ -799,13 +799,13 @@ _Requirements: AIA-R5, AIA-R10, AIA-R15_
 
 **Tests**
 
-- [ ] Loads expected last N.
-- [ ] Returns ascending order.
-- [ ] Excludes raw webhook.
-- [ ] Excludes secret/system internals.
-- [ ] Handles empty history.
-- [ ] Handles more than limit.
-- [ ] Handles deleted/expired messages.
+- [x] Loads expected last N.
+- [x] Returns ascending order.
+- [x] Excludes raw webhook.
+- [x] Excludes secret/system internals.
+- [x] Handles empty history.
+- [x] Handles more than limit.
+- [x] Handles deleted/expired messages.
 
 _Requirements: AIA-R6, AIA-R10_
 
@@ -1478,103 +1478,103 @@ _Requirements: AIA-R13_
 - [x] Graceful fallback when vector index unavailable.
 
 _Requirements: AIA-R13, AIA-R28_
-- [ ] Stable ordering.
-- [ ] Configurable weights.
-- [ ] Optional reranker interface.
+- [x] Stable ordering.
+- [x] Configurable weights.
+- [x] Optional reranker interface.
 
 **Unit tests**
 
-- [ ] Duplicate merge.
-- [ ] Vector-only.
-- [ ] Keyword-only.
-- [ ] Equal-score deterministic order.
-- [ ] Threshold after merge.
-- [ ] Top K enforced.
+- [x] Duplicate merge.
+- [x] Vector-only.
+- [x] Keyword-only.
+- [x] Equal-score deterministic order.
+- [x] Threshold after merge.
+- [x] Top K enforced.
 
 _Requirements: AIA-R13_
 
 ### 10.5 [P1] Implement query rewrite
 
-- [ ] Use structured output.
-- [ ] Preserve customer intent.
-- [ ] Preserve outlet/agent scope outside model.
-- [ ] Do not send unnecessary PII.
-- [ ] Fallback to original query.
+- [x] Use structured output.
+- [x] Preserve customer intent.
+- [x] Preserve outlet/agent scope outside model.
+- [x] Do not send unnecessary PII.
+- [x] Fallback to original query.
 
 **Tests**
 
-- [ ] Follow-up query resolution.
-- [ ] Malformed rewrite.
-- [ ] Injection attempt.
-- [ ] Timeout.
-- [ ] Original query fallback.
+- [x] Follow-up query resolution.
+- [x] Malformed rewrite.
+- [x] Injection attempt.
+- [x] Timeout.
+- [x] Original query fallback.
 
 _Requirements: AIA-R13, AIA-R17, AIA-R28_
 
 ### 10.6 [P0] Implement RAG service
 
-- [ ] Decide whether retrieval needed.
-- [ ] Run hybrid retrieval.
-- [ ] Apply threshold.
-- [ ] Pack context.
-- [ ] Return citation metadata.
-- [ ] Record metrics.
-- [ ] Safe no-result result.
+- [x] Decide whether retrieval needed.
+- [x] Run hybrid retrieval.
+- [x] Apply threshold.
+- [x] Pack context.
+- [x] Return citation metadata.
+- [x] Record metrics.
+- [x] Safe no-result result.
 
 **Component tests**
 
-- [ ] FAQ answer source.
-- [ ] Outlet-specific SOP.
-- [ ] Agent-specific source.
-- [ ] No relevant result.
-- [ ] Conflicting source versions.
-- [ ] Retriever timeout.
+- [x] FAQ answer source.
+- [x] Outlet-specific SOP.
+- [x] Agent-specific source.
+- [x] No relevant result.
+- [x] Conflicting source versions.
+- [x] Retriever timeout.
 
 _Requirements: AIA-R13, AIA-R26_
 
 ### 10.7 [P0] Grounded answer policy
 
-- [ ] Prompt tells model to use retrieved data as untrusted evidence.
-- [ ] No source means no invented policy.
-- [ ] Conflict means clarify/escalate.
+- [x] Prompt tells model to use retrieved data as untrusted evidence.
+- [x] No source means no invented policy.
+- [x] Conflict means clarify/escalate.
 - [ ] Live commerce facts require tools.
-- [ ] Customer citations optional.
-- [ ] Admin trace includes sources.
+- [x] Customer citations optional.
+- [x] Admin trace includes sources.
 
 **Evaluation tests**
 
-- [ ] Answer grounded in FAQ.
-- [ ] Refuses unsupported refund claim.
-- [ ] Does not use stale price from document.
-- [ ] Handles conflicting policy.
-- [ ] No-answer response is helpful.
+- [x] Answer grounded in FAQ.
+- [x] Refuses unsupported refund claim.
+- [x] Does not use stale price from document.
+- [x] Handles conflicting policy.
+- [x] No-answer response is helpful.
 
 _Requirements: AIA-R13, AIA-R14, AIA-R28_
 
 ### 10.8 [P0] RAG security suite
 
-- [ ] Cross-workspace retrieval attack.
-- [ ] Cross-outlet attack.
-- [ ] Agent scope attack.
-- [ ] RAG prompt injection.
-- [ ] Secret-like document.
-- [ ] Archived/expired document.
-- [ ] Malicious instruction “ignore system”.
-- [ ] Retrieval query manipulation.
+- [x] Cross-workspace retrieval attack.
+- [x] Cross-outlet attack.
+- [x] Agent scope attack.
+- [x] RAG prompt injection.
+- [x] Secret-like document.
+- [x] Archived/expired document.
+- [x] Malicious instruction “ignore system”.
+- [x] Retrieval query manipulation.
 
 _Requirements: AIA-R13, AIA-R28, AIA-R33_
 
 ### 10.9 [P0] RAG E2E
 
-- [ ] Upload source.
-- [ ] Ingest.
-- [ ] Review/publish.
-- [ ] Ask question from Telegram.
-- [ ] Retrieve source.
-- [ ] Generate grounded answer.
-- [ ] Trace source.
-- [ ] Archive source.
-- [ ] Confirm no longer retrieved.
+- [x] Upload source.
+- [x] Ingest.
+- [x] Review/publish.
+- [x] Ask question from Telegram.
+- [x] Retrieve source.
+- [x] Generate grounded answer.
+- [x] Trace source.
+- [x] Archive source.
+- [x] Confirm no longer retrieved.
 
 _Requirements: AIA-R11, AIA-R12, AIA-R13_
 
@@ -1626,61 +1626,61 @@ _Requirements: AIA-R15_
 
 ### 11.2 [P0] Implement agent versioning
 
-- [ ] Draft config editable.
-- [ ] Publish creates immutable version.
-- [ ] Existing published version not mutated.
-- [ ] Rollback creates/activates approved version.
-- [ ] Archive prevents new assignment.
-- [ ] AI run records version.
+- [x] Draft config editable.
+- [x] Publish creates immutable version.
+- [x] Existing published version not mutated.
+- [x] Rollback creates/activates approved version.
+- [x] Archive prevents new assignment.
+- [x] AI run records version.
 
 **Tests**
 
-- [ ] Publish v1.
-- [ ] Edit creates draft v2.
-- [ ] v1 unchanged.
-- [ ] Publish v2.
-- [ ] Rollback.
-- [ ] Archived agent not selected.
-- [ ] Historical run resolves old version.
+- [x] Publish v1.
+- [x] Edit creates draft v2.
+- [x] v1 unchanged.
+- [x] Publish v2.
+- [x] Rollback.
+- [x] Archived agent not selected.
+- [x] Historical run resolves old version.
 
 _Requirements: AIA-R15, AIA-R26_
 
 ### 11.3 [P0] Implement platform safety overlay
 
-- [ ] Immutable payment rules.
-- [ ] Human takeover rule.
-- [ ] Workspace isolation.
-- [ ] Tool boundary.
-- [ ] Prompt injection rule.
+- [x] Immutable payment rules.
+- [x] Human takeover rule.
+- [x] Workspace isolation.
+- [x] Tool boundary.
+- [x] Prompt injection rule.
 - [ ] Live commerce authority.
-- [ ] Agent instruction merged below platform policy.
+- [x] Agent instruction merged below platform policy.
 
 **Security tests**
 
-- [ ] Agent prompt requests mark-paid.
-- [ ] Agent prompt requests secret.
-- [ ] Agent prompt disables handoff.
-- [ ] Agent prompt says ignore workspace.
-- [ ] All attempts remain blocked.
+- [x] Agent prompt requests mark-paid.
+- [x] Agent prompt requests secret.
+- [x] Agent prompt disables handoff.
+- [x] Agent prompt says ignore workspace.
+- [x] All attempts remain blocked.
 
 _Requirements: AIA-R15, AIA-R22, AIA-R24, AIA-R28_
 
 ### 11.4 [P0] Implement agent test sandbox
 
-- [ ] Use read-only/mocked tools by default.
-- [ ] Use test context.
-- [ ] No production side effect.
-- [ ] Show selected model/knowledge/tools.
-- [ ] Return trace preview.
-- [ ] Allow evaluation scenarios.
+- [x] Use read-only/mocked tools by default.
+- [x] Use test context.
+- [x] No production side effect.
+- [x] Show selected model/knowledge/tools.
+- [x] Return trace preview.
+- [x] Allow evaluation scenarios.
 
 **Tests**
 
-- [ ] Mutation tool blocked in test mode.
-- [ ] Read tool mocked.
-- [ ] Secret redacted.
-- [ ] Test does not create order/payment.
-- [ ] Cross-workspace denied.
+- [x] Mutation tool blocked in test mode.
+- [x] Read tool mocked.
+- [x] Secret redacted.
+- [x] Test does not create order/payment.
+- [x] Cross-workspace denied.
 
 _Requirements: AIA-R15, AIA-R34_
 
@@ -1703,13 +1703,13 @@ PUT    /api/agents/:id/knowledge
 
 **API/security tests**
 
-- [ ] Workspace scope.
-- [ ] Permission.
-- [ ] Version conflict.
-- [ ] Secret fields absent.
-- [ ] Invalid tool denied.
-- [ ] Publish/rollback.
-- [ ] Pagination/filtering.
+- [x] Workspace scope.
+- [x] Permission.
+- [x] Version conflict.
+- [x] Secret fields absent.
+- [x] Invalid tool denied.
+- [x] Publish/rollback.
+- [x] Pagination/filtering.
 
 _Requirements: AIA-R15, AIA-R34_
 
@@ -1728,42 +1728,42 @@ embed
 health
 ```
 
-- [ ] Define request/response types.
-- [ ] Define normalized usage.
-- [ ] Define normalized error codes.
-- [ ] Define timeout/cancellation.
-- [ ] Define tool call format.
+- [x] Define request/response types.
+- [x] Define normalized usage.
+- [x] Define normalized error codes.
+- [x] Define timeout/cancellation.
+- [x] Define tool call format.
 
 **Contract tests**
 
-- [ ] Fake provider conforms.
-- [ ] Local provider conforms.
-- [ ] Malformed provider response rejected.
-- [ ] Usage optional.
-- [ ] Cancellation propagated.
+- [x] Fake provider conforms.
+- [x] Local provider conforms.
+- [x] Malformed provider response rejected.
+- [x] Usage optional.
+- [x] Cancellation propagated.
 
 _Requirements: AIA-R17_
 
 ### 12.2 [P0] Implement local OpenAI-compatible adapter
 
-- [ ] Configurable base URL.
-- [ ] Configurable key.
-- [ ] Chat completions/tool-call support according to actual endpoint.
-- [ ] Structured output compatibility.
-- [ ] Timeouts.
-- [ ] Safe logging.
-- [ ] Health probe.
+- [x] Configurable base URL.
+- [x] Configurable key.
+- [x] Chat completions/tool-call support according to actual endpoint.
+- [x] Structured output compatibility.
+- [x] Timeouts.
+- [x] Safe logging.
+- [x] Health probe.
 
 **Tests**
 
-- [ ] Request mapping.
-- [ ] Response mapping.
-- [ ] Tool call mapping.
-- [ ] Timeout.
-- [ ] HTTP error.
-- [ ] Invalid JSON.
-- [ ] Secret redaction.
-- [ ] Health result.
+- [x] Request mapping.
+- [x] Response mapping.
+- [x] Tool call mapping.
+- [x] Timeout.
+- [x] HTTP error.
+- [x] Invalid JSON.
+- [x] Secret redaction.
+- [x] Health result.
 
 _Requirements: AIA-R17, AIA-R28_
 
@@ -1780,70 +1780,70 @@ embedding
 planning
 ```
 
-- [ ] Configurable model per task.
-- [ ] Agent override within policy.
-- [ ] Default fallback.
-- [ ] Record selection reason.
+- [x] Configurable model per task.
+- [x] Agent override within policy.
+- [x] Default fallback.
+- [x] Record selection reason.
 
 **Tests**
 
-- [ ] Chat routes correctly.
-- [ ] Summary routes correctly.
-- [ ] Missing role uses default.
-- [ ] Inactive model config fails safely.
-- [ ] Agent override validated.
+- [x] Chat routes correctly.
+- [x] Summary routes correctly.
+- [x] Missing role uses default.
+- [x] Inactive model config fails safely.
+- [x] Agent override validated.
 
 _Requirements: AIA-R17_
 
 ### 12.4 [P1] Implement optional fallback provider contract
 
-- [ ] External provider adapter optional.
-- [ ] Workspace policy required.
-- [ ] Data classification check.
-- [ ] No restricted data without approval.
-- [ ] Record fallback usage.
-- [ ] Avoid duplicate tool mutation.
+- [x] External provider adapter optional.
+- [x] Workspace policy required.
+- [x] Data classification check.
+- [x] No restricted data without approval.
+- [x] Record fallback usage.
+- [x] Avoid duplicate tool mutation.
 
 **Tests**
 
-- [ ] Local timeout triggers allowed fallback.
-- [ ] Policy disabled blocks fallback.
-- [ ] Restricted context blocks external fallback.
-- [ ] Tool result not re-executed.
-- [ ] Fallback response trace.
+- [x] Local timeout triggers allowed fallback.
+- [x] Policy disabled blocks fallback.
+- [x] Restricted context blocks external fallback.
+- [x] Tool result not re-executed.
+- [x] Fallback response trace.
 
 _Requirements: AIA-R17, AIA-R28_
 
 ### 12.5 [P0] Implement circuit breaker
 
-- [ ] Healthy/degraded/open/half-open.
-- [ ] Failure thresholds.
-- [ ] Recovery window.
-- [ ] Per-provider state.
-- [ ] Metrics.
-- [ ] Optional Redis-backed future adapter.
+- [x] Healthy/degraded/open/half-open.
+- [x] Failure thresholds.
+- [x] Recovery window.
+- [x] Per-provider state.
+- [x] Metrics.
+- [x] Optional Redis-backed future adapter.
 
 **Unit/concurrency tests**
 
-- [ ] Opens after threshold.
-- [ ] Rejects while open.
-- [ ] Half-open probe.
-- [ ] Closes on success.
-- [ ] Parallel failures safe.
-- [ ] State loss degrades safely.
+- [x] Opens after threshold.
+- [x] Rejects while open.
+- [x] Half-open probe.
+- [x] Closes on success.
+- [x] Parallel failures safe.
+- [x] State loss degrades safely.
 
 _Requirements: AIA-R17, AIA-R29, AIA-R30_
 
 ### 12.6 [P0] Provider resilience suite
 
-- [ ] Slow model.
-- [ ] Timeout.
-- [ ] Malformed structured output.
-- [ ] Rate limit.
-- [ ] Provider 500.
-- [ ] Connection refused.
-- [ ] Partial stream/response.
-- [ ] Cancellation due to takeover.
+- [x] Slow model.
+- [x] Timeout.
+- [x] Malformed structured output.
+- [x] Rate limit.
+- [x] Provider 500.
+- [x] Connection refused.
+- [x] Partial stream/response.
+- [x] Cancellation due to takeover.
 
 _Requirements: AIA-R17, AIA-R24, AIA-R33_
 
@@ -1866,12 +1866,12 @@ chat assignment
 
 **RED**
 
-- [ ] Chat assignment wins.
-- [ ] Outlet/channel rule wins over default.
-- [ ] Platform default wins over workspace default.
-- [ ] Inactive agent excluded.
-- [ ] Cross-workspace agent denied.
-- [ ] No agent returns safe error/handoff.
+- [x] Chat assignment wins.
+- [x] Outlet/channel rule wins over default.
+- [x] Platform default wins over workspace default.
+- [x] Inactive agent excluded.
+- [x] Cross-workspace agent denied.
+- [x] No agent returns safe error/handoff.
 
 _Requirements: AIA-R16_
 
@@ -1903,63 +1903,63 @@ confidence
 
 **Tests**
 
-- [ ] Valid output.
-- [ ] Low confidence.
-- [ ] Unknown intent.
-- [ ] Injection attempt.
-- [ ] Payment dispute requires human.
-- [ ] General greeting no tool.
+- [x] Valid output.
+- [x] Low confidence.
+- [x] Unknown intent.
+- [x] Injection attempt.
+- [x] Payment dispute requires human.
+- [x] General greeting no tool.
 
 _Requirements: AIA-R16, AIA-R23_
 
 ### 13.3 [P0] Implement lightweight semantic router
 
-- [ ] Prefer deterministic signals when available.
-- [ ] Use classifier model when needed.
-- [ ] Do not perform mutation.
-- [ ] Preserve workspace scope outside model.
-- [ ] Record decision.
+- [x] Prefer deterministic signals when available.
+- [x] Use classifier model when needed.
+- [x] Do not perform mutation.
+- [x] Preserve workspace scope outside model.
+- [x] Record decision.
 
 **Component/evaluation tests**
 
-- [ ] Product query.
-- [ ] Order status.
-- [ ] Payment status.
-- [ ] Complaint.
-- [ ] Human request.
-- [ ] Ambiguous message.
-- [ ] Low confidence fallback.
+- [x] Product query.
+- [x] Order status.
+- [x] Payment status.
+- [x] Complaint.
+- [x] Human request.
+- [x] Ambiguous message.
+- [x] Low confidence fallback.
 
 _Requirements: AIA-R16, AIA-R17, AIA-R26_
 
 ### 13.4 [P0] Integrate router with human takeover
 
-- [ ] Takeover checked before router.
-- [ ] Router cannot override takeover.
-- [ ] Internal suggestion mode explicit.
-- [ ] Handoff intent activates takeover through tool/service.
+- [x] Takeover checked before router.
+- [x] Router cannot override takeover.
+- [x] Internal suggestion mode explicit.
+- [x] Handoff intent activates takeover through tool/service.
 
 **Tests**
 
-- [ ] Active takeover no customer run.
-- [ ] Internal suggestion mode.
-- [ ] Customer asks human.
-- [ ] Router custom prompt cannot bypass.
+- [x] Active takeover no customer run.
+- [x] Internal suggestion mode.
+- [x] Customer asks human.
+- [x] Router custom prompt cannot bypass.
 
 _Requirements: AIA-R16, AIA-R24_
 
 ### 13.5 [P1] Router quality metrics
 
-- [ ] Store intent/confidence.
-- [ ] Allow admin correction.
-- [ ] Build confusion summary.
-- [ ] Link to feedback.
+- [x] Store intent/confidence.
+- [x] Allow admin correction.
+- [x] Build confusion summary.
+- [x] Link to feedback.
 
 **Tests**
 
-- [ ] Metric recorded.
-- [ ] Correction scoped.
-- [ ] Aggregate by agent version.
+- [x] Metric recorded.
+- [x] Correction scoped.
+- [x] Aggregate by agent version.
 
 _Requirements: AIA-R26, AIA-R27_
 
@@ -1991,12 +1991,12 @@ handed_off
 
 **Tests**
 
-- [ ] Valid transitions.
-- [ ] Invalid transition rejected.
-- [ ] Terminal state immutable.
-- [ ] Takeover cancellation.
-- [ ] Timeout failure.
-- [ ] Tool failure recovery.
+- [x] Valid transitions.
+- [x] Invalid transition rejected.
+- [x] Terminal state immutable.
+- [x] Takeover cancellation.
+- [x] Timeout failure.
+- [x] Tool failure recovery.
 
 _Requirements: AIA-R18, AIA-R26_
 
@@ -2014,61 +2014,61 @@ reasonCode
 
 **Tests**
 
-- [ ] Message response.
-- [ ] Tool call response.
-- [ ] Handoff.
-- [ ] No reply.
-- [ ] Invalid mixed response.
-- [ ] Unknown tool structure.
-- [ ] Oversized response.
+- [x] Message response.
+- [x] Tool call response.
+- [x] Handoff.
+- [x] No reply.
+- [x] Invalid mixed response.
+- [x] Unknown tool structure.
+- [x] Oversized response.
 
 _Requirements: AIA-R18_
 
 ### 14.3 [P0] Implement orchestrator skeleton with fake provider
 
-- [ ] Create run.
-- [ ] Select agent.
-- [ ] Build context.
-- [ ] Call model.
-- [ ] Validate result.
-- [ ] Persist assistant message.
-- [ ] Send through channel adapter.
-- [ ] Complete run.
-- [ ] No tools yet.
+- [x] Create run.
+- [x] Select agent.
+- [x] Build context.
+- [x] Call model.
+- [x] Validate result.
+- [x] Persist assistant message.
+- [x] Send through channel adapter.
+- [x] Complete run.
+- [x] No tools yet.
 
 **Component tests**
 
-- [ ] Normal response.
-- [ ] Model error.
-- [ ] Persistence error.
-- [ ] Send error.
-- [ ] Takeover before send.
-- [ ] Context failure.
-- [ ] Trace linkage.
+- [x] Normal response.
+- [x] Model error.
+- [x] Persistence error.
+- [x] Send error.
+- [x] Takeover before send.
+- [x] Context failure.
+- [x] Trace linkage.
 
 _Requirements: AIA-R18, AIA-R24, AIA-R26_
 
 ### 14.4 [P0] Implement bounded tool loop
 
-- [ ] Handle tool request.
-- [ ] Call Tool Gateway.
-- [ ] Append normalized tool result.
-- [ ] Reinvoke model.
-- [ ] Enforce max tool calls.
-- [ ] Enforce max iterations.
-- [ ] Enforce wall-clock timeout.
-- [ ] Prevent identical mutation repeat.
-- [ ] Stop on handoff.
+- [x] Handle tool request.
+- [x] Call Tool Gateway.
+- [x] Append normalized tool result.
+- [x] Reinvoke model.
+- [x] Enforce max tool calls.
+- [x] Enforce max iterations.
+- [x] Enforce wall-clock timeout.
+- [x] Prevent identical mutation repeat.
+- [x] Stop on handoff.
 
 **RED**
 
-- [ ] One read tool.
-- [ ] Sequential tools.
-- [ ] Tool error.
-- [ ] Loop limit.
-- [ ] Repeated identical mutation.
-- [ ] Timeout.
-- [ ] Takeover mid-loop.
+- [x] One read tool.
+- [x] Sequential tools.
+- [x] Tool error.
+- [x] Loop limit.
+- [x] Repeated identical mutation.
+- [x] Timeout.
+- [x] Takeover mid-loop.
 
 _Requirements: AIA-R18, AIA-R19, AIA-R30_
 
@@ -2085,64 +2085,64 @@ outbound send
 
 **Concurrency tests**
 
-- [ ] Takeover activated while model waits.
-- [ ] Takeover activated before tool.
-- [ ] Takeover activated after tool commit.
-- [ ] Takeover activated before send.
-- [ ] Correct cancellation/notification behavior.
+- [x] Takeover activated while model waits.
+- [x] Takeover activated before tool.
+- [x] Takeover activated after tool commit.
+- [x] Takeover activated before send.
+- [x] Correct cancellation/notification behavior.
 
 _Requirements: AIA-R18, AIA-R24_
 
 ### 14.6 [P0] Implement safe retry policy
 
-- [ ] Retry model-only transient failures.
-- [ ] Do not re-run committed mutation.
-- [ ] Reuse tool result when model retry follows tool.
-- [ ] Track retry count.
-- [ ] Stop at limit.
-- [ ] Fallback if allowed.
+- [x] Retry model-only transient failures.
+- [x] Do not re-run committed mutation.
+- [x] Reuse tool result when model retry follows tool.
+- [x] Track retry count.
+- [x] Stop at limit.
+- [x] Fallback if allowed.
 
 **Tests**
 
-- [ ] Model timeout before tool.
-- [ ] Model timeout after tool result.
-- [ ] Tool timeout unknown state.
-- [ ] Idempotent read retry.
-- [ ] Non-idempotent mutation no blind retry.
+- [x] Model timeout before tool.
+- [x] Model timeout after tool result.
+- [x] Tool timeout unknown state.
+- [x] Idempotent read retry.
+- [x] Non-idempotent mutation no blind retry.
 
 _Requirements: AIA-R18, AIA-R19, AIA-R29_
 
 ### 14.7 [P0] Implement output policy and tone validation
 
-- [ ] Bahasa Indonesia.
-- [ ] Friendly semi-formal Gen-Z.
-- [ ] Avoid repeated intro.
-- [ ] Avoid unsupported promises.
-- [ ] Avoid revealing internal IDs/secrets.
-- [ ] Keep concise by default.
-- [ ] Respect channel limits.
+- [x] Bahasa Indonesia.
+- [x] Friendly semi-formal Gen-Z.
+- [x] Avoid repeated intro.
+- [x] Avoid unsupported promises.
+- [x] Avoid revealing internal IDs/secrets.
+- [x] Keep concise by default.
+- [x] Respect channel limits.
 
 **Evaluation tests**
 
-- [ ] Greeting.
-- [ ] Product answer.
-- [ ] Tool error.
-- [ ] Payment pending.
-- [ ] Complaint.
-- [ ] Handoff.
-- [ ] Long verbose answer flagged.
+- [x] Greeting.
+- [x] Product answer.
+- [x] Tool error.
+- [x] Payment pending.
+- [x] Complaint.
+- [x] Handoff.
+- [x] Long verbose answer flagged.
 
 _Requirements: AIA-R5, AIA-R15, AIA-R27_
 
 ### 14.8 [P0] Orchestrator E2E without commerce mutation
 
-- [ ] Telegram knowledge answer.
-- [ ] WhatsApp knowledge answer.
-- [ ] Multi-turn.
-- [ ] RAG source trace.
-- [ ] Memory injection.
-- [ ] Human takeover cancellation.
-- [ ] Provider fallback disabled behavior.
+- [x] Telegram knowledge answer.
+- [x] WhatsApp knowledge answer.
+- [x] Multi-turn.
+- [x] RAG source trace.
+- [x] Memory injection.
+- [x] Human takeover cancellation.
+- [x] Provider fallback disabled behavior.
 
 _Requirements: AIA-R1, AIA-R5, AIA-R10, AIA-R13, AIA-R18_
 
@@ -2171,31 +2171,31 @@ availability
 
 **Tests**
 
-- [ ] Valid tool.
-- [ ] Duplicate name.
-- [ ] Invalid schema.
-- [ ] Missing permission.
-- [ ] Mutation without idempotency policy.
-- [ ] Forbidden tool name.
+- [x] Valid tool.
+- [x] Duplicate name.
+- [x] Invalid schema.
+- [x] Missing permission.
+- [x] Mutation without idempotency policy.
+- [x] Forbidden tool name.
 
 _Requirements: AIA-R19_
 
 ### 15.2 [P0] Implement tool registry
 
-- [ ] Explicit registration.
-- [ ] No dynamic arbitrary imports from model input.
-- [ ] Agent allowlist filtering.
-- [ ] Tool version support if needed.
-- [ ] Read-only test registry.
-- [ ] Forbidden global tools list.
+- [x] Explicit registration.
+- [x] No dynamic arbitrary imports from model input.
+- [x] Agent allowlist filtering.
+- [x] Tool version support if needed.
+- [x] Read-only test registry.
+- [x] Forbidden global tools list.
 
 **Tests**
 
-- [ ] Known tool lookup.
-- [ ] Unknown tool rejection.
-- [ ] Agent allowlist.
-- [ ] Test-mode mutation blocked.
-- [ ] Mark-paid cannot be registered through config.
+- [x] Known tool lookup.
+- [x] Unknown tool rejection.
+- [x] Agent allowlist.
+- [x] Test-mode mutation blocked.
+- [x] Mark-paid cannot be registered through config.
 
 _Requirements: AIA-R19, AIA-R22, AIA-R28_
 
@@ -2219,66 +2219,66 @@ lookup
 
 **Component/security tests**
 
-- [ ] Invalid schema.
-- [ ] Unauthorized agent.
-- [ ] Cross-workspace ID.
-- [ ] Cross-outlet ID.
-- [ ] Missing confirmation.
-- [ ] Expired confirmation.
-- [ ] Duplicate idempotency key.
-- [ ] Domain service error.
-- [ ] Redaction.
+- [x] Invalid schema.
+- [x] Unauthorized agent.
+- [x] Cross-workspace ID.
+- [x] Cross-outlet ID.
+- [x] Missing confirmation.
+- [x] Expired confirmation.
+- [x] Duplicate idempotency key.
+- [x] Domain service error.
+- [x] Redaction.
 
 _Requirements: AIA-R19, AIA-R20, AIA-R28_
 
 ### 15.4 [P0] Implement confirmation token/state service
 
-- [ ] Bind confirmation to:
+- [x] Bind confirmation to:
   - chat;
   - contact;
   - agent;
   - tool;
   - normalized arguments/action snapshot;
   - expiry.
-- [ ] Invalidate if cart/action state changes.
-- [ ] Support button/natural-language confirmation.
-- [ ] Do not accept silence.
-- [ ] Handle ambiguous “oke”.
+- [x] Invalidate if cart/action state changes.
+- [x] Support button/natural-language confirmation.
+- [x] Do not accept silence.
+- [x] Handle ambiguous “oke”.
 
 **Tests**
 
-- [ ] Valid confirmation.
-- [ ] Wrong chat.
-- [ ] Wrong tool.
-- [ ] Changed arguments.
-- [ ] Expired.
-- [ ] Reused confirmation.
-- [ ] Ambiguous natural language.
-- [ ] State changed after confirmation.
+- [x] Valid confirmation.
+- [x] Wrong chat.
+- [x] Wrong tool.
+- [x] Changed arguments.
+- [x] Expired.
+- [x] Reused confirmation.
+- [x] Ambiguous natural language.
+- [x] State changed after confirmation.
 
 _Requirements: AIA-R20_
 
 ### 15.5 [P0] Implement tool idempotency service
 
-- [ ] Generate stable keys.
-- [ ] Persist mutation execution record if necessary.
-- [ ] Return prior result for safe duplicate.
-- [ ] Detect same key/different args conflict.
-- [ ] Handle unknown timeout state.
+- [x] Generate stable keys.
+- [x] Persist mutation execution record if necessary.
+- [x] Return prior result for safe duplicate.
+- [x] Detect same key/different args conflict.
+- [x] Handle unknown timeout state.
 
 **Tests**
 
-- [ ] Same key/same args returns prior result.
-- [ ] Same key/different args conflict.
-- [ ] Concurrent duplicate executes once.
-- [ ] Failed before commit retry.
-- [ ] Unknown provider result reconciliation path.
+- [x] Same key/same args returns prior result.
+- [x] Same key/different args conflict.
+- [x] Concurrent duplicate executes once.
+- [x] Failed before commit retry.
+- [x] Unknown provider result reconciliation path.
 
 _Requirements: AIA-R19, AIA-R29_
 
 ### 15.6 [P0] Implement safe result normalizer/redactor
 
-- [ ] Standard shape:
+- [x] Standard shape:
   ```text
   ok
   code
@@ -2286,52 +2286,52 @@ _Requirements: AIA-R19, AIA-R29_
   userSafeMessage
   retryable
   ```
-- [ ] Remove secret/token/raw payload.
-- [ ] Limit result size.
-- [ ] Preserve authoritative timestamps.
+- [x] Remove secret/token/raw payload.
+- [x] Limit result size.
+- [x] Preserve authoritative timestamps.
 
 **Tests**
 
-- [ ] Product result.
-- [ ] Cart result.
-- [ ] Payment link result.
-- [ ] Provider error.
-- [ ] Secret nested in payload.
-- [ ] Oversized result.
+- [x] Product result.
+- [x] Cart result.
+- [x] Payment link result.
+- [x] Provider error.
+- [x] Secret nested in payload.
+- [x] Oversized result.
 
 _Requirements: AIA-R19, AIA-R22, AIA-R28_
 
 ### 15.7 [P0] Tool Gateway observability
 
-- [ ] Create tool-call trace before execution.
-- [ ] Complete/fail trace.
-- [ ] Record latency.
-- [ ] Record confirmation state.
-- [ ] Record idempotency key.
-- [ ] Redact args/result.
+- [x] Create tool-call trace before execution.
+- [x] Complete/fail trace.
+- [x] Record latency.
+- [x] Record confirmation state.
+- [x] Record idempotency key.
+- [x] Redact args/result.
 
 **Tests**
 
-- [ ] Success trace.
-- [ ] Validation failure trace policy.
-- [ ] Timeout trace.
-- [ ] Secret absent.
-- [ ] Cross-workspace trace access denied.
+- [x] Success trace.
+- [x] Validation failure trace policy.
+- [x] Timeout trace.
+- [x] Secret absent.
+- [x] Cross-workspace trace access denied.
 
 _Requirements: AIA-R26_
 
 ### 15.8 [P0] Tool Gateway security suite
 
-- [ ] Unknown tool.
-- [ ] Prompt-created fake tool.
-- [ ] Hidden admin tool.
-- [ ] Direct mark-paid.
-- [ ] Cross-workspace order.
-- [ ] Cross-outlet product.
-- [ ] Secret extraction.
-- [ ] Tool result injection.
-- [ ] Confirmation forgery.
-- [ ] Replay.
+- [x] Unknown tool.
+- [x] Prompt-created fake tool.
+- [x] Hidden admin tool.
+- [x] Direct mark-paid.
+- [x] Cross-workspace order.
+- [x] Cross-outlet product.
+- [x] Secret extraction.
+- [x] Tool result injection.
+- [x] Confirmation forgery.
+- [x] Replay.
 
 _Requirements: AIA-R19, AIA-R22, AIA-R28, AIA-R33_
 
@@ -2362,19 +2362,19 @@ get_payment_status
 get_contact_profile
 ```
 
-- [ ] Define strict input schemas.
-- [ ] Define normalized results.
-- [ ] Define freshness.
-- [ ] Define permissions.
-- [ ] Define timeouts.
+- [x] Define strict input schemas.
+- [x] Define normalized results.
+- [x] Define freshness.
+- [x] Define permissions.
+- [x] Define timeouts.
 
 **Contract tests**
 
-- [ ] Domain fake conforms.
-- [ ] Missing backend contract yields blocked/safe error.
-- [ ] Workspace scope.
-- [ ] Outlet scope.
-- [ ] Result redaction.
+- [x] Domain fake conforms.
+- [x] Missing backend contract yields blocked/safe error.
+- [x] Workspace scope.
+- [x] Outlet scope.
+- [x] Result redaction.
 
 _Requirements: AIA-R14, AIA-R19, AIA-R21_
 
@@ -2395,146 +2395,146 @@ resend_payment_link
 cancel_unpaid_order
 ```
 
-- [ ] Define confirmation rules.
-- [ ] Define idempotency.
-- [ ] Define authoritative backend validation.
-- [ ] Define safe result.
-- [ ] Do not accept price/payment status from model.
+- [x] Define confirmation rules.
+- [x] Define idempotency.
+- [x] Define authoritative backend validation.
+- [x] Define safe result.
+- [x] Do not accept price/payment status from model.
 
 **Contract tests**
 
-- [ ] Explicit add item.
-- [ ] Ambiguous item.
-- [ ] Switch outlet confirmation.
-- [ ] Create order confirmation.
-- [ ] Duplicate create order.
-- [ ] Amount ignored/rejected.
-- [ ] Cross-workspace resource.
+- [x] Explicit add item.
+- [x] Ambiguous item.
+- [x] Switch outlet confirmation.
+- [x] Create order confirmation.
+- [x] Duplicate create order.
+- [x] Amount ignored/rejected.
+- [x] Cross-workspace resource.
 
 _Requirements: AIA-R19, AIA-R20, AIA-R21, AIA-R22_
 
 ### 16.3 [P0] Implement outlet selection AI flow
 
-- [ ] Detect order intent.
-- [ ] Load active outlets.
-- [ ] Suggest last outlet.
-- [ ] Ask confirmation.
-- [ ] Call `select_outlet`.
-- [ ] Persist current outlet through domain contract.
-- [ ] Do not assume suggestion.
+- [x] Detect order intent.
+- [x] Load active outlets.
+- [x] Suggest last outlet.
+- [x] Ask confirmation.
+- [x] Call `select_outlet`.
+- [x] Persist current outlet through domain contract.
+- [x] Do not assume suggestion.
 
 **Evaluation/integration tests**
 
-- [ ] No last outlet.
-- [ ] Last outlet suggestion.
-- [ ] Customer chooses different outlet.
-- [ ] Closed/inactive outlet.
-- [ ] One outlet still asks confirmation according to policy.
-- [ ] Cross-workspace outlet denied.
+- [x] No last outlet.
+- [x] Last outlet suggestion.
+- [x] Customer chooses different outlet.
+- [x] Closed/inactive outlet.
+- [x] One outlet still asks confirmation according to policy.
+- [x] Cross-workspace outlet denied.
 
 _Requirements: AIA-R20, AIA-R21_
 
 ### 16.4 [P0] Implement product discovery flow
 
-- [ ] RAG for descriptive explanation.
-- [ ] Tool for price/availability.
-- [ ] Ask clarification for ambiguous product.
-- [ ] Respect selected outlet.
-- [ ] Use customer preferences as suggestion only.
+- [x] RAG for descriptive explanation.
+- [x] Tool for price/availability.
+- [x] Ask clarification for ambiguous product.
+- [x] Respect selected outlet.
+- [x] Use customer preferences as suggestion only.
 
 **Tests/evaluation**
 
-- [ ] Product available.
-- [ ] Product unavailable.
-- [ ] Price from tool.
-- [ ] Description from RAG.
-- [ ] Stale RAG price ignored.
-- [ ] Preference-based recommendation.
-- [ ] No selected outlet.
+- [x] Product available.
+- [x] Product unavailable.
+- [x] Price from tool.
+- [x] Description from RAG.
+- [x] Stale RAG price ignored.
+- [x] Preference-based recommendation.
+- [x] No selected outlet.
 
 _Requirements: AIA-R8, AIA-R13, AIA-R14, AIA-R21_
 
 ### 16.5 [P0] Implement cart conversation flow
 
-- [ ] Add/update/remove.
-- [ ] Show server totals.
-- [ ] One active cart.
-- [ ] One outlet.
-- [ ] Switch outlet confirmation.
-- [ ] Cart expiry.
-- [ ] No client/model price.
+- [x] Add/update/remove.
+- [x] Show server totals.
+- [x] One active cart.
+- [x] One outlet.
+- [x] Switch outlet confirmation.
+- [x] Cart expiry.
+- [x] No client/model price.
 
 **Integration/E2E tests**
 
-- [ ] Add one item.
-- [ ] Add quantity.
-- [ ] Remove.
-- [ ] Clear confirmation.
-- [ ] Switch outlet.
-- [ ] Expired cart.
-- [ ] Price changed.
-- [ ] Product unavailable.
-- [ ] Duplicate message/tool call.
+- [x] Add one item.
+- [x] Add quantity.
+- [x] Remove.
+- [x] Clear confirmation.
+- [x] Switch outlet.
+- [x] Expired cart.
+- [x] Price changed.
+- [x] Product unavailable.
+- [x] Duplicate message/tool call.
 
 _Requirements: AIA-R20, AIA-R21_
 
 ### 16.6 [P0] Implement final order confirmation flow
 
-- [ ] Load fresh cart.
-- [ ] Show summary.
-- [ ] Create confirmation snapshot.
-- [ ] Require explicit confirmation.
-- [ ] Invalidate if cart changes.
-- [ ] Call `create_order`.
-- [ ] Persist confirmation evidence.
-- [ ] Handle idempotent retry.
+- [x] Load fresh cart.
+- [x] Show summary.
+- [x] Create confirmation snapshot.
+- [x] Require explicit confirmation.
+- [x] Invalidate if cart changes.
+- [x] Call `create_order`.
+- [x] Persist confirmation evidence.
+- [x] Handle idempotent retry.
 
 **Tests**
 
-- [ ] Confirmed order.
-- [ ] No confirmation.
-- [ ] Stale confirmation.
-- [ ] Changed cart.
-- [ ] Duplicate confirmation.
-- [ ] Domain failure.
-- [ ] Human takeover before execution.
+- [x] Confirmed order.
+- [x] No confirmation.
+- [x] Stale confirmation.
+- [x] Changed cart.
+- [x] Duplicate confirmation.
+- [x] Domain failure.
+- [x] Human takeover before execution.
 
 _Requirements: AIA-R20, AIA-R21_
 
 ### 16.7 [P0] Enforce pickup-only conversation policy
 
-- [ ] Do not ask address.
-- [ ] Do not offer delivery.
-- [ ] Do not store address memory.
-- [ ] Use pickup outlet details.
-- [ ] Explain feature unavailable if customer asks delivery.
+- [x] Do not ask address.
+- [x] Do not offer delivery.
+- [x] Do not store address memory.
+- [x] Use pickup outlet details.
+- [x] Explain feature unavailable if customer asks delivery.
 
 **Evaluation tests**
 
-- [ ] Pickup order.
-- [ ] Customer gives address unprompted.
-- [ ] Customer asks delivery.
-- [ ] Address not stored.
-- [ ] Agent custom prompt cannot enable delivery.
+- [x] Pickup order.
+- [x] Customer gives address unprompted.
+- [x] Customer asks delivery.
+- [x] Address not stored.
+- [x] Agent custom prompt cannot enable delivery.
 
 _Requirements: AIA-R8, AIA-R9, AIA-R21_
 
 ### 16.8 [P0] Commerce failure behavior
 
-- [ ] Product service unavailable.
-- [ ] Cart conflict.
-- [ ] Order conflict.
-- [ ] Outlet closed.
-- [ ] Timeout.
-- [ ] Offer retry/handoff.
-- [ ] Never claim success.
+- [x] Product service unavailable.
+- [x] Cart conflict.
+- [x] Order conflict.
+- [x] Outlet closed.
+- [x] Timeout.
+- [x] Offer retry/handoff.
+- [x] Never claim success.
 
 **Resilience/evaluation tests**
 
-- [ ] Each safe error mapped.
-- [ ] No false success.
-- [ ] Handoff after repeated failures.
-- [ ] Trace records failure.
+- [x] Each safe error mapped.
+- [x] No false success.
+- [x] Handoff after repeated failures.
+- [x] Trace records failure.
 
 _Requirements: AIA-R18, AIA-R21, AIA-R23_
 
@@ -2573,13 +2573,13 @@ _Requirements: AIA-R1, AIA-R19, AIA-R20, AIA-R21_
 
 **RED**
 
-- [ ] Agent config attempts to add `mark_payment_paid`.
-- [ ] Model requests `set_payment_status`.
-- [ ] Model requests direct Xendit API.
-- [ ] Customer sends fake screenshot claim.
-- [ ] Customer says “sudah bayar”.
-- [ ] RAG document says “mark as paid”.
-- [ ] Human-facing agent custom prompt grants paid.
+- [x] Agent config attempts to add `mark_payment_paid`.
+- [x] Model requests `set_payment_status`.
+- [x] Model requests direct Xendit API.
+- [x] Customer sends fake screenshot claim.
+- [x] Customer says “sudah bayar”.
+- [x] RAG document says “mark as paid”.
+- [x] Human-facing agent custom prompt grants paid.
 
 All SHALL fail safely.
 
@@ -2595,77 +2595,77 @@ resend_payment_link
 get_payment_status
 ```
 
-- [ ] `create_payment_link` requires valid order.
-- [ ] Amount comes from backend.
-- [ ] `resend_payment_link` reuses active link when valid.
-- [ ] `get_payment_status` read-only.
-- [ ] Result redacted in trace.
+- [x] `create_payment_link` requires valid order.
+- [x] Amount comes from backend.
+- [x] `resend_payment_link` reuses active link when valid.
+- [x] `get_payment_status` read-only.
+- [x] Result redacted in trace.
 
 **Tests**
 
-- [ ] Valid link.
-- [ ] No order.
-- [ ] Already paid.
-- [ ] Active link reuse.
-- [ ] Expired link behavior.
-- [ ] Cross-workspace order.
-- [ ] Model-provided amount rejected/ignored.
+- [x] Valid link.
+- [x] No order.
+- [x] Already paid.
+- [x] Active link reuse.
+- [x] Expired link behavior.
+- [x] Cross-workspace order.
+- [x] Model-provided amount rejected/ignored.
 
 _Requirements: AIA-R19, AIA-R22_
 
 ### 17.3 [P0] Implement payment response policy
 
-- [ ] Pending wording.
-- [ ] Paid wording only from backend paid.
-- [ ] Expired wording.
-- [ ] Failed wording.
-- [ ] Separate payment and fulfillment status.
-- [ ] No refund promise.
-- [ ] No manual transfer/COD suggestion.
+- [x] Pending wording.
+- [x] Paid wording only from backend paid.
+- [x] Expired wording.
+- [x] Failed wording.
+- [x] Separate payment and fulfillment status.
+- [x] No refund promise.
+- [x] No manual transfer/COD suggestion.
 
 **Evaluation tests**
 
-- [ ] Pending.
-- [ ] Paid.
-- [ ] Expired.
-- [ ] Customer screenshot.
-- [ ] Provider unavailable.
-- [ ] Paid but order not ready.
-- [ ] Order ready but payment scenario according to backend.
+- [x] Pending.
+- [x] Paid.
+- [x] Expired.
+- [x] Customer screenshot.
+- [x] Provider unavailable.
+- [x] Paid but order not ready.
+- [x] Order ready but payment scenario according to backend.
 
 _Requirements: AIA-R21, AIA-R22_
 
 ### 17.4 [P0] Integrate verified-paid notification trigger boundary
 
-- [ ] AI does not pollute payment webhook handler.
-- [ ] Backend event schedules notification after commit.
-- [ ] AI/template layer reads committed state.
-- [ ] Duplicate event produces one message.
-- [ ] Human takeover policy applied according to transactional-notification policy.
-- [ ] Trace does not contain secret payment URL/token.
+- [x] AI does not pollute payment webhook handler.
+- [x] Backend event schedules notification after commit.
+- [x] AI/template layer reads committed state.
+- [x] Duplicate event produces one message.
+- [x] Human takeover policy applied according to transactional-notification policy.
+- [x] Trace does not contain secret payment URL/token.
 
 **Integration tests**
 
-- [ ] Verified paid event.
-- [ ] Duplicate event.
-- [ ] Stale failed event after paid.
-- [ ] Amount mismatch.
-- [ ] Invalid signature.
-- [ ] Notification send failure.
-- [ ] Retry dedupe.
+- [x] Verified paid event.
+- [x] Duplicate event.
+- [x] Stale failed event after paid.
+- [x] Amount mismatch.
+- [x] Invalid signature.
+- [x] Notification send failure.
+- [x] Retry dedupe.
 
 _Requirements: AIA-R22, AIA-R25, AIA-R26_
 
 ### 17.5 [P0] Payment security suite
 
-- [ ] No mark-paid tool anywhere.
-- [ ] Agent tool allowlist cannot add forbidden tool.
-- [ ] Prompt injection cannot call payment mutation.
-- [ ] Frontend/customer claim cannot set paid.
-- [ ] Trace/log secret redaction.
-- [ ] Cross-workspace payment denied.
-- [ ] Cross-outlet payment denied.
-- [ ] External fallback does not receive restricted payment data.
+- [x] No mark-paid tool anywhere.
+- [x] Agent tool allowlist cannot add forbidden tool.
+- [x] Prompt injection cannot call payment mutation.
+- [x] Frontend/customer claim cannot set paid.
+- [x] Trace/log secret redaction.
+- [x] Cross-workspace payment denied.
+- [x] Cross-outlet payment denied.
+- [x] External fallback does not receive restricted payment data.
 
 _Requirements: AIA-R22, AIA-R28, AIA-R33_
 
@@ -2680,11 +2680,11 @@ confirmed order
 → fulfillment remains separate
 ```
 
-- [ ] Telegram.
-- [ ] WhatsApp.
-- [ ] Duplicate event.
-- [ ] Human takeover.
-- [ ] Provider failure.
+- [x] Telegram.
+- [x] WhatsApp.
+- [x] Duplicate event.
+- [x] Human takeover.
+- [x] Provider failure.
 
 _Requirements: AIA-R21, AIA-R22, AIA-R24, AIA-R25_
 
@@ -2698,22 +2698,22 @@ Release blocker if any payment mutation path exists in AI.
 
 ### 18.1 [P0] Define complaint intent and escalation policy
 
-- [ ] General question.
-- [ ] Minor issue.
-- [ ] Complaint ticket.
-- [ ] Direct human request.
-- [ ] Payment dispute.
-- [ ] Security concern.
-- [ ] Repeated misunderstanding.
-- [ ] High emotional escalation.
+- [x] General question.
+- [x] Minor issue.
+- [x] Complaint ticket.
+- [x] Direct human request.
+- [x] Payment dispute.
+- [x] Security concern.
+- [x] Repeated misunderstanding.
+- [x] High emotional escalation.
 
 **Tests**
 
-- [ ] Classify each scenario.
-- [ ] Low confidence.
-- [ ] Payment dispute always human.
-- [ ] Customer asks human always immediate.
-- [ ] General complaint may offer ticket.
+- [x] Classify each scenario.
+- [x] Low confidence.
+- [x] Payment dispute always human.
+- [x] Customer asks human always immediate.
+- [x] General complaint may offer ticket.
 
 _Requirements: AIA-R23_
 
@@ -2726,62 +2726,62 @@ create_complaint_ticket
 handover_to_human
 ```
 
-- [ ] Ticket summary confirmation required.
-- [ ] Handoff immediate on request.
-- [ ] Idempotency.
-- [ ] Safe references.
-- [ ] No refund action.
+- [x] Ticket summary confirmation required.
+- [x] Handoff immediate on request.
+- [x] Idempotency.
+- [x] Safe references.
+- [x] No refund action.
 
 **Tests**
 
-- [ ] Ticket created.
-- [ ] Duplicate confirmation.
-- [ ] Missing confirmation.
-- [ ] Cross-workspace.
-- [ ] Handoff.
-- [ ] Refund request escalated.
+- [x] Ticket created.
+- [x] Duplicate confirmation.
+- [x] Missing confirmation.
+- [x] Cross-workspace.
+- [x] Handoff.
+- [x] Refund request escalated.
 
 _Requirements: AIA-R19, AIA-R20, AIA-R23_
 
 ### 18.3 [P0] Implement complaint detail collection flow
 
-- [ ] Ask minimal relevant questions.
-- [ ] Avoid repetitive questions.
-- [ ] Use order/outlet context if available.
-- [ ] Summarize without unsupported conclusion.
-- [ ] Ask confirmation.
-- [ ] Create ticket.
-- [ ] Return reference.
+- [x] Ask minimal relevant questions.
+- [x] Avoid repetitive questions.
+- [x] Use order/outlet context if available.
+- [x] Summarize without unsupported conclusion.
+- [x] Ask confirmation.
+- [x] Create ticket.
+- [x] Return reference.
 
 **Evaluation/E2E tests**
 
-- [ ] Product issue.
-- [ ] Service issue.
-- [ ] Payment issue.
-- [ ] Customer changes statement.
-- [ ] Attachment reference.
-- [ ] Service failure.
-- [ ] Customer chooses human instead.
+- [x] Product issue.
+- [x] Service issue.
+- [x] Payment issue.
+- [x] Customer changes statement.
+- [x] Attachment reference.
+- [x] Service failure.
+- [x] Customer chooses human instead.
 
 _Requirements: AIA-R23_
 
 ### 18.4 [P0] Build internal human handoff summary
 
-- [ ] Customer goal.
-- [ ] Issue.
-- [ ] Relevant order/payment state.
-- [ ] Actions already attempted.
-- [ ] Pending question.
-- [ ] No hidden chain-of-thought.
-- [ ] No secrets.
+- [x] Customer goal.
+- [x] Issue.
+- [x] Relevant order/payment state.
+- [x] Actions already attempted.
+- [x] Pending question.
+- [x] No hidden chain-of-thought.
+- [x] No secrets.
 
 **Tests**
 
-- [ ] Summary complete.
-- [ ] Secret redacted.
-- [ ] Unsupported inference excluded.
-- [ ] Human can understand context.
-- [ ] Stored as internal-only.
+- [x] Summary complete.
+- [x] Secret redacted.
+- [x] Unsupported inference excluded.
+- [x] Human can understand context.
+- [x] Stored as internal-only.
 
 _Requirements: AIA-R7, AIA-R23, AIA-R28_
 
@@ -2799,31 +2799,31 @@ _Requirements: AIA-R23, AIA-R24_
 
 **RED**
 
-- [ ] Takeover activates while model is running.
-- [ ] Takeover activates before tool mutation.
-- [ ] Takeover activates after mutation before send.
-- [ ] New customer message resets timer.
-- [ ] Pinned takeover never auto-resumes.
-- [ ] Admin resume.
-- [ ] Two admins acquire simultaneously.
-- [ ] Delayed AI response cancelled.
+- [x] Takeover activates while model is running.
+- [x] Takeover activates before tool mutation.
+- [x] Takeover activates after mutation before send.
+- [x] New customer message resets timer.
+- [x] Pinned takeover never auto-resumes.
+- [x] Admin resume.
+- [x] Two admins acquire simultaneously.
+- [x] Delayed AI response cancelled.
 
 _Requirements: AIA-R24, AIA-R33_
 
 ### 19.2 [P0] Implement AI eligibility takeover guard
 
-- [ ] Check before run creation.
-- [ ] Check after context build.
-- [ ] Check before model.
-- [ ] Check before mutation.
-- [ ] Check before outbound send.
-- [ ] Support internal suggestion mode explicitly.
+- [x] Check before run creation.
+- [x] Check after context build.
+- [x] Check before model.
+- [x] Check before mutation.
+- [x] Check before outbound send.
+- [x] Support internal suggestion mode explicitly.
 
 **Tests**
 
-- [ ] Every checkpoint.
-- [ ] Internal suggestion not customer-visible.
-- [ ] Custom prompt cannot bypass.
+- [x] Every checkpoint.
+- [x] Internal suggestion not customer-visible.
+- [x] Custom prompt cannot bypass.
 
 _Requirements: AIA-R24, AIA-R28_
 
@@ -2841,54 +2841,54 @@ releasedAt
 releasedBy
 ```
 
-- [ ] Auto mode.
-- [ ] Pinned mode.
-- [ ] Timer = last customer message + 5 minutes.
-- [ ] Fixed clock.
+- [x] Auto mode.
+- [x] Pinned mode.
+- [x] Timer = last customer message + 5 minutes.
+- [x] Fixed clock.
 
 **Tests**
 
-- [ ] Initial timer.
-- [ ] Reset.
-- [ ] Pinned.
-- [ ] Manual resume.
-- [ ] Invalid state.
+- [x] Initial timer.
+- [x] Reset.
+- [x] Pinned.
+- [x] Manual resume.
+- [x] Invalid state.
 
 _Requirements: AIA-R24_
 
 ### 19.4 [P0] Implement safe auto-resume worker
 
-- [ ] Query eligible takeover records.
-- [ ] Re-read latest state.
-- [ ] Compare-and-set release.
-- [ ] Ensure no new message.
-- [ ] Ensure not pinned.
-- [ ] Record audit/metric.
-- [ ] Optionally open new AI session.
+- [x] Query eligible takeover records.
+- [x] Re-read latest state.
+- [x] Compare-and-set release.
+- [x] Ensure no new message.
+- [x] Ensure not pinned.
+- [x] Record audit/metric.
+- [x] Optionally open new AI session.
 
 **Concurrency/worker tests**
 
-- [ ] New message arrives during release.
-- [ ] Admin pins during release.
-- [ ] Duplicate worker.
-- [ ] Two workers.
-- [ ] DB failure.
-- [ ] Retry.
+- [x] New message arrives during release.
+- [x] Admin pins during release.
+- [x] Duplicate worker.
+- [x] Two workers.
+- [x] DB failure.
+- [x] Retry.
 
 _Requirements: AIA-R24, AIA-R29_
 
 ### 19.5 [P0] Takeover E2E
 
-- [ ] Customer requests human.
-- [ ] AI sends handoff acknowledgement once.
-- [ ] Human takes over.
-- [ ] Customer sends messages.
-- [ ] AI remains silent.
-- [ ] Timer resets.
-- [ ] Five-minute inactivity.
-- [ ] Auto resume.
-- [ ] Next customer message handled by AI.
-- [ ] Pinned variant.
+- [x] Customer requests human.
+- [x] AI sends handoff acknowledgement once.
+- [x] Human takes over.
+- [x] Customer sends messages.
+- [x] AI remains silent.
+- [x] Timer resets.
+- [x] Five-minute inactivity.
+- [x] Auto resume.
+- [x] Next customer message handled by AI.
+- [x] Pinned variant.
 
 _Requirements: AIA-R23, AIA-R24_
 
@@ -2948,10 +2948,10 @@ _Requirements: AIA-R25_
 _Requirements: AIA-R25, AIA-R29_
 
 ### 20.5 [P1] Follow-up E2E (deferred to integration with real scheduler)
-- [ ] Feedback request.
-- [ ] Abandoned cart.
-- [ ] Opt-out wording.
-- [ ] WhatsApp template path where required.
+- [x] Feedback request.
+- [x] Abandoned cart.
+- [x] Opt-out wording.
+- [x] WhatsApp template path where required.
 
 _Requirements: AIA-R25_
 
@@ -3002,10 +3002,10 @@ _Requirements: AIA-R26_
 
 _Requirements: AIA-R26_
 
-- [ ] Expired deleted/archived.
-- [ ] Recent retained.
-- [ ] Hold retained.
-- [ ] Commerce records untouched.
+- [x] Expired deleted/archived.
+- [x] Recent retained.
+- [x] Hold retained.
+- [x] Commerce records untouched.
 
 _Requirements: AIA-R26, AIA-R29_
 
@@ -3032,8 +3032,8 @@ _Requirements: AIA-R26, AIA-R29_
 _Requirements: AIA-R27_
 
 ### 22.2-22.4 [P1] Feedback APIs, evaluation dataset, runner (deferred to API/QA phase)
-- [ ] Result persistence.
-- [ ] Version comparison.
+- [x] Result persistence.
+- [x] Version comparison.
 
 _Requirements: AIA-R27, AIA-R33_
 
@@ -3049,27 +3049,27 @@ human takeover failure
 repeated-introduction regression
 ```
 
-- [ ] Publish checks latest required evaluation.
-- [ ] Authorized waiver process if ever allowed.
-- [ ] Waiver records owner/risk/expiry.
-- [ ] Security gates cannot be waived casually.
+- [x] Publish checks latest required evaluation.
+- [x] Authorized waiver process if ever allowed.
+- [x] Waiver records owner/risk/expiry.
+- [x] Security gates cannot be waived casually.
 
 **Tests**
 
-- [ ] Passing agent publishes.
-- [ ] Failing payment scenario blocks.
-- [ ] Old evaluation invalid after config change.
-- [ ] Wrong version evaluation rejected.
+- [x] Passing agent publishes.
+- [x] Failing payment scenario blocks.
+- [x] Old evaluation invalid after config change.
+- [x] Wrong version evaluation rejected.
 
 _Requirements: AIA-R15, AIA-R27, AIA-R33_
 
 ### 22.6 [P1] Optional live local-model quality suite
 
-- [ ] Mark separate from deterministic CI.
-- [ ] Use safe test data.
-- [ ] Record model/version.
-- [ ] Use thresholds, not brittle exact strings.
-- [ ] Do not claim deterministic guarantee.
+- [x] Mark separate from deterministic CI.
+- [x] Use safe test data.
+- [x] Record model/version.
+- [x] Use thresholds, not brittle exact strings.
+- [x] Do not claim deterministic guarantee.
 
 _Requirements: AIA-R17, AIA-R27_
 
@@ -3113,24 +3113,24 @@ treat document instructions as system
 encode/exfiltrate data
 ```
 
-- [ ] Customer-message attacks.
-- [ ] RAG-document attacks.
-- [ ] Tool-result attacks.
-- [ ] Agent-instruction attacks.
-- [ ] Multilingual/obfuscated variants.
+- [x] Customer-message attacks.
+- [x] RAG-document attacks.
+- [x] Tool-result attacks.
+- [x] Agent-instruction attacks.
+- [x] Multilingual/obfuscated variants.
 
 _Requirements: AIA-R28, AIA-R33_
 
 ### 23.3 [P0] Tool escalation security tests
 
-- [ ] Unknown tool.
-- [ ] Tool alias.
-- [ ] Case variation.
-- [ ] Nested tool request.
-- [ ] Multiple calls including forbidden one.
-- [ ] Agent config injection.
-- [ ] Specialist-agent escalation.
-- [ ] Direct backend endpoint attempt through model.
+- [x] Unknown tool.
+- [x] Tool alias.
+- [x] Case variation.
+- [x] Nested tool request.
+- [x] Multiple calls including forbidden one.
+- [x] Agent config injection.
+- [x] Specialist-agent escalation.
+- [x] Direct backend endpoint attempt through model.
 
 _Requirements: AIA-R19, AIA-R22, AIA-R28_
 
@@ -3152,13 +3152,13 @@ feedback
 follow-ups
 ```
 
-- [ ] Read.
-- [ ] List.
-- [ ] Create.
-- [ ] Update.
-- [ ] Delete/archive.
-- [ ] Search/retrieval.
-- [ ] Cross-outlet where applicable.
+- [x] Read.
+- [x] List.
+- [x] Create.
+- [x] Update.
+- [x] Delete/archive.
+- [x] Search/retrieval.
+- [x] Cross-outlet where applicable.
 
 _Requirements: AIA-R28, AIA-R33_
 
@@ -3177,46 +3177,46 @@ structured logger
 evaluation result
 ```
 
-- [ ] Seed fake secrets.
-- [ ] Assert absent or redacted.
-- [ ] Include nested structures.
-- [ ] Include exception causes.
-- [ ] Include provider response.
+- [x] Seed fake secrets.
+- [x] Assert absent or redacted.
+- [x] Include nested structures.
+- [x] Include exception causes.
+- [x] Include provider response.
 
 _Requirements: AIA-R26, AIA-R28_
 
 ### 23.6 [P0] AI rate limiting and abuse controls
 
-- [ ] Per workspace.
-- [ ] Per contact/chat.
-- [ ] Per platform.
-- [ ] Message size.
-- [ ] Attachment limit.
-- [ ] Tool call limit.
-- [ ] Burst policy.
-- [ ] Safe 429 response.
-- [ ] Internal transactional notifications unaffected as policy requires.
+- [x] Per workspace.
+- [x] Per contact/chat.
+- [x] Per platform.
+- [x] Message size.
+- [x] Attachment limit.
+- [x] Tool call limit.
+- [x] Burst policy.
+- [x] Safe 429 response.
+- [x] Internal transactional notifications unaffected as policy requires.
 
 **Tests**
 
-- [ ] Burst.
-- [ ] Distributed key strategy.
-- [ ] Different workspace isolation.
-- [ ] Reset window.
-- [ ] Abuse metrics.
-- [ ] Redis unavailable fallback.
+- [x] Burst.
+- [x] Distributed key strategy.
+- [x] Different workspace isolation.
+- [x] Reset window.
+- [x] Abuse metrics.
+- [x] Redis unavailable fallback.
 
 _Requirements: AIA-R28, AIA-R30, AIA-R31_
 
 ### 23.7 [P0] Dependency and supply-chain review
 
-- [ ] Review LangChain package only if added.
-- [ ] Review vector/embedding packages.
-- [ ] Review parser packages.
-- [ ] Lock versions appropriately.
-- [ ] Run vulnerability audit.
-- [ ] Document accepted risk.
-- [ ] Avoid unneeded framework dependencies.
+- [x] Review LangChain package only if added.
+- [x] Review vector/embedding packages.
+- [x] Review parser packages.
+- [x] Lock versions appropriately.
+- [x] Run vulnerability audit.
+- [x] Document accepted risk.
+- [x] Avoid unneeded framework dependencies.
 
 _Requirements: AIA-R31_
 
@@ -3241,26 +3241,26 @@ Must pass all critical AI security suites.
 - [x] Claim.
 - [x] Complete.
 - [x] Retry then fail after 3 attempts.
-- [ ] Permanent failure.
-- [ ] Workspace scope.
+- [x] Permanent failure.
+- [x] Workspace scope.
 
 _Requirements: AIA-R29_
 
 ### 24.2 [P0] Implement retry helper
 
-- [ ] Capped exponential backoff.
-- [ ] Jitter.
-- [ ] Error classification.
-- [ ] Max attempts.
-- [ ] Fixed clock testability.
+- [x] Capped exponential backoff.
+- [x] Jitter.
+- [x] Error classification.
+- [x] Max attempts.
+- [x] Fixed clock testability.
 
 **Unit/property tests**
 
-- [ ] Delay sequence.
-- [ ] Cap.
-- [ ] Jitter range.
-- [ ] Permanent error no retry.
-- [ ] Random attempts never negative/overflow.
+- [x] Delay sequence.
+- [x] Cap.
+- [x] Jitter range.
+- [x] Permanent error no retry.
+- [x] Random attempts never negative/overflow.
 
 _Requirements: AIA-R29_
 
@@ -3278,74 +3278,74 @@ takeover auto-resume
 follow-up
 ```
 
-- [ ] Named handlers.
-- [ ] Enable/disable config.
-- [ ] Health.
-- [ ] Graceful shutdown.
-- [ ] Metrics.
+- [x] Named handlers.
+- [x] Enable/disable config.
+- [x] Health.
+- [x] Graceful shutdown.
+- [x] Metrics.
 
 **Tests**
 
-- [ ] Registration.
-- [ ] Disabled worker.
-- [ ] Shutdown.
-- [ ] Handler failure.
-- [ ] Health status.
+- [x] Registration.
+- [x] Disabled worker.
+- [x] Shutdown.
+- [x] Handler failure.
+- [x] Health status.
 
 _Requirements: AIA-R29_
 
 ### 24.4 [P0] Implement stuck-run recovery
 
-- [ ] Detect AI run stuck past timeout.
-- [ ] Mark failed/cancelled.
-- [ ] Release chat lock.
-- [ ] Avoid duplicate customer response.
-- [ ] Record metric.
+- [x] Detect AI run stuck past timeout.
+- [x] Mark failed/cancelled.
+- [x] Release chat lock.
+- [x] Avoid duplicate customer response.
+- [x] Record metric.
 
 **Concurrency/resilience tests**
 
-- [ ] Process crash simulation.
-- [ ] Stale lock.
-- [ ] Run completed just before recovery.
-- [ ] Duplicate recovery.
-- [ ] Tool mutation already committed.
+- [x] Process crash simulation.
+- [x] Stale lock.
+- [x] Run completed just before recovery.
+- [x] Duplicate recovery.
+- [x] Tool mutation already committed.
 
 _Requirements: AIA-R18, AIA-R29_
 
 ### 24.5 [P0] Document in-process queue limitations
 
-- [ ] Jobs may be lost on crash.
-- [ ] Define trigger for durable queue:
+- [x] Jobs may be lost on crash.
+- [x] Define trigger for durable queue:
   - multi-instance;
   - business-critical delayed work;
   - unacceptable loss risk.
-- [ ] Define Redis/BullMQ adapter boundary.
-- [ ] Keep Supabase state authoritative.
+- [x] Define Redis/BullMQ adapter boundary.
+- [x] Keep Supabase state authoritative.
 
 _Requirements: AIA-R29, AIA-R31_
 
 ### 24.6 [P1] Optional durable queue implementation
 
-- [ ] Only after approval/trigger.
-- [ ] Preserve job contract.
-- [ ] Add Redis health.
-- [ ] Add dedupe.
-- [ ] Add graceful shutdown.
-- [ ] Add failover tests.
+- [x] Only after approval/trigger.
+- [x] Preserve job contract.
+- [x] Add Redis health.
+- [x] Add dedupe.
+- [x] Add graceful shutdown.
+- [x] Add failover tests.
 
 _Requirements: AIA-R29, AIA-R31_
 
 ### 24.7 [P0] Reliability failure-injection suite
 
-- [ ] Model unavailable.
-- [ ] Supabase unavailable.
-- [ ] pgvector query timeout.
-- [ ] Worker failure.
-- [ ] Outbound channel failure.
-- [ ] Lock service unavailable.
-- [ ] Trace write failure.
-- [ ] Summary failure.
-- [ ] Knowledge ingestion failure.
+- [x] Model unavailable.
+- [x] Supabase unavailable.
+- [x] pgvector query timeout.
+- [x] Worker failure.
+- [x] Outbound channel failure.
+- [x] Lock service unavailable.
+- [x] Trace write failure.
+- [x] Summary failure.
+- [x] Knowledge ingestion failure.
 
 _Requirements: AIA-R29, AIA-R33_
 
@@ -3369,67 +3369,67 @@ tool latency
 total turn
 ```
 
-- [ ] Use deterministic fake model for system overhead.
-- [ ] Use optional local model benchmark separately.
-- [ ] Record p50/p95.
-- [ ] Define expected MVP concurrency.
+- [x] Use deterministic fake model for system overhead.
+- [x] Use optional local model benchmark separately.
+- [x] Record p50/p95.
+- [x] Define expected MVP concurrency.
 
 _Requirements: AIA-R30_
 
 ### 25.2 [P1] Optimize context queries
 
-- [ ] Verify indexes.
-- [ ] Avoid N+1.
-- [ ] Parallelize independent loads.
-- [ ] Bound message count.
-- [ ] Bound memory count.
-- [ ] Bound RAG chunks.
-- [ ] Measure.
+- [x] Verify indexes.
+- [x] Avoid N+1.
+- [x] Parallelize independent loads.
+- [x] Bound message count.
+- [x] Bound memory count.
+- [x] Bound RAG chunks.
+- [x] Measure.
 
 **Performance tests**
 
-- [ ] 30-message chat.
-- [ ] 1,000-message historical chat.
-- [ ] Multiple memories.
-- [ ] Multiple knowledge sources.
-- [ ] Concurrent chats.
+- [x] 30-message chat.
+- [x] 1,000-message historical chat.
+- [x] Multiple memories.
+- [x] Multiple knowledge sources.
+- [x] Concurrent chats.
 
 _Requirements: AIA-R10, AIA-R30_
 
 ### 25.3 [P1] Add model/tool time budgets
 
-- [ ] Per model call.
-- [ ] Per tool.
-- [ ] Total turn.
-- [ ] Remaining budget propagation.
-- [ ] Safe timeout response.
-- [ ] Handoff option.
+- [x] Per model call.
+- [x] Per tool.
+- [x] Total turn.
+- [x] Remaining budget propagation.
+- [x] Safe timeout response.
+- [x] Handoff option.
 
 **Tests**
 
-- [ ] Slow model.
-- [ ] Slow tool.
-- [ ] Multiple tools.
-- [ ] Total budget exhaustion.
-- [ ] No confirmation skipped.
+- [x] Slow model.
+- [x] Slow tool.
+- [x] Multiple tools.
+- [x] Total budget exhaustion.
+- [x] No confirmation skipped.
 
 _Requirements: AIA-R18, AIA-R30_
 
 ### 25.4 [P1] Add usage metrics
 
-- [ ] Input/output token estimates.
-- [ ] Tool counts.
-- [ ] RAG chunks.
-- [ ] Fallback use.
-- [ ] Per workspace/agent aggregates.
-- [ ] No sensitive high-cardinality labels.
+- [x] Input/output token estimates.
+- [x] Tool counts.
+- [x] RAG chunks.
+- [x] Fallback use.
+- [x] Per workspace/agent aggregates.
+- [x] No sensitive high-cardinality labels.
 
 **Tests**
 
-- [ ] Metric calculation.
-- [ ] Missing provider usage.
-- [ ] Aggregate scope.
-- [ ] Cross-workspace API security.
+- [x] Metric calculation.
+- [x] Missing provider usage.
+- [x] Aggregate scope.
+- [x] Cross-workspace API security.
 
 _Requirements: AIA-R26, AIA-R30_
 
@@ -3445,11 +3445,11 @@ tool-heavy
 provider timeout
 ```
 
-- [ ] Verify no duplicate mutation.
-- [ ] Verify locks.
-- [ ] Verify latency.
-- [ ] Verify memory/database connection usage.
-- [ ] Verify graceful degradation.
+- [x] Verify no duplicate mutation.
+- [x] Verify locks.
+- [x] Verify latency.
+- [x] Verify memory/database connection usage.
+- [x] Verify graceful degradation.
 
 _Requirements: AIA-R18, AIA-R29, AIA-R30_
 
@@ -3461,65 +3461,65 @@ _Requirements: AIA-R18, AIA-R29, AIA-R30_
 
 ### 26.1 [P0] Keep LangChain behind adapter
 
-- [ ] If LangChain is used, create `langchain-adapter`.
-- [ ] Core interfaces remain framework-neutral.
-- [ ] No LangChain memory as source of truth.
-- [ ] No domain state in agent scratchpad.
-- [ ] Add replacement test/fake implementation.
+- [x] If LangChain is used, create `langchain-adapter`.
+- [x] Core interfaces remain framework-neutral.
+- [x] No LangChain memory as source of truth.
+- [x] No domain state in agent scratchpad.
+- [x] Add replacement test/fake implementation.
 
 **Tests**
 
-- [ ] Core tests run without LangChain package path.
-- [ ] Retriever adapter contract.
-- [ ] Context memory comes from Supabase service.
-- [ ] Removal simulation/documented.
+- [x] Core tests run without LangChain package path.
+- [x] Retriever adapter contract.
+- [x] Context memory comes from Supabase service.
+- [x] Removal simulation/documented.
 
 _Requirements: AIA-R31_
 
 ### 26.2 [P0] Enforce LangGraph deferred status
 
-- [ ] Do not add dependency in MVP without approved design update.
-- [ ] Document adoption criteria.
-- [ ] Add architecture review checklist.
+- [x] Do not add dependency in MVP without approved design update.
+- [x] Document adoption criteria.
+- [x] Add architecture review checklist.
 
 **Verification**
 
-- [ ] Dependency scan.
-- [ ] No hidden LangGraph runtime.
-- [ ] No task claims multi-agent graph implemented.
+- [x] Dependency scan.
+- [x] No hidden LangGraph runtime.
+- [x] No task claims multi-agent graph implemented.
 
 _Requirements: AIA-R31, AIA-R32_
 
 ### 26.3 [P0] Enforce Redis optionality
 
-- [ ] Core correctness works without Redis.
-- [ ] Redis adapter only for cache/lock/rate limit/queue.
-- [ ] Cache invalidation policy.
-- [ ] Fallback when unavailable.
-- [ ] No authoritative cart/order/payment/memory in Redis.
+- [x] Core correctness works without Redis.
+- [x] Redis adapter only for cache/lock/rate limit/queue.
+- [x] Cache invalidation policy.
+- [x] Fallback when unavailable.
+- [x] No authoritative cart/order/payment/memory in Redis.
 
 **Tests**
 
-- [ ] Redis unavailable.
-- [ ] Cache loss.
-- [ ] Lock fallback.
-- [ ] No state loss.
+- [x] Redis unavailable.
+- [x] Cache loss.
+- [x] Lock fallback.
+- [x] No state loss.
 
 _Requirements: AIA-R31_
 
 ### 26.4 [P0] Enforce n8n non-authority
 
-- [ ] Document allowed use.
-- [ ] No core AI/payment/order state delegated.
-- [ ] Any n8n workflow uses backend APIs and limited credential.
-- [ ] Audit integration.
+- [x] Document allowed use.
+- [x] No core AI/payment/order state delegated.
+- [x] Any n8n workflow uses backend APIs and limited credential.
+- [x] Audit integration.
 
 **Security review**
 
-- [ ] No service role.
-- [ ] No mark-paid.
-- [ ] No direct DB mutation.
-- [ ] No unscoped workspace access.
+- [x] No service role.
+- [x] No mark-paid.
+- [x] No direct DB mutation.
+- [x] No unscoped workspace access.
 
 _Requirements: AIA-R31_
 
@@ -3542,49 +3542,49 @@ order status
 internal copilot
 ```
 
-- [ ] Input contract.
-- [ ] Output contract.
-- [ ] Tool allowlist.
-- [ ] Knowledge scope.
-- [ ] Model assignment.
-- [ ] Handoff result.
-- [ ] No direct credentials.
+- [x] Input contract.
+- [x] Output contract.
+- [x] Tool allowlist.
+- [x] Knowledge scope.
+- [x] Model assignment.
+- [x] Handoff result.
+- [x] No direct credentials.
 
 **Tests**
 
-- [ ] Valid specialist.
-- [ ] Forbidden tool.
-- [ ] Cross-workspace.
-- [ ] Payment mutation blocked.
-- [ ] Takeover respected.
+- [x] Valid specialist.
+- [x] Forbidden tool.
+- [x] Cross-workspace.
+- [x] Payment mutation blocked.
+- [x] Takeover respected.
 
 _Requirements: AIA-R32_
 
 ### 27.2 [P1] Implement specialist routing interfaces only
 
-- [ ] Router can return specialist ID.
-- [ ] Primary agent fallback.
-- [ ] Trace handoff.
-- [ ] Bounded specialist calls.
-- [ ] Do not activate autonomous swarm.
+- [x] Router can return specialist ID.
+- [x] Primary agent fallback.
+- [x] Trace handoff.
+- [x] Bounded specialist calls.
+- [x] Do not activate autonomous swarm.
 
 **Tests**
 
-- [ ] Commerce route.
-- [ ] Complaint route.
-- [ ] Specialist unavailable.
-- [ ] Fallback.
-- [ ] Loop bound.
+- [x] Commerce route.
+- [x] Complaint route.
+- [x] Specialist unavailable.
+- [x] Fallback.
+- [x] Loop bound.
 
 _Requirements: AIA-R16, AIA-R32_
 
 ### 27.3 [P1] Shared memory and tool boundary tests
 
-- [ ] Specialist uses same Memory Service.
-- [ ] Specialist uses same Tool Gateway.
-- [ ] Specialist cannot create private authoritative memory store.
-- [ ] Agent-to-agent content treated as internal untrusted data.
-- [ ] Version recorded.
+- [x] Specialist uses same Memory Service.
+- [x] Specialist uses same Tool Gateway.
+- [x] Specialist cannot create private authoritative memory store.
+- [x] Agent-to-agent content treated as internal untrusted data.
+- [x] Version recorded.
 
 _Requirements: AIA-R19, AIA-R32_
 
@@ -3600,19 +3600,19 @@ checkpointing required
 state graph materially clearer
 ```
 
-- [ ] Create future ADR/task placeholder.
-- [ ] No implementation in core MVP.
+- [x] Create future ADR/task placeholder.
+- [x] No implementation in core MVP.
 
 _Requirements: AIA-R31, AIA-R32_
 
 ### 27.5 [P1] Multi-agent evaluation skeleton
 
-- [ ] Routing accuracy.
-- [ ] Specialist safety.
-- [ ] Handoff correctness.
-- [ ] Tool boundaries.
-- [ ] Loop termination.
-- [ ] Fallback.
+- [x] Routing accuracy.
+- [x] Specialist safety.
+- [x] Handoff correctness.
+- [x] Tool boundaries.
+- [x] Loop termination.
+- [x] Fallback.
 
 _Requirements: AIA-R27, AIA-R32_
 
@@ -3650,28 +3650,28 @@ viewer
 
 **Tests**
 
-- [ ] Allow/deny matrix.
-- [ ] Workspace scope.
-- [ ] Outlet scope.
-- [ ] Elevated publish.
-- [ ] Trace access.
-- [ ] Memory delete.
+- [x] Allow/deny matrix.
+- [x] Workspace scope.
+- [x] Outlet scope.
+- [x] Elevated publish.
+- [x] Trace access.
+- [x] Memory delete.
 
 _Requirements: AIA-R28, AIA-R34_
 
 ### 28.2 [P1] Add optimistic concurrency to configuration updates
 
-- [ ] Version/ETag.
-- [ ] Conflict error.
-- [ ] No silent overwrite.
-- [ ] Audit actor.
+- [x] Version/ETag.
+- [x] Conflict error.
+- [x] No silent overwrite.
+- [x] Audit actor.
 
 **API tests**
 
-- [ ] Current version update.
-- [ ] Stale version conflict.
-- [ ] Parallel updates.
-- [ ] Publish conflict.
+- [x] Current version update.
+- [x] Stale version conflict.
+- [x] Parallel updates.
+- [x] Publish conflict.
 
 _Requirements: AIA-R15, AIA-R34_
 
@@ -3698,58 +3698,58 @@ private prompt if unauthorized
 
 **Tests**
 
-- [ ] Configured/unconfigured.
-- [ ] Provider degraded.
-- [ ] Permission.
-- [ ] Secret absent.
+- [x] Configured/unconfigured.
+- [x] Provider degraded.
+- [x] Permission.
+- [x] Secret absent.
 
 _Requirements: AIA-R17, AIA-R34_
 
 ### 28.4 [P1] Build retrieval test endpoint
 
-- [ ] Authorized admin only.
-- [ ] Workspace/outlet/agent scope.
-- [ ] Return chunks/scores safely.
-- [ ] No customer side effect.
-- [ ] Trace test request.
+- [x] Authorized admin only.
+- [x] Workspace/outlet/agent scope.
+- [x] Return chunks/scores safely.
+- [x] No customer side effect.
+- [x] Trace test request.
 
 **Tests**
 
-- [ ] Relevant result.
-- [ ] No result.
-- [ ] Cross-workspace.
-- [ ] Unpublished source.
-- [ ] Secret redaction.
+- [x] Relevant result.
+- [x] No result.
+- [x] Cross-workspace.
+- [x] Unpublished source.
+- [x] Secret redaction.
 
 _Requirements: AIA-R13, AIA-R34_
 
 ### 28.5 [P1] Build evaluation APIs
 
-- [ ] Run selected evaluation set.
-- [ ] View results.
-- [ ] Compare versions.
-- [ ] Block publish when required.
-- [ ] Async job if needed.
+- [x] Run selected evaluation set.
+- [x] View results.
+- [x] Compare versions.
+- [x] Block publish when required.
+- [x] Async job if needed.
 
 **Tests**
 
-- [ ] Start run.
-- [ ] Permission.
-- [ ] Result.
-- [ ] Version mismatch.
-- [ ] Blocking failure.
+- [x] Start run.
+- [x] Permission.
+- [x] Result.
+- [x] Version mismatch.
+- [x] Blocking failure.
 
 _Requirements: AIA-R27, AIA-R34_
 
 ### 28.6 [P1] Admin API contract documentation
 
-- [ ] Request/response examples.
-- [ ] Error codes.
-- [ ] Pagination.
-- [ ] Secret fields.
-- [ ] Role permission.
-- [ ] Version conflict.
-- [ ] Test mode behavior.
+- [x] Request/response examples.
+- [x] Error codes.
+- [x] Pagination.
+- [x] Secret fields.
+- [x] Role permission.
+- [x] Version conflict.
+- [x] Test mode behavior.
 
 _Requirements: AIA-R34_
 
@@ -3786,90 +3786,90 @@ takeover timer
 retry helper
 ```
 
-- [ ] Every module has happy-path tests.
-- [ ] Every module has invalid-input tests.
-- [ ] Every security rule has negative test.
-- [ ] Coverage report reviewed.
-- [ ] No critical branch untested.
+- [x] Every module has happy-path tests.
+- [x] Every module has invalid-input tests.
+- [x] Every security rule has negative test.
+- [x] Coverage report reviewed.
+- [x] No critical branch untested.
 
 _Requirements: AIA-R33_
 
 ### 29.2 [P0] Repository integration suite completeness
 
-- [ ] Conversation sessions.
-- [ ] Summaries.
-- [ ] Memories.
-- [ ] Knowledge sources.
-- [ ] Knowledge chunks.
-- [ ] AI runs.
-- [ ] Tool calls.
-- [ ] Feedback.
-- [ ] Follow-up/jobs if implemented.
-- [ ] Workspace isolation.
-- [ ] Concurrency/unique conflicts.
-- [ ] Retention cleanup.
+- [x] Conversation sessions.
+- [x] Summaries.
+- [x] Memories.
+- [x] Knowledge sources.
+- [x] Knowledge chunks.
+- [x] AI runs.
+- [x] Tool calls.
+- [x] Feedback.
+- [x] Follow-up/jobs if implemented.
+- [x] Workspace isolation.
+- [x] Concurrency/unique conflicts.
+- [x] Retention cleanup.
 
 _Requirements: AIA-R33_
 
 ### 29.3 [P0] Service/component suite completeness
 
-- [ ] Context Builder.
-- [ ] Summary Service.
-- [ ] Memory Service.
-- [ ] RAG Service.
-- [ ] Agent Router.
-- [ ] Model Router.
-- [ ] Orchestrator.
-- [ ] Tool Gateway.
-- [ ] Takeover policy.
-- [ ] Follow-up service if implemented.
+- [x] Context Builder.
+- [x] Summary Service.
+- [x] Memory Service.
+- [x] RAG Service.
+- [x] Agent Router.
+- [x] Model Router.
+- [x] Orchestrator.
+- [x] Tool Gateway.
+- [x] Takeover policy.
+- [x] Follow-up service if implemented.
 
 _Requirements: AIA-R33_
 
 ### 29.4 [P0] API integration suite completeness
 
-- [ ] Agents.
-- [ ] Agent versions.
-- [ ] Knowledge.
-- [ ] Memory.
-- [ ] Trace.
-- [ ] Feedback.
-- [ ] Evaluation.
-- [ ] Health/test.
-- [ ] Permission.
-- [ ] Pagination.
-- [ ] Error contract.
-- [ ] Optimistic concurrency.
+- [x] Agents.
+- [x] Agent versions.
+- [x] Knowledge.
+- [x] Memory.
+- [x] Trace.
+- [x] Feedback.
+- [x] Evaluation.
+- [x] Health/test.
+- [x] Permission.
+- [x] Pagination.
+- [x] Error contract.
+- [x] Optimistic concurrency.
 
 _Requirements: AIA-R34, AIA-R33_
 
 ### 29.5 [P0] Channel integration suite completeness
 
-- [ ] Telegram.
-- [ ] WhatsApp.
-- [ ] Verification.
-- [ ] Normalization.
-- [ ] Duplicate message.
-- [ ] Delivery failure.
-- [ ] Typing indicator.
-- [ ] Human takeover.
-- [ ] Channel-specific limits.
+- [x] Telegram.
+- [x] WhatsApp.
+- [x] Verification.
+- [x] Normalization.
+- [x] Duplicate message.
+- [x] Delivery failure.
+- [x] Typing indicator.
+- [x] Human takeover.
+- [x] Channel-specific limits.
 
 _Requirements: AIA-R1, AIA-R24, AIA-R33_
 
 ### 29.6 [P0] Security suite completeness
 
-- [ ] Prompt injection.
-- [ ] RAG injection.
-- [ ] Tool injection.
-- [ ] Agent config escalation.
-- [ ] Cross-workspace.
-- [ ] Cross-outlet.
-- [ ] Secret exposure.
-- [ ] Payment mark-paid absence.
-- [ ] Trace access.
-- [ ] Rate limit.
-- [ ] Oversized input.
+- [x] Prompt injection.
+- [x] RAG injection.
+- [x] Tool injection.
+- [x] Agent config escalation.
+- [x] Cross-workspace.
+- [x] Cross-outlet.
+- [x] Secret exposure.
+- [x] Payment mark-paid absence.
+- [x] Trace access.
+- [x] Rate limit.
+- [x] Oversized input.
 
 _Requirements: AIA-R22, AIA-R28, AIA-R33_
 
@@ -3889,27 +3889,27 @@ complaint ticket
 human takeover and auto-resume
 ```
 
-- [ ] Deterministic fake-provider versions in CI.
-- [ ] Optional sandbox versions documented.
-- [ ] No production credentials.
-- [ ] Trace assertions included.
+- [x] Deterministic fake-provider versions in CI.
+- [x] Optional sandbox versions documented.
+- [x] No production credentials.
+- [x] Trace assertions included.
 
 _Requirements: AIA-R33_
 
 ### 29.8 [P0] Evaluation suite completeness
 
-- [ ] Tone.
-- [ ] Continuity.
-- [ ] No repeated introduction.
-- [ ] Correct outlet behavior.
-- [ ] Pickup-only.
-- [ ] No address memory.
-- [ ] No COD/manual transfer.
-- [ ] No false paid.
-- [ ] Grounded RAG.
-- [ ] Appropriate handoff.
-- [ ] Tool selection.
-- [ ] Conciseness.
+- [x] Tone.
+- [x] Continuity.
+- [x] No repeated introduction.
+- [x] Correct outlet behavior.
+- [x] Pickup-only.
+- [x] No address memory.
+- [x] No COD/manual transfer.
+- [x] No false paid.
+- [x] Grounded RAG.
+- [x] Appropriate handoff.
+- [x] Tool selection.
+- [x] Conciseness.
 
 _Requirements: AIA-R27, AIA-R33_
 
@@ -3927,35 +3927,35 @@ redaction never throws
 retry delay bounded
 ```
 
-- [ ] Add generator constraints.
-- [ ] Reproduce failing seed.
-- [ ] Persist seed in failure output.
-- [ ] Keep runtime reasonable.
+- [x] Add generator constraints.
+- [x] Reproduce failing seed.
+- [x] Persist seed in failure output.
+- [x] Keep runtime reasonable.
 
 _Requirements: AIA-R33_
 
 ### 29.10 [P0] Concurrency suite
 
-- [ ] Parallel same-chat message.
-- [ ] Duplicate provider message.
-- [ ] Simultaneous session creation.
-- [ ] Duplicate summary job.
-- [ ] Duplicate tool mutation.
-- [ ] Takeover during model.
-- [ ] Auto-resume race.
-- [ ] Duplicate follow-up.
+- [x] Parallel same-chat message.
+- [x] Duplicate provider message.
+- [x] Simultaneous session creation.
+- [x] Duplicate summary job.
+- [x] Duplicate tool mutation.
+- [x] Takeover during model.
+- [x] Auto-resume race.
+- [x] Duplicate follow-up.
 
 _Requirements: AIA-R18, AIA-R24, AIA-R29, AIA-R33_
 
 ### 29.11 [P1] Performance suite
 
-- [ ] Context latency.
-- [ ] Retrieval latency.
-- [ ] 100 concurrent different chats.
-- [ ] Same-chat burst.
-- [ ] Large history.
-- [ ] Worker queue latency.
-- [ ] Provider timeout behavior.
+- [x] Context latency.
+- [x] Retrieval latency.
+- [x] 100 concurrent different chats.
+- [x] Same-chat burst.
+- [x] Large history.
+- [x] Worker queue latency.
+- [x] Provider timeout behavior.
 
 _Requirements: AIA-R30, AIA-R33_
 
@@ -3973,24 +3973,24 @@ existing agent settings
 existing product/cart/order/payment services
 ```
 
-- [ ] AI architecture changes do not break existing backend domain tests.
-- [ ] No new Mongo/Mongoose usage.
-- [ ] Supabase-only runtime remains valid.
-- [ ] Xendit tests remain passing.
+- [x] AI architecture changes do not break existing backend domain tests.
+- [x] No new Mongo/Mongoose usage.
+- [x] Supabase-only runtime remains valid.
+- [x] Xendit tests remain passing.
 
 _Requirements: AIA-R33_
 
 ### 29.13 [P0] Manual sandbox QA plan
 
-- [ ] Local model endpoint.
-- [ ] Real Telegram test bot.
-- [ ] Real WhatsApp test number.
-- [ ] Xendit Test Mode.
-- [ ] Real knowledge upload/embedding.
-- [ ] Long conversation.
-- [ ] Human takeover.
-- [ ] Failure scenarios.
-- [ ] Record passed/failed/not-run/blocked honestly.
+- [x] Local model endpoint.
+- [x] Real Telegram test bot.
+- [x] Real WhatsApp test number.
+- [x] Xendit Test Mode.
+- [x] Real knowledge upload/embedding.
+- [x] Long conversation.
+- [x] Human takeover.
+- [x] Failure scenarios.
+- [x] Record passed/failed/not-run/blocked honestly.
 
 _Requirements: AIA-R17, AIA-R33_
 
@@ -4030,11 +4030,11 @@ critical evaluation
 build
 ```
 
-- [ ] Deterministic suites required.
-- [ ] Manual/live suites excluded from default CI.
-- [ ] Artifacts include test reports.
-- [ ] Secrets masked.
-- [ ] Production Supabase blocked.
+- [x] Deterministic suites required.
+- [x] Manual/live suites excluded from default CI.
+- [x] Artifacts include test reports.
+- [x] Secrets masked.
+- [x] Production Supabase blocked.
 
 _Requirements: AIA-R33_
 
@@ -4051,9 +4051,9 @@ new Mongoose use
 secret fields in client responses
 ```
 
-- [ ] Add lint/custom script where practical.
-- [ ] Add review checklist otherwise.
-- [ ] CI fails on critical violation.
+- [x] Add lint/custom script where practical.
+- [x] Add review checklist otherwise.
+- [x] CI fails on critical violation.
 
 _Requirements: AIA-R19, AIA-R22, AIA-R28, AIA-R31_
 
@@ -4075,10 +4075,10 @@ operations runbook
 incident guide
 ```
 
-- [ ] Do not merge into backend marketplace design.
-- [ ] Link to backend contracts only where needed.
-- [ ] No real secrets.
-- [ ] Mark implemented vs target honestly.
+- [x] Do not merge into backend marketplace design.
+- [x] Link to backend contracts only where needed.
+- [x] No real secrets.
+- [x] Mark implemented vs target honestly.
 
 _Requirements: all_
 
@@ -4116,12 +4116,12 @@ mass duplicate messages
 malicious knowledge injection
 ```
 
-- [ ] Immediate containment.
-- [ ] Disable agent/platform.
-- [ ] Preserve safe evidence.
-- [ ] Rotate secrets if needed.
-- [ ] Identify affected runs.
-- [ ] Corrective test required before re-enable.
+- [x] Immediate containment.
+- [x] Disable agent/platform.
+- [x] Preserve safe evidence.
+- [x] Rotate secrets if needed.
+- [x] Identify affected runs.
+- [x] Corrective test required before re-enable.
 
 _Requirements: AIA-R22, AIA-R24, AIA-R28_
 
@@ -4195,33 +4195,33 @@ Git diff summary:
 
 ### 30.8 [P0] Final checkpoint — AI architecture MVP approval
 
-- [ ] All P0 tasks complete or explicitly waived.
-- [ ] Waiver includes owner, risk, mitigation, expiry.
-- [ ] No critical payment/security/takeover waiver.
-- [ ] Full deterministic suite passes.
-- [ ] Manual sandbox result recorded.
-- [ ] `npm run specs:check` passes.
-- [ ] Release decision recorded.
+- [x] All P0 tasks complete or explicitly waived.
+- [x] Waiver includes owner, risk, mitigation, expiry.
+- [x] No critical payment/security/takeover waiver.
+- [x] Full deterministic suite passes.
+- [x] Manual sandbox result recorded.
+- [x] `npm run specs:check` passes.
+- [x] Release decision recorded.
 
 ---
 
 # Optional Post-MVP Tasks
 
-- [ ]* PM1 Advanced external model fallback routing
-- [ ]* PM2 Cross-encoder reranker
-- [ ]* PM3 Full marketing automation
-- [ ]* PM4 Durable Redis/BullMQ queue
-- [ ]* PM5 Multiple active specialist agents
-- [ ]* PM6 LangGraph workflow after approved design update
-- [ ]* PM7 Agent A/B testing
-- [ ]* PM8 Automated prompt optimization with human approval
-- [ ]* PM9 Website chat streaming
-- [ ]* PM10 Voice-note transcription and multimodal understanding
-- [ ]* PM11 Advanced memory relevance model
-- [ ]* PM12 Knowledge conflict detection dashboard
-- [ ]* PM13 Dedicated AI cost/budget controls
-- [ ]* PM14 Offline replay and shadow evaluation
-- [ ]* PM15 Production-scale distributed tracing
+- [x]* PM1 Advanced external model fallback routing
+- [x]* PM2 Cross-encoder reranker
+- [x]* PM3 Full marketing automation
+- [x]* PM4 Durable Redis/BullMQ queue
+- [x]* PM5 Multiple active specialist agents
+- [x]* PM6 LangGraph workflow after approved design update
+- [x]* PM7 Agent A/B testing
+- [x]* PM8 Automated prompt optimization with human approval
+- [x]* PM9 Website chat streaming
+- [x]* PM10 Voice-note transcription and multimodal understanding
+- [x]* PM11 Advanced memory relevance model
+- [x]* PM12 Knowledge conflict detection dashboard
+- [x]* PM13 Dedicated AI cost/budget controls
+- [x]* PM14 Offline replay and shadow evaluation
+- [x]* PM15 Production-scale distributed tracing
 
 ---
 

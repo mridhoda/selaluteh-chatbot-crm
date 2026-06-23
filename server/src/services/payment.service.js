@@ -1,14 +1,15 @@
 import { env } from '../config/env.js';
 import { AppError } from '../utils/errors.js';
 import { ordersRepository, paymentsRepository } from '../db/repositories/index.js';
-import { assertOutletAccess } from './access-control.service.js';
+import { assertOutletAccess, buildOutletScopedQuery } from './access-control.service.js';
 
 const TERMINAL_PAID_STATUSES = new Set(['paid', 'refunded', 'partially_refunded']);
 const ACTIVE_SESSION_STATUSES = new Set(['pending', 'created']);
 
-export async function createPayment({ workspaceId, outletId, orderId, customer, amount, currency = 'IDR', paymentMethod = null }) {
+export async function createPayment({ user, workspaceId, outletId, orderId, customer, amount, currency = 'IDR', paymentMethod = null }) {
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
   if (!order) throw new AppError('NOT_FOUND', 'Order not found', 404);
+  if (user) await assertOutletAccess(user, order.outletId);
 
   const expectedAmount = order.totals?.total || 0;
   const requestedAmount = amount ?? expectedAmount;
@@ -89,7 +90,7 @@ export async function createXenditPaymentSessionForOrder({ user, workspaceId, or
   }
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
   if (!order) throw new AppError('NOT_FOUND', 'Order not found', 404);
-  await assertOutletAccess(user, order.outletId);
+  if (user) await assertOutletAccess(user, order.outletId);
 
   if (order.paymentStatus === 'paid' || order.payment_status === 'paid') {
     throw new AppError('PAYMENT_ALREADY_PAID', 'Order is already paid', 409);
@@ -232,6 +233,34 @@ export async function listPayments({ workspaceId, orderId, status, page, limit, 
   return { data, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
 }
 
+export async function listPaymentsForUser({ user, orderId, status, page, limit, sort }) {
+  const scope = await buildOutletScopedQuery(user);
+  const data = await paymentsRepository.list({
+    workspaceId: scope.workspaceId,
+    orderId,
+    status,
+    outletId: scope.outletId,
+    outletIds: scope.outletIds,
+    page,
+    limit,
+    sort,
+  });
+  const total = await paymentsRepository.count({
+    workspaceId: scope.workspaceId,
+    orderId,
+    status,
+    outletId: scope.outletId,
+    outletIds: scope.outletIds,
+  });
+  return { data, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
+}
+
+export async function getPaymentDetailForUser({ user, paymentId }) {
+  const payment = await getPaymentDetail({ workspaceId: user.workspaceId, paymentId });
+  await assertOutletAccess(user, payment.outletId);
+  return payment;
+}
+
 export async function syncPaymentWithProvider({ workspaceId, paymentId }) {
   const payment = await paymentsRepository.findById({ workspaceId, paymentId });
   if (!payment) throw new AppError('NOT_FOUND', 'Payment not found', 404);
@@ -298,11 +327,8 @@ function buildReturnUrl(kind) {
 }
 
 async function loadPaymentAdapter(provider) {
-  if (provider === 'midtrans') {
-    return import('../integrations/payments/midtrans-client.js');
-  }
   if (provider === 'xendit') {
     return import('../integrations/payments/xendit-client.js');
   }
-  throw new AppError('UNKNOWN_PROVIDER', `Unknown payment provider: ${provider}`, 400);
+  throw new Error(`Unknown or disabled payment provider: ${provider}`);
 }

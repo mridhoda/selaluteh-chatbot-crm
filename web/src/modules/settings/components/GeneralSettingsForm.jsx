@@ -212,7 +212,7 @@ export default function GeneralSettingsForm({ settings, onSave, isSaving }) {
           htmlFor='allowAllOutletsView'
           style={{ ...LABEL, margin: 0, cursor: 'pointer' }}
         >
-          Allow "All Outlets" aggregate view
+          Allow &quot;All Outlets&quot; aggregate view
         </label>
       </div>
 

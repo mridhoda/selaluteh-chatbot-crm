@@ -142,6 +142,31 @@ export const productsSupabaseRepository = {
     return mapRows(extractData(result, 'products.findAvailabilityByOutlet') ?? []);
   },
 
+  async findAvailabilityByProduct({ workspaceId, productId, status, isAvailable, outletIds }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    let q = client.from(AVAIL_TABLE).select('*').eq('workspace_id', workspaceId).eq('product_id', productId);
+    if (status) q = q.eq('status', status);
+    if (isAvailable !== undefined) q = q.eq('is_available', isAvailable);
+    if (outletIds && outletIds.length > 0) q = q.in('outlet_id', outletIds);
+    const result = await q;
+    return mapRows(extractData(result, 'products.findAvailabilityByProduct') ?? []);
+  },
+
+  async findAvailability({ workspaceId, productId, outletId, status, isAvailable, productIds, outletIds }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    let q = client.from(AVAIL_TABLE).select('*').eq('workspace_id', workspaceId);
+    if (productId) q = q.eq('product_id', productId);
+    if (outletId) q = q.eq('outlet_id', outletId);
+    if (status) q = q.eq('status', status);
+    if (isAvailable !== undefined) q = q.eq('is_available', isAvailable);
+    if (productIds && productIds.length > 0) q = q.in('product_id', productIds);
+    if (outletIds && outletIds.length > 0) q = q.in('outlet_id', outletIds);
+    const result = await q;
+    return mapRows(extractData(result, 'products.findAvailability') ?? []);
+  },
+
   async findOneAvailability({ workspaceId, productId, outletId }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();

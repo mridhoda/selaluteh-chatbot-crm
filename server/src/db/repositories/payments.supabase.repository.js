@@ -85,11 +85,13 @@ export const paymentsSupabaseRepository = {
     return row ? mapRow(row) : null;
   },
 
-  async list({ workspaceId, orderId, status, reconciliationStatus, provider, page = 1, limit = 50 }) {
+  async list({ workspaceId, orderId, status, reconciliationStatus, provider, outletId, outletIds, page = 1, limit = 50 }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
     let q = client.from(TABLE).select('*').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
     if (orderId) q = q.eq('order_id', orderId);
+    if (outletId) q = q.eq('outlet_id', outletId);
+    else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
     if (status) q = q.eq('status', status);
     if (reconciliationStatus) {
       if (Array.isArray(reconciliationStatus)) q = q.in('reconciliation_status', reconciliationStatus);
@@ -101,11 +103,13 @@ export const paymentsSupabaseRepository = {
     return mapRows(extractData(result, 'payments.list') ?? []);
   },
 
-  async count({ workspaceId, orderId, status, reconciliationStatus, provider }) {
+  async count({ workspaceId, orderId, status, reconciliationStatus, provider, outletId, outletIds }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
     let q = client.from(TABLE).select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId);
     if (orderId) q = q.eq('order_id', orderId);
+    if (outletId) q = q.eq('outlet_id', outletId);
+    else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
     if (status) q = q.eq('status', status);
     if (reconciliationStatus) {
       if (Array.isArray(reconciliationStatus)) q = q.in('reconciliation_status', reconciliationStatus);
@@ -127,7 +131,7 @@ export const paymentsSupabaseRepository = {
       outlet_id: data.outletId,
       order_id: data.orderId,
       contact_id: data.contactId,
-      provider: data.provider || 'midtrans',
+      provider: data.provider || 'xendit',
       method: data.method || null,
       payment_method: data.paymentMethod || null,
       amount: data.amount,

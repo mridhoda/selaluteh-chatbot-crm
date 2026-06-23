@@ -1,5 +1,6 @@
 import express from 'express';
 import { env } from '../../config/env.js';
+import { AppError } from '../../utils/errors.js';
 
 const router = express.Router();
 
@@ -28,6 +29,9 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
+  if (!env.allowMetaTestWebhook) {
+    throw new AppError('META_TEST_DISABLED', 'Test webhook is disabled', 404);
+  }
   console.log('[meta-test] received webhook:');
   console.log(JSON.stringify(req.body, null, 2));
   res.sendStatus(200);

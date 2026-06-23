@@ -2,6 +2,8 @@ import express from 'express';
 import { env } from '../config/env.js';
 import { authRequired, attachUser } from '../middleware/auth.js';
 import { platformsSupabaseRepository } from '../db/repositories/index.js';
+import { providerSyncRateLimit } from '../middleware/rate-limit.js';
+import { redactSecrets } from '../utils/redaction.js';
 
 const router = express.Router();
 
@@ -30,7 +32,7 @@ router.get('/instagram/callback', async (req, res) => {
       return res.status(400).send('Missing authorization code.');
     }
 
-    console.log('[instagram] business login callback received:', { code, state });
+    console.log('[instagram] business login callback received:', redactSecrets({ code, state }));
 
     // Minimal success page. Replace with a redirect to your web app if needed.
     res.status(200).send(
@@ -45,7 +47,7 @@ router.get('/instagram/callback', async (req, res) => {
   }
 });
 
-router.post('/telegram/:id/setWebhook', authRequired, attachUser, async (req, res) => {
+router.post('/telegram/:id/setWebhook', authRequired, attachUser, providerSyncRateLimit, async (req, res) => {
   try {
     const { id } = req.params;
     const platform = await platformsSupabaseRepository.findByIdWithCredentials({
@@ -81,6 +83,7 @@ router.post('/telegram/:id/setWebhook', authRequired, attachUser, async (req, re
       body: JSON.stringify({
         url: webhookUrl,
         drop_pending_updates: true,
+        ...(env.telegramWebhookSecret ? { secret_token: env.telegramWebhookSecret } : {}),
       }),
     });
 

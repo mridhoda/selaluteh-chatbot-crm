@@ -23,6 +23,7 @@ import { membershipsSupabaseRepository } from '../db/repositories/memberships.re
 import { authSupabaseRepository } from '../db/repositories/auth.repository.js';
 import { sendMail } from '../services/mail.js';
 import { env } from '../config/env.js';
+import { authRateLimit, otpRateLimit } from '../middleware/rate-limit.js';
 
 const router = express.Router();
 
@@ -33,7 +34,7 @@ const router = express.Router();
  * workspace first so FK is satisfied).
  * Sends OTP for email verification.
  */
-router.post('/register', async (req, res, next) => {
+router.post('/register', authRateLimit, async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
@@ -108,7 +109,7 @@ router.post('/register', async (req, res, next) => {
  *
  * Verify OTP code and mark user as verified.
  */
-router.post('/verify', async (req, res, next) => {
+router.post('/verify', otpRateLimit, async (req, res, next) => {
   try {
     const { email, code } = req.body;
     if (!email || !code) return res.status(400).json({ error: 'Missing email or code' });
@@ -135,7 +136,7 @@ router.post('/verify', async (req, res, next) => {
  * Authenticate with email + password. Returns a signed JWT.
  * JWT payload: { id, email } — workspaceId resolved at request time via membership.
  */
-router.post('/login', async (req, res, next) => {
+router.post('/login', authRateLimit, async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const user = await usersSupabaseRepository.findByEmail(email);
@@ -193,7 +194,7 @@ router.post('/logout', async (req, res, next) => {
  *
  * Send password reset link. Always returns 200 to prevent email enumeration.
  */
-router.post('/forgot-password', async (req, res, next) => {
+router.post('/forgot-password', otpRateLimit, async (req, res, next) => {
   try {
     const { email } = req.body;
     const user = await usersSupabaseRepository.findByEmail(email);
@@ -236,7 +237,7 @@ router.post('/forgot-password', async (req, res, next) => {
  *
  * Verify reset token and update password hash.
  */
-router.post('/reset-password', async (req, res, next) => {
+router.post('/reset-password', otpRateLimit, async (req, res, next) => {
   try {
     const { token, password } = req.body;
     if (!token || !password) return res.status(400).json({ error: 'Missing token or password' });

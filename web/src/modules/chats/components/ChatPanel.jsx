@@ -24,6 +24,10 @@ import {
 } from 'lucide-react'
 import BrandIcon from '../../../shared/components/brand/BrandIcon'
 import api from '../../../shared/api/httpClient'
+import {
+  fetchProtectedFileObjectUrl,
+  resolveAttachmentUrl,
+} from '../../../shared/utils/fileAccess'
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -56,11 +60,40 @@ function sameDay(a, b) {
   return new Date(a).toDateString() === new Date(b).toDateString()
 }
 
-function getAttachmentUrl(url) {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  const base = import.meta.env.VITE_API_BASE || ''
-  return `${base.replace(/\/+$/, '')}${url}`
+function useAuthenticatedAttachmentUrl(url) {
+  const [resolvedUrl, setResolvedUrl] = useState(() => resolveAttachmentUrl(url))
+
+  useEffect(() => {
+    let objectUrl = null
+    let cancelled = false
+    const rawUrl = url || ''
+
+    if (!rawUrl.startsWith('/files/')) {
+      setResolvedUrl(resolveAttachmentUrl(rawUrl))
+      return () => {}
+    }
+
+    ;(async () => {
+      const result = await fetchProtectedFileObjectUrl({
+        rawUrl,
+        apiGet: api.get,
+        fallbackBuilder: resolveAttachmentUrl,
+      })
+      if (cancelled) {
+        result.revoke?.()
+        return
+      }
+      objectUrl = result.viaBlob ? result.resolvedUrl : null
+      setResolvedUrl(result.resolvedUrl)
+    })()
+
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [url])
+
+  return resolvedUrl
 }
 
 function normalizeMessageAttachment(message) {
@@ -142,6 +175,7 @@ function MessageBubble({ message }) {
   }
 
   const attachment = normalizeMessageAttachment(message)
+  const attachmentUrl = useAuthenticatedAttachmentUrl(attachment?.url)
   const isImage =
     attachment &&
     (attachment.type === 'image' ||
@@ -172,12 +206,12 @@ function MessageBubble({ message }) {
             (isImage ? (
               <div className={`chat-prism-image-preview ${imageShape}`}>
                 <img
-                  src={getAttachmentUrl(attachment.url)}
+                  src={attachmentUrl}
                   alt={attachment.filename || 'Attached image'}
                   className='chat-prism-image-preview-img'
                   onLoad={handleImageLoad}
                   onClick={() =>
-                    window.open(getAttachmentUrl(attachment.url), '_blank')
+                    window.open(attachmentUrl, '_blank')
                   }
                 />
                 {!hasCaption && (
@@ -191,7 +225,7 @@ function MessageBubble({ message }) {
               </div>
             ) : (
               <a
-                href={getAttachmentUrl(attachment.url)}
+                href={attachmentUrl}
                 target='_blank'
                 rel='noopener noreferrer'
                 className={`flex items-center gap-2 p-2.5 m-2 border rounded-xl decoration-none no-underline text-xs max-w-[280px] ${isUser ? 'bg-white/10 border-white/20 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}

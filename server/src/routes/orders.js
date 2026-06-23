@@ -1,10 +1,11 @@
 import express from 'express';
 import { authRequired, attachUser } from '../middleware/auth.js';
 import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
+import { authorizePermission, requireOutletAccessFrom, requireScopedOutletSelection } from '../middleware/authorization.js';
 import {
   deleteOrderForUser, findOrderForUser, listOrdersForUser,
   resolveOutletName, sendOrderStatusMessage, updateOrderForUser,
-  workspaceListOrders, workspaceGetOrder, transitionOrderStatus,
+  listWorkspaceOrdersForUser, getWorkspaceOrderForUser, transitionOrderStatus,
   createOrderFromCheckout,
 } from '../services/order.service.js';
 import { checkoutsRepository } from '../db/repositories/index.js';
@@ -15,25 +16,25 @@ const router = express.Router();
 
 router.use(authRequired, attachUser, attachWorkspaceContext);
 
-router.get('/', async (req, res, next) => {
+router.get('/', authorizePermission('orders', 'read'), requireScopedOutletSelection((req) => req.query.outletId || req.query.outlet_id, 'outletId is required for outlet-scoped order access'), async (req, res, next) => {
   try {
     const { status, outlet_id, outletId, paymentStatus, search, page, limit, sort } = req.query;
     const oid = outletId || outlet_id;
-    const result = await workspaceListOrders({
-      workspaceId: req.me.workspaceId, outletId: oid, status, paymentStatus, search, page, limit, sort,
+    const result = await listWorkspaceOrdersForUser({
+      user: req.me, outletId: oid, status, paymentStatus, search, page, limit, sort,
     });
     res.json(result);
   } catch (err) { next(err); }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', authorizePermission('orders', 'read'), async (req, res, next) => {
   try {
-    const order = await workspaceGetOrder({ workspaceId: req.me.workspaceId, orderId: req.params.id });
+    const order = await getWorkspaceOrderForUser({ user: req.me, orderId: req.params.id });
     res.json({ data: order });
   } catch (err) { next(err); }
 });
 
-router.post('/:id/payments/xendit/session', async (req, res, next) => {
+router.post('/:id/payments/xendit/session', authorizePermission('orders', 'write'), async (req, res, next) => {
   try {
     const payment = await createXenditPaymentSessionForOrder({
       user: req.me,
@@ -46,7 +47,7 @@ router.post('/:id/payments/xendit/session', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', authorizePermission('orders', 'write'), async (req, res, next) => {
   try {
     const { checkoutId } = req.body;
     if (!checkoutId) throw new AppError('VALIDATION', 'checkoutId is required', 400);
@@ -59,7 +60,7 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id/status', async (req, res, next) => {
+router.patch('/:id/status', authorizePermission('orders', 'manage_status'), async (req, res, next) => {
   try {
     const { status } = req.body;
     if (!status) throw new AppError('VALIDATION', 'status is required', 400);
@@ -70,7 +71,7 @@ router.patch('/:id/status', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.put('/:id/cancel', async (req, res, next) => {
+router.put('/:id/cancel', authorizePermission('orders', 'manage_status'), async (req, res, next) => {
   try {
     const { reason } = req.body;
     if (!reason?.trim()) throw new AppError('VALIDATION', 'Alasan pembatalan harus diisi', 400);
@@ -87,7 +88,7 @@ router.put('/:id/cancel', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', authorizePermission('orders', 'write'), async (req, res, next) => {
   try {
     const { status, notes } = req.body;
     const update = {};
@@ -107,7 +108,7 @@ router.put('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', authorizePermission('orders', 'write'), async (req, res, next) => {
   try {
     const order = await findOrderForUser({ user: req.me, orderId: req.params.id });
     if (!order) throw new AppError('NOT_FOUND', 'Order not found', 404);

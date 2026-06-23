@@ -26,11 +26,14 @@ import {
   markWebhookProcessed,
 } from '../../services/webhook-idempotency.service.js';
 import { recordInboundMessage, recordOutboundMessage } from '../../services/chat-message.service.js';
+import { assertWebhookPayloadSafe, verifyMetaSignature } from '../../security/webhook-security.js';
+import { logSecurityEvent } from '../../config/logger.js';
+import { buildManagedFileUrl, buildPublicFileUrl } from '../../utils/file-urls.js';
 
 const router = express.Router();
 
 function getPublicFileUrl(storedName) {
-  const base = process.env.PUBLIC_FILES_BASE_URL || `${process.env.PUBLIC_BASE_URL || 'http://localhost:5000'}/files`;
+  const base = process.env.PUBLIC_FILES_BASE_URL || `${process.env.PUBLIC_BASE_URL || 'http://localhost:5000'}/public-files`;
   return `${base.replace(/\/$/, '')}/${storedName}`;
 }
 
@@ -135,8 +138,13 @@ router.post('/', async (req, res) => {
   res.sendStatus(200);
 
   try {
+    assertWebhookPayloadSafe(req.body);
     const data = req.body;
-    console.log('[meta] webhook received:', JSON.stringify(data, null, 2));
+    const signatureHeader = req.get('x-hub-signature-256');
+    if (!verifyMetaSignature(req.body, signatureHeader, process.env.META_APP_SECRET)) {
+      logSecurityEvent('warn', '[meta] invalid webhook signature', { signatureHeader });
+      return;
+    }
 
     if (data.object === 'whatsapp_business_account') {
       await handleWhatsapp(data);
@@ -229,7 +237,7 @@ async function handleWhatsapp(data) {
           workspaceId: platform.workspaceId,
           platformId: platform.id,
           payload: message,
-          signatureValid: null,
+          signatureValid: true,
         });
         webhookEvent = webhookResult.event;
         if (webhookResult.duplicate) {
@@ -251,7 +259,7 @@ async function handleWhatsapp(data) {
               preferredName: `whatsapp_image_${message.image.id}.jpg`,
             });
             incomingAttachment = {
-              url: `/files/${saved.storedName}`,
+              url: buildPublicFileUrl(saved.storedName),
               filename: saved.originalName,
             };
           } catch (e) {
@@ -403,7 +411,7 @@ async function handleInstagram(data) {
               preferredName: `instagram_image_${from}_${Date.now()}.jpg`,
             });
             incomingAttachment = {
-              url: `/files/${saved.storedName}`,
+              url: buildPublicFileUrl(saved.storedName),
               filename: saved.originalName,
             };
           } catch (e) {
@@ -432,7 +440,7 @@ async function handleInstagram(data) {
         workspaceId: platform.workspaceId,
         platformId: platform.id,
         payload: message,
-        signatureValid: null,
+        signatureValid: true,
       });
       webhookEvent = webhookResult.event;
       if (webhookResult.duplicate) {

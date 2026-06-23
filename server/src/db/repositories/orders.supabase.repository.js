@@ -62,6 +62,8 @@ export const ordersSupabaseRepository = {
       agent_id: data.agentId || null,
       cart_id: data.cartId || null,
       checkout_id: data.checkoutId || null,
+      order_number: data.orderNumber || null,
+      outlet_name_snapshot: data.outletNameSnapshot || '',
       source: data.source || 'telegram',
       status: data.status || 'new',
       payment_status: data.paymentStatus || 'unpaid',
@@ -71,16 +73,17 @@ export const ordersSupabaseRepository = {
       channel_snapshot: data.channelSnapshot || null,
       customer_snapshot: data.customerSnapshot || {},
       fulfillment_snapshot: data.fulfillmentSnapshot || {},
-      subtotal_amount: data.subtotalAmount ?? 0,
+      subtotal_amount: data.subtotalAmount ?? data.totals?.subtotal ?? 0,
       discount_amount: data.discountAmount ?? 0,
       delivery_fee: data.deliveryFee ?? 0,
-      total_amount: data.totalAmount ?? 0,
-      currency: data.currency || 'IDR',
+      total_amount: data.totalAmount ?? data.totals?.total ?? 0,
+      currency: data.currency || data.totals?.currency || 'IDR',
       payment_method: data.paymentMethod || null,
       notes: data.notes || null,
       form_data: data.formData || {},
       metadata: data.metadata || {},
     };
+
     const result = await client.from(TABLE).insert(insert).select().single();
     const order = mapRow(extractSingle(result, 'orders.create'));
     if (Array.isArray(data.items) && data.items.length > 0) {
@@ -112,11 +115,38 @@ export const ordersSupabaseRepository = {
     return (extractData(result, 'orders.workspaceList') ?? []).map(mapOrder);
   },
 
+  async workspaceListScoped({ workspaceId, outletId, outletIds, status, paymentStatus, search, page = 1, limit = 50 }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    let q = client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
+    if (outletId) q = q.eq('outlet_id', outletId);
+    else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
+    if (status) q = q.eq('status', status);
+    if (paymentStatus) q = q.eq('payment_status', paymentStatus);
+    if (search) q = q.or(`order_number.ilike.%${search}%,customer_name_snapshot.ilike.%${search}%`);
+    q = applyPagination(q, { page, limit });
+    const result = await q;
+    return (extractData(result, 'orders.workspaceListScoped') ?? []).map(mapOrder);
+  },
+
   async workspaceCount({ workspaceId, outletId, status, paymentStatus, search }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
     let q = client.from(TABLE).select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId);
     if (outletId) q = q.eq('outlet_id', outletId);
+    if (status) q = q.eq('status', status);
+    if (paymentStatus) q = q.eq('payment_status', paymentStatus);
+    if (search) q = q.or(`order_number.ilike.%${search}%,customer_name_snapshot.ilike.%${search}%`);
+    const result = await q;
+    return result.count ?? 0;
+  },
+
+  async workspaceCountScoped({ workspaceId, outletId, outletIds, status, paymentStatus, search }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    let q = client.from(TABLE).select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId);
+    if (outletId) q = q.eq('outlet_id', outletId);
+    else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
     if (status) q = q.eq('status', status);
     if (paymentStatus) q = q.eq('payment_status', paymentStatus);
     if (search) q = q.or(`order_number.ilike.%${search}%,customer_name_snapshot.ilike.%${search}%`);
@@ -132,32 +162,49 @@ export const ordersSupabaseRepository = {
     return row ? mapOrder(row) : null;
   },
 
-  async findOne({ workspaceId, orderId, chatId }) {
+  async workspaceFindByIdScoped({ workspaceId, orderId, outletIds }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    let q = client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status), chats(*), order_items(*)').eq('workspace_id', workspaceId).eq('id', orderId);
+    if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
+    const result = await q.maybeSingle();
+    const row = extractSingle(result, 'orders.workspaceFindByIdScoped');
+    return row ? mapOrder(row) : null;
+  },
+
+  async findOne({ workspaceId, orderId, chatId, outletId, outletIds }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
     let q = client.from(TABLE).select('*, contacts(*), chats(*)').eq('workspace_id', workspaceId);
     if (orderId) q = q.eq('id', orderId);
     if (chatId) q = q.eq('chat_id', chatId);
+    if (outletId) q = q.eq('outlet_id', outletId);
+    else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
     const result = await q.maybeSingle();
     const row = extractSingle(result, 'orders.findOne');
     return row ? mapOrder(row) : null;
   },
 
-  async findList({ workspaceId, chatId, contactId, status }) {
+  async findList({ workspaceId, chatId, contactId, status, outletId, outletIds }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
     let q = client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
     if (chatId) q = q.eq('chat_id', chatId);
     if (contactId) q = q.eq('contact_id', contactId);
     if (status) q = q.eq('status', status);
+    if (outletId) q = q.eq('outlet_id', outletId);
+    else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
     const result = await q;
     return (extractData(result, 'orders.findList') ?? []).map(mapOrder);
   },
 
-  async updateOne({ workspaceId, orderId, updates }) {
+  async updateOne({ workspaceId, orderId, updates, outletId, outletIds }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    const result = await client.from(TABLE).update(updates).eq('workspace_id', workspaceId).eq('id', orderId).select('*, contacts(*), chats(*)').maybeSingle();
+    let q = client.from(TABLE).update(updates).eq('workspace_id', workspaceId).eq('id', orderId);
+    if (outletId) q = q.eq('outlet_id', outletId);
+    else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
+    const result = await q.select('*, contacts(*), chats(*)').maybeSingle();
     const row = extractSingle(result, 'orders.updateOne');
     return row ? mapOrder(row) : null;
   },
@@ -184,10 +231,13 @@ export const ordersSupabaseRepository = {
     });
   },
 
-  async deleteOne({ workspaceId, orderId }) {
+  async deleteOne({ workspaceId, orderId, outletId, outletIds }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    await client.from(TABLE).delete().eq('workspace_id', workspaceId).eq('id', orderId);
+    let q = client.from(TABLE).delete().eq('workspace_id', workspaceId).eq('id', orderId);
+    if (outletId) q = q.eq('outlet_id', outletId);
+    else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
+    await q;
   },
 
   /**

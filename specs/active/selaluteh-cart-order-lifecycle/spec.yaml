@@ -1,0 +1,551 @@
+schema_version: 2
+spec_version: 1.0.0
+
+id: selaluteh-cart-order-lifecycle
+title: SelaluTeh Cart & Order Lifecycle
+description: >-
+  Dedicated requirements-first specification for outlet-bound carts, product and
+  modifier validation, backend pricing, customer confirmation, pickup-only
+  checkout, immutable order snapshots, Xendit payment orchestration, verified
+  paid events, selected-outlet approval, inventory reservation and commit,
+  rejection and compensation boundaries, pickup fulfillment, order read models,
+  audit, security, migration, testing, and production readiness.
+
+type: feature
+workflow: requirements-first
+
+status: active
+workflow_state: in_progress
+priority: critical
+
+created_at: '2026-06-23'
+updated_at: '2026-06-23'
+
+owners:
+  product_owner: SelaluTeh product owner
+  technical_owner: project-maintainer
+  security_owner: project-maintainer
+  operations_owner: project-maintainer
+  implementation_actor: coding-agent
+  review_required: true
+  security_review_required: true
+  business_flow_review_required: true
+
+tags:
+  - cart
+  - orders
+  - checkout
+  - pickup
+  - multi-outlet
+  - xendit
+  - inventory-reservation
+  - outlet-approval
+  - whatsapp
+  - telegram
+  - supabase
+  - security
+  - tdd
+
+lifecycle:
+  config: docs/specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: docs/specs/active/selaluteh-cart-order-lifecycle
+  move_entire_spec_directory: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    dry_run_command: npm run specs:sync:dry
+    sync_command: npm run specs:sync
+    check_command: npm run specs:check
+    automatic_local_move: false
+    ci_check_only: true
+
+  completion_requirements:
+    - all-p0-tasks-completed
+    - approved-p1-deferrals-documented
+    - definition-of-done-passed
+    - one-cart-one-outlet-passed
+    - backend-pricing-authority-passed
+    - immutable-order-snapshot-passed
+    - duplicate-checkout-suppression-passed
+    - verified-payment-only-transition-passed
+    - selected-outlet-visibility-and-approval-passed
+    - unpaid-approval-denial-passed
+    - inventory-reserve-commit-release-passed
+    - pickup-lifecycle-passed
+    - payment-order-status-separation-passed
+    - workspace-outlet-isolation-passed
+    - security-property-concurrency-resilience-performance-e2e-tests-passed
+    - migration-and-rollback-documented
+    - operational-runbooks-documented
+    - documentation-updated
+    - implementation-status-updated
+    - specs-check-passed
+
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+  reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md
+  definition_of_done: docs/backend/11-sprint/definition-of-done.md
+
+document_authority:
+  precedence:
+    - latest-approved-cart-order-decision
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+    - current-task
+    - implementation-status-for-reality
+    - external-domain-contracts
+    - legacy-documents
+
+product:
+  name: SelaluTeh Marketplace
+  area: cart-order-lifecycle
+  stage: full-product-design-with-alpha-slice
+  architecture:
+    - one-cart-one-outlet
+    - pickup-only
+    - backend-authoritative-pricing
+    - immutable-order-snapshots
+    - verified-payment-events
+    - selected-outlet-approval
+    - inventory-reservations
+    - multi-workspace-ready
+    - multi-outlet
+    - supabase-postgresql
+    - event-driven-integrations
+
+spec_relationships:
+  umbrella:
+    id: selaluteh-backend-marketplace
+    relationship: backend-architecture-and-shared-rules
+
+  depends_on:
+    - id: selaluteh-workspace-access-control
+      relationship: workspace-outlet-and-action-authorization
+    - id: selaluteh-outlet-management-operations
+      relationship: selected-outlet-lifecycle-and-accepts-orders
+    - id: selaluteh-product-catalog
+      relationship: canonical-products-variants-modifiers-and-pricing
+    - id: selaluteh-inventory-stock-ledger
+      relationship: availability-reservation-commit-and-release
+    - id: selaluteh-payments-xendit
+      relationship: payment-link-provider-truth-and-refunds
+    - id: selaluteh-channel-connections-sync
+      relationship: whatsapp-telegram-order-and-status-delivery
+    - id: selaluteh-crm-inbox-contacts
+      relationship: contact-conversation-human-handoff-and-order-context
+    - id: selaluteh-ai-agent-architecture
+      relationship: cart-and-order-tool-execution
+    - id: selaluteh-ai-agent-scope-security
+      relationship: business-scope-and-tool-restrictions
+    - id: selaluteh-complaints-tickets
+      relationship: rejection-cancellation-refund-and-pickup-support-cases
+    - id: selaluteh-audit-activity-timeline
+      relationship: immutable-administrative-activity
+    - id: selaluteh-notification-attention-engine
+      relationship: customer-and-outlet-attention-events
+    - id: selaluteh-analytics-read-models
+      relationship: order-and-fulfillment-aggregation
+
+  does_not_replace:
+    - selaluteh-product-catalog
+    - selaluteh-inventory-stock-ledger
+    - selaluteh-payments-xendit
+    - selaluteh-channel-connections-sync
+    - selaluteh-crm-inbox-contacts
+    - selaluteh-workspace-access-control
+
+scope:
+  included:
+    - cart-identity
+    - active-cart-policy
+    - cart-lifecycle
+    - one-cart-one-outlet
+    - product-variant-modifier-validation
+    - backend-pricing
+    - cart-totals
+    - cart-expiry
+    - cart-merge-boundary
+    - checkout-preconditions
+    - explicit-customer-confirmation
+    - pickup-only
+    - pickup-customer-information
+    - order-identity-and-numbering
+    - immutable-order-snapshot
+    - order-lifecycle
+    - payment-order-status-separation
+    - pending-payment
+    - payment-processing
+    - paid-awaiting-outlet-approval
+    - outlet-approval
+    - outlet-rejection
+    - preparation
+    - ready-for-pickup
+    - pickup-completion
+    - cancellation
+    - expiry
+    - order-amendment-boundary
+    - checkout-idempotency
+    - xendit-payment-integration
+    - inventory-availability
+    - inventory-reservation
+    - inventory-commit-and-release
+    - crm-channel-integration
+    - ai-cart-order-tools
+    - human-assisted-order-flow
+    - outlet-visibility
+    - outlet-routing
+    - order-search-filter-pagination
+    - order-summary-read-model
+    - order-detail
+    - order-timeline
+    - internal-notes
+    - complaint-ticket-links
+    - refund-compensation-boundary
+    - domain-events
+    - outbox
+    - audit
+    - notifications
+    - optimistic-concurrency
+    - api-contracts
+    - admin-ui-states
+    - security-and-privacy
+    - rls
+    - legacy-migration
+    - testing
+    - scalability
+    - observability
+    - operational-readiness
+
+  deferred:
+    - delivery
+    - shipping-fees
+    - courier-integration
+    - stored-delivery-addresses
+    - multi-outlet-single-cart
+    - split-order
+    - recurring-orders
+    - subscriptions
+    - advanced-promotions
+    - loyalty-points
+    - order-scheduling
+    - dine-in-table-service
+    - partial-fulfillment
+    - unrestricted-paid-order-edits
+    - marketplace-seller-order-splitting
+
+  excluded:
+    - product-catalog-ownership
+    - payment-provider-truth
+    - stock-ledger-ownership
+    - provider-message-transport
+    - crm-contact-ownership
+    - outlet-lifecycle
+    - generic-audit-storage
+    - frontend-as-price-payment-or-authorization-authority
+
+fixed_decisions:
+  fulfillment:
+    active_type: PICKUP
+    delivery_active: false
+    stored_delivery_address_required: false
+
+  cart:
+    one_outlet_only: true
+    alpha_active_cart_scope: customer-conversation-and-outlet
+    customer_confirmation_required: true
+
+  pricing:
+    authority: BACKEND
+    currency: IDR
+    money_storage: integer-minor-units
+    client_or_ai_price_authoritative: false
+
+  outlet:
+    selected_each_order: true
+    suggestion_allowed: true
+    silent_ai_finalization: false
+    only_selected_outlet_can_approve: true
+
+  payment:
+    provider: XENDIT
+    paid_authority: selaluteh-payments-xendit
+    payment_paid_and_order_approved_separated: true
+    unpaid_order_can_be_approved: false
+    paid_next_status: AWAITING_OUTLET_APPROVAL
+
+  inventory:
+    reserve_at: PAYABLE_ORDER_OR_PAYMENT_LINK_CREATION
+    preserve_after_payment_success: true
+    commit_at: OUTLET_APPROVAL
+    release_on:
+      - PAYMENT_EXPIRED
+      - ORDER_REJECTED
+      - ORDER_CANCELLED
+      - ORDER_EXPIRED
+
+  channels:
+    active_mvp:
+      - WHATSAPP
+      - TELEGRAM
+
+  ai:
+    can_manage_cart: true
+    can_create_order_after_confirmation: true
+    can_mark_paid: false
+    can_approve_order: false
+    can_mutate_stock: false
+    off_topic_no_tools: true
+
+  order_statuses:
+    - PENDING_PAYMENT
+    - PAYMENT_PROCESSING
+    - AWAITING_OUTLET_APPROVAL
+    - APPROVED
+    - PREPARING
+    - READY_FOR_PICKUP
+    - COMPLETED
+    - REJECTED
+    - CANCELLED
+    - EXPIRED
+
+requirements_registry:
+  prefix: ORD-R
+  total: 60
+
+correctness_invariants:
+  - every-cart-and-order-belongs-to-one-workspace
+  - every-payable-order-belongs-to-one-outlet
+  - one-cart-contains-one-outlet
+  - one-cart-converts-to-at-most-one-order
+  - backend-is-authority-for-price-and-total
+  - order-snapshot-is-historical-and-immutable
+  - payment-paid-only-comes-from-payments-domain
+  - payment-paid-and-order-approved-are-independent
+  - unpaid-order-cannot-be-approved
+  - only-selected-outlet-can-see-and-approve
+  - duplicate-checkout-creates-one-order
+  - duplicate-payment-event-advances-once
+  - duplicate-approval-commits-inventory-once
+  - rejection-cancellation-expiry-release-inventory-once
+  - ai-cannot-mark-paid-approve-or-mutate-stock
+  - transport-failure-does-not-change-order-truth
+  - cross-workspace-or-outlet-access-never-succeeds
+  - historical-order-snapshot-is-not-rewritten-by-catalog-change
+
+security:
+  immutable_controls:
+    - backend-price-authority
+    - verified-payment-only
+    - selected-outlet-approval
+    - workspace-outlet-isolation
+    - rls-defense-in-depth
+    - inventory-through-service-contract
+    - customer-confirmation-required
+    - no-ai-or-frontend-approval
+    - no-manual-mark-paid
+    - frontend-not-authority
+
+  release_blockers:
+    - client-price-becomes-order-price
+    - duplicate-checkout-duplicates-order
+    - unverified-payment-advances-order
+    - unpaid-order-approved
+    - other-outlet-sees-or-approves-order
+    - duplicate-approval-duplicates-inventory-consumption
+    - order-created-with-mixed-outlet-items
+    - ai-can-mark-paid-or-approve
+    - cross-workspace-access
+    - production-data-secret-or-real-money-used-in-tests
+
+testing:
+  methodology: test-driven-development
+  production_data_prohibited: true
+  production_secrets_prohibited: true
+  real_money_prohibited: true
+
+  layers:
+    unit:
+      path: server/test/unit/cart-order-lifecycle
+      required: true
+    component:
+      path: server/test/component/cart-order-lifecycle
+      required: true
+    integration:
+      path: server/test/integration/cart-order-lifecycle
+      required: true
+    security:
+      path: server/test/security/cart-order-lifecycle
+      required: true
+    property:
+      path: server/test/property/cart-order-lifecycle
+      required: true
+    concurrency:
+      path: server/test/concurrency/cart-order-lifecycle
+      required: true
+    resilience:
+      path: server/test/resilience/cart-order-lifecycle
+      required: true
+    performance:
+      path: server/test/performance/cart-order-lifecycle
+      required: true
+    e2e:
+      path: server/test/e2e/cart-order-lifecycle
+      required: true
+
+  required_properties:
+    - one-cart-one-order
+    - one-order-one-outlet
+    - backend-price-authority
+    - unpaid-order-not-approved
+    - payment-and-approval-independent
+    - duplicate-paid-event-one-transition
+    - duplicate-approval-one-inventory-effect
+    - other-outlet-never-sees-or-approves
+    - ai-never-marks-paid-or-approves
+
+  release_gate_commands:
+    spec_check: npm run specs:check
+    unit: npm run test:orders:unit
+    component: npm run test:orders:component
+    integration: npm run test:orders:integration
+    security: npm run test:orders:security
+    property: npm run test:orders:property
+    concurrency: npm run test:orders:concurrency
+    resilience: npm run test:orders:resilience
+    performance: npm run test:orders:performance
+    e2e: npm run test:orders:e2e
+    all: npm run test:orders:all
+
+implementation:
+  current_phase: preflight-and-legacy-order-audit
+  task_source: tasks.md
+  active_task_pointer: docs/backend/09-ai-context/current-task.md
+  recommended_first_task: 0-confirm-authority-and-audit
+
+  fastest_safe_alpha_order:
+    - task-section-0
+    - task-section-1
+    - task-section-2
+    - task-section-3
+    - task-section-4
+    - task-section-5
+    - task-section-6
+    - task-section-7
+    - task-section-8
+    - task-section-9
+    - task-section-10
+    - task-section-11
+    - task-section-12
+    - task-section-13
+    - task-section-14
+    - task-section-15
+    - task-section-16
+    - task-section-18
+    - task-section-19
+    - task-section-21
+    - task-section-22
+    - task-section-25
+    - task-section-26
+    - task-section-27
+    - task-section-28
+    - task-section-29
+    - task-section-30
+    - task-section-31
+    - task-section-33
+    - task-section-34
+    - task-section-35
+    - task-section-36
+
+  may_defer_after_alpha:
+    - advanced-cart-merge
+    - order-amendment
+    - approval-sla-automation
+    - advanced-complaint-compensation
+    - bulk-actions
+    - pickup-code-verification
+    - advanced-analytics
+    - delivery-and-shipping
+
+  must_not_defer:
+    - cart-and-item-lifecycle
+    - one-cart-one-outlet
+    - backend-pricing
+    - customer-confirmation
+    - immutable-order-snapshot
+    - checkout-idempotency
+    - xendit-payment-link-and-paid-events
+    - selected-outlet-approval-and-rejection
+    - inventory-reserve-commit-release
+    - pickup-fulfillment
+    - order-list-detail-timeline
+    - authorization-and-rls
+    - critical-security-concurrency-resilience-e2e-tests
+
+status_workflow:
+  initial_status: active
+  initial_workflow_state: draft
+
+  folder_statuses:
+    backlog:
+      folder: docs/specs/backlog
+      workflow_states: [ draft, review, approved ]
+    active:
+      folder: docs/specs/active
+      workflow_states: [ in_progress, blocked, verifying ]
+    completed:
+      folder: docs/specs/completed
+      workflow_states: [ done, archived ]
+
+  folder_move_rule: edit-status-then-run-npm-run-specs-sync
+  completed_guard: required-unchecked-tasks-must-be-zero
+
+references:
+  own_documents:
+    - docs/specs/active/selaluteh-cart-order-lifecycle/requirements.md
+    - docs/specs/active/selaluteh-cart-order-lifecycle/design.md
+    - docs/specs/active/selaluteh-cart-order-lifecycle/tasks.md
+
+  related:
+    - docs/specs/active/selaluteh-backend-marketplace/spec.yaml
+    - docs/specs/active/selaluteh-workspace-access-control/spec.yaml
+    - docs/specs/active/selaluteh-outlet-management-operations/spec.yaml
+    - docs/specs/active/selaluteh-product-catalog/spec.yaml
+    - docs/specs/active/selaluteh-inventory-stock-ledger/spec.yaml
+    - docs/specs/active/selaluteh-payments-xendit/spec.yaml
+    - docs/specs/active/selaluteh-channel-connections-sync/spec.yaml
+    - docs/specs/active/selaluteh-crm-inbox-contacts/spec.yaml
+    - docs/specs/active/selaluteh-ai-agent-architecture/spec.yaml
+    - docs/specs/active/selaluteh-ai-agent-scope-security/spec.yaml
+
+metadata:
+  generated_for: selaluteh-cart-order-lifecycle
+  generated_at: '2026-06-23'
+  based_on:
+    - latest-alpha-order-payment-approval-goal
+    - pickup-only-decision
+    - customer-selects-outlet-each-order
+    - xendit-only-payment-decision
+    - multi-outlet-single-workspace-mvp
+    - future-multi-workspace-architecture
+    - whatsapp-and-telegram-mvp
+    - inventory-reservation-at-payable-order
+    - selected-outlet-only-order-visibility
+
+  notes:
+    - This is a full-product spec with an explicit fastest safe alpha slice.
+    - Payment PAID and Order APPROVED are separate facts.
+    - Current fulfillment is pickup only.
+    - Only the selected outlet can see and approve its order.
+    - Backend pricing, Payments, and Inventory remain authoritative in their
+      respective domains.

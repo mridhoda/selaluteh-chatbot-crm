@@ -23,6 +23,10 @@ import {
   Calendar,
   Check,
   Bookmark,
+  Store,
+  ArrowUpRight,
+  Copy,
+  Archive,
 } from 'lucide-react'
 
 const dummyProducts = [
@@ -531,7 +535,11 @@ function DetailPanel({
   activeTab = 'Overview',
   setActiveTab = () => {},
   outletInventory = [],
+  outletAvailability = [],
   onAdjustStockClick = () => {},
+  onAssignOutletsClick = () => {},
+  onToggleOutletAvailability = () => {},
+  onOutletVisibilityChange = () => {},
 }) {
   if (!product) {
     return (
@@ -890,13 +898,429 @@ function DetailPanel({
           </div>
         )}
 
-        {(activeTab === 'Outlets' || activeTab === 'Sales' || activeTab === 'Activity') && (
-          <div className='p-8 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 text-center text-slate-400'>
-            <div className='text-2xl mb-2'>📊</div>
-            <div className='text-xs font-bold uppercase tracking-wider text-slate-500'>{activeTab} Details</div>
-            <p className='text-xs text-slate-400 mt-1 max-w-[200px] mx-auto leading-normal'>
-              Detailed performance metrics and visibility adjustments for this product tab are coming soon.
-            </p>
+        {activeTab === 'Outlets' && (
+          <div className='space-y-4 text-slate-700'>
+            {/* Header section */}
+            <div className='flex items-center justify-between shrink-0'>
+              <div>
+                <h3 className='text-sm font-extrabold text-slate-800'>Outlets</h3>
+                <p className='text-[11px] text-slate-400 font-semibold mt-0.5'>
+                  Manage product availability and pricing in each outlet.
+                </p>
+              </div>
+              <button
+                type='button'
+                onClick={onAssignOutletsClick}
+                className='inline-flex h-8 items-center gap-1.5 px-3 bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 rounded-lg shadow-sm transition-all cursor-pointer'
+              >
+                <Store size={13} className='text-slate-400' />
+                Assign to Outlets
+              </button>
+            </div>
+
+            {/* Outlets table */}
+            <div className='rounded-xl border border-slate-100 overflow-hidden bg-white shadow-sm'>
+              <div className='overflow-x-auto max-w-full'>
+                <table className='w-full text-left text-xs border-collapse'>
+                  <thead className='bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100'>
+                    <tr>
+                      <th className='py-2.5 px-3'>Outlet</th>
+                      <th className='py-2.5 px-2 text-center'>Available</th>
+                      <th className='py-2.5 px-2 text-right'>Price</th>
+                      <th className='py-2.5 px-3 text-center'>Stock Visibility</th>
+                      <th className='py-2.5 px-3 text-center'>Status</th>
+                      <th className='py-2.5 px-3 text-right'>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className='divide-y divide-slate-100 font-semibold text-slate-700'>
+                    {outletAvailability.map((row, idx) => {
+                      const statusBadgeClass = row.isAvailable
+                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                        : 'bg-slate-50 text-slate-400 border border-slate-100'
+                      
+                      return (
+                        <tr key={row.outletId} className='hover:bg-slate-50/50'>
+                          <td className='py-2.5 px-3 font-bold text-slate-800 text-[11px] truncate max-w-[130px]'>
+                            {row.outletName}
+                          </td>
+                          <td className='py-2.5 px-2 text-center'>
+                            <button
+                              type='button'
+                              onClick={() => onToggleOutletAvailability(idx, !row.isAvailable)}
+                              className={cx(
+                                'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                                row.isAvailable ? 'bg-emerald-500' : 'bg-slate-200'
+                              )}
+                            >
+                              <span
+                                className={cx(
+                                  'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                                  row.isAvailable ? 'translate-x-4' : 'translate-x-0'
+                                )}
+                              />
+                            </button>
+                          </td>
+                          <td className='py-2.5 px-2 text-right'>
+                            <div className='font-bold text-slate-800'>{money(row.price)}</div>
+                            <span className={cx('text-[9px] font-bold uppercase leading-none block mt-0.5', row.isOverride ? 'text-amber-600' : 'text-slate-400')}>
+                              {row.isOverride ? 'Override' : 'Default'}
+                            </span>
+                          </td>
+                          <td className='py-2.5 px-3 text-center'>
+                            <select
+                              value={row.visibility || 'Show'}
+                              onChange={(e) => onOutletVisibilityChange(idx, e.target.value)}
+                              className='bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 text-[10px] font-bold text-slate-700 focus:outline-none cursor-pointer'
+                            >
+                              <option value='Show'>Show</option>
+                              <option value='Hide'>Hide</option>
+                            </select>
+                          </td>
+                          <td className='py-2.5 px-3 text-center'>
+                            <span className={cx('inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide leading-none', statusBadgeClass)}>
+                              {row.isAvailable ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className='py-2.5 px-3 text-right'>
+                            <div className='flex items-center justify-end gap-1.5'>
+                              <button type='button' onClick={onAssignOutletsClick} className='p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded transition-colors'>
+                                <Edit3 size={12} />
+                              </button>
+                              <button type='button' className='p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded transition-colors'>
+                                <MoreVertical size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className='text-xs font-bold text-slate-400 uppercase tracking-wide mt-2 px-1'>
+              Total assigned outlets: {outletAvailability.filter(o => o.isAvailable).length} of {outletAvailability.length}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'Sales' && (
+          <div className='space-y-5 text-slate-700'>
+            {/* Header + dropdown */}
+            <div className='flex items-center justify-between shrink-0'>
+              <h3 className='text-sm font-extrabold text-slate-800'>Sales Overview (This Month)</h3>
+              <div className='relative'>
+                <select className='pl-2 pr-6 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700 focus:outline-none appearance-none cursor-pointer' style={{
+                  backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E")`,
+                  backgroundPosition: 'right 0.35rem center',
+                  backgroundSize: '0.8rem',
+                  backgroundRepeat: 'no-repeat',
+                }}>
+                  <option>Compare Period</option>
+                  <option>Last Month</option>
+                  <option>Last 3 Months</option>
+                </select>
+              </div>
+            </div>
+
+            {/* KPI Cards Row */}
+            <div className='grid grid-cols-3 gap-2'>
+              <div className='rounded-xl border border-[#E1E6EF] bg-white p-3 shadow-sm'>
+                <div className='text-[10px] font-bold uppercase tracking-wider text-slate-400'>Revenue</div>
+                <div className='text-[15px] font-extrabold text-slate-800 mt-1'>{money(product.salesMonth || 3240000)}</div>
+                <div className='text-[10px] font-bold text-emerald-600 flex items-center gap-0.5 mt-1.5'>
+                  <ArrowUp size={10} /> {product.salesChange || 19}% <span className='text-slate-400 font-medium'>vs lm</span>
+                </div>
+              </div>
+              
+              <div className='rounded-xl border border-[#E1E6EF] bg-white p-3 shadow-sm'>
+                <div className='text-[10px] font-bold uppercase tracking-wider text-slate-400'>Units Sold</div>
+                <div className='text-[15px] font-extrabold text-slate-800 mt-1'>{product.totalSold || 270} cups</div>
+                <div className='text-[10px] font-bold text-emerald-600 flex items-center gap-0.5 mt-1.5'>
+                  <ArrowUp size={10} /> 12% <span className='text-slate-400 font-medium'>vs lm</span>
+                </div>
+              </div>
+
+              <div className='rounded-xl border border-[#E1E6EF] bg-white p-3 shadow-sm'>
+                <div className='text-[10px] font-bold uppercase tracking-wider text-slate-400'>Avg. Price</div>
+                <div className='text-[15px] font-extrabold text-slate-800 mt-1'>{money(product.price || 12000)}</div>
+                <div className='text-[10px] font-bold text-slate-400 flex items-center gap-0.5 mt-1.5'>
+                  <span className='font-medium'>— vs lm</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Outlet Performance */}
+            <section className='rounded-xl border border-slate-150 p-3 bg-white shadow-sm'>
+              <div className='flex items-center justify-between mb-3'>
+                <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wide'>Outlet Performance</h4>
+                <button type='button' className='text-[10px] font-bold text-[#6956E8] hover:underline'>View Full Report</button>
+              </div>
+              <div className='flex items-center justify-between gap-4'>
+                <div className='flex items-center gap-3'>
+                  <span className='grid h-9 w-9 place-items-center rounded-xl bg-purple-50 border border-purple-100 text-[#6956E8] shrink-0'>
+                    <Store size={18} />
+                  </span>
+                  <div>
+                    <div className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>Best Performing Outlet</div>
+                    <div className='text-xs font-bold text-slate-900 mt-0.5'>SelaluTeh - Kemang</div>
+                    <div className='text-[10px] font-semibold text-slate-500 mt-0.5'>
+                      Rp680.000 • 56 cups <span className='inline-block ml-1 px-1 py-0.2 bg-emerald-50 text-emerald-600 rounded text-[9px] font-bold uppercase border border-emerald-100 leading-none'>Top Outlet</span>
+                    </div>
+                  </div>
+                </div>
+                <div className='text-right shrink-0'>
+                  <div className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>vs Last Month</div>
+                  <div className='text-xs font-bold text-emerald-600 flex items-center justify-end gap-0.5 mt-0.5'>
+                    <ArrowUp size={11} /> 28%
+                  </div>
+                  <div className='text-[10px] text-slate-400 font-semibold mt-0.5'>Rp530.000 • 42 cups</div>
+                </div>
+              </div>
+            </section>
+
+            {/* Daily Sales Chart */}
+            <section className='rounded-xl border border-slate-150 p-3 bg-white shadow-sm'>
+              <div className='flex items-center justify-between mb-2.5'>
+                <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wide'>Sales by Day (This Month)</h4>
+                <button type='button' className='text-[10px] font-bold text-[#6956E8] hover:underline'>View Full Report</button>
+              </div>
+              {/* Beautiful custom line chart */}
+              <div className='relative'>
+                <svg viewBox='0 0 420 140' className='h-28 w-full bg-[linear-gradient(180deg,rgba(105,86,232,0.06),rgba(105,86,232,0.01))] rounded-lg' role='img'>
+                  {/* Grid lines */}
+                  {[28, 65, 102].map((y) => (
+                    <line key={y} x1='0' y1={y} x2='420' y2={y} stroke='#E1E6EF' strokeDasharray='4 6' strokeWidth='1' />
+                  ))}
+                  {/* Data line */}
+                  <polyline
+                    points="30,100 90,85 150,55 210,95 270,60 330,88 390,45"
+                    fill='none'
+                    stroke='#6956E8'
+                    strokeWidth='2.5'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                  />
+                  {/* Dots */}
+                  {[[30,100], [90,85], [150,55], [210,95], [270,60], [330,88], [390,45]].map(([x, y], idx) => (
+                    <circle key={idx} cx={x} cy={y} r='3.5' fill='white' stroke='#6956E8' strokeWidth='2' />
+                  ))}
+                </svg>
+                <div className='flex justify-between px-2.5 mt-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider'>
+                  <span>1 May</span>
+                  <span>8 May</span>
+                  <span>15 May</span>
+                  <span>22 May</span>
+                  <span>29 May</span>
+                </div>
+              </div>
+            </section>
+
+            {/* Contribution by Outlet */}
+            <section className='rounded-xl border border-slate-150 p-3 bg-white shadow-sm'>
+              <div className='flex items-center justify-between mb-3.5'>
+                <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wide'>Contribution by Outlet</h4>
+                <button type='button' className='text-[10px] font-bold text-[#6956E8] hover:underline'>View Full Report</button>
+              </div>
+              <div className='space-y-3'>
+                {[
+                  { rank: 1, name: 'SelaluTeh - Kemang', amount: 680000, pct: 21, active: true },
+                  { rank: 2, name: 'SelaluTeh - SCBD', amount: 540000, pct: 17, active: true },
+                  { rank: 3, name: 'SelaluTeh - Bintaro', amount: 420000, pct: 13, active: true },
+                  { rank: 4, name: 'SelaluTeh - Bandung', amount: 380000, pct: 13, active: true },
+                  { rank: 5, name: 'SelaluTeh - Surabaya', amount: 290000, pct: 9, active: true },
+                  { rank: null, name: 'Others (7 outlets)', amount: 930000, pct: 28, active: false }
+                ].map((item, idx) => (
+                  <div key={idx} className='space-y-1'>
+                    <div className='flex items-center justify-between text-xs font-bold text-slate-700'>
+                      <div className='flex items-center gap-2'>
+                        {item.rank && <span className='text-[10px] font-extrabold text-slate-400 w-3.5'>{item.rank}</span>}
+                        <span className={cx(item.active ? 'text-slate-800' : 'text-slate-500 font-semibold pl-3.5')}>{item.name}</span>
+                      </div>
+                      <div className='flex items-center gap-3'>
+                        <span>{money(item.amount)}</span>
+                        <span className='text-slate-400 text-[10px] w-8 text-right'>{item.pct}%</span>
+                      </div>
+                    </div>
+                    <div className='h-1.5 rounded-full bg-slate-50 overflow-hidden pl-3.5'>
+                      <div className={cx('h-full rounded-full', item.active ? 'bg-[#6956E8]' : 'bg-slate-300')} style={{ width: `${item.pct}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* View Full Report Button */}
+            <button type='button' className='w-full py-2.5 border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm'>
+              View Full Report
+              <svg className='w-3.5 h-3.5 text-slate-400' fill='none' stroke='currentColor' strokeWidth='2.5' viewBox='0 0 24 24'>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'Activity' && (
+          <div className='space-y-4 text-slate-700'>
+            {/* Header */}
+            <div>
+              <h3 className='text-sm font-extrabold text-slate-800'>Activity History</h3>
+              <p className='text-[11px] text-slate-400 font-semibold mt-0.5'>
+                Track all changes and actions for this product.
+              </p>
+            </div>
+
+            {/* Filters */}
+            <div className='flex gap-2 shrink-0'>
+              <div className='relative flex-1 min-w-0'>
+                <select className='w-full pl-2 pr-6 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none appearance-none cursor-pointer' style={{
+                  backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E")`,
+                  backgroundPosition: 'right 0.45rem center',
+                  backgroundSize: '0.9rem',
+                  backgroundRepeat: 'no-repeat',
+                }}>
+                  <option>All Activity Types</option>
+                  <option>Price Changes</option>
+                  <option>Stock Adjustments</option>
+                  <option>Outlet Configuration</option>
+                </select>
+              </div>
+              <button type='button' className='inline-flex h-8 items-center gap-1.5 px-3 bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 rounded-lg shadow-sm transition-all cursor-pointer whitespace-nowrap'>
+                May 1, 2025 - May 29, 2025
+                <Calendar size={13} className='text-slate-400' />
+              </button>
+            </div>
+
+            {/* Timeline */}
+            <div className='relative pl-7 mt-6 space-y-5'>
+              {/* Vertical line stem */}
+              <div className='absolute left-3.5 top-2 bottom-2 w-[1.5px] bg-slate-100' />
+
+              {[
+                {
+                  title: 'Product Created',
+                  actor: 'Ahmad Danial',
+                  time: 'May 29, 2025 • 09:12 AM',
+                  icon: <Plus size={11} />,
+                  iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+                  details: null,
+                  avatar: 'AD'
+                },
+                {
+                  title: 'Product Edited',
+                  actor: 'Siti Nur Aisyah',
+                  time: 'May 29, 2025 • 09:35 AM',
+                  icon: <Edit3 size={11} />,
+                  iconBg: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+                  details: 'Updated Description, Category',
+                  avatar: 'SA'
+                },
+                {
+                  title: 'Price Changed',
+                  actor: 'Ahmad Danial',
+                  time: 'May 29, 2025 • 09:47 AM',
+                  icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+                  iconBg: 'bg-amber-50 text-amber-600 border-amber-100',
+                  details: 'Rp11.000 → Rp12.000',
+                  avatar: 'AD'
+                },
+                {
+                  title: 'Stock Adjusted',
+                  actor: 'Siti Nur Aisyah',
+                  time: 'May 29, 2025 • 10:03 AM',
+                  icon: <Warehouse size={11} />,
+                  iconBg: 'bg-blue-50 text-blue-600 border-blue-100',
+                  details: '20 cups → 24 cups',
+                  badge: '+4 cups',
+                  badgeBg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+                  avatar: 'SA'
+                },
+                {
+                  title: 'Outlet Availability Changed',
+                  actor: 'Ahmad Danial',
+                  time: 'May 29, 2025 • 10:15 AM',
+                  icon: <Store size={11} />,
+                  iconBg: 'bg-purple-50 text-purple-600 border-purple-100',
+                  details: 'Added to 2 outlets: Setia Alam, Bangsar',
+                  avatar: 'AD'
+                },
+                {
+                  title: 'Tags Updated',
+                  actor: 'Siti Nur Aisyah',
+                  time: 'May 29, 2025 • 10:22 AM',
+                  icon: <Bookmark size={11} />,
+                  iconBg: 'bg-rose-50 text-rose-600 border-rose-100',
+                  details: 'Added tags: Teh, Favorite',
+                  avatar: 'SA'
+                },
+                {
+                  title: 'Status Changed',
+                  actor: 'Ahmad Danial',
+                  time: 'May 29, 2025 • 10:28 AM',
+                  icon: <RefreshCw size={11} />,
+                  iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+                  details: 'Inactive → Active',
+                  badge: 'Active',
+                  badgeBg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+                  avatar: 'AD'
+                },
+                {
+                  title: 'Product Exported',
+                  actor: 'Ahmad Danial',
+                  time: 'May 29, 2025 • 10:30 AM',
+                  icon: <Download size={11} />,
+                  iconBg: 'bg-sky-50 text-sky-600 border-sky-100',
+                  details: 'Exported to CSV',
+                  avatar: 'AD'
+                }
+              ].map((activity, idx) => (
+                <div key={idx} className='relative group'>
+                  {/* Circle Icon Node */}
+                  <span className={cx('absolute -left-7 top-1.5 grid h-6.5 w-6.5 place-items-center rounded-full border bg-white shadow-sm transition-all group-hover:scale-110 z-10', activity.iconBg)}>
+                    {activity.icon}
+                  </span>
+
+                  {/* Card content */}
+                  <div className='rounded-xl border border-slate-100 p-3 bg-white shadow-sm hover:border-slate-200 transition-all'>
+                    <div className='flex items-start justify-between gap-3'>
+                      <div className='flex items-center gap-2'>
+                        {/* Avatar */}
+                        <span className='h-5 w-5 rounded-full bg-slate-100 border border-slate-200 text-slate-500 font-extrabold text-[8px] flex items-center justify-center shrink-0 uppercase shadow-inner'>
+                          {activity.avatar}
+                        </span>
+                        <div>
+                          <div className='text-xs font-bold text-slate-800'>{activity.title}</div>
+                          <div className='text-[10px] text-slate-400 font-semibold mt-0.5'>by {activity.actor}</div>
+                        </div>
+                      </div>
+                      <div className='text-[10px] text-slate-400 font-bold tracking-wide text-right shrink-0 whitespace-nowrap'>
+                        {activity.time}
+                      </div>
+                    </div>
+
+                    {/* Secondary details */}
+                    {activity.details && (
+                      <div className='mt-2.5 text-xs text-slate-500 font-semibold pl-7 leading-normal'>
+                        {activity.details}
+                        {activity.badge && (
+                          <span className={cx('inline-block ml-1.5 px-1 py-0.2 rounded text-[9px] font-extrabold uppercase border leading-none', activity.badgeBg)}>
+                            {activity.badge}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bottom info */}
+            <div className='flex items-center justify-between mt-5 pt-3 border-t border-slate-100 shrink-0'>
+              <span className='text-[11px] text-slate-400 font-bold uppercase tracking-wider'>8 activities found</span>
+              <button type='button' className='px-4.5 py-2.5 border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 rounded-xl transition-all shadow-sm'>
+                Load more
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -944,6 +1368,8 @@ export default function ProductsPage() {
   const [outletAssignmentRows, setOutletAssignmentRows] = useState([])
   const [isArchiveConfirmOpen, setIsArchiveConfirmOpen] = useState(false)
   const [archiveTarget, setArchiveTarget] = useState(null)
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   // More Filters Drawer State
   const [isMoreFiltersOpen, setIsMoreFiltersOpen] = useState(false)
@@ -996,6 +1422,11 @@ export default function ProductsPage() {
   const [adjustStockQuantity, setAdjustStockQuantity] = useState('10')
   const [adjustStockReasonSelect, setAdjustStockReasonSelect] = useState('Stock received')
   const [adjustStockReasonText, setAdjustStockReasonText] = useState('Received from supplier.')
+  const [backupAssignmentRows, setBackupAssignmentRows] = useState([])
+  const [assignSearchQuery, setAssignSearchQuery] = useState('')
+  const [bulkAvailability, setBulkAvailability] = useState(true)
+  const [bulkUseDefaultPrice, setBulkUseDefaultPrice] = useState(true)
+  const [bulkVisibility, setBulkVisibility] = useState('Show')
 
   // Initialize outlet inventory dynamically for selectedProduct
   useEffect(() => {
@@ -1040,6 +1471,18 @@ export default function ProductsPage() {
         })
       }
       setOutletInventory(list)
+
+      // Initialize outlet availability configuration
+      const initialOutlets = [
+        { outletId: 'Senayan', outletName: 'Kalis Cafe - Senayan', isAvailable: true, price: selectedProduct.price, isOverride: false, visibility: 'Show' },
+        { outletId: 'Kemang', outletName: 'Kalis Cafe - Kemang', isAvailable: true, price: selectedProduct.price + 500, isOverride: true, visibility: 'Show' },
+        { outletId: 'KelapaGading', outletName: 'Kalis Cafe - Kelapa Gading', isAvailable: false, price: selectedProduct.price, isOverride: false, visibility: 'Hide' },
+        { outletId: 'Bandung', outletName: 'Kalis Cafe - Bandung', isAvailable: true, price: selectedProduct.price, isOverride: false, visibility: 'Show' },
+        { outletId: 'Surabaya', outletName: 'Kalis Cafe - Surabaya', isAvailable: true, price: selectedProduct.price - 500, isOverride: true, visibility: 'Show' },
+        { outletId: 'Bali', outletName: 'Kalis Cafe - Bali', isAvailable: false, price: selectedProduct.price, isOverride: false, visibility: 'Show' },
+        { outletId: 'Medan', outletName: 'Kalis Cafe - Medan', isAvailable: false, price: selectedProduct.price, isOverride: false, visibility: 'Show' },
+      ]
+      setOutletAssignmentRows(initialOutlets)
     }
   }, [selectedProduct])
 
@@ -1479,37 +1922,32 @@ export default function ProductsPage() {
     }
   }
 
+  const handleDelete = async () => {
+    try {
+      if (!isDemoMode()) {
+        await api.delete(`/products/${deleteTarget.id}`)
+      } else {
+        setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id))
+      }
+      alert(`Product "${deleteTarget.name}" deleted successfully.`)
+      setIsDeleteConfirmOpen(false)
+      setDeleteTarget(null)
+      if (!isDemoMode()) {
+        loadProducts()
+      }
+    } catch (err) {
+      console.error('Failed to delete:', err)
+      alert('Failed to delete product.')
+    }
+  }
+
   const handleOpenAssignOutlets = async (product) => {
     setOutletAssignmentProduct(product)
+    setBackupAssignmentRows(JSON.parse(JSON.stringify(outletAssignmentRows)))
     setIsAssignOutletsOpen(true)
 
     try {
-      if (isDemoMode()) {
-        const mockAvailability = [
-          {
-            outletId: 'Sudirman',
-            outletName: 'Kalis Sudirman',
-            isAvailable: true,
-            price: product.price,
-            stockQuantity: product.stock,
-          },
-          {
-            outletId: 'Menteng',
-            outletName: 'Kalis Menteng',
-            isAvailable: product.outlets >= 2,
-            price: product.price,
-            stockQuantity: product.stock,
-          },
-          {
-            outletId: 'Senopati',
-            outletName: 'Kalis Senopati',
-            isAvailable: product.outlets >= 3,
-            price: product.price,
-            stockQuantity: product.stock,
-          },
-        ]
-        setOutletAssignmentRows(mockAvailability)
-      } else {
+      if (!isDemoMode()) {
         const res = await api.get(`/products/${product.id}/outlet-availability`)
         const data = res.data?.data || []
         const rows = outlets.map((o) => {
@@ -1522,22 +1960,20 @@ export default function ProductsPage() {
             isAvailable: match ? !!match.isAvailable : true,
             price: match ? match.price : product.price,
             stockQuantity: match ? match.stockQuantity : product.stock,
+            isOverride: match ? match.price !== product.price : false,
+            visibility: match && match.visibility ? match.visibility : 'Show',
           }
         })
         setOutletAssignmentRows(rows)
       }
     } catch (err) {
       console.error('Failed to load availability:', err)
-      setOutletAssignmentRows([
-        {
-          outletId: 'Sudirman',
-          outletName: 'Kalis Sudirman',
-          isAvailable: true,
-          price: product.price,
-          stockQuantity: product.stock,
-        },
-      ])
     }
+  }
+
+  const handleCancelAssignOutlets = () => {
+    setOutletAssignmentRows(backupAssignmentRows)
+    setIsAssignOutletsOpen(false)
   }
 
   const handleSaveOutletAssignment = async () => {
@@ -2067,8 +2503,9 @@ export default function ProductsPage() {
                                     openProduct(item)
                                     setOpenDropdownId(null)
                                   }}
-                                  className='w-full border-0 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition duration-150 cursor-pointer text-left'
+                                  className='w-full border-0 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition duration-150 cursor-pointer text-left font-semibold'
                                 >
+                                  <Eye size={13.5} className='text-slate-400' />
                                   View details
                                 </button>
                                 <button
@@ -2077,8 +2514,9 @@ export default function ProductsPage() {
                                     alert(`Edit product: ${item.name}`)
                                     setOpenDropdownId(null)
                                   }}
-                                  className='w-full border-0 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition duration-150 cursor-pointer text-left'
+                                  className='w-full border-0 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition duration-150 cursor-pointer text-left font-semibold'
                                 >
+                                  <Edit3 size={13.5} className='text-slate-400' />
                                   Edit product
                                 </button>
                                 <button
@@ -2087,8 +2525,9 @@ export default function ProductsPage() {
                                     alert(`Duplicate product: ${item.name}`)
                                     setOpenDropdownId(null)
                                   }}
-                                  className='w-full border-0 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition duration-150 cursor-pointer text-left'
+                                  className='w-full border-0 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition duration-150 cursor-pointer text-left font-semibold'
                                 >
+                                  <Copy size={13.5} className='text-slate-400' />
                                   Duplicate
                                 </button>
                                 <button
@@ -2097,8 +2536,9 @@ export default function ProductsPage() {
                                     alert(`Manage inventory for: ${item.name}`)
                                     setOpenDropdownId(null)
                                   }}
-                                  className='w-full border-0 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition duration-150 cursor-pointer text-left'
+                                  className='w-full border-0 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition duration-150 cursor-pointer text-left font-semibold'
                                 >
+                                  <Warehouse size={13.5} className='text-slate-400' />
                                   Manage inventory
                                 </button>
                                 <button
@@ -2107,8 +2547,9 @@ export default function ProductsPage() {
                                     handleOpenAssignOutlets(item)
                                     setOpenDropdownId(null)
                                   }}
-                                  className='w-full border-0 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition duration-150 cursor-pointer text-left'
+                                  className='w-full border-0 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition duration-150 cursor-pointer text-left font-semibold'
                                 >
+                                  <Store size={13.5} className='text-slate-400' />
                                   Manage outlets
                                 </button>
                                 <div className='h-px bg-slate-100 my-1'></div>
@@ -2119,9 +2560,22 @@ export default function ProductsPage() {
                                     setIsArchiveConfirmOpen(true)
                                     setOpenDropdownId(null)
                                   }}
-                                  className='w-full border-0 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition duration-150 cursor-pointer text-left'
+                                  className='w-full border-0 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition duration-150 cursor-pointer text-left font-semibold'
                                 >
+                                  <Archive size={13.5} className='text-[#F43F70]' />
                                   Archive
+                                </button>
+                                <button
+                                  type='button'
+                                  onClick={() => {
+                                    setDeleteTarget(item)
+                                    setIsDeleteConfirmOpen(true)
+                                    setOpenDropdownId(null)
+                                  }}
+                                  className='w-full border-0 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition duration-150 cursor-pointer text-left font-semibold'
+                                >
+                                  <Trash2 size={13.5} className='text-[#F43F70]' />
+                                  Delete
                                 </button>
                               </div>
                             )}
@@ -2209,6 +2663,7 @@ export default function ProductsPage() {
             activeTab={activeDetailTab}
             setActiveTab={setActiveDetailTab}
             outletInventory={outletInventory}
+            outletAvailability={outletAssignmentRows}
             onAdjustStockClick={() => {
               if (outletInventory && outletInventory.length > 0) {
                 setAdjustStockOutlet(outletInventory[0].outlet)
@@ -2218,6 +2673,17 @@ export default function ProductsPage() {
               setAdjustStockReasonSelect('Stock received')
               setAdjustStockReasonText('Received from supplier.')
               setIsAdjustStockOpen(true)
+            }}
+            onAssignOutletsClick={() => handleOpenAssignOutlets(selectedProduct)}
+            onToggleOutletAvailability={(idx, val) => {
+              setOutletAssignmentRows((prev) =>
+                prev.map((r, i) => (i === idx ? { ...r, isAvailable: val } : r))
+              )
+            }}
+            onOutletVisibilityChange={(idx, val) => {
+              setOutletAssignmentRows((prev) =>
+                prev.map((r, i) => (i === idx ? { ...r, visibility: val } : r))
+              )
             }}
           />
         </div>
@@ -2237,6 +2703,7 @@ export default function ProductsPage() {
             activeTab={activeDetailTab}
             setActiveTab={setActiveDetailTab}
             outletInventory={outletInventory}
+            outletAvailability={outletAssignmentRows}
             onAdjustStockClick={() => {
               if (outletInventory && outletInventory.length > 0) {
                 setAdjustStockOutlet(outletInventory[0].outlet)
@@ -2246,6 +2713,17 @@ export default function ProductsPage() {
               setAdjustStockReasonSelect('Stock received')
               setAdjustStockReasonText('Received from supplier.')
               setIsAdjustStockOpen(true)
+            }}
+            onAssignOutletsClick={() => handleOpenAssignOutlets(selectedProduct)}
+            onToggleOutletAvailability={(idx, val) => {
+              setOutletAssignmentRows((prev) =>
+                prev.map((r, i) => (i === idx ? { ...r, isAvailable: val } : r))
+              )
+            }}
+            onOutletVisibilityChange={(idx, val) => {
+              setOutletAssignmentRows((prev) =>
+                prev.map((r, i) => (i === idx ? { ...r, visibility: val } : r))
+              )
             }}
           />
         </div>
@@ -3115,117 +3593,312 @@ export default function ProductsPage() {
 
       {/* 3. ASSIGN OUTLETS MODAL */}
       {isAssignOutletsOpen && outletAssignmentProduct && (
-        <div className='fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]'>
-          <div className='bg-white rounded-2xl w-full max-w-[480px] shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]'>
-            <header className='px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white rounded-t-2xl shrink-0'>
+        <div className='fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px] animate-fade-in'>
+          <div className='bg-white rounded-2xl w-full max-w-[760px] shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden animate-scale-up'>
+            <header className='px-6 py-4.5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0'>
               <div>
-                <h3 className='text-base font-extrabold text-slate-900'>
-                  Assign Outlets & Custom Pricing
-                </h3>
-                <p className='text-xs text-slate-400 font-semibold mt-1'>
-                  Configure availability for &quot;
-                  {outletAssignmentProduct.name}&quot;
+                <h3 className='text-base font-extrabold text-slate-900'>Assign to Outlets</h3>
+                <p className='text-xs text-slate-400 font-semibold mt-0.5'>
+                  Configure product availability and custom pricing overrides.
                 </p>
               </div>
               <button
-                onClick={() => setIsAssignOutletsOpen(false)}
-                className='p-2 hover:bg-slate-50 border border-slate-100 rounded-xl text-slate-400 hover:text-slate-800 transition-all'
+                onClick={handleCancelAssignOutlets}
+                className='p-2 hover:bg-slate-50 border border-slate-100 rounded-xl text-slate-400 hover:text-slate-800 transition-all cursor-pointer'
               >
                 <X size={16} />
               </button>
             </header>
 
-            <div className='p-6 overflow-y-auto space-y-4 flex-1 min-h-0'>
-              <div className='divide-y divide-slate-100/70 max-h-[360px] overflow-y-auto pr-1'>
-                {outletAssignmentRows.map((row, idx) => (
-                  <div
-                    key={row.outletId}
-                    className='py-4 first:pt-0 last:pb-0 flex items-center justify-between gap-4'
-                  >
-                    <div className='flex items-center gap-3.5'>
-                      <input
-                        type='checkbox'
-                        checked={row.isAvailable}
-                        onChange={(e) => {
+            <div className='p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6 flex-1 min-h-0 bg-slate-50/30'>
+              {/* Left Column (Select Outlets) */}
+              <div className='flex flex-col h-full min-h-0 bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm'>
+                <label className='block text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-2.5'>
+                  Select Outlets
+                </label>
+                
+                {/* Search Outlets Input */}
+                <div className='relative mb-3 shrink-0'>
+                  <span className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400'>
+                    <Search size={13} />
+                  </span>
+                  <input
+                    type='text'
+                    value={assignSearchQuery}
+                    onChange={(e) => setAssignSearchQuery(e.target.value)}
+                    placeholder='Search outlets...'
+                    className='w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#FF1F6D] text-xs text-slate-700 transition-all font-semibold'
+                  />
+                </div>
+
+                {/* Select All Checkbox */}
+                <div className='py-2 border-b border-slate-100 flex items-center gap-2.5 shrink-0'>
+                  <input
+                    type='checkbox'
+                    checked={
+                      outletAssignmentRows.length > 0 &&
+                      outletAssignmentRows.every((r) => r.isAvailable)
+                    }
+                    onChange={(e) => {
+                      const val = e.target.checked
+                      setOutletAssignmentRows((prev) =>
+                        prev.map((r) => ({ ...r, isAvailable: val }))
+                      )
+                    }}
+                    className='rounded border-slate-300 text-[#FF1F6D] focus:ring-[#FF1F6D] w-4.5 h-4.5 cursor-pointer'
+                  />
+                  <span className='text-xs font-bold text-slate-800'>Select All</span>
+                </div>
+
+                {/* List of checkboxes */}
+                <div className='flex-1 overflow-y-auto mt-2 pr-1 space-y-2 max-h-[220px] md:max-h-none'>
+                  {outletAssignmentRows
+                    .filter((row) =>
+                      row.outletName.toLowerCase().includes(assignSearchQuery.toLowerCase())
+                    )
+                    .map((row) => {
+                      return (
+                        <label
+                          key={row.outletId}
+                          className='flex items-center gap-2.5 py-1 cursor-pointer select-none group'
+                        >
+                          <input
+                            type='checkbox'
+                            checked={row.isAvailable}
+                            onChange={(e) => {
+                              const val = e.target.checked
+                              setOutletAssignmentRows((prev) =>
+                                prev.map((r) =>
+                                  r.outletId === row.outletId ? { ...r, isAvailable: val } : r
+                                )
+                              )
+                            }}
+                            className='rounded border-slate-300 text-[#FF1F6D] focus:ring-[#FF1F6D] w-4 h-4 cursor-pointer'
+                          />
+                          <span className='text-xs font-semibold text-slate-700 group-hover:text-slate-900 transition-colors'>
+                            {row.outletName}
+                          </span>
+                        </label>
+                      )
+                    })}
+                </div>
+
+                {/* Count of selected */}
+                <div className='mt-3 pt-3 border-t border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0'>
+                  {outletAssignmentRows.filter((r) => r.isAvailable).length} outlets selected
+                </div>
+              </div>
+
+              {/* Right Column */}
+              <div className='space-y-4 min-h-0 flex flex-col h-full'>
+                <div className='bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm shrink-0 space-y-3.5'>
+                  <h4 className='text-[11px] font-extrabold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2'>
+                    Bulk Settings
+                  </h4>
+                  
+                  <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+                    {/* Toggle 1: Default Availability */}
+                    <div className='flex items-center justify-between gap-3 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100'>
+                      <div>
+                        <div className='text-xs font-bold text-slate-800'>Set default availability</div>
+                        <div className='text-[10px] font-semibold text-slate-400 mt-0.5'>
+                          {bulkAvailability ? 'Available in outlets' : 'Unavailable'}
+                        </div>
+                      </div>
+                      <button
+                        type='button'
+                        onClick={() => {
+                          const val = !bulkAvailability
+                          setBulkAvailability(val)
+                          // Apply to checked outlets
                           setOutletAssignmentRows((prev) =>
-                            prev.map((r, i) =>
-                              i === idx
-                                ? { ...r, isAvailable: e.target.checked }
-                                : r
-                            )
+                            prev.map((r) => (r.isAvailable ? { ...r, isAvailable: val } : r))
                           )
                         }}
-                        className='rounded border-slate-300 text-[#FF1F6D] focus:ring-[#FF1F6D] w-4.5 h-4.5 cursor-pointer'
-                      />
-                      <div>
-                        <div className='font-bold text-slate-950 text-sm'>
-                          {row.outletName}
-                        </div>
-                        <div className='text-[10px] text-slate-400 mt-0.5 font-bold uppercase tracking-wider'>
-                          {row.isAvailable ? 'Available' : 'Unavailable'}
-                        </div>
-                      </div>
+                        className={cx(
+                          'relative inline-flex h-5.5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                          bulkAvailability ? 'bg-emerald-500' : 'bg-slate-200'
+                        )}
+                      >
+                        <span
+                          className={cx(
+                            'pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                            bulkAvailability ? 'translate-x-4.5' : 'translate-x-0'
+                          )}
+                        />
+                      </button>
                     </div>
 
-                    <div className='flex items-center gap-2 shrink-0'>
+                    {/* Toggle 2: Use Default Price */}
+                    <div className='flex items-center justify-between gap-3 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100'>
                       <div>
-                        <label className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1'>
-                          Price Override
-                        </label>
-                        <input
-                          disabled={!row.isAvailable}
-                          value={row.price}
-                          onChange={(e) => {
+                        <div className='text-xs font-bold text-slate-800'>Use default price</div>
+                        <div className='text-[10px] font-semibold text-slate-400 mt-0.5'>
+                          {money(outletAssignmentProduct.price)}
+                        </div>
+                      </div>
+                      <button
+                        type='button'
+                        onClick={() => {
+                          const val = !bulkUseDefaultPrice
+                          setBulkUseDefaultPrice(val)
+                          if (val) {
+                            // Reset checked outlets' prices to default
                             setOutletAssignmentRows((prev) =>
-                              prev.map((r, i) =>
-                                i === idx ? { ...r, price: e.target.value } : r
+                              prev.map((r) =>
+                                r.isAvailable ? { ...r, price: outletAssignmentProduct.price, isOverride: false } : r
                               )
                             )
-                          }}
-                          type='number'
-                          placeholder={String(outletAssignmentProduct.price)}
-                          className='w-28 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-[#FF1F6D] disabled:opacity-50'
+                          }
+                        }}
+                        className={cx(
+                          'relative inline-flex h-5.5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                          bulkUseDefaultPrice ? 'bg-emerald-500' : 'bg-slate-200'
+                        )}
+                      >
+                        <span
+                          className={cx(
+                            'pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                            bulkUseDefaultPrice ? 'translate-x-4.5' : 'translate-x-0'
+                          )}
                         />
-                      </div>
-                      <div>
-                        <label className='block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1'>
-                          Stock Override
-                        </label>
-                        <input
-                          disabled={!row.isAvailable}
-                          value={row.stockQuantity}
-                          onChange={(e) => {
-                            setOutletAssignmentRows((prev) =>
-                              prev.map((r, i) =>
-                                i === idx
-                                  ? { ...r, stockQuantity: e.target.value }
-                                  : r
-                              )
-                            )
-                          }}
-                          type='number'
-                          placeholder={String(outletAssignmentProduct.stock)}
-                          className='w-28 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-[#FF1F6D] disabled:opacity-50'
-                        />
-                      </div>
+                      </button>
                     </div>
                   </div>
-                ))}
+
+                  {/* Dropdown 3: Stock Visibility */}
+                  <div className='flex items-center justify-between gap-3 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100'>
+                    <div>
+                      <div className='text-xs font-bold text-slate-800'>Stock visibility</div>
+                      <div className='text-[10px] font-semibold text-slate-400 mt-0.5'>
+                        Visibility state of inventory count
+                      </div>
+                    </div>
+                    <select
+                      value={bulkVisibility}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setBulkVisibility(val)
+                        // Apply to checked outlets
+                        setOutletAssignmentRows((prev) =>
+                          prev.map((r) => (r.isAvailable ? { ...r, visibility: val } : r))
+                        )
+                      }}
+                      className='bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none cursor-pointer'
+                    >
+                      <option value='Show'>Show stock</option>
+                      <option value='Hide'>Hide stock</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Price Override (Optional) */}
+                <div className='bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex-1 min-h-[160px] flex flex-col'>
+                  <div className='shrink-0'>
+                    <h4 className='text-[11px] font-extrabold text-slate-500 uppercase tracking-wider'>
+                      Price Override (Optional)
+                    </h4>
+                    <p className='text-[10px] text-slate-400 font-semibold mt-0.5 border-b border-slate-100 pb-2.5'>
+                      Set custom prices for specific outlets
+                    </p>
+                  </div>
+
+                  {/* List of checked outlets */}
+                  <div className='flex-1 overflow-y-auto min-h-0 pr-1 mt-2 space-y-3 divide-y divide-slate-100/70'>
+                    {outletAssignmentRows.filter((r) => r.isAvailable).length === 0 ? (
+                      <div className='h-full flex items-center justify-center text-slate-400 text-xs font-semibold py-8'>
+                        No outlets selected. Check outlets in the list to configure overrides.
+                      </div>
+                    ) : (
+                      outletAssignmentRows
+                        .filter((row) => row.isAvailable)
+                        .map((row) => {
+                          // Find index in main list
+                          const mainIdx = outletAssignmentRows.findIndex((r) => r.outletId === row.outletId)
+                          
+                          return (
+                            <div
+                              key={row.outletId}
+                              className='pt-3 first:pt-0 flex items-center justify-between gap-4 font-semibold text-slate-700'
+                            >
+                              <span className='text-xs font-bold text-slate-800 truncate max-w-[150px] sm:max-w-xs'>
+                                {row.outletName}
+                              </span>
+                              
+                              <div className='flex items-center gap-2 shrink-0'>
+                                {/* Price Input Field */}
+                                <div className='flex items-center bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 focus-within:ring-2 focus-within:ring-[#FF1F6D]/20 focus-within:border-[#FF1F6D]'>
+                                  <span className='text-[10px] text-slate-400 mr-1 font-bold'>Rp</span>
+                                  <input
+                                    type='number'
+                                    value={row.price}
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value) || 0
+                                      setOutletAssignmentRows((prev) =>
+                                        prev.map((r, i) =>
+                                          i === mainIdx
+                                            ? {
+                                                ...r,
+                                                price: val,
+                                                isOverride: val !== outletAssignmentProduct.price,
+                                              }
+                                            : r
+                                        )
+                                      )
+                                    }}
+                                    className='w-16 bg-transparent text-xs text-slate-700 outline-none font-bold text-right'
+                                  />
+                                </div>
+
+                                {/* Dropdown status default/override */}
+                                <select
+                                  value={row.isOverride ? 'override' : 'default'}
+                                  onChange={(e) => {
+                                    const isOverride = e.target.value === 'override'
+                                    setOutletAssignmentRows((prev) =>
+                                      prev.map((r, i) =>
+                                        i === mainIdx
+                                          ? {
+                                              ...r,
+                                              isOverride,
+                                              price: isOverride ? r.price : outletAssignmentProduct.price,
+                                            }
+                                          : r
+                                      )
+                                    )
+                                  }}
+                                  className={cx(
+                                    'border rounded-lg px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide cursor-pointer focus:outline-none',
+                                    row.isOverride
+                                      ? 'bg-orange-50 border-orange-100 text-orange-600'
+                                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                                  )}
+                                >
+                                  <option value='default'>Default</option>
+                                  <option value='override'>Override</option>
+                                </select>
+                              </div>
+                            </div>
+                          )
+                        })
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <footer className='px-6 py-4.5 border-t border-slate-100 bg-white flex items-center justify-between gap-3 rounded-b-2xl shrink-0'>
+            <footer className='px-6 py-4.5 border-t border-slate-100 bg-white flex items-center justify-end gap-3 rounded-b-2xl shrink-0'>
               <button
-                onClick={() => setIsAssignOutletsOpen(false)}
-                className='px-5 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-bold rounded-xl transition-all shadow-sm'
+                onClick={handleCancelAssignOutlets}
+                className='px-5 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-bold rounded-xl transition-all shadow-sm cursor-pointer'
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveOutletAssignment}
-                className='px-5 py-2.5 bg-[#FF1F6D] text-white text-sm font-bold rounded-xl shadow-md shadow-rose-200/50 hover:bg-[#e0155b] transition-all'
+                className='px-5 py-2.5 bg-[#FF1F6D] text-white text-sm font-bold rounded-xl shadow-md shadow-rose-200/50 hover:bg-[#e0155b] transition-all cursor-pointer'
               >
-                Save Availability
+                Assign {outletAssignmentRows.filter((r) => r.isAvailable).length} Outlets
               </button>
             </footer>
           </div>
@@ -3267,6 +3940,45 @@ export default function ProductsPage() {
                 className='px-5 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl shadow-md shadow-rose-200/50 hover:bg-rose-700 transition-all'
               >
                 Yes, Archive
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* 4.5 DELETE CONFIRMATION MODAL */}
+      {isDeleteConfirmOpen && deleteTarget && (
+        <div className='fixed inset-0 z-[130] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]'>
+          <div className='bg-white rounded-2xl w-full max-w-[420px] shadow-2xl border border-slate-100 flex flex-col'>
+            <div className='p-6 text-center flex flex-col items-center gap-4.5'>
+              <span className='grid h-16 w-16 place-items-center rounded-2xl bg-rose-50 border border-rose-100/50 text-[#FF1F6D]'>
+                <Trash2 size={28} />
+              </span>
+              <div>
+                <h3 className='text-base font-extrabold text-slate-900'>
+                  Delete Confirmation
+                </h3>
+                <p className='text-slate-500 text-xs font-semibold mt-2 leading-relaxed'>
+                  Are you sure you want to delete product &quot;{deleteTarget.name}&quot;? This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <footer className='px-6 py-4.5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-center gap-3 rounded-b-2xl'>
+              <button
+                onClick={() => {
+                  setIsDeleteConfirmOpen(false)
+                  setDeleteTarget(null)
+                }}
+                className='px-5 py-2.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-bold rounded-xl transition-all shadow-sm'
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className='px-5 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl shadow-md shadow-rose-200/50 hover:bg-rose-700 transition-all'
+              >
+                Yes, Delete
               </button>
             </footer>
           </div>

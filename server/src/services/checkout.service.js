@@ -1,4 +1,5 @@
 import { cartsRepository, checkoutsRepository, productsRepository } from '../db/repositories/index.js';
+import { inventoryRepository } from '../db/repositories/inventory.supabase.repository.js';
 import { AppError } from '../utils/errors.js';
 
 export async function createCheckout({ workspaceId, outletId, contactId, chatId, idempotencyKey, customerSnapshot, fulfillmentSnapshot }) {
@@ -17,20 +18,34 @@ export async function createCheckout({ workspaceId, outletId, contactId, chatId,
   if (!cart || cart.items.length === 0) throw new AppError('EMPTY_CART', 'Cart is empty', 400);
   if (cart.expiresAt && cart.expiresAt < new Date()) throw new AppError('EXPIRED_CART', 'Cart has expired', 400);
 
-  // Re-validate product availability at checkout
+  // Re-validate product availability and check stock (soft check — skip if no availability record to allow AI-added items)
   for (const item of cart.items) {
-    const availability = await productsRepository.findOneAvailability({ workspaceId, productId: item.productId, outletId });
-    if (!availability || !availability.isAvailable) {
-      throw new AppError('PRODUCT_UNAVAILABLE', `Product "${item.name}" is no longer available at this outlet`, 400);
+    try {
+      const availability = await productsRepository.findOneAvailability({ workspaceId, productId: item.productId, outletId });
+      if (availability && availability.isAvailable === false) {
+        throw new AppError('PRODUCT_UNAVAILABLE', `Product "${item.name}" is no longer available at this outlet`, 400);
+      }
+      const stock = await inventoryRepository.findByProduct({ workspaceId, outletId, productId: item.productId });
+      if (stock && typeof stock.quantity === 'number' && stock.quantity < item.quantity) {
+        throw new AppError('INSUFFICIENT_STOCK', `Insufficient stock for "${item.name}" (available: ${stock.quantity}, requested: ${item.quantity})`, 400);
+      }
+    } catch (e) {
+      if (e.code === 'PRODUCT_UNAVAILABLE' || e.code === 'INSUFFICIENT_STOCK') throw e;
+      // Ignore availability lookup errors (e.g. not linked to outlet) for AI-added items
+      console.warn(`[checkout] availability check skipped for product ${item.productId}:`, e.message);
     }
   }
 
+  const cartTotal = cart.total || cart.items.reduce((sum, i) => sum + (i.subtotal || i.subtotalAmount || 0), 0);
+
   const items = cart.items.map((i) => ({
     productId: i.productId,
-    name: i.name,
+    name: i.name || i.productNameSnapshot || '',
+    productNameSnapshot: i.name || i.productNameSnapshot || '',
     quantity: i.quantity,
-    unitPrice: i.effectivePrice,
-    subtotal: i.subtotal,
+    unitPrice: i.unitPrice ?? i.effectivePrice ?? 0,
+    subtotal: i.subtotal ?? i.subtotalAmount ?? 0,
+    subtotalAmount: i.subtotal ?? i.subtotalAmount ?? 0,
     variant: i.variant,
     modifiers: i.modifiers,
   }));
@@ -45,8 +60,8 @@ export async function createCheckout({ workspaceId, outletId, contactId, chatId,
     status: 'pending',
     idempotencyKey: idempotencyKey || undefined,
     items,
-    subtotal: cart.total,
-    total: cart.total,
+    subtotalAmount: cartTotal,
+    totalAmount: cartTotal,
     currency: cart.currency || 'IDR',
     customerSnapshot: customerSnapshot || {},
     fulfillmentSnapshot: fulfillmentSnapshot || { method: 'pickup' },

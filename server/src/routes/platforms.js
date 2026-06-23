@@ -9,6 +9,8 @@
 import express from 'express';
 import { authRequired, attachUser } from '../middleware/auth.js';
 import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
+import { authorizePermission } from '../middleware/authorization.js';
+import { providerSyncRateLimit } from '../middleware/rate-limit.js';
 import { canManageWorkspace } from '../services/access-control.service.js';
 import { platformsSupabaseRepository } from '../db/repositories/index.js';
 import { AppError } from '../utils/errors.js';
@@ -20,14 +22,14 @@ const router = express.Router();
 
 router.use(authRequired, attachUser, attachWorkspaceContext);
 
-router.get('/', async (req, res, next) => {
+router.get('/', authorizePermission('platforms', 'read'), async (req, res, next) => {
   try {
     const platforms = await platformsSupabaseRepository.list({ workspaceId: req.me.workspaceId });
     res.json(platforms);
   } catch (err) { next(err); }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', authorizePermission('platforms', 'read'), async (req, res, next) => {
   try {
     if (!isValidUUID(req.params.id)) throw new AppError('VALIDATION', 'Invalid platform id', 400);
     const platform = await platformsSupabaseRepository.findById({ workspaceId: req.me.workspaceId, platformId: req.params.id });
@@ -36,7 +38,7 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', authorizePermission('platforms', 'write'), async (req, res, next) => {
   try {
     if (!req.body.type || !req.body.label) throw new AppError('VALIDATION', 'Missing type or label', 400);
     if (!canManageWorkspace(req.me)) throw new AppError('FORBIDDEN', 'Insufficient permissions', 403);
@@ -49,7 +51,7 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', authorizePermission('platforms', 'write'), async (req, res, next) => {
   try {
     if (!isValidUUID(req.params.id)) throw new AppError('VALIDATION', 'Invalid platform id', 400);
     if (!canManageWorkspace(req.me)) throw new AppError('FORBIDDEN', 'Insufficient permissions', 403);
@@ -63,7 +65,7 @@ router.put('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', authorizePermission('platforms', 'write'), async (req, res, next) => {
   try {
     if (!isValidUUID(req.params.id)) throw new AppError('VALIDATION', 'Invalid platform id', 400);
     if (!canManageWorkspace(req.me)) throw new AppError('FORBIDDEN', 'Insufficient permissions', 403);
@@ -73,7 +75,7 @@ router.delete('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/:id/test', async (req, res, next) => {
+router.post('/:id/test', authorizePermission('platforms', 'test'), providerSyncRateLimit, async (req, res, next) => {
   try {
     if (!isValidUUID(req.params.id)) throw new AppError('VALIDATION', 'Invalid platform id', 400);
     const platform = await platformsSupabaseRepository.findByIdWithCredentials({

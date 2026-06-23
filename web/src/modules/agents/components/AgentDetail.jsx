@@ -5,6 +5,10 @@ import { faTrash } from '@fortawesome/free-solid-svg-icons'
 import api from '../../../shared/api/httpClient'
 import AgentSales from './AgentSales'
 import BrandIcon from '../../../shared/components/brand/BrandIcon'
+import {
+  buildPreviewFileUrl,
+  fetchProtectedFileObjectUrl,
+} from '../../../shared/utils/fileAccess'
 
 const FILE_MENTION_REGEX =
   /!(?:\{format:(image|sticker|document|file)\})?\[([^\]]*)\]\(([^)]+)\)/i
@@ -12,18 +16,40 @@ const FILE_MENTION_REGEX =
 const isImageFilename = (filename = '') =>
   /\.(png|jpe?g|gif|webp)$/i.test(filename)
 
-const buildPreviewFileUrl = (url = '') => {
-  if (!url) return ''
-  if (
-    url.startsWith('http://') ||
-    url.startsWith('https://') ||
-    url.startsWith('data:')
-  )
-    return url
-  if (url.startsWith('/files/') || url.startsWith('/uploads/'))
-    return `${api.defaults.baseURL}${url}`
-  if (url.startsWith('/')) return `${api.defaults.baseURL}${url}`
-  return `${api.defaults.baseURL}/files/${url}`
+const useAuthenticatedPreviewUrl = (url) => {
+  const [resolvedUrl, setResolvedUrl] = useState(() => buildPreviewFileUrl(url, api.defaults.baseURL))
+
+  useEffect(() => {
+    let objectUrl = null
+    let cancelled = false
+    const rawUrl = url || ''
+
+    if (!rawUrl.startsWith('/files/')) {
+      setResolvedUrl(buildPreviewFileUrl(rawUrl, api.defaults.baseURL))
+      return () => {}
+    }
+
+    ;(async () => {
+      const result = await fetchProtectedFileObjectUrl({
+        rawUrl,
+        apiGet: api.get,
+        fallbackBuilder: (value) => buildPreviewFileUrl(value, api.defaults.baseURL),
+      })
+      if (cancelled) {
+        result.revoke?.()
+        return
+      }
+      objectUrl = result.viaBlob ? result.resolvedUrl : null
+      setResolvedUrl(result.resolvedUrl)
+    })()
+
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [url])
+
+  return resolvedUrl
 }
 
 const parsePreviewFileMention = (text = '', databaseFiles = []) => {
@@ -120,7 +146,7 @@ const PreviewAttachment = ({ attachment }) => {
     attachment.storedName ||
     attachment.url ||
     'attachment'
-  const url = buildPreviewFileUrl(attachment.url || attachment.storedName)
+  const url = useAuthenticatedPreviewUrl(attachment.url || attachment.storedName)
   const isImage =
     attachment.type === 'image' ||
     attachment.format === 'image' ||
@@ -2128,7 +2154,7 @@ export default function AgentDetail() {
                     />
                     <p className='text-[10px] text-slate-400'>
                       Gunakan format nomor HP dengan kode negara (e.g. 628...)
-                      tanpa karakter "+" untuk integrasi WhatsApp.
+                      tanpa karakter &quot;+&quot; untuk integrasi WhatsApp.
                     </p>
                   </div>
                 </div>

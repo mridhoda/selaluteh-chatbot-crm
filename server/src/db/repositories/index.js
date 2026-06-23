@@ -82,3 +82,4 @@ export { aiFeedbackRepository } from './ai-feedback.supabase.repository.js';
 
 // ─── Location Intelligence (Sections 9.3, 25.4) ─────────────────────────────
 export { outletLocationsRepository } from './outlet-locations.supabase.repository.js';
+export { outletManagementRepository } from './outlet-management.supabase.repository.js';

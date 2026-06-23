@@ -3,6 +3,7 @@ import path from 'path';
 import https from 'https';
 import dns from 'dns';
 import { splitMessage } from '../utils/messageSplitter.js';
+import { redactSecrets } from '../utils/redaction.js';
 
 function fetchWithIPv4(url, body, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
@@ -175,7 +176,7 @@ export async function waSendSticker(token, fromPhoneNumberId, to, stickerUrl) {
 }
 
 export async function igSend(token, recipientId, text) {
-  console.log('[meta] igSend token:', token);
+  console.log('[meta] igSend request:', redactSecrets({ recipientId, token }));
   const url = `https://graph.facebook.com/v19.0/me/messages`;
   const body = {
     recipient: { id: recipientId },

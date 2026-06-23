@@ -1,0 +1,453 @@
+schema_version: 2
+spec_version: 1.0.0
+id: selaluteh-outlet-management-operations
+title: SelaluTeh Outlet Management and Operations
+description: Dedicated requirements-first specification for complete
+  multi-workspace and multi-outlet lifecycle, operational profile, service
+  capabilities, order acceptance, operating hours, outlet-channel policy,
+  manager and AI references, health composition, list/detail APIs, bulk
+  operations, audit/events, UI state support, migration, testing, and production
+  readiness.
+type: feature
+workflow: requirements-first
+status: active
+workflow_state: in_progress
+priority: critical
+created_at: '2026-06-22'
+updated_at: '2026-06-23'
+owners:
+  product_owner: SelaluTeh product owner
+  technical_owner: project-maintainer
+  implementation_actor: coding-agent
+  review_required: true
+  security_review_required: true
+lifecycle:
+  config: docs/specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: docs/specs/active/selaluteh-outlet-management-operations
+  move_entire_spec_directory: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    dry_run_command: npm run specs:sync:dry
+    sync_command: npm run specs:sync
+    check_command: npm run specs:check
+    automatic_local_move: false
+    ci_check_only: true
+  completion_requirements:
+    - all-p0-tasks-completed
+    - approved-p1-deferrals-documented
+    - definition-of-done-passed
+    - workspace-isolation-passed
+    - lifecycle-tests-passed
+    - order-acceptance-tests-passed
+    - operating-hours-tests-passed
+    - optimistic-concurrency-passed
+    - idempotency-passed
+    - security-property-concurrency-resilience-performance-tests-passed
+    - ui-state-contracts-verified
+    - migration-and-rollback-documented
+    - documentation-updated
+    - implementation-status-updated
+    - specs-check-passed
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+  reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md
+  definition_of_done: docs/backend/11-sprint/definition-of-done.md
+document_authority:
+  precedence:
+    - latest-approved-outlet-decision
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+    - current-task
+    - implementation-status-for-reality
+    - external-domain-contracts
+    - legacy-documents
+  responsibilities:
+    spec: identity-scope-status-boundaries-and-release-control
+    requirements: what-outlet-management-must-do
+    design: how-outlet-management-is-designed
+    tasks: tdd-implementation-order-and-verification
+product:
+  name: SelaluTeh Marketplace
+  area: outlet-management
+  stage: full-product-design-with-alpha-slice
+  architecture:
+    - multi-workspace
+    - multi-outlet
+    - outlet-aware-commerce
+    - telegram
+    - whatsapp
+spec_relationships:
+  umbrella:
+    id: selaluteh-backend-marketplace
+    relationship: backend-architecture-and-shared-rules
+  depends_on:
+    - id: selaluteh-workspace-access-control
+      relationship: roles-permissions-memberships-and-outlet-access
+    - id: selaluteh-channel-connections-sync
+      relationship: workspace-provider-connections-credentials-webhooks-and-health
+    - id: selaluteh-location-intelligence
+      relationship: canonical-location-maps-resolution-and-nearest-outlet
+    - id: selaluteh-product-catalog
+      relationship: product-assignment-and-availability
+    - id: selaluteh-cart-order-lifecycle
+      relationship: order-validation-and-existing-order-processing
+    - id: selaluteh-admin-data-operations
+      relationship: generic-bulk-import-export-job-orchestration
+    - id: selaluteh-audit-activity-timeline
+      relationship: immutable-audit-storage-and-activity-read-model
+    - id: selaluteh-analytics-read-models
+      relationship: orders-revenue-rating-prep-and-trend-read-models
+    - id: selaluteh-notification-attention-engine
+      relationship: alerts-attention-and-notification-delivery
+    - id: selaluteh-media-assets
+      relationship: image-upload-storage-and-asset-lifecycle
+    - id: selaluteh-ai-agent-architecture
+      relationship: workspace-default-agent-and-tool-runtime
+    - id: selaluteh-ai-agent-scope-security
+      relationship: immutable-ai-business-scope-and-tool-gating
+  does_not_replace:
+    - selaluteh-backend-marketplace
+    - selaluteh-workspace-access-control
+    - selaluteh-channel-connections-sync
+    - selaluteh-location-intelligence
+    - selaluteh-cart-order-lifecycle
+scope:
+  included:
+    - outlet-identity-and-profile
+    - outlet-code-and-slug
+    - operational-lifecycle
+    - operational-health-summary
+    - create-update-pause-resume-archive-restore-duplicate
+    - service-capabilities
+    - order-acceptance-policy
+    - regular-operating-hours
+    - special-hours-and-holiday-closures
+    - computed-open-state
+    - preparation-time-and-capacity
+    - manager-and-team-reference
+    - outlet-channel-assignment-policy
+    - outlet-ai-policy
+    - canonical-location-reference
+    - outlet-media-reference
+    - tags-and-controlled-metadata
+    - list-search-filter-sort-pagination
+    - detail-and-operational-summary
+    - bulk-domain-actions
+    - import-export-domain-schema
+    - audit-event-emission
+    - health-attention-composition
+    - analytics-read-composition
+    - operational-notification-events
+    - api-contracts
+    - optimistic-concurrency
+    - idempotency
+    - soft-delete-and-history
+    - domain-events-outbox
+    - cache-invalidation
+    - observability
+    - legacy-migration
+    - ui-state-support
+    - security-testing-production-readiness
+  deferred:
+    - delivery-operations
+    - dine-in-operations
+    - franchise-royalty-management
+    - service-area-polygons
+    - device-printer-management
+    - advanced-queue-optimization
+    - automatic-staff-scheduling
+    - energy-iot-monitoring
+    - fully-automated-health-remediation
+    - advanced-capacity-forecasting
+  excluded:
+    - workspace-membership-and-permission-storage
+    - provider-credential-and-oauth-storage
+    - webhook-ingestion-internals
+    - geocoding-and-nearest-outlet-algorithm
+    - product-catalog-internals
+    - inventory-ledger
+    - cart-order-state-machine-internals
+    - payment-gateway
+    - generic-export-job-engine
+    - immutable-audit-store-internals
+    - analytics-aggregation-internals
+    - media-storage-internals
+    - customer-location-memory
+    - hard-delete-of-historical-outlets
+fixed_decisions:
+  tenant_boundary: workspace_id
+  operational_boundary: outlet_id
+  database: supabase-postgresql
+  operational_statuses:
+    - DRAFT
+    - COMING_SOON
+    - ACTIVE
+    - PAUSED
+    - ARCHIVED
+  health_statuses:
+    - HEALTHY
+    - NEEDS_ATTENTION
+    - DEGRADED
+    - OFFLINE
+    - UNKNOWN
+  open_states:
+    - OPEN
+    - CLOSED
+    - OPENING_SOON
+    - CLOSING_SOON
+    - UNKNOWN
+  only_active_default_order_eligible: true
+  pause_preserves_existing_orders: true
+  archive_is_not_hard_delete: true
+  channel_credentials_per_outlet: false
+  workspace-connection-may-serve-many-outlets: true
+  agent_model: workspace-default-with-optional-outlet-and-channel-overrides
+  location_authority: selaluteh-location-intelligence
+  analytics_authority: selaluteh-analytics-read-models
+  audit_authority: selaluteh-audit-activity-timeline
+  optimistic_concurrency_required: true
+  timestamps: utc
+  schedule_timezone: outlet-iana-timezone
+requirements_registry:
+  prefix: OM-R
+  total: 45
+  groups:
+    authority-tenancy-profile:
+      - OM-R1
+      - OM-R2
+      - OM-R3
+      - OM-R4
+    lifecycle-health-crud:
+      - OM-R5
+      - OM-R6
+      - OM-R7
+      - OM-R8
+      - OM-R9
+      - OM-R10
+    access-and-organization:
+      - OM-R11
+      - OM-R12
+      - OM-R13
+    operations:
+      - OM-R14
+      - OM-R15
+      - OM-R16
+      - OM-R17
+      - OM-R18
+      - OM-R19
+      - OM-R20
+      - OM-R21
+    external-references:
+      - OM-R22
+      - OM-R23
+      - OM-R24
+    queries-and-admin-operations:
+      - OM-R25
+      - OM-R26
+      - OM-R27
+      - OM-R28
+    cross-cutting-integrations:
+      - OM-R29
+      - OM-R30
+      - OM-R31
+      - OM-R32
+    api-reliability-security:
+      - OM-R33
+      - OM-R34
+      - OM-R35
+      - OM-R36
+      - OM-R37
+      - OM-R38
+      - OM-R39
+      - OM-R40
+    migration-ui-scale-operations:
+      - OM-R41
+      - OM-R42
+      - OM-R43
+      - OM-R44
+      - OM-R45
+core_invariants:
+  - workspace-derived-from-verified-context
+  - every-query-workspace-scoped
+  - operational-health-and-open-state-are-separate
+  - paused-and-archived-outlets-do-not-accept-new-orders
+  - existing-orders-survive-pause-and-archive
+  - channel-disable-for-outlet-does-not-disconnect-workspace-provider
+  - provider-credentials-never-live-in-outlet-record
+  - canonical-location-comes-from-location-intelligence
+  - selected-agent-cannot-broaden-ai-scope
+  - outlet-history-is-not-hard-deleted
+  - mutations-use-version-checks
+  - side-effecting-retries-are-idempotent
+  - returned-outlets-are-subset-of-authorized-scope
+  - special-hours-override-regular-hours
+  - cache-is-not-source-of-truth
+implementation:
+  current_phase: spec-preflight-and-repository-audit
+  task_source: tasks.md
+  recommended_first_task: 0.1-confirm-spec-isolation-and-authority-boundaries
+  phases:
+    - id: 0
+      name: preflight-contracts-schema
+      task_sections:
+        - 0
+        - 1
+        - 2
+    - id: 1
+      name: repository-auth-core-crud
+      task_sections:
+        - 3
+        - 4
+        - 5
+        - 6
+    - id: 2
+      name: lifecycle-operations-hours
+      task_sections:
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 13
+    - id: 3
+      name: external-references-and-policies
+      task_sections:
+        - 14
+        - 15
+        - 16
+        - 17
+        - 18
+        - 19
+    - id: 4
+      name: queries-health-analytics-activity-events
+      task_sections:
+        - 20
+        - 21
+        - 22
+        - 23
+        - 24
+        - 25
+    - id: 5
+      name: bulk-import-export-api-ui
+      task_sections:
+        - 26
+        - 27
+        - 28
+        - 29
+    - id: 6
+      name: cache-observability-migration-validation
+      task_sections:
+        - 30
+        - 31
+        - 32
+        - 33
+        - 34
+  alpha_slice_sections:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 9
+    - 10
+    - 12
+    - 15
+    - 20
+    - 21
+    - 28
+    - 33
+  must_not_defer:
+    - workspace-isolation
+    - lifecycle-state-machine
+    - pause-order-block
+    - archive-history-preservation
+    - order-acceptance
+    - regular-hours-minimum
+    - outlet-channel-enable-for-whatsapp-telegram
+    - list-detail-api
+    - optimistic-concurrency
+    - critical-tests
+  release_gates:
+    - workspace-isolation-pass
+    - lifecycle-tests-pass
+    - order-acceptance-pass
+    - hours-special-hours-pass
+    - channel-policy-pass
+    - optimistic-concurrency-pass
+    - idempotency-pass
+    - no-provider-credential-exposure
+    - archive-history-pass
+    - ui-state-contract-pass
+    - security-property-concurrency-resilience-performance-pass
+    - specs-check-pass
+testing:
+  methodology: test-driven-development
+  cycle:
+    - red
+    - green
+    - refactor
+    - verify
+  paths:
+    unit: server/test/unit/outlets
+    component: server/test/component/outlets
+    integration: server/test/integration/outlets
+    api: server/test/integration/outlets/api
+    security: server/test/security/outlets
+    property: server/test/property/outlets
+    concurrency: server/test/concurrency/outlets
+    resilience: server/test/resilience/outlets
+    performance: server/test/performance/outlets
+  commands:
+    unit: npm run test:outlets:unit
+    component: npm run test:outlets:component
+    integration: npm run test:outlets:integration
+    security: npm run test:outlets:security
+    property: npm run test:outlets:property
+    concurrency: npm run test:outlets:concurrency
+    resilience: npm run test:outlets:resilience
+    performance: npm run test:outlets:performance
+    all: npm run test:outlets:all
+  production_data_prohibited: true
+  production_secrets_prohibited: true
+  critical_skips_allowed: false
+release_blockers:
+  - cross-workspace-outlet-exposure
+  - paused-or-archived-outlet-accepts-new-order
+  - status-health-open-state-conflation
+  - channel-disable-disconnects-workspace-provider
+  - stale-version-overwrites-newer-data
+  - provider-credential-exposure
+  - hard-delete-breaks-history
+  - special-hours-ignored
+  - archive-breaks-order-access
+  - unscoped-bulk-action
+  - ai-override-broadens-scope
+references:
+  umbrella:
+    - docs/specs/active/selaluteh-backend-marketplace/spec.yaml
+    - docs/specs/active/selaluteh-backend-marketplace/requirements.md
+    - docs/specs/active/selaluteh-backend-marketplace/design.md
+    - docs/specs/active/selaluteh-backend-marketplace/tasks.md
+  location:
+    - docs/specs/active/selaluteh-location-intelligence/spec.yaml
+  ai:
+    - docs/specs/active/selaluteh-ai-agent-architecture/spec.yaml
+    - docs/specs/active/selaluteh-ai-agent-scope-security/spec.yaml
+  global:
+    - docs/backend/READING-ORDER.md
+    - docs/backend/09-ai-context/current-task.md

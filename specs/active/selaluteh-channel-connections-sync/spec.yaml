@@ -1,0 +1,553 @@
+schema_version: 2
+spec_version: 1.0.0
+
+id: selaluteh-channel-connections-sync
+title: SelaluTeh Channel Connections & Sync
+description: >-
+  Dedicated requirements-first specification for workspace-level WhatsApp,
+  Telegram, and future provider connections; secure credentials; verified
+  webhooks; normalized inbound and outbound messaging; CRM integration;
+  multi-outlet channel assignment; chat and order acceptance; outlet routing;
+  workspace-default and optional override AI handling; human handoff; payment
+  and order notifications; provider health; diagnostics; catalog and external
+  order sync contracts; audit; observability; migration; testing; and production
+  readiness.
+
+type: feature
+workflow: requirements-first
+
+status: active
+workflow_state: in_progress
+priority: critical
+
+created_at: '2026-06-23'
+updated_at: '2026-06-23'
+
+owners:
+  product_owner: SelaluTeh product owner
+  technical_owner: project-maintainer
+  security_owner: project-maintainer
+  implementation_actor: coding-agent
+  review_required: true
+  security_review_required: true
+  provider_contract_review_required: true
+
+tags:
+  - channels
+  - whatsapp
+  - telegram
+  - webhooks
+  - messaging
+  - multi-outlet
+  - provider-adapters
+  - routing
+  - ai-handoff
+  - sync
+  - supabase
+  - security
+  - tdd
+
+lifecycle:
+  config: docs/specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: docs/specs/active/selaluteh-channel-connections-sync
+  move_entire_spec_directory: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    dry_run_command: npm run specs:sync:dry
+    sync_command: npm run specs:sync
+    check_command: npm run specs:check
+    automatic_local_move: false
+    ci_check_only: true
+
+  completion_requirements:
+    - all-p0-tasks-completed
+    - approved-p1-p2-deferrals-documented
+    - definition-of-done-passed
+    - provider-contracts-revalidated
+    - workspace-outlet-isolation-passed
+    - credentials-and-secret-redaction-passed
+    - verified-durable-webhooks-passed
+    - webhook-and-message-deduplication-passed
+    - inbound-message-durability-passed
+    - outbound-idempotency-passed
+    - outlet-channel-routing-passed
+    - ai-and-human-handoff-passed
+    - payment-and-order-delivery-passed
+    - status-dimension-separation-passed
+    - security-property-concurrency-resilience-performance-tests-passed
+    - migration-and-rollback-documented
+    - operational-runbooks-documented
+    - documentation-updated
+    - implementation-status-updated
+    - specs-check-passed
+
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+  reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md
+  definition_of_done: docs/backend/11-sprint/definition-of-done.md
+
+document_authority:
+  precedence:
+    - latest-approved-channel-decision
+    - current-official-provider-contracts
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+    - current-task
+    - implementation-status-for-reality
+    - external-domain-contracts
+    - legacy-documents
+
+product:
+  name: SelaluTeh Marketplace
+  area: channel-connections-sync
+  stage: full-product-design-with-alpha-slice
+  architecture:
+    - workspace-level-provider-connections
+    - outlet-level-channel-policy
+    - whatsapp-and-telegram-mvp
+    - provider-adapters
+    - verified-durable-webhooks
+    - multi-workspace-ready
+    - multi-outlet
+    - supabase-postgresql
+    - ai-and-human-routing
+
+spec_relationships:
+  umbrella:
+    id: selaluteh-backend-marketplace
+    relationship: backend-architecture-and-shared-rules
+
+  depends_on:
+    - id: selaluteh-workspace-access-control
+      relationship: workspace-outlet-and-action-authorization
+    - id: selaluteh-outlet-management-operations
+      relationship: outlet-lifecycle-and-channel-participation-policy
+    - id: selaluteh-crm-inbox-contacts
+      relationship: contacts-conversations-messages-and-handoff
+    - id: selaluteh-ai-agent-architecture
+      relationship: ai-runtime-tool-gateway-and-agent-resolution
+    - id: selaluteh-ai-agent-scope-security
+      relationship: immutable-business-scope-and-tool-restrictions
+    - id: selaluteh-product-catalog
+      relationship: canonical-catalog-for-optional-sync
+    - id: selaluteh-cart-order-lifecycle
+      relationship: canonical-order-and-status-events
+    - id: selaluteh-payments-xendit
+      relationship: payment-link-and-payment-status-events
+    - id: selaluteh-audit-activity-timeline
+      relationship: immutable-activity-storage
+    - id: selaluteh-notification-attention-engine
+      relationship: operational-alert-and-notification-policy
+    - id: selaluteh-admin-data-operations
+      relationship: large-bulk-and-sync-job-runtime
+
+  does_not_replace:
+    - selaluteh-backend-marketplace
+    - selaluteh-outlet-management-operations
+    - selaluteh-crm-inbox-contacts
+    - selaluteh-ai-agent-architecture
+    - selaluteh-cart-order-lifecycle
+    - selaluteh-payments-xendit
+
+scope:
+  included:
+    - workspace-provider-connections
+    - provider-adapter-registry
+    - whatsapp
+    - telegram
+    - future-channel-capability-registry
+    - connection-lifecycle
+    - separate-connection-health-sync-assignment-statuses
+    - secure-secret-references
+    - oauth-token-reauthorization-readiness
+    - webhook-registration
+    - webhook-verification
+    - durable-webhook-intake
+    - webhook-idempotency
+    - provider-event-normalization
+    - inbound-message-processing
+    - outbound-message-processing
+    - delivery-read-state
+    - message-deduplication
+    - message-ordering
+    - media-transport-boundary
+    - crm-contact-conversation-resolution
+    - outlet-channel-assignment
+    - accepts-chats
+    - accepts-orders
+    - outlet-routing
+    - workspace-default-agent
+    - outlet-and-channel-agent-overrides
+    - human-handoff-and-team-routing
+    - outside-hours-behavior
+    - channel-customer-identity
+    - payment-link-delivery
+    - order-status-delivery
+    - templates-and-proactive-messaging
+    - rate-limits
+    - retry-backoff-dead-letter
+    - connection-health
+    - test-connection
+    - reconnect-and-reauthorize
+    - channel-settings-read-model
+    - webhook-operations-read-model
+    - channel-activity-read-model
+    - product-catalog-sync-contract
+    - external-order-sync-contract
+    - provider-mappings
+    - bulk-multi-outlet-operations
+    - authorization
+    - ai-tool-security
+    - api-contracts
+    - admin-ui-popup-states
+    - domain-events
+    - outbox
+    - audit
+    - observability
+    - legacy-migration
+    - testing
+    - production-readiness
+    - provider-contract-versioning
+
+  deferred:
+    - instagram-production-activation
+    - facebook-messenger-production-activation
+    - website-chat-production-activation
+    - website-ordering-production-activation
+    - tokopedia-production-activation
+    - shopee-production-activation
+    - multi-provider-whatsapp-routing
+    - cross-workspace-shared-channel
+    - full-contact-center-telephony
+    - sms
+    - email-delivery-platform
+    - advanced-campaign-management
+    - broadcast-marketing
+    - customer-segmentation
+    - provider-billing-management
+
+  excluded:
+    - raw-provider-secrets-on-outlets
+    - contact-conversation-business-ownership
+    - product-truth
+    - order-state-machine
+    - payment-truth
+    - ai-reasoning
+    - outlet-operational-lifecycle
+    - generic-audit-storage
+    - generic-job-engine
+    - frontend-as-authorization-authority
+
+fixed_decisions:
+  active_mvp_channels:
+    - WHATSAPP
+    - TELEGRAM
+
+  planned_channels:
+    - INSTAGRAM
+    - FACEBOOK_MESSENGER
+    - WEBSITE_CHAT
+    - WEBSITE_ORDERING
+    - TOKOPEDIA
+    - SHOPEE
+
+  credential_scope: WORKSPACE
+  outlet_owns_provider_credentials: false
+  one_connection_can_serve_many_outlets: true
+
+  outlet_assignment:
+    explicit: true
+    statuses:
+      - ENABLED
+      - DISABLED
+      - PENDING_CONFIGURATION
+    accepts_chats_and_orders_are_separate: true
+
+  routing:
+    alpha_default: CUSTOMER_SELECTS_OUTLET
+    ai_can_finalize_without-customer-confirmation: false
+
+  ai:
+    workspace_default_agent_supported: true
+    outlet_override_optional: true
+    channel_override_optional: true
+    resolution_order:
+      - channel-override
+      - outlet-override
+      - workspace-default
+    can_manage-provider-credentials: false
+
+  status_dimensions:
+    connection:
+      - DRAFT
+      - PENDING_SETUP
+      - CONNECTED
+      - DEGRADED
+      - DISCONNECTED
+      - REAUTH_REQUIRED
+      - SUSPENDED
+      - ARCHIVED
+    health:
+      - UNKNOWN
+      - HEALTHY
+      - DEGRADED
+      - UNHEALTHY
+      - OFFLINE
+    sync:
+      - NOT_APPLICABLE
+      - IDLE
+      - PENDING
+      - RUNNING
+      - SUCCEEDED
+      - FAILED
+      - OUT_OF_SYNC
+
+  webhook:
+    verify_before-mutation: true
+    durable-intake: true
+    idempotent: true
+    replay-protected: true
+
+  messages:
+    inbound-durable-before-ai: true
+    outbound-idempotent: true
+    provider-event-order-not-assumed: true
+
+  sync:
+    canonical-products: selaluteh-product-catalog
+    canonical-orders: selaluteh-cart-order-lifecycle
+    whatsapp-telegram-chat-orders-use-external-order-sync: false
+
+requirements_registry:
+  prefix: CCS-R
+  total: 57
+
+correctness_invariants:
+  - every-connection-belongs-to-one-workspace
+  - provider-secrets-never-belong-to-outlet
+  - one-connection-may-serve-many-outlets
+  - unverified-webhook-has-no-business-effect
+  - duplicate-provider-event-has-one-business-effect
+  - duplicate-outbound-command-has-one-visible-message
+  - inbound-message-persists-before-ai-processing
+  - disabled-outlet-assignment-cannot-accept-chat-or-order
+  - accepts-chats-and-accepts-orders-are-independent
+  - ai-does-not-finalize-outlet-without-customer-confirmation
+  - ai-disabled-policy-prevents-auto-reply
+  - human-takeover-prevents-conflicting-ai-reply
+  - payment-and-order-truth-remain-external
+  - connection-health-sync-assignment-statuses-remain-separate
+  - unsupported-capability-is-never-presented-as-working
+  - cross-workspace-or-outlet-routing-never-succeeds
+  - secrets-never-reach-client-ai-logs-or-exports
+  - catalog-sync-failure-does-not-change-canonical-catalog
+  - external-order-sync-cannot-duplicate-order
+
+security:
+  immutable_controls:
+    - server-only-credentials
+    - webhook-verification-before-mutation
+    - workspace-outlet-isolation
+    - provider-adapter-boundary
+    - tool-gateway-for-ai-outbound
+    - no-ai-provider-configuration
+    - no-raw-secrets-or-payloads-in-ui
+    - frontend-not-authorization-authority
+
+  release_blockers:
+    - forged-webhook-can-create-message-or-order
+    - duplicate-event-duplicates-business-effect
+    - duplicate-send-duplicates-visible-message
+    - provider-secret-leak
+    - cross-workspace-or-outlet-routing
+    - disabled-outlet-accepts-order
+    - ai-bypasses-human-takeover
+    - lost-inbound-message
+    - unsupported-capability-presented-as-working
+    - unscoped-provider-query
+    - production-credential-used-in-tests
+
+testing:
+  methodology: test-driven-development
+  production_data_prohibited: true
+  production_secrets_prohibited: true
+
+  layers:
+    unit:
+      path: server/test/unit/channel-connections-sync
+      required: true
+    component:
+      path: server/test/component/channel-connections-sync
+      required: true
+    integration:
+      path: server/test/integration/channel-connections-sync
+      required: true
+    security:
+      path: server/test/security/channel-connections-sync
+      required: true
+    property:
+      path: server/test/property/channel-connections-sync
+      required: true
+    concurrency:
+      path: server/test/concurrency/channel-connections-sync
+      required: true
+    resilience:
+      path: server/test/resilience/channel-connections-sync
+      required: true
+    performance:
+      path: server/test/performance/channel-connections-sync
+      required: true
+
+  required_properties:
+    - duplicate-provider-event-one-business-effect
+    - duplicate-outbound-command-one-visible-message
+    - disabled-outlet-never-accepts-order
+    - ai-disabled-never-auto-replies
+    - secret-never-in-user-visible-payload
+    - cross-workspace-routing-never-allowed
+    - payment-order-truth-never-mutated-by-channel
+
+  release_gate_commands:
+    spec_check: npm run specs:check
+    unit: npm run test:channels:unit
+    component: npm run test:channels:component
+    integration: npm run test:channels:integration
+    security: npm run test:channels:security
+    property: npm run test:channels:property
+    concurrency: npm run test:channels:concurrency
+    resilience: npm run test:channels:resilience
+    performance: npm run test:channels:performance
+    all: npm run test:channels:all
+
+implementation:
+  current_phase: preflight-and-provider-contract-audit
+  task_source: tasks.md
+  active_task_pointer: docs/backend/09-ai-context/current-task.md
+  recommended_first_task: 0.1-spec-authority
+
+  fastest_safe_alpha_order:
+    - task-section-0
+    - task-section-1
+    - task-section-2
+    - task-section-3
+    - task-section-4
+    - task-section-5
+    - task-section-6
+    - task-section-7
+    - task-section-8
+    - task-section-9
+    - task-section-10
+    - task-section-11
+    - task-section-12
+    - task-section-13
+    - task-section-14
+    - task-section-15
+    - task-section-16
+    - task-section-18
+    - task-section-21
+    - task-section-23
+    - task-section-24
+    - task-section-28
+    - task-section-29
+    - task-section-30
+    - task-section-31
+    - task-section-32
+    - task-section-33
+    - task-section-35
+    - task-section-36
+    - task-section-37
+    - task-section-38
+
+  may_defer_after_alpha:
+    - instagram-facebook
+    - website-chat
+    - catalog-sync
+    - external-order-sync
+    - rich-media
+    - proactive-templates
+    - advanced-bulk-operations
+    - marketplace-connectors
+
+  must_not_defer:
+    - whatsapp
+    - telegram
+    - secret-management
+    - provider-adapter-framework
+    - verified-durable-webhooks
+    - inbound-outbound-text-and-links
+    - message-deduplication
+    - crm-integration
+    - outlet-channel-assignment
+    - accepts-chats-orders
+    - customer-selected-outlet
+    - workspace-default-agent
+    - human-handoff
+    - payment-order-delivery
+    - health-test-connection
+    - critical-security-concurrency-resilience-tests
+
+status_workflow:
+  initial_status: active
+  initial_workflow_state: in_progress
+
+  folder_statuses:
+    backlog:
+      folder: docs/specs/backlog
+      workflow_states: [ draft, review, approved ]
+    active:
+      folder: docs/specs/active
+      workflow_states: [ in_progress, blocked, verifying ]
+    completed:
+      folder: docs/specs/completed
+      workflow_states: [ done, archived ]
+
+  folder_move_rule: edit-status-then-run-npm-run-specs-sync
+  completed_guard: required-unchecked-tasks-must-be-zero
+
+references:
+  own_documents:
+    - docs/specs/active/selaluteh-channel-connections-sync/requirements.md
+    - docs/specs/active/selaluteh-channel-connections-sync/design.md
+    - docs/specs/active/selaluteh-channel-connections-sync/tasks.md
+
+  related:
+    - docs/specs/active/selaluteh-backend-marketplace/spec.yaml
+    - docs/specs/active/selaluteh-workspace-access-control/spec.yaml
+    - docs/specs/active/selaluteh-outlet-management-operations/spec.yaml
+    - docs/specs/active/selaluteh-product-catalog/spec.yaml
+    - docs/specs/active/selaluteh-cart-order-lifecycle/spec.yaml
+    - docs/specs/active/selaluteh-payments-xendit/spec.yaml
+    - docs/specs/active/selaluteh-ai-agent-architecture/spec.yaml
+    - docs/specs/active/selaluteh-ai-agent-scope-security/spec.yaml
+
+metadata:
+  generated_for: selaluteh-channel-connections-sync
+  generated_at: '2026-06-23'
+  based_on:
+    - latest-multi-workspace-and-multi-outlet-decisions
+    - latest-connected-channels-popup-decisions
+    - whatsapp-and-telegram-mvp-decision
+    - workspace-default-agent-decision
+    - outlet-customer-selection-decision
+    - payment-and-order-notification-flow
+    - existing-legacy-channel-webhook-context
+
+  notes:
+    - This is a full-product spec with an explicit fastest safe alpha slice.
+    - Connected Platforms owns workspace provider credentials.
+    - Outlet Manage Connected Channels owns participation and routing policy.
+    - A separate AI agent per outlet is optional, never mandatory.
+    - Provider documentation must be revalidated before implementation and
+      production activation.

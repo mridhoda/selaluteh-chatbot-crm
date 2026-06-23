@@ -153,19 +153,20 @@ export async function updateOutletAvailability({ user, productId, outlets }) {
   for (const item of outlets || []) {
     const outletId = item.outletId || item.outlet_id;
     await assertOutletAccess(user, outletId);
-    const row = await productsRepository.upsertAvailability(
-      { workspaceId: user.workspaceId, productId, variantId: item.variantId || item.variant_id || null, outletId },
-      {
-        $set: {
-          isAvailable: item.isAvailable ?? item.is_available ?? true,
-          priceOverride: item.priceOverride ?? item.price_override ?? null,
-          stockQuantity: item.stockQuantity ?? item.stock_quantity ?? null,
-          status: item.status || 'active',
-          availableFrom: item.availableFrom || item.available_from || null,
-          availableUntil: item.availableUntil || item.available_until || null,
-        },
+    const row = await productsRepository.upsertAvailability({
+      workspaceId: user.workspaceId,
+      productId,
+      variantId: item.variantId || item.variant_id || null,
+      outletId,
+      updates: {
+        isAvailable: item.isAvailable ?? item.is_available ?? true,
+        priceOverride: item.priceOverride ?? item.price_override ?? null,
+        stockQuantity: item.stockQuantity ?? item.stock_quantity ?? null,
+        status: item.status || 'active',
+        availableFrom: item.availableFrom || item.available_from || null,
+        availableUntil: item.availableUntil || item.available_until || null,
       },
-    );
+    });
     results.push(row);
   }
 

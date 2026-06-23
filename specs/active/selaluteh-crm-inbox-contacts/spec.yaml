@@ -1,0 +1,513 @@
+schema_version: 2
+spec_version: 1.0.0
+
+id: selaluteh-crm-inbox-contacts
+title: SelaluTeh CRM Inbox & Contacts
+description: >-
+  Dedicated requirements-first specification for workspace-scoped contacts,
+  multi-channel identities, conversations, durable messages, inbox queues,
+  unread state, multi-outlet visibility, member and team assignment, AI and
+  human handling modes, smart handoff, internal notes, contact and conversation
+  timelines, AI summaries and three-month working-memory boundaries, linked
+  order/payment/complaint context, import/export, audit, security, migration,
+  testing, and production readiness.
+
+type: feature
+workflow: requirements-first
+
+status: active
+workflow_state: in_progress
+priority: critical
+
+created_at: '2026-06-23'
+updated_at: '2026-06-23'
+
+owners:
+  product_owner: SelaluTeh product owner
+  technical_owner: project-maintainer
+  security_owner: project-maintainer
+  implementation_actor: coding-agent
+  review_required: true
+  security_review_required: true
+
+tags:
+  - crm
+  - inbox
+  - contacts
+  - conversations
+  - messages
+  - multi-channel
+  - multi-outlet
+  - ai-handoff
+  - human-takeover
+  - supabase
+  - security
+  - tdd
+
+lifecycle:
+  config: docs/specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: docs/specs/active/selaluteh-crm-inbox-contacts
+  move_entire_spec_directory: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    dry_run_command: npm run specs:sync:dry
+    sync_command: npm run specs:sync
+    check_command: npm run specs:check
+    automatic_local_move: false
+    ci_check_only: true
+
+  completion_requirements:
+    - all-p0-tasks-completed
+    - approved-p1-deferrals-documented
+    - definition-of-done-passed
+    - workspace-outlet-isolation-passed
+    - contact-identity-resolution-passed
+    - inbound-message-durability-passed
+    - message-deduplication-passed
+    - outbound-idempotency-passed
+    - ai-human-mode-conflict-prevention-passed
+    - handoff-and-assignment-passed
+    - internal-note-isolation-passed
+    - order-payment-boundary-passed
+    - ai-three-month-memory-policy-passed
+    - security-property-concurrency-resilience-performance-tests-passed
+    - migration-and-rollback-documented
+    - operational-runbooks-documented
+    - documentation-updated
+    - implementation-status-updated
+    - specs-check-passed
+
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+  reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md
+  definition_of_done: docs/backend/11-sprint/definition-of-done.md
+
+document_authority:
+  precedence:
+    - latest-approved-crm-decision
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+    - current-task
+    - implementation-status-for-reality
+    - external-domain-contracts
+    - legacy-documents
+
+product:
+  name: SelaluTeh Marketplace
+  area: crm-inbox-contacts
+  stage: full-product-design-with-alpha-slice
+  architecture:
+    - multi-workspace-ready
+    - multi-outlet
+    - multi-channel-identities
+    - durable-inbox
+    - ai-and-human-handling
+    - supabase-postgresql
+    - workspace-and-outlet-rbac
+
+spec_relationships:
+  umbrella:
+    id: selaluteh-backend-marketplace
+    relationship: backend-architecture-and-shared-rules
+
+  depends_on:
+    - id: selaluteh-workspace-access-control
+      relationship: workspace-outlet-and-action-authorization
+    - id: selaluteh-outlet-management-operations
+      relationship: outlet-context-and-operational-state
+    - id: selaluteh-channel-connections-sync
+      relationship: verified-inbound-events-and-outbound-transport
+    - id: selaluteh-ai-agent-architecture
+      relationship: ai-runtime-tool-gateway-and-agent-resolution
+    - id: selaluteh-ai-agent-scope-security
+      relationship: business-scope-prompt-injection-and-tool-restrictions
+    - id: selaluteh-cart-order-lifecycle
+      relationship: order-context-and-approved-commands
+    - id: selaluteh-payments-xendit
+      relationship: payment-status-and-link-context
+    - id: selaluteh-complaints-tickets
+      relationship: complaint-and-support-ticket-context
+    - id: selaluteh-audit-activity-timeline
+      relationship: immutable-administrative-activity
+    - id: selaluteh-notification-attention-engine
+      relationship: mention-assignment-handoff-and-sla-notifications
+    - id: selaluteh-admin-data-operations
+      relationship: contact-import-export-and-large-bulk-jobs
+    - id: selaluteh-analytics-read-models
+      relationship: crm-performance-aggregation
+
+  does_not_replace:
+    - selaluteh-channel-connections-sync
+    - selaluteh-ai-agent-architecture
+    - selaluteh-cart-order-lifecycle
+    - selaluteh-payments-xendit
+    - selaluteh-workspace-access-control
+
+scope:
+  included:
+    - workspace-owned-contacts
+    - contact-core-profile
+    - channel-identities
+    - contact-lifecycle
+    - contact-tags
+    - custom-fields
+    - duplicate-detection
+    - contact-merge
+    - blocking
+    - consent-and-opt-out
+    - contact-search-filter-sort-pagination
+    - contact-detail-read-model
+    - import-export-contract
+    - conversations
+    - conversation-lifecycle
+    - handling-mode
+    - inbox-queues-and-views
+    - assignment-and-team-routing
+    - outlet-context-and-visibility
+    - priority-and-sla-metadata
+    - unread-and-read-state
+    - snooze
+    - durable-messages
+    - message-actor-and-direction
+    - normalized-content-types
+    - delivery-state-read-model
+    - message-ordering
+    - message-idempotency
+    - attachment-references
+    - internal-notes
+    - mentions
+    - human-handoff
+    - smart-handoff
+    - return-to-ai
+    - ai-suggested-replies
+    - ai-conversation-summary
+    - ai-three-month-memory-boundary
+    - ai-scope-and-tool-security
+    - order-payment-complaint-context
+    - contact-and-conversation-timeline
+    - canned-replies
+    - spam-archive-restore
+    - bulk-operations
+    - notifications-and-attention
+    - analytics-event-contract
+    - authorization
+    - rls-and-repository-scope
+    - api-contracts
+    - admin-ui-states
+    - optimistic-concurrency
+    - domain-events
+    - audit
+    - security-privacy
+    - legacy-migration
+    - testing
+    - scalability
+    - operational-readiness
+
+  deferred:
+    - omnichannel-voice
+    - email-inbox
+    - sms-inbox
+    - advanced-marketing-automation
+    - full-customer-data-platform
+    - automatic-cross-workspace-contact-sharing
+    - external-crm-bidirectional-sync
+    - advanced-customer-scoring
+    - autonomous-ai-resolution-without-business-guards
+    - unrestricted-ai-full-history-memory
+    - irreversible-unmerge
+    - legal-records-management-system
+
+  excluded:
+    - provider-credentials
+    - webhook-verification-implementation
+    - provider-api-send-implementation
+    - order-state-machine
+    - payment-truth
+    - outlet-lifecycle
+    - generic-audit-store
+    - generic-notification-delivery
+    - media-binary-storage
+    - frontend-as-authorization-authority
+
+fixed_decisions:
+  crm_authority:
+    - contacts
+    - channel-identities
+    - conversations
+    - messages
+    - assignments
+    - handoff-state
+    - internal-notes
+
+  active_mvp_channels:
+    - WHATSAPP
+    - TELEGRAM
+
+  contact:
+    stable-internal-id: true
+    display-name-is-unique-identity: false
+    multiple-channel-identities: true
+    cross-workspace-auto-merge: false
+
+  conversation:
+    outlet-context-optional-before-selection: true
+    lifecycle-and-handling-mode-separated: true
+    one-primary-assignee: true
+
+  handling_modes:
+    - AI_ACTIVE
+    - HANDOFF_PENDING
+    - HUMAN_ACTIVE
+    - HUMAN_PAUSED
+    - AUTOMATION_DISABLED
+
+  ai:
+    workspace-default-agent-supported: true
+    human-active-blocks-autonomous-reply: true
+    business-scope-guard-required: true
+    off-topic-no-rag-no-tools: true
+    working-memory-retention-months: 3
+    expired-memory-deletes-crm-records: false
+
+  notes:
+    internal-never-transported: true
+    customer-visible: false
+
+  boundaries:
+    provider-transport: selaluteh-channel-connections-sync
+    order-truth: selaluteh-cart-order-lifecycle
+    payment-truth: selaluteh-payments-xendit
+    complaint-truth: selaluteh-complaints-tickets
+
+requirements_registry:
+  prefix: CRM-R
+  total: 58
+
+correctness_invariants:
+  - every-crm-entity-belongs-to-one-workspace
+  - contact-display-name-alone-never-determines-identity
+  - duplicate-provider-message-produces-one-crm-message
+  - duplicate-outbound-command-produces-one-visible-message
+  - inbound-message-persists-before-ai-post-processing
+  - internal-note-never-reaches-provider-or-customer
+  - human-active-prevents-autonomous-ai-reply
+  - merged-contact-resolves-to-canonical-contact
+  - other-outlet-cannot-infer-conversation-existence
+  - unread-count-never-negative
+  - ai-memory-expiration-does-not-delete-required-crm-history
+  - crm-does-not-mutate-payment-truth
+  - crm-does-not-bypass-order-domain
+  - cross-workspace-or-outlet-access-never-succeeds
+  - secrets-and-raw-webhook-material-never-enter-ai-context
+
+security:
+  immutable_controls:
+    - workspace-outlet-isolation
+    - rls-defense-in-depth
+    - internal-note-isolation
+    - ai-business-scope
+    - tool-gateway-context-validation
+    - no-provider-secrets-in-crm
+    - no-payment-truth-mutation
+    - human-takeover-enforcement
+    - frontend-not-authority
+
+  release_blockers:
+    - cross-workspace-or-outlet-crm-access
+    - internal-note-visible-to-customer
+    - duplicate-provider-message-duplicates-business-effect
+    - ai-replies-during-human-active
+    - contact-identity-cross-workspace-collision
+    - pii-or-secret-leak
+    - lost-inbound-message
+    - unscoped-count-search-or-export
+    - crm-manually-marks-payment-paid
+    - production-data-or-secret-used-in-tests
+
+testing:
+  methodology: test-driven-development
+  production_data_prohibited: true
+  production_secrets_prohibited: true
+
+  layers:
+    unit:
+      path: server/test/unit/crm-inbox-contacts
+      required: true
+    component:
+      path: server/test/component/crm-inbox-contacts
+      required: true
+    integration:
+      path: server/test/integration/crm-inbox-contacts
+      required: true
+    security:
+      path: server/test/security/crm-inbox-contacts
+      required: true
+    property:
+      path: server/test/property/crm-inbox-contacts
+      required: true
+    concurrency:
+      path: server/test/concurrency/crm-inbox-contacts
+      required: true
+    resilience:
+      path: server/test/resilience/crm-inbox-contacts
+      required: true
+    performance:
+      path: server/test/performance/crm-inbox-contacts
+      required: true
+
+  required_properties:
+    - duplicate-provider-message-one-crm-message
+    - internal-note-never-outbound
+    - human-active-blocks-autonomous-ai
+    - merged-contact-canonicalization
+    - unread-count-non-negative
+    - cross-workspace-outlet-never-allowed
+    - ai-memory-expiration-preserves-crm-records
+
+  release_gate_commands:
+    spec_check: npm run specs:check
+    unit: npm run test:crm:unit
+    component: npm run test:crm:component
+    integration: npm run test:crm:integration
+    security: npm run test:crm:security
+    property: npm run test:crm:property
+    concurrency: npm run test:crm:concurrency
+    resilience: npm run test:crm:resilience
+    performance: npm run test:crm:performance
+    all: npm run test:crm:all
+
+implementation:
+  current_phase: preflight-and-repository-audit
+  task_source: tasks.md
+  active_task_pointer: docs/backend/09-ai-context/current-task.md
+  recommended_first_task: 0.1-authority
+
+  fastest_safe_alpha_order:
+    - task-section-0
+    - task-section-1
+    - task-section-2
+    - task-section-3
+    - task-section-4
+    - task-section-8
+    - task-section-9
+    - task-section-10
+    - task-section-11
+    - task-section-12
+    - task-section-13
+    - task-section-14
+    - task-section-15
+    - task-section-16
+    - task-section-17
+    - task-section-19
+    - task-section-21
+    - task-section-22
+    - task-section-25
+    - task-section-26
+    - task-section-27
+    - task-section-32
+    - task-section-33
+    - task-section-34
+    - task-section-35
+    - task-section-36
+    - task-section-37
+    - task-section-39
+    - task-section-40
+    - task-section-41
+    - task-section-42
+
+  may_defer_after_alpha:
+    - advanced-tags-and-custom-fields
+    - consent-center
+    - contact-merge-ui
+    - sla
+    - mentions
+    - ai-suggested-replies
+    - advanced-summaries
+    - import-export
+    - bulk-operations
+    - canned-replies
+    - advanced-analytics
+
+  must_not_defer:
+    - contacts
+    - whatsapp-telegram-identities
+    - conversations
+    - durable-messages
+    - inbox-views
+    - unread-state
+    - outlet-visibility
+    - assignment
+    - ai-human-handling
+    - handoff
+    - internal-notes
+    - order-payment-context
+    - ai-three-month-memory-boundary
+    - rls-and-critical-security-tests
+
+status_workflow:
+  initial_status: active
+  initial_workflow_state: in_progress
+
+  folder_statuses:
+    backlog:
+      folder: docs/specs/backlog
+      workflow_states: [ draft, review, approved ]
+    active:
+      folder: docs/specs/active
+      workflow_states: [ in_progress, blocked, verifying ]
+    completed:
+      folder: docs/specs/completed
+      workflow_states: [ done, archived ]
+
+  folder_move_rule: edit-status-then-run-npm-run-specs-sync
+  completed_guard: required-unchecked-tasks-must-be-zero
+
+references:
+  own_documents:
+    - docs/specs/active/selaluteh-crm-inbox-contacts/requirements.md
+    - docs/specs/active/selaluteh-crm-inbox-contacts/design.md
+    - docs/specs/active/selaluteh-crm-inbox-contacts/tasks.md
+
+  related:
+    - docs/specs/active/selaluteh-backend-marketplace/spec.yaml
+    - docs/specs/active/selaluteh-workspace-access-control/spec.yaml
+    - docs/specs/active/selaluteh-outlet-management-operations/spec.yaml
+    - docs/specs/active/selaluteh-channel-connections-sync/spec.yaml
+    - docs/specs/active/selaluteh-product-catalog/spec.yaml
+    - docs/specs/active/selaluteh-cart-order-lifecycle/spec.yaml
+    - docs/specs/active/selaluteh-payments-xendit/spec.yaml
+    - docs/specs/active/selaluteh-ai-agent-architecture/spec.yaml
+    - docs/specs/active/selaluteh-ai-agent-scope-security/spec.yaml
+
+metadata:
+  generated_for: selaluteh-crm-inbox-contacts
+  generated_at: '2026-06-23'
+  based_on:
+    - latest-multi-workspace-and-multi-outlet-decisions
+    - latest-chats-page-and-contact-page-design-decisions
+    - whatsapp-and-telegram-mvp
+    - workspace-default-agent
+    - smart-handoff-discussion
+    - three-month-ai-memory-decision
+    - order-payment-context-sidebar
+    - existing-legacy-crm-context
+
+  notes:
+    - This is a full-product spec with an explicit fastest safe alpha slice.
+    - CRM owns durable contacts, conversations, messages, assignments, notes,
+      and handoff state.
+    - Channel Connections owns provider transport and webhook execution.
+    - AI working memory is limited to three months, but CRM operational history
+      follows data policy.

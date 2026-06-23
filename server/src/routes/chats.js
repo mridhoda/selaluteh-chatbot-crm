@@ -122,12 +122,13 @@ router.post('/:chatId/send', authRequired, attachUser, async (req, res) => {
       if (agent) {
         const mention = findDatabaseFileMention(finalMessageText, agent);
         if (mention && mention.file?.storedName) {
+          const { buildManagedFileUrl } = await import('../utils/file-urls.js');
           const cleanedText = (finalMessageText || '').replace(mention.token, mention.altText || '').trim();
           const filename = mention.file.originalName || mention.file.storedName;
           const isImg = mention.format === 'image' || filename.match(/\.(jpg|jpeg|png|gif|webp)$/i);
           
           finalAttachment = {
-            url: `/files/${mention.file.storedName}`,
+            url: buildManagedFileUrl(mention.file.storedName),
             filename,
             storedName: mention.file.storedName,
             type: isImg ? 'image' : 'document',

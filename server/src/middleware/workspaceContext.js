@@ -1,4 +1,5 @@
 import { resolveWorkspaceContext, getAllowedOutletIds } from '../services/access-control.service.js';
+import { getPermissionMatrixForUser } from '../services/access-control.service.js';
 
 export async function attachWorkspaceContext(req, res, next) {
   try {
@@ -7,7 +8,8 @@ export async function attachWorkspaceContext(req, res, next) {
     const ctx = await resolveWorkspaceContext(req.me);
     if (!ctx) return res.status(403).json({ error: { code: 'MEMBERSHIP_REQUIRED', message: 'Active workspace membership required' } });
 
-    req.workspace = { id: ctx.workspaceId, role: ctx.role };
+    req.me.workspaceRole = ctx.role;
+    req.workspace = { id: ctx.workspaceId, role: ctx.role, permissions: getPermissionMatrixForUser(req.me) };
     req.allowedOutletIds = await getAllowedOutletIds(req.me);
     next();
   } catch (err) {
