@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import api from '../../../shared/api/httpClient'
 import { isDemoMode } from '../../../mocks/demoState'
 import {
@@ -474,7 +474,18 @@ function CommerceTab({
 
   const displayOutlets = useLiveOrFallback(liveOutlets, FALLBACK_OUTLETS)
   const displayProducts = useLiveOrFallback(liveProducts, FALLBACK_PRODUCTS)
-  const inferredCart = inferCartItemsFromConversation(messages, displayProducts)
+
+  // Filter messages to only infer cart items from messages newer than the latest order
+  const latestOrder = [...(liveOrders || [])].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0]
+  const latestOrderTime = latestOrder ? new Date(latestOrder.createdAt || 0).getTime() : 0
+  const messagesForInference = (messages || []).filter((msg) => {
+    if (!latestOrderTime) return true
+    const msgTime = new Date(msg.createdAt || msg.timestamp || 0).getTime()
+    // Give a 1-second grace window to ensure order creation timestamp is after the initiating message
+    return msgTime > latestOrderTime
+  })
+
+  const inferredCart = inferCartItemsFromConversation(messagesForInference, displayProducts)
   const displayCart = useLiveOrFallback(liveCartItems, inferredCart.length ? inferredCart : FALLBACK_CART)
   const cartSummary = buildCartSummary(displayCart)
 
@@ -488,7 +499,32 @@ function CommerceTab({
   }, [liveCartOutletId, displayOutlets])
 
   const selectedOutlet = displayOutlets.find((item) => item.id === selectedOutletId) || displayOutlets[0]
-  const displayOrders = useLiveOrFallback(liveOrders, FALLBACK_ORDERS)
+  // Normalize orders from API to a consistent shape for display
+  const normalizeOrder = (order) => {
+    const id = order.id || order._id || order.orderNumber || order.order_number || order.orderIdDisplay
+    const status = order.status || 'Draft'
+    const paymentStatus = order.paymentStatus || order.payment || order.payment_status || 'Pending'
+    const amount = order.amount || order.total || order.totalAmount || order.totals?.total || order.grandTotal || 0
+    const channel = (order.channelSnapshot || order.channel || order.platform || '').toLowerCase()
+    const rawDate = order.createdAt || order.date
+    const date = rawDate
+      ? new Date(rawDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+      : (order.date || '—')
+    const time = rawDate
+      ? new Date(rawDate).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      : (order.time || '—')
+    const customerName = (order.contactId && typeof order.contactId === 'object' ? order.contactId.name : null)
+      || order.customerNameSnapshot || order.contactName || null
+    const customerPhone = (order.contactId && typeof order.contactId === 'object' ? order.contactId.phone : null)
+      || order.customerPhoneSnapshot || null
+    const contactIdentifier = order.contactId && typeof order.contactId === 'object'
+      ? order.contactId.id
+      : (typeof order.contactId === 'string' ? order.contactId : null)
+    return { id, status, paymentStatus, amount, channel, date, time, customerName, customerPhone, contactIdentifier, _raw: order }
+  }
+
+  const rawDisplayOrders = useLiveOrFallback(liveOrders, FALLBACK_ORDERS)
+  const displayOrders = rawDisplayOrders.map(normalizeOrder)
 
   // Only show products available at selected outlet
   const availableProductIds = outletProductMap[selectedOutletId] || []
@@ -498,10 +534,20 @@ function CommerceTab({
 
   const filteredOrders = displayOrders.filter((order) => {
     if (ordersFilter === 'all') return true
-    if (ordersFilter === 'paid') return order.payment === 'Paid'
-    if (ordersFilter === 'pending') return order.payment === 'Pending'
-    return order.status.toLowerCase() === ordersFilter
+    if (ordersFilter === 'paid') return (order.paymentStatus || '').toLowerCase() === 'paid'
+    if (ordersFilter === 'pending') return (order.paymentStatus || '').toLowerCase() === 'pending' || (order.paymentStatus || '').toLowerCase() === 'unpaid'
+    return (order.status || '').toLowerCase() === ordersFilter
   })
+
+  // When the most recent order is completed/cancelled, signal the parent to clear the cart
+  // by dispatching the cart-cleared event (parent's polling useEffect listens for it)
+  useEffect(() => {
+    if (!liveOrders || liveOrders.length === 0) return
+    const sorted = [...liveOrders].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    const latestStatus = (sorted[0]?.status || '').toLowerCase()
+    const isDone = latestStatus === 'completed' || latestStatus === 'delivered' || latestStatus === 'cancelled'
+    if (isDone) window.dispatchEvent(new Event('cart-cleared'))
+  }, [liveOrders])
 
   const handleClearCart = async () => {
     if (!window.confirm('Yakin ingin menghapus semua item dari keranjang aktif user ini?')) return
@@ -750,30 +796,26 @@ function CommerceTab({
           </div>
           <div className='space-y-3'>
             {displayOrders.slice(0, 3).length > 0 ? displayOrders.slice(0, 3).map((order) => {
-              const id = order.id || order._id || order.orderNumber || order.order_number
-              const status = order.status || order.payment || order.paymentStatus || 'Draft'
-              const amount = order.amount || order.total || order.totalAmount || order.grandTotal || 0
-              const time = order.time || order.date || (order.createdAt ? new Date(order.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '—')
               return (
                 <div
-                  key={id}
+                  key={order.id}
                   className='flex items-center justify-between group cursor-pointer'
-                  onClick={() => onOpenOrder && id && onOpenOrder(id)}
+                  onClick={() => onOpenOrder && order.id && onOpenOrder(order.id)}
                 >
                   <div className='flex items-center gap-2 min-w-0'>
                     <div className='w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0' />
                     <span className='text-[10px] font-mono text-slate-500 group-hover:text-[var(--brand-600)] transition-colors truncate'>
-                      {id || 'ORDER'}
+                      {order.id || 'ORDER'}
                     </span>
                   </div>
                   <span className='text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200'>
-                    {status}
+                    {order.status}
                   </span>
                   <span className='text-[10px] font-bold text-slate-700 text-right'>
-                    {typeof amount === 'string' ? amount : formatRupiah(amount)}
+                    {typeof order.amount === 'string' ? order.amount : formatRupiah(order.amount)}
                   </span>
                   <span className='text-[10px] text-slate-400 text-right'>
-                    {time}
+                    {order.time}
                   </span>
                 </div>
               )
@@ -787,10 +829,12 @@ function CommerceTab({
       {isOrdersModalOpen && (
         <ConversationOrdersModal
           orders={filteredOrders}
+          allOrders={displayOrders}
           ordersFilter={ordersFilter}
           setOrdersFilter={setOrdersFilter}
           onClose={() => setIsOrdersModalOpen(false)}
           onOpenOrder={onOpenOrder}
+          chat={chat}
         />
       )}
       {isQuickAddModalOpen && (
@@ -954,17 +998,37 @@ function PaymentProviderCard({
   )
 }
 
+// Helper to get status badge colour class
+function getOrderStatusClass(status = '') {
+  const s = status.toLowerCase()
+  if (s === 'completed' || s === 'delivered') return 'completed'
+  if (s === 'cancelled' || s === 'canceled') return 'cancelled'
+  if (s === 'preparing' || s === 'processing' || s === 'ready') return 'preparing'
+  if (s === 'new' || s === 'pending') return 'new'
+  return 'default'
+}
+
+function getPaymentStatusClass(status = '') {
+  const s = status.toLowerCase()
+  if (s === 'paid') return 'paid'
+  if (s === 'pending') return 'pending'
+  return 'unpaid'
+}
+
 function ConversationOrdersModal({
   orders,
+  allOrders,
   ordersFilter,
   setOrdersFilter,
   onClose,
   onOpenOrder,
+  chat,
 }) {
+  const total = (allOrders || orders).length
   return (
     <CommerceModal title='Conversation Orders' onClose={onClose} size='lg'>
       <div className='chat-prism-order-filters'>
-        {['all', 'pending', 'paid', 'completed'].map((filter) => (
+        {['all', 'pending', 'paid', 'completed', 'cancelled'].map((filter) => (
           <button
             key={filter}
             className={ordersFilter === filter ? 'active' : ''}
@@ -979,6 +1043,8 @@ function ConversationOrdersModal({
           <thead>
             <tr>
               <th>Order ID</th>
+              <th>Customer</th>
+              <th>Platform</th>
               <th>Date</th>
               <th>Amount</th>
               <th>Payment</th>
@@ -987,60 +1053,91 @@ function ConversationOrdersModal({
             </tr>
           </thead>
           <tbody>
-            {orders.map((order) => (
-              <tr key={order.id}>
-                <td>
-                  <strong>{order.id}</strong>
-                </td>
-                <td>
-                  <strong>{order.date}</strong>
-                  <small>{order.time}</small>
-                </td>
-                <td>
-                  <strong>{order.amount}</strong>
-                </td>
-                <td>
-                  <span className={order.payment.toLowerCase()}>
-                    {order.payment}
-                  </span>
-                </td>
-                <td>
-                  <span className={order.status.toLowerCase()}>
-                    {order.status}
-                  </span>
-                </td>
-                <td>
-                  <div className='chat-prism-table-actions'>
-                    {order.actions.map((action) => (
+            {orders.length > 0 ? orders.map((order) => {
+              const displayName = order.customerName || chat?.contactName || '—'
+              const displayPhone = order.customerPhone
+              const displayId = order.contactIdentifier
+              const contactSub = displayPhone || (displayId ? `ID: ${String(displayId).slice(-8)}` : null)
+              const platform = order.channel || (chat?.platform || '').toLowerCase() || 'unknown'
+              const amountStr = typeof order.amount === 'string'
+                ? order.amount
+                : formatRupiah(order.amount)
+              return (
+                <tr key={order.id || Math.random()}>
+                  <td>
+                    <strong style={{ fontFamily: 'monospace', fontSize: 11 }}>{order.id || '—'}</strong>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <strong style={{ fontSize: 12 }}>{displayName}</strong>
+                      {contactSub && (
+                        <small style={{ fontSize: 10, color: 'var(--text-muted)' }}>{contactSub}</small>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    <span style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      textTransform: 'capitalize',
+                      padding: '2px 6px',
+                      borderRadius: 5,
+                      background: 'var(--surface-secondary)',
+                      color: 'var(--text-secondary)',
+                    }}>
+                      {platform || '—'}
+                    </span>
+                  </td>
+                  <td>
+                    <strong style={{ fontSize: 11 }}>{order.date}</strong>
+                    <small style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>{order.time}</small>
+                  </td>
+                  <td>
+                    <strong>{amountStr}</strong>
+                  </td>
+                  <td>
+                    <span className={getPaymentStatusClass(order.paymentStatus)}>
+                      {order.paymentStatus || 'Pending'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={getOrderStatusClass(order.status)}>
+                      {order.status || 'Draft'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className='chat-prism-table-actions'>
                       <button
-                        key={action}
-                        onClick={() =>
-                          action === 'Open' && onOpenOrder?.(order.id)
-                        }
+                        onClick={() => onOpenOrder?.(order.id)}
+                        title='Open order detail'
                       >
-                        {action}
+                        Open
                       </button>
-                    ))}
-                    <button>
-                      <MoreHorizontal size={14} />
-                    </button>
-                  </div>
+                      <button title='More actions'>
+                        <MoreHorizontal size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            }) : (
+              <tr>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: 12 }}>
+                  No orders found.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
       <div className='chat-prism-pagination-row'>
-        <span>Showing 1 to {orders.length} of 18 orders</span>
+        <span>Showing {orders.length} of {total} order{total !== 1 ? 's' : ''}</span>
         <div>
-          <button>
+          <button disabled>
             <ChevronLeft size={14} />
           </button>
           <button className='active'>1</button>
-          <button>2</button>
-          <button>3</button>
-          <button>
+          <button disabled>
             <ChevronRight size={14} />
           </button>
         </div>
@@ -1383,24 +1480,45 @@ export default function ChatContextPanel({
   )
   const [liveOrders, setLiveOrders] = useState([])
   const [outletProductMap, setOutletProductMap] = useState({})
+  // Ref so the cart-polling closure always reads the LATEST liveOrders (avoids stale closure)
+  const liveOrdersRef = useRef([])
 
-  // ── Fetch static data (outlets, products, orders) once per chat ───────────
+  // ── Fetch outlets, products and conversation-scoped orders ───────────────
   useEffect(() => {
     if (isDemoMode() || !chat?.workspaceId) return
+    const chatId = chat?.id || chat?._id
+    const rawContactId = chat?.contactId
+    const contactId = typeof rawContactId === 'object' ? rawContactId?.id : rawContactId
+
     ;(async () => {
       try {
-        const [oRes, pRes, ordRes] = await Promise.all([
+        const [oRes, pRes] = await Promise.all([
           api.get('/outlets'),
           api.get('/products'),
-          api.get('/orders'),
         ])
         const outlets = Array.isArray(oRes.data?.data) ? oRes.data.data : Array.isArray(oRes.data) ? oRes.data : []
         const products = Array.isArray(pRes.data?.data) ? pRes.data.data : Array.isArray(pRes.data) ? pRes.data : []
-        const orders = Array.isArray(ordRes.data?.data) ? ordRes.data.data.slice(0, 5) : Array.isArray(ordRes.data) ? ordRes.data.slice(0, 5) : []
 
         setLiveOutlets(outlets)
         setLiveProducts(products)
-        setLiveOrders(orders)
+
+        // Fetch orders filtered by this conversation's chatId / contactId
+        try {
+          const ordParams = {}
+          if (chatId) ordParams.chat_id = chatId
+          if (contactId) ordParams.contact_id = contactId
+          const ordRes = await api.get('/orders', { params: ordParams }).catch(() => null)
+          let orders = Array.isArray(ordRes?.data?.data)
+            ? ordRes.data.data
+            : Array.isArray(ordRes?.data) ? ordRes.data : []
+          // Sort newest first, keep up to 20
+          orders = orders
+            .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+            .slice(0, 20)
+          setLiveOrders(orders)
+        } catch {
+          // silently degrade — orders section shows fallback or empty
+        }
 
         // Build outlet → product ID map
         const map = {}
@@ -1420,7 +1538,26 @@ export default function ChatContextPanel({
         console.warn('[ContextPanel] static data error:', e.message)
       }
     })()
-  }, [chat?.workspaceId])
+  }, [chat?.workspaceId, chat?.id, chat?._id, chat?.contactId])
+
+  // Keep the ref in sync whenever liveOrders changes
+  useEffect(() => { liveOrdersRef.current = liveOrders }, [liveOrders])
+
+  // ── Auto-clear cart when latest order is completed/delivered/cancelled ──────
+  useEffect(() => {
+    if (isDemoMode()) return
+    if (!liveOrders || liveOrders.length === 0) return
+    const sorted = [...liveOrders].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    const latestStatus = (sorted[0]?.status || '').toLowerCase()
+    const isDone = latestStatus === 'completed' || latestStatus === 'delivered' || latestStatus === 'cancelled'
+    if (!isDone) return
+    setLiveCartItems([])
+    const chatId = chat?.id || chat?._id
+    const contactId = typeof chat?.contactId === 'object' ? chat?.contactId?.id : chat?.contactId
+    if (chatId || contactId) {
+      api.post('/carts/clear-active', { contactId, chatId }).catch(() => {})
+    }
+  }, [liveOrders])
 
   // ── Poll cart every 5s so sidebar stays in sync with AI actions ───────────
   useEffect(() => {
@@ -1431,20 +1568,31 @@ export default function ChatContextPanel({
 
     const fetchCart = async () => {
       try {
+        // Check FIRST if the latest order for this chat is already done.
+        // Use ref so we always read fresh liveOrders even inside a stale closure.
+        const currentOrders = liveOrdersRef.current || []
+        if (currentOrders.length > 0) {
+          const latest = [...currentOrders].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0]
+          const ls = (latest?.status || '').toLowerCase()
+          if (ls === 'completed' || ls === 'delivered' || ls === 'cancelled') {
+            // Order is done — cart must be empty, don't let backend overwrite
+            setLiveCartItems([])
+            return
+          }
+        }
+
         const params = {}
         if (chatId) params.chat_id = chatId
         if (contactId) params.contact_id = contactId
         const cRes = await api.get('/carts/current', { params }).catch(() => null)
         const httpStatus = cRes?.status
         const cart = cRes?.data?.data || cRes?.data || null
+
         if (cart && (cart.outletId || cart.outlet_id)) {
-          // Cart exists → sync from it
           setLiveCartItems(cart.items || [])
           setLiveCartOutletId(cart.outletId || cart.outlet_id)
         } else if (httpStatus === 404 || !cart) {
-          // No active cart — clear items but keep outlet from chat record
           setLiveCartItems([])
-          // Refetch chat to get latest currentOutletId
           try {
             const chatRes = await api.get(`/chats/${chatId}`).catch(() => null)
             const updatedChat = chatRes?.data?.data || chatRes?.data || null
@@ -1454,14 +1602,13 @@ export default function ChatContextPanel({
         } else {
           setLiveCartItems(cart.items || [])
         }
-      } catch (e) {
-        // silent — don't break UI if cart fetch fails
+      } catch {
+        // silent
       }
     }
 
-    fetchCart() // immediate
+    fetchCart()
     const interval = setInterval(fetchCart, 5000)
-    // Also refresh immediately when cart is cleared from sidebar
     window.addEventListener('cart-cleared', fetchCart)
     return () => {
       clearInterval(interval)

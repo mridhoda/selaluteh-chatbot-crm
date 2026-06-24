@@ -61,17 +61,18 @@ export async function processPaymentWebhook({ workspaceId, provider, rawBody, he
     netAmount: event.netAmount || event.amount, paymentMethod: event.paymentMethod, paidAt: new Date(),
   } });
 
-  const updatedOrder = await ordersRepository.updateOne({ workspaceId, orderId: payment.orderId, updates: { payment_status: 'paid' } });
+  const updatedOrder = await ordersRepository.updateOne({ workspaceId, orderId: payment.orderId, updates: { payment_status: 'paid', status: 'accepted' } });
 
   await paymentsRepository.updatePayment(payment.id, { reconciliation_status: 'matched' });
   await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: 'paid' });
 
   if (updatedOrder) {
     try {
+      const outletName = updatedOrder.outletNameSnapshot || '';
       await sendOrderStatusMessage({
         order: updatedOrder,
         from: 'ai',
-        messageText: `Pembayaran pesanan ${updatedOrder.orderNumber || ''} sudah kami terima ✅\n\nPesanan akan segera diproses.`,
+        messageText: `Pembayaran pesanan ${updatedOrder.orderNumber || ''} sudah kami terima ✅\n\nPesanan telah dikonfirmasi dan akan segera diproses.\n\nKami akan memberi tahu saat pesanan siap diambil.`,
       });
     } catch (err) {
       console.error('[PaymentWebhook] Failed to send paid notification:', err.message);
@@ -177,13 +178,14 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
     const updatedOrder = await ordersRepository.updateOne({
       workspaceId: targetPayment.workspaceId,
       orderId: targetPayment.orderId,
-      updates: { payment_status: 'paid', paid_at: new Date().toISOString() },
+      updates: { payment_status: 'paid', paid_at: new Date().toISOString(), status: 'accepted' },
     });
     await paymentsRepository.addEvent({ paymentId: targetPayment.id, event: {
       provider: 'xendit', providerEventId: eventKey, eventType: event.eventType, status: 'paid',
       amount: event.amount, currency: event.currency, paymentMethod: 'LINK_PAYMENT', paidAt: new Date(), rawPayload: safePaymentSessionPayload(event.raw),
     } });
-    await notifyPaidOnce({ order: updatedOrder, paymentId: targetPayment.id });
+    const outletName = updatedOrder?.outletNameSnapshot || '';
+    await notifyPaidOnce({ order: updatedOrder, paymentId: targetPayment.id, outletName });
   } else if (nextStatus === 'expired') {
     await ordersRepository.updateOne({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId, updates: { payment_status: 'expired' } });
   }
@@ -200,15 +202,16 @@ function safePaymentSessionPayload(payload = {}) {
   return redactSecrets(payload);
 }
 
-async function notifyPaidOnce({ order, paymentId }) {
+async function notifyPaidOnce({ order, paymentId, outletName }) {
   if (!order) return;
   const sentPayments = order.metadata?.paid_notification_payment_ids || [];
   if (sentPayments.includes(paymentId)) return;
   try {
+    const outletLine = outletName ? `\n\nSilakan ambil di outlet **${outletName}** setelah pesanan siap.` : '\n\nKami akan memberi tahu saat pesanan siap diambil.';
     await sendOrderStatusMessage({
       order,
       from: 'ai',
-      messageText: `Pembayaran pesanan ${order.orderNumber || ''} sudah kami terima.\n\nPesanan telah dikonfirmasi dan akan segera diproses.`,
+      messageText: `Pembayaran pesanan ${order.orderNumber || ''} sudah kami terima ✅\n\nPesanan telah dikonfirmasi dan akan segera diproses.${outletLine}`,
     });
     await ordersRepository.updateOne({
       workspaceId: order.workspaceId,

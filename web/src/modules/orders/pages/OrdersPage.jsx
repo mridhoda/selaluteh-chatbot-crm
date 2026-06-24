@@ -381,41 +381,44 @@ export default function Orders() {
       const agent = agents[order.agentId]
       const priceInfo = calculateOrderPrice(order, agent)
 
+      // Legacy formData parsing (fallback for old orders)
       const entries = Object.entries(order.formData || {})
       const outletEntry = entries.find(([key]) =>
         key.toLowerCase().includes('outlet')
       )
-      const outlet = outletEntry ? outletEntry[1] : 'Samarinda'
+      const outletFromFormData = outletEntry ? outletEntry[1] : 'Samarinda'
 
       const channelEntry = entries.find(
         ([key]) =>
           key.toLowerCase().includes('channel') ||
           key.toLowerCase().includes('platform')
       )
-      const channel = channelEntry ? channelEntry[1].toLowerCase() : 'whatsapp'
+      const channelFromFormData = channelEntry
+        ? channelEntry[1].toLowerCase()
+        : '' // do NOT default to 'whatsapp' — let source field take priority
 
       const payStatusEntry = entries.find(
         ([key]) =>
           key.toLowerCase().includes('payment') ||
           key.toLowerCase().includes('bayar')
       )
-      let paymentStatus = payStatusEntry
+      let paymentStatusFromFormData = payStatusEntry
         ? payStatusEntry[1]
         : order.paymentProofUrl
           ? 'Paid'
           : 'Unpaid'
       if (
-        paymentStatus.toLowerCase().includes('paid') ||
-        paymentStatus.toLowerCase().includes('lunas')
+        paymentStatusFromFormData.toLowerCase().includes('paid') ||
+        paymentStatusFromFormData.toLowerCase().includes('lunas')
       ) {
-        paymentStatus = 'Paid'
+        paymentStatusFromFormData = 'Paid'
       } else {
-        paymentStatus = 'Unpaid'
+        paymentStatusFromFormData = 'Unpaid'
       }
 
-      let itemsList = []
+      let itemsFromFormData = []
       if (priceInfo) {
-        itemsList.push({
+        itemsFromFormData.push({
           name: priceInfo.itemName,
           qty: priceInfo.quantity,
           variant: 'Default Variant',
@@ -432,7 +435,7 @@ export default function Orders() {
             key.toLowerCase() === 'qty' || key.toLowerCase() === 'quantity'
         )
         if (itemNameEntry) {
-          itemsList.push({
+          itemsFromFormData.push({
             name: itemNameEntry[1],
             qty: qtyEntry ? parseInt(qtyEntry[1]) || 1 : 1,
             variant: 'Standard',
@@ -441,9 +444,9 @@ export default function Orders() {
         }
       }
 
-      const subtotal = priceInfo
+      const subtotalFromFormData = priceInfo
         ? priceInfo.subtotal
-        : itemsList[0]?.price * itemsList[0]?.qty || 0
+        : itemsFromFormData[0]?.price * itemsFromFormData[0]?.qty || 0
       const orderIdDisplay = order._id.startsWith('order-')
         ? `ORD-${order._id.replace('order-', '')}`
         : `ORD-${order._id.substring(order._id.length - 4).toUpperCase()}`
@@ -482,24 +485,88 @@ export default function Orders() {
         timeline.push({ time: new Date().toLocaleString(), label: 'Cancelled' })
       }
 
+      // --- Resolve outlet name: prefer structured outlet object, then formData fallback ---
+      const outletName =
+        (order.outlet && typeof order.outlet === 'object'
+          ? order.outlet.name
+          : null) ||
+        (order.outlet && typeof order.outlet === 'string'
+          ? order.outlet
+          : null) ||
+        outletFromFormData
+
+      // --- Resolve channel: prefer channelSnapshot → source field → formData fallback ---
+      const channelResolved =
+        (order.channelSnapshot || '').toLowerCase() ||
+        (order.source || '').toLowerCase() ||
+        channelFromFormData ||
+        'unknown'
+
+      // --- Resolve payment status: prefer server paymentStatus field, then formData fallback ---
+      let paymentStatusResolved = order.paymentStatus
+        ? order.paymentStatus.toLowerCase().includes('paid') ||
+          order.paymentStatus.toLowerCase().includes('lunas')
+          ? 'Paid'
+          : 'Unpaid'
+        : paymentStatusFromFormData
+
+      // --- Resolve items: prefer order.items from order_items table, then formData fallback ---
+      let itemsListResolved = itemsFromFormData
+      if (Array.isArray(order.items) && order.items.length > 0) {
+        itemsListResolved = order.items.map((item) => ({
+          name: item.name || item.productNameSnapshot || 'Item',
+          qty: item.quantity || 1,
+          variant: item.metadata?.variant || '',
+          price: item.unitPrice || 0,
+        }))
+      }
+
+      // --- Resolve total: prefer server totalAmount, then subtotal from items, then fallback ---
+      const totalResolved =
+        order.totalAmount ||
+        order.totals?.total ||
+        (itemsListResolved.length > 0
+          ? itemsListResolved.reduce((sum, i) => sum + i.price * i.qty, 0)
+          : subtotalFromFormData || 25000)
+
+      // --- Resolve customer name: prefer contactId object from server, then customerNameSnapshot ---
+      const customerName =
+        (order.contactId && typeof order.contactId === 'object'
+          ? order.contactId.name
+          : null) ||
+        order.customerNameSnapshot ||
+        'Unknown User'
+      const customerPhone =
+        (order.contactId && typeof order.contactId === 'object'
+          ? order.contactId.phone
+          : null) ||
+        order.customerPhoneSnapshot ||
+        ''
+
       return {
         _id: order._id,
         orderIdDisplay,
         status: order.status,
         contactId: {
-          name: order.contactId?.name || 'Unknown User',
-          phone: order.contactId?.phone || '',
+          id: order.contactId && typeof order.contactId === 'object' ? order.contactId.id : (typeof order.contactId === 'string' ? order.contactId : null),
+          name: customerName,
+          phone: customerPhone,
         },
-        outlet,
-        channel,
+        customerNameSnapshot: order.customerNameSnapshot || null,
+        customerPhoneSnapshot: order.customerPhoneSnapshot || null,
+        chatId: order.chatId || null,
+        outlet: outletName,
+        channel: channelResolved,
+        channelSnapshot: order.channelSnapshot || null,
+        source: order.source || null,
         itemsCount:
-          itemsList.length > 0
-            ? `${itemsList.length} item${itemsList.length > 1 ? 's' : ''}`
+          itemsListResolved.length > 0
+            ? `${itemsListResolved.length} item${itemsListResolved.length > 1 ? 's' : ''}`
             : '0 items',
-        itemsList,
-        total: subtotal || 25000,
-        paymentMethod: 'Bank Transfer',
-        paymentStatus,
+        itemsList: itemsListResolved,
+        total: totalResolved,
+        paymentMethod: order.paymentMethod || null,
+        paymentStatus: paymentStatusResolved,
         notes: order.notes || '',
         createdAt: order.createdAt,
         timeline,
@@ -668,15 +735,16 @@ export default function Orders() {
         }))
       }
     } else {
-      // Real API update
+      // Real API update — use PATCH /orders/:id/status for proper state machine + WA notification
       try {
-        await api.put(`/orders/${orderId}`, { status: newStatus })
-        // Update local state list
+        await api.patch(`/orders/${orderId}/status`, { status: newStatus })
+        // Update local state optimistically
         setOrders((prev) =>
           prev.map((o) => (o._id === orderId ? { ...o, status: newStatus } : o))
         )
       } catch (err) {
-        alert('Gagal memperbarui status order.')
+        const serverMsg = err?.response?.data?.error || err?.response?.data?.message || err.message
+        alert(`Gagal memperbarui status order: ${serverMsg}`)
       }
     }
   }
@@ -815,11 +883,23 @@ export default function Orders() {
     }
   }
 
-  // Resend Payment Link mock response
-  const handleResendPayment = (order) => {
-    alert(
-      `Link pembayaran berhasil dikirim ulang ke ${order.contactId?.name} (${order.contactId?.phone})`
-    )
+  // Resend Payment Link — kirim ulang notifikasi pembayaran ke customer via WA
+  const handleResendPayment = async (order) => {
+    if (!order?._id || order._id.startsWith('order-')) {
+      alert('Resend Link hanya tersedia untuk order nyata.')
+      return
+    }
+    try {
+      await api.patch(`/orders/${order._id}/status`, { status: order.status })
+      alert(
+        `Notifikasi berhasil dikirim ulang ke ${order.contactId?.name || 'customer'}${
+          order.contactId?.phone ? ` (${order.contactId.phone})` : ''
+        }`
+      )
+    } catch (err) {
+      const serverMsg = err?.response?.data?.error || err?.response?.data?.message || err.message
+      alert(`Gagal mengirim ulang notifikasi: ${serverMsg}`)
+    }
   }
 
   // View image proof in modal

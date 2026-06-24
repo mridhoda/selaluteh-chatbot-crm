@@ -51,9 +51,13 @@ async function requestXendit(path, { method = 'GET', body } = {}) {
   const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
     const code = payload.error_code || (response.status === 401 ? 'XENDIT_AUTHENTICATION_FAILED' : 'XENDIT_PROVIDER_ERROR');
+    // Full debug log so we can see exact Xendit rejection reason
+    console.error('[Xendit] API error:', JSON.stringify({ status: response.status, payload, requestBody: body }, null, 2));
     throw new AppError(code, 'Xendit payment session request failed', response.status >= 500 ? 502 : response.status, {
       providerStatus: response.status,
       providerCode: payload.error_code,
+      providerMessage: payload.message,
+      providerErrors: payload.errors,
     });
   }
   return payload;
@@ -61,7 +65,8 @@ async function requestXendit(path, { method = 'GET', body } = {}) {
 
 function normalizeCustomer(customer = {}) {
   const name = String(customer.name || customer.fullName || customer.givenNames || 'Customer').replace(/[^a-zA-Z0-9 ]/g, ' ').trim().slice(0, 50) || 'Customer';
-  const reference = String(customer.referenceId || customer.id || customer.phone || customer.email || name).replace(/[^a-zA-Z0-9]/g, '').slice(0, 255) || 'Customer';
+  const baseReference = String(customer.referenceId || customer.id || customer.phone || customer.email || name).replace(/[^a-zA-Z0-9]/g, '').slice(0, 200) || 'Customer';
+  const reference = `${baseReference}_${Date.now()}`;
   const result = {
     reference_id: reference,
     type: 'INDIVIDUAL',
@@ -116,7 +121,7 @@ export function normalizeSession(session = {}) {
     providerStatus: session.status,
     amount: Number(session.amount || 0),
     currency: session.currency || 'IDR',
-    paymentUrl: session.payment_link_url || '',
+    paymentUrl: session.payment_link_url || session.payment_link || '',
     expiresAt: session.expires_at || null,
     businessId: session.business_id || null,
     rawProviderResponse: session,

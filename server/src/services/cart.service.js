@@ -112,7 +112,7 @@ export function getCartSummary(cart) {
       quantity: i.quantity,
       subtotal: i.subtotal,
     })),
-    total: cart.total,
+    total: cart.total ?? cart.totalAmount ?? 0,
     currency: cart.currency,
     itemCount: cart.items.length,
   };

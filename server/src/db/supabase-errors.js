@@ -72,6 +72,7 @@ export function mapSupabaseError(error, context = '') {
       return null;
 
     default:
+      console.error(`[supabase-error]${ctx} code=${code} message=${error.message} detail=${error.details} hint=${error.hint}`);
       return new AppError(
         'DATABASE_ERROR',
         `Database operation failed${ctx}`,

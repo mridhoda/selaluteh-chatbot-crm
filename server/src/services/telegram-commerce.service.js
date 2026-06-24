@@ -413,15 +413,29 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
       let payment;
       let paymentInstruction;
       if (env.paymentProvider === 'xendit') {
-        payment = await createXenditPaymentSessionForOrder({
-          workspaceId,
-          orderId: order.id,
-          customer: {
-            name: contact?.name || '',
-            phone: contact?.phone || contact?.platformAccountId || '',
-          },
-        });
-        paymentInstruction = `🔗 *Link Pembayaran:* ${payment.paymentUrl || payment.paymentLink}\n\nSilakan klik link di atas untuk menyelesaikan pembayaran. Link berlaku ${payment.expiresAt ? 'hingga ' + new Date(payment.expiresAt).toLocaleString('id-ID') : '30 menit'}.`;
+        try {
+          payment = await createXenditPaymentSessionForOrder({
+            workspaceId,
+            orderId: order.id,
+            customer: {
+              name: contact?.name || '',
+              phone: contact?.phone || contact?.platformAccountId || '',
+            },
+          });
+          paymentInstruction = `🔗 *Link Pembayaran:* ${payment.paymentUrl || payment.paymentLink}\n\nSilakan klik link di atas untuk menyelesaikan pembayaran. Link berlaku ${payment.expiresAt ? 'hingga ' + new Date(payment.expiresAt).toLocaleString('id-ID') : '30 menit'}.`;
+        } catch (xenditErr) {
+          console.warn('[payment] Xendit payment session request failed, falling back to manual payment:', xenditErr.message);
+          payment = await createPaymentForOrder({
+            workspaceId,
+            orderId: order.id,
+            customer: {
+              name: contact?.name || '',
+              phone: contact?.phone || contact?.platformAccountId || '',
+            },
+            provider: 'manual',
+          });
+          paymentInstruction = `⚠️ _Gagal membuat link pembayaran Xendit. Silakan lakukan pembayaran manual._\n\n${buildPaymentInstruction(payment)}`;
+        }
       } else {
         payment = await createPaymentForOrder({
           workspaceId,

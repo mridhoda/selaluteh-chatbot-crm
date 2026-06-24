@@ -6,7 +6,7 @@ import { assertOutletAccess, buildOutletScopedQuery } from './access-control.ser
 const TERMINAL_PAID_STATUSES = new Set(['paid', 'refunded', 'partially_refunded']);
 const ACTIVE_SESSION_STATUSES = new Set(['pending', 'created']);
 
-export async function createPayment({ user, workspaceId, outletId, orderId, customer, amount, currency = 'IDR', paymentMethod = null }) {
+export async function createPayment({ user, workspaceId, outletId, orderId, customer, amount, currency = 'IDR', paymentMethod = null, provider = null }) {
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
   if (!order) throw new AppError('NOT_FOUND', 'Order not found', 404);
   if (user) await assertOutletAccess(user, order.outletId);
@@ -27,10 +27,11 @@ export async function createPayment({ user, workspaceId, outletId, orderId, cust
 
   let providerTransactionId = null;
   let paymentUrl = null;
+  const activeProvider = (requestedAmount === 0) ? 'manual' : (provider || env.paymentProvider);
 
-  if (env.paymentProvider !== 'manual') {
+  if (activeProvider !== 'manual') {
     try {
-      const adapter = await loadPaymentAdapter(env.paymentProvider);
+      const adapter = await loadPaymentAdapter(activeProvider);
       const result = await adapter.createPayment({
         orderId: orderId.toString(),
         merchantReference,
@@ -52,15 +53,16 @@ export async function createPayment({ user, workspaceId, outletId, orderId, cust
     workspaceId,
     outletId: outletId || order.outletId,
     orderId,
+    contactId: order.contactId,
     attemptNumber,
-    provider: env.paymentProvider,
+    provider: activeProvider,
     providerTransactionId,
     merchantReference,
     status: 'pending',
     amount: requestedAmount,
     currency,
     paymentUrl,
-    paymentMethod: paymentMethod || (env.paymentProvider === 'manual' ? 'manual' : null),
+    paymentMethod: paymentMethod || (activeProvider === 'manual' ? 'manual' : null),
     customerSnapshot: customer || {},
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
   });
@@ -70,7 +72,7 @@ export async function createPayment({ user, workspaceId, outletId, orderId, cust
   return payment;
 }
 
-export async function createPaymentForOrder({ workspaceId, orderId, customer, paymentMethod }) {
+export async function createPaymentForOrder({ workspaceId, orderId, customer, paymentMethod, provider = null }) {
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
   if (!order) throw new AppError('NOT_FOUND', 'Order not found', 404);
   return createPayment({
@@ -81,6 +83,7 @@ export async function createPaymentForOrder({ workspaceId, orderId, customer, pa
     currency: order.totals?.currency || 'IDR',
     customer,
     paymentMethod,
+    provider,
   });
 }
 
@@ -113,12 +116,18 @@ export async function createXenditPaymentSessionForOrder({ user, workspaceId, or
   const attemptNumber = existingAttempts + 1;
   const referenceId = buildXenditReference({ order, attemptNumber });
   const expiresAt = new Date(Date.now() + env.xenditPaymentSessionTtlMinutes * 60 * 1000).toISOString();
+  
+  const paymentAmount = order.totals?.total || order.totalAmount || 0;
+  if (paymentAmount <= 0) {
+    throw new AppError('INVALID_AMOUNT', 'Amount must be greater than zero for Xendit', 400);
+  }
+
   const adapter = await loadPaymentAdapter('xendit');
   const providerSession = await adapter.createPaymentSession({
     referenceId,
     orderId: order.id,
     orderNumber: order.orderNumber,
-    amount: order.totals?.total || order.totalAmount || 0,
+    amount: paymentAmount,
     currency: order.totals?.currency || order.currency || 'IDR',
     customer: buildCustomerSnapshot(order, customer),
     successReturnUrl: buildReturnUrl('success'),
@@ -136,6 +145,7 @@ export async function createXenditPaymentSessionForOrder({ user, workspaceId, or
     workspaceId,
     outletId: order.outletId,
     orderId,
+    contactId: order.contactId,
     attemptNumber,
     provider: 'xendit',
     providerTransactionId: providerSession.providerSessionId,
@@ -220,6 +230,8 @@ export function toPaymentSessionResponse(payment) {
     status: payment.status,
     amount: Number(payment.amount || 0),
     currency: payment.currency || 'IDR',
+    paymentUrl: payment.paymentUrl || payment.paymentLink || '',
+    paymentLink: payment.paymentUrl || payment.paymentLink || '',
     paymentLinkUrl: payment.paymentUrl || payment.paymentLink || '',
     expiresAt: payment.expiresAt || payment.expiryTime || null,
     attemptNumber: payment.attemptNumber,

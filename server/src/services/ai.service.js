@@ -295,7 +295,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
             const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId });
             if (!cart) return JSON.stringify({ error: 'No active cart. Call select_outlet first.' });
             const product = await productsRepository.findById({ workspaceId, productId: toolArgs.productId });
-            await cartsRepository.addItem({
+            const updatedCart = await cartsRepository.addItem({
               workspaceId,
               cartId: cart.id,
               item: {
@@ -307,7 +307,9 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
                 effectivePrice: product?.basePrice ?? product?.price ?? 0,
               },
             });
-            cartItemAdded = true; // ← mark that items were added this turn
+            const cartTotal = updatedCart.items.reduce((sum, i) => sum + (i.subtotal || i.subtotalAmount || 0), 0);
+            await cartsRepository.update({ workspaceId, cartId: cart.id, updates: { total: cartTotal } });
+            cartItemAdded = true;
             console.log(`[ai-tool] add_cart_item: added ${toolArgs.quantity}x ${product?.name} to cart ${cart.id}`);
             return JSON.stringify({ success: true, productId: toolArgs.productId, name: product?.name, quantity: toolArgs.quantity });
           }

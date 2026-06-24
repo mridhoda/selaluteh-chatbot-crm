@@ -46,6 +46,26 @@ function mapOrder(row) {
     currency: order.currency,
   };
   delete order.orderItems;
+
+  // Map joined contacts row → contactId object (Supabase join returns as 'contacts' key)
+  if (row.contacts && typeof row.contacts === 'object') {
+    order.contactId = {
+      id: row.contacts.id,
+      name: row.contacts.name || null,
+      phone: row.contacts.phone || null,
+    };
+  }
+
+  // Map joined outlets row → outlet object
+  if (row.outlets && typeof row.outlets === 'object') {
+    order.outlet = {
+      id: row.outlets.id,
+      name: row.outlets.name || null,
+      code: row.outlets.code || null,
+      city: row.outlets.city || null,
+    };
+  }
+
   return order;
 }
 
@@ -62,8 +82,7 @@ export const ordersSupabaseRepository = {
       agent_id: data.agentId || null,
       cart_id: data.cartId || null,
       checkout_id: data.checkoutId || null,
-      order_number: data.orderNumber || null,
-      outlet_name_snapshot: data.outletNameSnapshot || '',
+      // outlet_name_snapshot does NOT exist in the orders table schema
       source: data.source || 'telegram',
       status: data.status || 'new',
       payment_status: data.paymentStatus || 'unpaid',
@@ -83,6 +102,10 @@ export const ordersSupabaseRepository = {
       form_data: data.formData || {},
       metadata: data.metadata || {},
     };
+
+    // Let the DB auto-generate order_number via generate_order_number() function.
+    // Only override if explicitly provided AND it won't conflict.
+    // (Passing null causes the DB default to be used)
 
     const result = await client.from(TABLE).insert(insert).select().single();
     const order = mapRow(extractSingle(result, 'orders.create'));
@@ -105,7 +128,7 @@ export const ordersSupabaseRepository = {
   async workspaceList({ workspaceId, outletId, status, paymentStatus, search, page = 1, limit = 50 }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    let q = client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
+    let q = client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status), order_items(*)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
     if (outletId) q = q.eq('outlet_id', outletId);
     if (status) q = q.eq('status', status);
     if (paymentStatus) q = q.eq('payment_status', paymentStatus);
@@ -118,7 +141,7 @@ export const ordersSupabaseRepository = {
   async workspaceListScoped({ workspaceId, outletId, outletIds, status, paymentStatus, search, page = 1, limit = 50 }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    let q = client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
+    let q = client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status), order_items(*)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
     if (outletId) q = q.eq('outlet_id', outletId);
     else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
     if (status) q = q.eq('status', status);

@@ -76,8 +76,9 @@ export async function confirmCheckout({ workspaceId, checkoutId }) {
   if (!checkout) throw new AppError('NOT_FOUND', 'Checkout not found', 404);
   if (checkout.status !== 'pending') throw new AppError('INVALID_STATE', 'Checkout is not in pending state', 409);
 
-  const updated = await checkoutsRepository.updateStatus({ workspaceId, checkoutId, status: 'confirmed' });
-  return updated;
+  await checkoutsRepository.updateStatus({ workspaceId, checkoutId, status: 'confirmed' });
+  // Re-fetch with full checkout_items join so createOrderFromCheckout gets items
+  return checkoutsRepository.findById({ workspaceId, checkoutId });
 }
 
 export async function getCheckoutDetail({ workspaceId, checkoutId }) {

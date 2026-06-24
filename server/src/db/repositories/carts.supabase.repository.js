@@ -32,6 +32,7 @@ function mapCart(row) {
     notes: item.notes,
     metadata: item.metadata || {},
   }));
+  cart.total = cart.totalAmount;
   delete cart.cartItems;
   return cart;
 }

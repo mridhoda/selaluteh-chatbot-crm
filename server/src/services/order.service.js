@@ -39,6 +39,8 @@ export async function createOrderFromCheckout({ workspaceId, checkout, user }) {
     orderNumber,
     items: checkout.items,
     customerSnapshot: checkout.customerSnapshot || {},
+    customerNameSnapshot: checkout.customerSnapshot?.contactName || checkout.customerSnapshot?.name || '',
+    customerPhoneSnapshot: checkout.customerSnapshot?.phone || '',
     fulfillmentSnapshot: checkout.fulfillmentSnapshot || { method: 'pickup' },
     subtotalAmount: checkout.subtotal ?? checkout.subtotalAmount ?? 0,
     totalAmount: checkout.total ?? checkout.totalAmount ?? 0,

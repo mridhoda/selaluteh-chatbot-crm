@@ -74,7 +74,7 @@ async function executeCommerceTool({ toolCall, workspaceId, chat, contact }) {
       const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId: cartContactId });
       if (!cart) throw new AppError('CART_NOT_FOUND', 'No active cart. Select outlet first.', 400);
       const productForCart = await productsRepository.findById({ workspaceId, productId: args.productId });
-      const item = await cartsRepository.addItem({
+      const updatedCart = await cartsRepository.addItem({
         workspaceId,
         cartId: cart.id,
         item: {
@@ -87,7 +87,9 @@ async function executeCommerceTool({ toolCall, workspaceId, chat, contact }) {
           variantId: args.variantId || null,
         },
       });
-      return { result: { cartId: cart.id, item }, toolName: name };
+      const cartTotal = updatedCart.items.reduce((sum, i) => sum + (i.subtotal || i.subtotalAmount || 0), 0);
+      await cartsRepository.update({ workspaceId, cartId: cart.id, updates: { total: cartTotal } });
+      return { result: { cartId: cart.id, item: updatedCart.items.at(-1) }, toolName: name };
 
     case 'get_active_cart':
       const activeCart = await cartsRepository.findActiveByContact({ workspaceId, contactId: typeof chat?.contactId === 'object' ? chat.contactId?.id : chat?.contactId });

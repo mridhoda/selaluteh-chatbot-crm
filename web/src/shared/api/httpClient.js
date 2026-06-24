@@ -16,6 +16,22 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
+      const hadToken = !!getToken()
+      localStorage.removeItem('token')
+      sessionStorage.removeItem('token')
+      sessionStorage.removeItem('user')
+      if (hadToken) {
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(error)
+  },
+)
+
 if (typeof window !== 'undefined') {
   const realGet = api.get.bind(api)
   const realPost = api.post.bind(api)
