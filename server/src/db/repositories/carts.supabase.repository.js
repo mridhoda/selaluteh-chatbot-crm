@@ -82,8 +82,8 @@ export const cartsSupabaseRepository = {
 
   async upsertByContact({ workspaceId, contactId, outletId, chatId }) {
     requireWorkspaceId(workspaceId);
-    // Try to find existing active cart for this contact+outlet
-    const existing = await this.findActiveByContact({ workspaceId, contactId, outletId });
+    // Try to find existing active cart for this contact (across ANY outlet)
+    const existing = await this.findActiveByContact({ workspaceId, contactId });
     if (existing) {
       // If outlet changed, update it
       if (outletId && String(existing.outletId) !== String(outletId)) {

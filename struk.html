@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tes Cetak Web App - Inforce Printer</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; text-align: center; background: #f4f4f9; }
+        .card { background: white; max-width: 400px; margin: 0 auto; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        button { background: #007bff; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; }
+        button:hover { background: #0056b3; }
+        #status { margin-top: 15px; color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Aplikasi Kasir Web</h2>
+    <p>Uji coba cetak struk langsung ke Printer Thermal Bluetooth Inforce.</p>
+    
+    <button id="btnCetak">Hubungkan & Cetak Struk</button>
+    <div id="status">Status: Siap menghubungkan</div>
+</div>
+
+<script>
+document.getElementById('btnCetak').addEventListener('click', async () => {
+    const statusDiv = document.getElementById('status');
+    statusDiv.innerText = "Mencari printer Inforce...";
+
+    try {
+        // 1. Request koneksi ke printer Bluetooth terdekat
+        // Catatan: Jika UUID ini tidak merespons, hapus filter services agar mendeteksi semua perangkat.
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }],
+            optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
+        });
+
+        statusDiv.innerText = `Menghubungkan ke: ${device.name}...`;
+
+        // 2. Hubungkan ke GATT Server printer
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+        const characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
+
+        statusDiv.innerText = "Mengirim data transaksi...";
+
+        // 3. Format Perintah ESC/POS untuk Printer Inforce (Asumsi Kertas 58mm / 32 Karakter)
+        const ESC = '\x1B';
+        const BARIS_BARU = '\x0A';
+        
+        const RESET = ESC + '@';
+        const TEBAL_ON = ESC + 'E' + '\x01';
+        const TEBAL_OFF = ESC + 'E' + '\x00';
+        const TENGAH = ESC + 'a' + '\x01';
+        const KIRI = ESC + 'a' + '\x00';
+
+        // Konstruksi Teks Struk
+        let struk = RESET;
+        struk += TENGAH + TEBAL_ON + "TOKO INFORCE JAYA" + BARIS_BARU;
+        struk += TEBAL_OFF + "Kota Penguji, Linux Mint" + BARIS_BARU;
+        struk += "--------------------------------" + BARIS_BARU; // 32 strip pas untuk 58mm
+        struk += KIRI + "2x Kopi Susu Gula Aren  Rp36.000" + BARIS_BARU;
+        struk += "1x Roti Bakar Cokelat   Rp15.000" + BARIS_BARU;
+        struk += "--------------------------------" + BARIS_BARU;
+        struk += TEBAL_ON + "TOTAL TRNS             Rp51.000" + BARIS_BARU;
+        struk += TEBAL_OFF + TENGAH + "Metode: Tunai / Cash" + BARIS_BARU;
+        struk += "--------------------------------" + BARIS_BARU;
+        struk += "Terima Kasih Atas Kunjungan Anda" + BARIS_BARU;
+        struk += BARIS_BARU + BARIS_BARU + BARIS_BARU; // Jarak potong kertas agar teks tidak terpotong
+
+        // 4. Encode string menjadi Uint8Array biner
+        const encoder = new TextEncoder();
+        const dataBiner = encoder.encode(struk);
+
+        // 5. Tulis data ke printer
+        await characteristic.writeValue(dataBiner);
+        
+        statusDiv.innerText = "Struk berhasil dicetak!";
+        
+        // Putuskan koneksi agar printer bisa dipakai device lain nanti
+        device.gatt.disconnect();
+
+    } catch (error) {
+        console.error(error);
+        statusDiv.innerText = `Gagal: ${error.message}`;
+    }
+});
+</script>
+
+</body>
+</html>
