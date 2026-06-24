@@ -184,7 +184,7 @@ begin
 end;
 $$;
 
-create or replace function generate_order_number(prefix text default 'ORD')
+create or replace function generate_order_number(prefix text default 'SLTH')
 returns text
 language sql
 as $$

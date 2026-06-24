@@ -107,6 +107,36 @@ export async function waSend(token, fromPhoneNumberId, to, text) {
   return j;
 }
 
+export async function waSendInteractiveButton(token, fromPhoneNumberId, to, bodyText, buttons) {
+  const url = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
+  const rows = buttons.map((btn) => ({
+    type: 'reply',
+    reply: { id: btn.id, title: btn.title },
+  }));
+  const body = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: { text: bodyText },
+      action: { buttons: rows },
+    },
+  };
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const j = await r.json();
+  if (j.error) throw new Error(`WhatsApp sendInteractiveButton failed: ${JSON.stringify(j.error)}`);
+  return j;
+}
+
 export async function waSendDocument(token, fromPhoneNumberId, to, documentUrl, filename) {
   const url = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
   const body = {

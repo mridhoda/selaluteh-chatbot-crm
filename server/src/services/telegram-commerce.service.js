@@ -422,7 +422,7 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
               phone: contact?.phone || contact?.platformAccountId || '',
             },
           });
-          paymentInstruction = `🔗 *Link Pembayaran:* ${payment.paymentUrl || payment.paymentLink}\n\nSilakan klik link di atas untuk menyelesaikan pembayaran. Link berlaku ${payment.expiresAt ? 'hingga ' + new Date(payment.expiresAt).toLocaleString('id-ID') : '30 menit'}.`;
+          paymentInstruction = `🔗 *Invoice:* ${payment.paymentUrl || payment.paymentLink}`;
         } catch (xenditErr) {
           console.warn('[payment] Xendit payment session request failed, falling back to manual payment:', xenditErr.message);
           payment = await createPaymentForOrder({
@@ -454,7 +454,7 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
       }
       const ver = COMMERCE_VERSION;
       return {
-        text: `✅ Pesanan berhasil dibuat!\n\nNo. Pesanan: ${order.orderNumber}\nTotal: Rp ${order.totals.total.toLocaleString('id-ID')}\n\n${paymentInstruction}\n\nKami akan segera proses pesananmu.`,
+        text: `Silakan lanjutkan pembayaran:\n\nNo. Pesanan: ${order.orderNumber}\nTotal: Rp ${order.totals.total.toLocaleString('id-ID')}\n\n${paymentInstruction}`,
         keyboard: createInlineKeyboard([
           [{ text: 'Lihat Produk', callback_data: `${buildCallbackKey('prod', 'list', null, ver)}` }],
           [{ text: 'Status Pesanan', callback_data: `${buildCallbackKey('order', 'status', null, ver)}` }],

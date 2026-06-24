@@ -1,4 +1,5 @@
 import { paymentsSupabaseRepository as paymentsRepository, ordersSupabaseRepository as ordersRepository } from '../db/repositories/index.js';
+import { sendOrderStatusMessage } from './order.service.js';
 import { AppError } from '../utils/errors.js';
 
 export function determineReconciliationStatus({ payment, order, providerStatus }) {
@@ -115,7 +116,23 @@ async function processPaidPaymentFromReconciliation({ payment, providerEvent }) 
     },
   });
 
-  await ordersRepository.updateOne({ workspaceId: payment.workspaceId, orderId: payment.orderId, updates: { payment_status: 'paid' } });
+  const updatedOrder = await ordersRepository.updateOne({
+    workspaceId: payment.workspaceId,
+    orderId: payment.orderId,
+    updates: { payment_status: 'paid', status: 'accepted', paid_at: new Date().toISOString() },
+  });
+
+  if (updatedOrder) {
+    try {
+      await sendOrderStatusMessage({
+        order: updatedOrder,
+        from: 'ai',
+        messageText: `Pembayaran pesanan ${updatedOrder.orderNumber || ''} sudah kami terima ✅\n\nPesanan telah dikonfirmasi dan akan segera diproses.\n\nKami akan memberi tahu saat pesanan siap diambil.`,
+      });
+    } catch (err) {
+      console.error('[PaymentReconciliation] Failed to send paid notification:', err.message);
+    }
+  }
 }
 
 async function loadPaymentAdapter(provider) {

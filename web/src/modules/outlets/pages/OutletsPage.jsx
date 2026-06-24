@@ -1,10 +1,12 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../../../shared/api/httpClient'
 import { isDemoMode } from '../../../mocks/demoState'
 import kalisStorefront from '../../../assets/kalis_storefront.jpg'
 import rinaAvatar from '../../../assets/rina_avatar.jpg'
 import {
   AlertTriangle,
+  Camera,
   ArrowDown,
   ArrowUp,
   CheckCircle2,
@@ -468,6 +470,40 @@ function money(value) {
     .replace(/\s/g, '')
 }
 
+function parseCoordinatesFromUrl(url) {
+  if (!url) return null
+  
+  // Pattern 1: URL contains @lat,lng
+  const atMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
+  if (atMatch) {
+    return { lat: atMatch[1], lng: atMatch[2] }
+  }
+  
+  // Pattern 2: query params q=lat,lng or query=lat,lng
+  try {
+    const urlObj = new URL(url)
+    const qVal = urlObj.searchParams.get('q') || urlObj.searchParams.get('query')
+    if (qVal) {
+      const parts = qVal.split(',')
+      if (parts.length >= 2) {
+        const lat = parseFloat(parts[0].trim())
+        const lng = parseFloat(parts[1].trim())
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return { lat: String(lat), lng: String(lng) }
+        }
+      }
+    }
+  } catch (e) {
+    // Fallback regex search for q/query patterns
+    const qMatch = url.match(/[?&](?:q|query)=(-?\d+\.\d+),(-?\d+\.\d+)/)
+    if (qMatch) {
+      return { lat: qMatch[1], lng: qMatch[2] }
+    }
+  }
+  
+  return null
+}
+
 /* ─── Micro-components ─────────────────────────────────────── */
 function Trend({ value, suffix = '%', inverse = false }) {
   if (!value || value === 0)
@@ -748,7 +784,7 @@ function OutletCard({ outlet, selected, onSelect }) {
                 {outlet.name}
               </h3>
               <p className='m-0 mt-0.5 truncate text-xs text-[#667085] font-semibold'>
-                {outlet.city}, {outlet.region}
+                {[outlet.city, outlet.region].filter(Boolean).join(', ')}
               </p>
             </div>
             <div className='flex shrink-0 items-center gap-1.5'>
@@ -789,7 +825,7 @@ function OutletCard({ outlet, selected, onSelect }) {
       </div>
 
       {/* Metrics row */}
-      <div className='mt-2.5 grid grid-cols-5 divide-x divide-[#E1E6EF] border-t border-[#E1E6EF] pt-2.5'>
+      <div className='mt-2.5 grid grid-cols-3 divide-x divide-[#E1E6EF] border-t border-[#E1E6EF] pt-2.5'>
         <CardMetric
           label="Today's Orders"
           value={outlet.orders}
@@ -800,13 +836,6 @@ function OutletCard({ outlet, selected, onSelect }) {
           value={money(outlet.revenue)}
           trend={outlet.revenueChange}
         />
-        <CardMetric
-          label='Rating'
-          value={outlet.rating ? `${outlet.rating}` : '—'}
-          detail={outlet.reviews ? `(${outlet.reviews})` : ''}
-          star={!!outlet.rating}
-        />
-        <CardMetric label='Staff' value={outlet.staff} />
         <CardMetric
           label='Last Sync'
           value={outlet.sync}
@@ -1005,7 +1034,7 @@ function DetailMetric({ label, value, trend, suffix = '%', inverse = false }) {
 }
 
 /* ─── Right Detail Panel ───────────────────────────────────── */
-function DetailPanel({ outlet, onClose, mobile = false, onManageChannels }) {
+function DetailPanel({ outlet, onClose, mobile = false, onManageChannels, onViewDetails, onEditOutlet, onOpenOrders }) {
   if (!outlet) {
     return (
       <aside className='h-full bg-white flex flex-col items-center justify-center text-center p-6 text-[#667085] relative'>
@@ -1105,8 +1134,7 @@ function DetailPanel({ outlet, onClose, mobile = false, onManageChannels }) {
               <div className='flex items-start gap-2'>
                 <MapPin size={13} className='mt-0.5 shrink-0 text-[#98A2B3]' />
                 <p className='m-0 text-xs leading-relaxed text-[#667085] font-semibold flex-1 min-w-0'>
-                  {outlet.address}, {outlet.city}, {outlet.region}{' '}
-                  {outlet.postalCode}
+                  {[outlet.address, outlet.city, outlet.region].filter(Boolean).join(', ') + (outlet.postalCode ? ' ' + outlet.postalCode : '') || '-'}
                 </p>
               </div>
             </div>
@@ -1236,18 +1264,21 @@ function DetailPanel({ outlet, onClose, mobile = false, onManageChannels }) {
         <div className='grid grid-cols-3 gap-2.5 border-t border-[#E1E6EF] pt-4'>
           <button
             type='button'
+            onClick={() => onViewDetails && onViewDetails(outlet)}
             className='inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-[#F43F70] px-2 text-sm font-bold text-white shadow-[0_6px_18px_rgba(244,63,112,0.22)] transition hover:bg-[#e62e63] active:scale-[0.98]'
           >
             View Details <ExternalLink size={14} />
           </button>
           <button
             type='button'
+            onClick={() => onEditOutlet && onEditOutlet(outlet)}
             className='inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-[#D6DCE8] bg-white px-2 text-sm font-bold text-[#11182E] transition hover:bg-[#F2F4F8] active:scale-[0.98]'
           >
             <Edit3 size={14} /> Edit Outlet
           </button>
           <button
             type='button'
+            onClick={() => onOpenOrders && onOpenOrders(outlet)}
             className='inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-[#6956E8] px-2 text-sm font-bold text-white shadow-[0_6px_18px_rgba(105,86,232,0.22)] transition hover:bg-[#5e49da] active:scale-[0.98]'
           >
             <List size={14} /> Open Orders
@@ -1260,6 +1291,7 @@ function DetailPanel({ outlet, onClose, mobile = false, onManageChannels }) {
 
 /* ─── Page ─────────────────────────────────────────────────── */
 export default function OutletsPage() {
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [region, setRegion] = useState('All Regions')
   const [status, setStatus] = useState('All Statuses')
@@ -1271,6 +1303,92 @@ export default function OutletsPage() {
   const [selectedOutlet, setSelectedOutlet] = useState(null)
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false)
   const [isDetailOpen, setIsDetailOpen] = useState(true)
+
+  // Add Outlet Modal states
+  const [isAddOutletOpen, setIsAddOutletOpen] = useState(false)
+  const [addForm, setAddForm] = useState({
+    name: '',
+    code: '',
+    slug: '',
+    region: 'Kalimantan Timur',
+    city: 'Samarinda',
+    address: '',
+    phone: '',
+    email: '',
+    postalCode: '',
+    latitude: '',
+    longitude: '',
+    googleMapsLink: '',
+    managerName: '',
+    managerPhone: '',
+    managerEmail: '',
+    status: 'Active',
+    openingType: 'Active',
+    whatsappConnected: true,
+    telegramConnected: true,
+    prepTime: '18 min',
+    notes: '',
+    operatingHours: {
+      monFri: { open: '08:00', close: '22:00' },
+      saturday: { open: '08:00', close: '22:00' },
+      sunday: { open: '08:00', close: '22:00' }
+    }
+  })
+
+  const [photoPreview, setPhotoPreview] = useState(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const fileInputRef = useRef(null)
+
+  // Edit Outlet Modal states
+  const [isEditOutletOpen, setIsEditOutletOpen] = useState(false)
+  const [editForm, setEditForm] = useState({
+    id: null,
+    name: '',
+    code: '',
+    slug: '',
+    region: 'Kalimantan Timur',
+    city: 'Samarinda',
+    address: '',
+    phone: '',
+    email: '',
+    postalCode: '',
+    latitude: '',
+    longitude: '',
+    googleMapsLink: '',
+    managerName: '',
+    managerPhone: '',
+    managerEmail: '',
+    status: 'Active',
+    openingType: 'Active',
+    whatsappConnected: true,
+    telegramConnected: true,
+    prepTime: '18 min',
+    notes: '',
+    operatingHours: {
+      monFri: { open: '08:00', close: '22:00' },
+      saturday: { open: '08:00', close: '22:00' },
+      sunday: { open: '08:00', close: '22:00' }
+    }
+  })
+  const [editPhotoPreview, setEditPhotoPreview] = useState(null)
+  const [uploadingEditPhoto, setUploadingEditPhoto] = useState(false)
+  const editFileInputRef = useRef(null)
+
+  // View Details Modal states
+  const [isViewDetailsOpen, setIsViewDetailsOpen] = useState(false)
+  const [viewingOutlet, setViewingOutlet] = useState(null)
+
+  // Image load error tracking states
+  const [photoHasError, setPhotoHasError] = useState(false)
+  const [editPhotoHasError, setEditPhotoHasError] = useState(false)
+
+  useEffect(() => {
+    setPhotoHasError(false)
+  }, [photoPreview])
+
+  useEffect(() => {
+    setEditPhotoHasError(false)
+  }, [editPhotoPreview])
 
   // Manage Connected Channels Modal states
   const [isManageChannelsOpen, setIsManageChannelsOpen] = useState(false)
@@ -1356,61 +1474,139 @@ export default function OutletsPage() {
             ? res.data.data
             : []
 
-        const mappedOutlets = rawOutlets.map((o, idx) => ({
-          id: o.id || o._id,
-          _id: o.id || o._id,
-          name: o.name,
-          city: o.city || 'Makassar',
-          region: o.region || 'Sulawesi',
-          status:
-            o.status === 'active'
-              ? 'Active'
-              : o.status === 'needs_attention'
-                ? 'Needs Attention'
-                : o.status === 'coming_soon'
-                  ? 'Coming Soon'
-                  : 'Paused',
-          manager: o.manager || 'Agus',
-          orders: o.orders || 0,
-          revenue: o.revenue || 0,
-          rating: o.rating || 4.5,
-          staff: o.staff || 5,
-          sync: o.updated_at
-            ? new Date(o.updated_at).toLocaleTimeString()
-            : 'Just now',
-          image: o.image || `/images/outlets/outlet-${(idx % 4) + 1}.png`,
-          channels: o.channels || ['whatsapp', 'telegram'],
-          address: o.address || '-',
-          phone: o.phone || '-',
-          salesTrend: o.salesTrend || [0, 0, 0, 0, 0, 0],
-          reconciliationStatus: o.reconciliationStatus || 'Reconciled',
-          discrepancyCount: o.discrepancyCount || 0,
-          hours:
-            o.opening_hours && Object.keys(o.opening_hours).length > 0
-              ? Object.entries(o.opening_hours)
-              : [
-                  ['Mon - Fri', '08:00 - 22:00'],
-                  ['Saturday', '08:00 - 23:00'],
-                  ['Sunday', '08:00 - 22:00'],
-                ],
-          activity: o.activity || [
-            ['sync', 'Menu sync completed', '15 min ago'],
-            ['printer', 'Printer online', 'Just now'],
-          ],
-          orderTrend: o.orderTrend || [
-            22, 43, 29, 54, 28, 21, 55, 30, 25, 38, 20, 40, 30, 50, 30, 50, 42,
-          ],
-          trendLabels: o.trendLabels || [
-            'May 9',
-            'May 10',
-            'May 11',
-            'May 12',
-            'May 13',
-            'May 14',
-            'May 15',
-          ],
-        }))
+        // Fetch orders to calculate today's orders & revenue dynamically
+        let rawOrders = []
+        try {
+          const ordersRes = await api.get('/orders')
+          rawOrders = Array.isArray(ordersRes.data)
+            ? ordersRes.data
+            : ordersRes.data && Array.isArray(ordersRes.data.data)
+              ? ordersRes.data.data
+              : []
+        } catch (err) {
+          console.error('Failed to load orders for outlets mapping:', err)
+        }
+
+        const getOrderOutletName = (order) => {
+          if (order.outlet) {
+            if (typeof order.outlet === 'object') return order.outlet.name || ''
+            if (typeof order.outlet === 'string') return order.outlet
+          }
+          if (order.formData) {
+            const entry = Object.entries(order.formData).find(([key]) => key.toLowerCase().includes('outlet'))
+            if (entry) return entry[1] || ''
+          }
+          return 'Samarinda'
+        }
+
+        const getOrderTotal = (order) => {
+          if (order.totalAmount) return order.totalAmount
+          if (order.totals?.total) return order.totals.total
+          if (Array.isArray(order.items) && order.items.length > 0) {
+            return order.items.reduce((sum, item) => sum + (item.unitPrice || 0) * (item.quantity || 1), 0)
+          }
+          if (order.formData?.subtotal) return parseFloat(order.formData.subtotal)
+          return 25000
+        }
+
+        const isToday = (dateStr) => {
+          if (!dateStr) return false
+          const d = new Date(dateStr)
+          const today = new Date()
+          return d.getDate() === today.getDate() &&
+                 d.getMonth() === today.getMonth() &&
+                 d.getFullYear() === today.getFullYear()
+        }
+
+        const mappedOutlets = rawOutlets.map((o, idx) => {
+          // Filter orders for this outlet
+          const outletOrders = rawOrders.filter(order => {
+            const outName = getOrderOutletName(order).toLowerCase().trim()
+            const thisName = o.name.toLowerCase().trim()
+            return outName.includes(thisName) || thisName.includes(outName)
+          })
+
+          // Filter today's orders (exclude cancelled)
+          const todayOrders = outletOrders.filter(order => isToday(order.createdAt) && order.status !== 'cancelled')
+          const todayOrdersCount = todayOrders.length
+          const todayRevenue = todayOrders.reduce((sum, order) => sum + getOrderTotal(order), 0)
+
+          // Calculate last 7 days order count trend
+          const trendLabels = []
+          const orderTrend = []
+          const today = new Date()
+          for (let i = 6; i >= 0; i--) {
+            const d = new Date()
+            d.setDate(today.getDate() - i)
+            const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            trendLabels.push(dateStr)
+
+            // count orders on this day
+            const dayOrders = outletOrders.filter(order => {
+              if (!order.createdAt) return false
+              const od = new Date(order.createdAt)
+              return od.getDate() === d.getDate() &&
+                     od.getMonth() === d.getMonth() &&
+                     od.getFullYear() === d.getFullYear() &&
+                     order.status !== 'cancelled'
+            })
+            orderTrend.push(dayOrders.length)
+          }
+
+          return {
+            ...o,
+            id: o.id || o._id,
+            _id: o.id || o._id,
+            name: o.name,
+            city: o.city || '',
+            region: o.region || '',
+            status:
+              o.status === 'active'
+                ? 'Active'
+                : o.status === 'needs_attention'
+                  ? 'Needs Attention'
+                  : o.status === 'coming_soon'
+                    ? 'Coming Soon'
+                    : 'Paused',
+            manager: o.manager || 'Agus',
+            orders: todayOrdersCount,
+            revenue: todayRevenue,
+            rating: o.rating || 4.5,
+            staff: o.staff || 5,
+            sync: o.updated_at
+              ? new Date(o.updated_at).toLocaleTimeString()
+              : 'Just now',
+            image: o.image || o.metadata?.image || `/images/outlets/outlet-${(idx % 4) + 1}.png`,
+            channels: o.channels || ['whatsapp', 'telegram'],
+            address: o.address || '',
+            phone: o.phone || '-',
+            salesTrend: o.salesTrend || [0, 0, 0, 0, 0, 0],
+            reconciliationStatus: o.reconciliationStatus || 'Reconciled',
+            discrepancyCount: o.discrepancyCount || 0,
+            hours:
+              o.opening_hours && Object.keys(o.opening_hours).length > 0
+                ? Object.entries(o.opening_hours)
+                : [
+                    ['Mon - Fri', '08:00 - 22:00'],
+                    ['Saturday', '08:00 - 23:00'],
+                    ['Sunday', '08:00 - 22:00'],
+                  ],
+            activity: o.activity || [
+              ['sync', 'Menu sync completed', '15 min ago'],
+              ['printer', 'Printer online', 'Just now'],
+            ],
+            orderTrend,
+            trendLabels,
+          }
+        })
+
         setOutlets(mappedOutlets)
+        if (selectedOutlet) {
+          const updatedSelected = mappedOutlets.find(o => o.id === selectedOutlet.id)
+          if (updatedSelected) {
+            setSelectedOutlet(updatedSelected)
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to load outlets:', err)
@@ -1688,6 +1884,453 @@ export default function OutletsPage() {
     URL.revokeObjectURL(url)
   }
 
+  const handleSaveOutlet = async (e) => {
+    if (e) e.preventDefault()
+    
+    if (!addForm.name.trim()) {
+      alert('Outlet Name is required')
+      return
+    }
+    if (!addForm.code.trim()) {
+      alert('Outlet Code is required')
+      return
+    }
+    if (!addForm.managerName.trim()) {
+      alert('Manager Name is required')
+      return
+    }
+
+    const channelsList = []
+    if (addForm.whatsappConnected) channelsList.push('WhatsApp')
+    if (addForm.telegramConnected) channelsList.push('Telegram')
+
+    const newSlug = addForm.slug || addForm.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-')
+
+    const payload = {
+      name: addForm.name,
+      code: addForm.code,
+      slug: newSlug,
+      city: addForm.city,
+      region: addForm.region,
+      address: addForm.address,
+      postalCode: addForm.postalCode || null,
+      phone: addForm.phone || addForm.managerPhone,
+      email: addForm.email || addForm.managerEmail,
+      status: addForm.status.toLowerCase().replace(' ', '_'),
+      openingHours: {
+        'Mon - Fri': `${addForm.operatingHours.monFri.open} - ${addForm.operatingHours.monFri.close}`,
+        'Saturday': `${addForm.operatingHours.saturday.open} - ${addForm.operatingHours.saturday.close}`,
+        'Sunday': `${addForm.operatingHours.sunday.open} - ${addForm.operatingHours.sunday.close}`
+      },
+      metadata: {
+        managerName: addForm.managerName,
+        managerPhone: addForm.managerPhone,
+        managerEmail: addForm.managerEmail,
+        latitude: addForm.latitude,
+        longitude: addForm.longitude,
+        googleMapsLink: addForm.googleMapsLink,
+        prepTime: addForm.prepTime,
+        notes: addForm.notes,
+        channels: channelsList,
+        image: addForm.image || null
+      }
+    }
+
+    try {
+      if (isDemoMode()) {
+        const newOutlet = {
+          id: Date.now(),
+          _id: Date.now(),
+          name: payload.name,
+          city: payload.city,
+          region: payload.region,
+          status: addForm.status,
+          manager: addForm.managerName,
+          phone: addForm.managerPhone,
+          orders: 0,
+          revenue: 0,
+          rating: 5.0,
+          staff: 1,
+          sync: 'Just now',
+          image: addForm.image || null,
+          channels: channelsList,
+          address: payload.address || '-',
+          salesTrend: [0, 0, 0, 0, 0, 0],
+          hours: [
+            ['Mon - Fri', `${addForm.operatingHours.monFri.open} - ${addForm.operatingHours.monFri.close}`],
+            ['Saturday', `${addForm.operatingHours.saturday.open} - ${addForm.operatingHours.saturday.close}`],
+            ['Sunday', `${addForm.operatingHours.sunday.open} - ${addForm.operatingHours.sunday.close}`]
+          ],
+          activity: [
+            ['sync', 'Outlet profile completed', 'Just now']
+          ],
+          orderTrend: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          trendLabels: ['May 9', 'May 10', 'May 11', 'May 12', 'May 13', 'May 14', 'May 15']
+        }
+        setOutlets(prev => [...prev, newOutlet])
+        setSelectedOutlet(newOutlet)
+      } else {
+        const res = await api.post('/outlets', payload)
+        const newOutletRaw = res.data && res.data.data ? res.data.data : res.data
+        const newOutletMapped = {
+          ...newOutletRaw,
+          id: newOutletRaw.id || newOutletRaw._id,
+          _id: newOutletRaw.id || newOutletRaw._id,
+          name: newOutletRaw.name,
+          city: newOutletRaw.city || payload.city,
+          region: newOutletRaw.region || payload.region,
+          status: addForm.status,
+          manager: payload.metadata.managerName,
+          phone: payload.metadata.managerPhone,
+          orders: 0,
+          revenue: 0,
+          rating: 5.0,
+          staff: 1,
+          sync: 'Just now',
+          image: newOutletRaw.image || newOutletRaw.metadata?.image || addForm.image || null,
+          channels: channelsList,
+          address: newOutletRaw.address || '-',
+          salesTrend: [0, 0, 0, 0, 0, 0],
+          hours: [
+            ['Mon - Fri', `${addForm.operatingHours.monFri.open} - ${addForm.operatingHours.monFri.close}`],
+            ['Saturday', `${addForm.operatingHours.saturday.open} - ${addForm.operatingHours.saturday.close}`],
+            ['Sunday', `${addForm.operatingHours.sunday.open} - ${addForm.operatingHours.sunday.close}`]
+          ],
+          activity: [
+            ['sync', 'Outlet profile completed', 'Just now']
+          ],
+          orderTrend: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          trendLabels: ['May 9', 'May 10', 'May 11', 'May 12', 'May 13', 'May 14', 'May 15']
+        }
+        setOutlets(prev => [...prev, newOutletMapped])
+        setSelectedOutlet(newOutletMapped)
+        await loadOutlets()
+      }
+
+      // Reset form
+      setAddForm({
+        name: '',
+        code: '',
+        slug: '',
+        region: 'Kalimantan Timur',
+        city: 'Samarinda',
+        address: '',
+        phone: '',
+        email: '',
+        postalCode: '',
+        latitude: '',
+        longitude: '',
+        googleMapsLink: '',
+        managerName: '',
+        managerPhone: '',
+        managerEmail: '',
+        status: 'Active',
+        openingType: 'Active',
+        whatsappConnected: true,
+        telegramConnected: true,
+        prepTime: '18 min',
+        notes: '',
+        operatingHours: {
+          monFri: { open: '08:00', close: '22:00' },
+          saturday: { open: '08:00', close: '22:00' },
+          sunday: { open: '08:00', close: '22:00' }
+        }
+      })
+      setPhotoPreview(null)
+      setIsAddOutletOpen(false)
+    } catch (err) {
+      console.error('Failed to create outlet:', err)
+      const errorMsg = err.response?.data?.error?.message || err.message || 'Unknown error'
+      alert('Failed to save outlet: ' + errorMsg)
+    }
+  }
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Preview locally
+    const localUrl = URL.createObjectURL(file)
+    setPhotoPreview(localUrl)
+
+    if (isDemoMode()) {
+      setAddForm(prev => ({ ...prev, image: localUrl }))
+      return
+    }
+
+    setUploadingPhoto(true)
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await api.post('/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      const fileData = res.data && res.data.data ? res.data.data : res.data
+      const fileUrl = `/files/${fileData.storedName || fileData.stored_name}`
+      setAddForm(prev => ({ ...prev, image: fileUrl }))
+    } catch (err) {
+      console.error('Failed to upload image:', err)
+      alert('Failed to upload image. Please try again.')
+      setPhotoPreview(null)
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const handlePhotoEditUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Preview locally
+    const localUrl = URL.createObjectURL(file)
+    setEditPhotoPreview(localUrl)
+
+    if (isDemoMode()) {
+      setEditForm(prev => ({ ...prev, image: localUrl }))
+      return
+    }
+
+    setUploadingEditPhoto(true)
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await api.post('/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      const fileData = res.data && res.data.data ? res.data.data : res.data
+      const fileUrl = `/files/${fileData.storedName || fileData.stored_name}`
+      setEditForm(prev => ({ ...prev, image: fileUrl }))
+    } catch (err) {
+      console.error('Failed to upload image:', err)
+      alert('Failed to upload image. Please try again.')
+      setEditPhotoPreview(null)
+    } finally {
+      setUploadingEditPhoto(false)
+    }
+  }
+
+  const handleAddMapsLinkChange = (value) => {
+    const coords = parseCoordinatesFromUrl(value)
+    setAddForm(prev => {
+      const next = { ...prev, googleMapsLink: value }
+      if (coords) {
+        next.latitude = coords.lat
+        next.longitude = coords.lng
+      }
+      return next
+    })
+  }
+
+  const handleEditMapsLinkChange = (value) => {
+    const coords = parseCoordinatesFromUrl(value)
+    setEditForm(prev => {
+      const next = { ...prev, googleMapsLink: value }
+      if (coords) {
+        next.latitude = coords.lat
+        next.longitude = coords.lng
+      }
+      return next
+    })
+  }
+
+  const handleUpdateOutlet = async (e) => {
+    if (e) e.preventDefault()
+
+    if (!editForm.name.trim()) {
+      alert('Outlet Name is required')
+      return
+    }
+    if (!editForm.code.trim()) {
+      alert('Outlet Code is required')
+      return
+    }
+    if (!editForm.managerName.trim()) {
+      alert('Manager Name is required')
+      return
+    }
+
+    const channelsList = []
+    if (editForm.whatsappConnected) channelsList.push('WhatsApp')
+    if (editForm.telegramConnected) channelsList.push('Telegram')
+
+    const newSlug = editForm.slug || editForm.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-')
+
+    const payload = {
+      name: editForm.name,
+      code: editForm.code,
+      slug: newSlug,
+      city: editForm.city,
+      region: editForm.region,
+      address: editForm.address,
+      postalCode: editForm.postalCode || null,
+      phone: editForm.phone || editForm.managerPhone,
+      email: editForm.email || editForm.managerEmail,
+      status: editForm.status.toLowerCase().replace(' ', '_'),
+      openingHours: {
+        'Mon - Fri': `${editForm.operatingHours.monFri.open} - ${editForm.operatingHours.monFri.close}`,
+        'Saturday': `${editForm.operatingHours.saturday.open} - ${editForm.operatingHours.saturday.close}`,
+        'Sunday': `${editForm.operatingHours.sunday.open} - ${editForm.operatingHours.sunday.close}`
+      },
+      metadata: {
+        managerName: editForm.managerName,
+        managerPhone: editForm.managerPhone,
+        managerEmail: editForm.managerEmail,
+        latitude: editForm.latitude,
+        longitude: editForm.longitude,
+        googleMapsLink: editForm.googleMapsLink,
+        prepTime: editForm.prepTime,
+        notes: editForm.notes,
+        channels: channelsList,
+        image: editForm.image || editPhotoPreview || null
+      }
+    }
+
+    try {
+      if (isDemoMode()) {
+        const updatedOutlet = {
+          ...selectedOutlet,
+          name: payload.name,
+          city: payload.city,
+          region: payload.region,
+          status: editForm.status,
+          manager: editForm.managerName,
+          phone: editForm.managerPhone,
+          image: editForm.image || editPhotoPreview || null,
+          channels: channelsList,
+          address: payload.address || '-',
+          hours: [
+            ['Mon - Fri', `${editForm.operatingHours.monFri.open} - ${editForm.operatingHours.monFri.close}`],
+            ['Saturday', `${editForm.operatingHours.saturday.open} - ${editForm.operatingHours.saturday.close}`],
+            ['Sunday', `${editForm.operatingHours.sunday.open} - ${editForm.operatingHours.sunday.close}`]
+          ]
+        }
+        setOutlets(prev => prev.map(o => o.id === editForm.id ? updatedOutlet : o))
+        setSelectedOutlet(updatedOutlet)
+      } else {
+        const res = await api.put(`/outlets/${editForm.id}`, payload)
+        const updatedRaw = res.data && res.data.data ? res.data.data : res.data
+        const updatedMapped = {
+          ...selectedOutlet,
+          name: updatedRaw.name,
+          city: updatedRaw.city || payload.city,
+          region: updatedRaw.region || payload.region,
+          status: editForm.status,
+          manager: payload.metadata.managerName,
+          phone: payload.metadata.managerPhone,
+          image: updatedRaw.image || updatedRaw.metadata?.image || editForm.image || editPhotoPreview || null,
+          channels: channelsList,
+          address: updatedRaw.address || '-',
+          hours: [
+            ['Mon - Fri', `${editForm.operatingHours.monFri.open} - ${editForm.operatingHours.monFri.close}`],
+            ['Saturday', `${editForm.operatingHours.saturday.open} - ${editForm.operatingHours.saturday.close}`],
+            ['Sunday', `${editForm.operatingHours.sunday.open} - ${editForm.operatingHours.sunday.close}`]
+          ]
+        }
+        setOutlets(prev => prev.map(o => o.id === editForm.id ? updatedMapped : o))
+        setSelectedOutlet(updatedMapped)
+        await loadOutlets()
+      }
+      setIsEditOutletOpen(false)
+    } catch (err) {
+      console.error('Failed to update outlet:', err)
+      const errorMsg = err.response?.data?.error?.message || err.message || 'Unknown error'
+      alert('Failed to update outlet: ' + errorMsg)
+    }
+  }
+
+  const handleEditOutlet = (outlet) => {
+    if (!outlet) return
+
+    let monFriHours = { open: '08:00', close: '22:00' }
+    let satHours = { open: '08:00', close: '22:00' }
+    let sunHours = { open: '08:00', close: '22:00' }
+
+    if (outlet.hours) {
+      outlet.hours.forEach(([day, range]) => {
+        if (day.toLowerCase().includes('mon') || day.toLowerCase().includes('fri') || day.toLowerCase().includes('workday')) {
+          const parts = range.split(' - ')
+          if (parts.length === 2) {
+            monFriHours = { open: parts[0], close: parts[1] }
+          }
+        } else if (day.toLowerCase().includes('sat')) {
+          const parts = range.split(' - ')
+          if (parts.length === 2) {
+            satHours = { open: parts[0], close: parts[1] }
+          }
+        } else if (day.toLowerCase().includes('sun')) {
+          const parts = range.split(' - ')
+          if (parts.length === 2) {
+            sunHours = { open: parts[0], close: parts[1] }
+          }
+        }
+      })
+    }
+
+    setEditForm({
+      id: outlet.id,
+      name: outlet.name || '',
+      code: outlet.code || '',
+      slug: outlet.slug || '',
+      region: outlet.region || 'Kalimantan Timur',
+      city: outlet.city || 'Samarinda',
+      address: outlet.address || '',
+      phone: outlet.phone || '',
+      email: outlet.email || '',
+      postalCode: outlet.postalCode || '',
+      latitude: outlet.latitude || outlet.metadata?.latitude || '',
+      longitude: outlet.longitude || outlet.metadata?.longitude || '',
+      googleMapsLink: outlet.googleMapsLink || outlet.metadata?.googleMapsLink || '',
+      managerName: outlet.manager || '',
+      managerPhone: outlet.phone || '',
+      managerEmail: outlet.email || '',
+      status: outlet.status || 'Active',
+      openingType: outlet.status || 'Active',
+      whatsappConnected: outlet.channels ? outlet.channels.some(c => c.toLowerCase() === 'whatsapp') : false,
+      telegramConnected: outlet.channels ? outlet.channels.some(c => c.toLowerCase() === 'telegram') : false,
+      prepTime: outlet.avgPrep ? `${outlet.avgPrep} min` : (outlet.metadata?.prepTime || '18 min'),
+      notes: outlet.notes || outlet.metadata?.notes || '',
+      operatingHours: {
+        monFri: monFriHours,
+        saturday: satHours,
+        sunday: sunHours
+      }
+    })
+
+    setEditPhotoPreview(outlet.image || null)
+    setIsEditOutletOpen(true)
+  }
+
+  const handleViewDetails = (outlet) => {
+    setViewingOutlet(outlet)
+    setIsViewDetailsOpen(true)
+  }
+
+  const handleOpenOrders = (outlet) => {
+    if (!outlet) return
+    navigate(`/app/orders?outlet=${encodeURIComponent(outlet.name)}`)
+  }
+
+  const handleRemovePhoto = (e) => {
+    e.stopPropagation()
+    setPhotoPreview(null)
+    setAddForm(prev => ({ ...prev, image: null }))
+  }
+
+  const handleRemoveEditPhoto = (e) => {
+    e.stopPropagation()
+    setEditPhotoPreview(null)
+    setEditForm(prev => ({ ...prev, image: null }))
+  }
+
+  const addCoordsValid = !!(addForm.latitude && addForm.longitude && !isNaN(parseFloat(addForm.latitude)) && !isNaN(parseFloat(addForm.longitude)))
+  const editCoordsValid = !!(editForm.latitude && editForm.longitude && !isNaN(parseFloat(editForm.latitude)) && !isNaN(parseFloat(editForm.longitude)))
+
   return (
     <div className='flex flex-1 overflow-hidden bg-[#F6F8FB] text-[#11182E] -m-4 h-[calc(100vh-58px)] max-h-[calc(100vh-58px)]'>
       {/* Desktop main content list layout */}
@@ -1729,6 +2372,7 @@ export default function OutletsPage() {
               </button>
               <button
                 type='button'
+                onClick={() => setIsAddOutletOpen(true)}
                 className='inline-flex h-11 items-center gap-2 rounded-xl bg-[#F43F70] px-4 text-sm font-bold text-white shadow-[0_8px_20px_rgba(244,63,112,0.24)] transition hover:bg-[#e62e63] active:scale-[0.98]'
               >
                 <Plus size={18} /> Add Outlet
@@ -1968,6 +2612,9 @@ export default function OutletsPage() {
             outlet={selectedOutlet}
             onClose={() => setIsDetailOpen(false)}
             onManageChannels={openManageChannelsModal}
+            onViewDetails={handleViewDetails}
+            onEditOutlet={handleEditOutlet}
+            onOpenOrders={handleOpenOrders}
           />
         </div>
       )}
@@ -1987,6 +2634,9 @@ export default function OutletsPage() {
               mobile
               onClose={() => setMobileDetailOpen(false)}
               onManageChannels={openManageChannelsModal}
+              onViewDetails={handleViewDetails}
+              onEditOutlet={handleEditOutlet}
+              onOpenOrders={handleOpenOrders}
             />
           </div>
         </div>
@@ -3580,6 +4230,1352 @@ export default function OutletsPage() {
                 className='h-11 px-6 bg-[#6956E8] hover:bg-[#5b49d3] text-sm font-bold text-white rounded-xl transition shadow-md flex items-center gap-2 cursor-pointer'
               >
                 <RefreshCw size={15} /> Save & Sync
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Outlet Modal ── */}
+      {isAddOutletOpen && (
+        <div className='fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px] animate-in fade-in duration-150'>
+          <div className='bg-white rounded-2xl w-full max-w-[960px] shadow-2xl border border-slate-100 flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-200'>
+            {/* Header */}
+            <header className='px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0 relative'>
+              <div>
+                <h3 className='text-base font-extrabold text-[#11182E] leading-none'>
+                  Add Outlet
+                </h3>
+                <p className='m-0 mt-1.5 text-xs text-slate-400 font-semibold leading-none'>
+                  Add a new outlet to your marketplace
+                </p>
+              </div>
+              <button
+                type='button'
+                onClick={() => {
+                  setIsAddOutletOpen(false)
+                  setPhotoPreview(null)
+                }}
+                className='absolute top-4 right-4 p-2 hover:bg-slate-50 border border-slate-100 rounded-xl text-slate-400 hover:text-slate-800 transition cursor-pointer'
+              >
+                <X size={16} />
+              </button>
+            </header>
+
+            {/* Scrollable Body */}
+            <form onSubmit={handleSaveOutlet} className='flex-1 overflow-y-auto min-h-0 bg-slate-50/40 p-6 space-y-6'>
+              {/* Outlet Information Section */}
+              <section className='bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4'>
+                <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2.5'>
+                  Outlet Information
+                </h4>
+                
+                <div className='grid grid-cols-1 md:grid-cols-[160px_1fr_1fr] gap-4'>
+                  {/* Photo Upload Box */}
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className='flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 hover:bg-slate-50 transition cursor-pointer text-center relative h-[120px] overflow-hidden'
+                  >
+                    {uploadingPhoto ? (
+                      <div className='flex flex-col items-center justify-center text-xs text-slate-400 gap-1.5 p-4'>
+                        <RefreshCw size={18} className='animate-spin text-[#F43F70]' />
+                        <span className='font-bold text-slate-600 animate-pulse'>Uploading...</span>
+                      </div>
+                    ) : photoPreview && !photoHasError ? (
+                      <div className='group relative w-full h-full'>
+                        <img
+                          src={photoPreview}
+                          alt='Preview'
+                          className='w-full h-full object-cover'
+                          onError={() => setPhotoHasError(true)}
+                        />
+                        {/* Hover Overlay */}
+                        <div className='absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex flex-col items-center justify-center text-white gap-1'>
+                          <Camera size={18} />
+                          <span className='text-[10px] font-bold tracking-wider uppercase'>Ganti Gambar</span>
+                        </div>
+                        {/* Delete Button */}
+                        <button
+                          type='button'
+                          onClick={handleRemovePhoto}
+                          className='absolute top-1.5 right-1.5 z-10 w-6.5 h-6.5 rounded-full bg-slate-900/60 hover:bg-[#F43F70] text-white flex items-center justify-center transition hover:scale-105 active:scale-95 cursor-pointer'
+                          title='Hapus Gambar'
+                        >
+                          <X size={13} strokeWidth={2.5} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className='p-4 flex flex-col items-center justify-center'>
+                        <Plus size={20} className='text-slate-400 mb-1' />
+                        <span className='text-[10px] font-bold text-slate-700 leading-tight'>Upload image</span>
+                        <span className='text-[8px] text-slate-400 mt-1'>JPG, PNG up to 5MB</span>
+                        <span className='text-[8px] text-slate-400'>Recommended 1:1</span>
+                      </div>
+                    )}
+                    <input
+                      type='file'
+                      ref={fileInputRef}
+                      onChange={handlePhotoUpload}
+                      accept='image/*'
+                      className='hidden'
+                    />
+                  </div>
+
+                  {/* Name and Code */}
+                  <div className='space-y-3.5 col-span-2 grid grid-cols-2 gap-4'>
+                    <div className='col-span-1'>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        Outlet Name <span className='text-[#F43F70]'>*</span>
+                      </label>
+                      <input
+                        type='text'
+                        value={addForm.name}
+                        onChange={(e) => setAddForm(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder='e.g., Samarinda Central'
+                        className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                        required
+                      />
+                    </div>
+                    <div className='col-span-1'>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        Outlet Code <span className='text-[#F43F70]'>*</span>
+                      </label>
+                      <input
+                        type='text'
+                        value={addForm.code}
+                        onChange={(e) => setAddForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                        placeholder='e.g., SMR-CENTRAL-001'
+                        className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                        required
+                      />
+                    </div>
+                    
+                    {/* Region and City */}
+                    <div className='col-span-1'>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        Region <span className='text-[#F43F70]'>*</span>
+                      </label>
+                      <div className='relative'>
+                        <select
+                          value={addForm.region}
+                          onChange={(e) => setAddForm(prev => ({ ...prev, region: e.target.value }))}
+                          className='h-10 w-full appearance-none rounded-xl border border-[#E1E6EF] bg-white pl-3.5 pr-8 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                        >
+                          <option value='Kalimantan Timur'>Kalimantan Timur</option>
+                          <option value='Kalimantan Utara'>Kalimantan Utara</option>
+                          <option value='Sulawesi Selatan'>Sulawesi Selatan</option>
+                        </select>
+                        <ChevronDown size={14} className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                      </div>
+                    </div>
+                    <div className='col-span-1'>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        City <span className='text-[#F43F70]'>*</span>
+                      </label>
+                      <div className='relative'>
+                        <select
+                          value={addForm.city}
+                          onChange={(e) => setAddForm(prev => ({ ...prev, city: e.target.value }))}
+                          className='h-10 w-full appearance-none rounded-xl border border-[#E1E6EF] bg-white pl-3.5 pr-8 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                        >
+                          <option value='Samarinda'>Samarinda</option>
+                          <option value='Balikpapan'>Balikpapan</option>
+                          <option value='Tenggarong'>Tenggarong</option>
+                          <option value='Bontang'>Bontang</option>
+                          <option value='Sangatta'>Sangatta</option>
+                          <option value='Makassar'>Makassar</option>
+                        </select>
+                        <ChevronDown size={14} className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Full Address */}
+                <div>
+                  <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                    Full Address <span className='text-[#F43F70]'>*</span>
+                  </label>
+                  <input
+                    type='text'
+                    value={addForm.address}
+                    onChange={(e) => setAddForm(prev => ({ ...prev, address: e.target.value }))}
+                    placeholder='Jl. Jenderal Sudirman No. 45, Samarinda Ulu, Samarinda, Kalimantan Timur 75123'
+                    className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                    required
+                  />
+                </div>
+
+                {/* Maps and Lat/Long */}
+                <div className='grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1.5fr] gap-4'>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Google Maps Link
+                    </label>
+                    <input
+                      type='text'
+                      value={addForm.googleMapsLink}
+                      onChange={(e) => handleAddMapsLinkChange(e.target.value)}
+                      placeholder='https://maps.google.com/?q=...'
+                      className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Latitude
+                    </label>
+                    <input
+                      type='text'
+                      value={addForm.latitude}
+                      onChange={(e) => setAddForm(prev => ({ ...prev, latitude: e.target.value }))}
+                      placeholder='0.4921'
+                      className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Longitude
+                    </label>
+                    <div className='flex gap-2'>
+                      <input
+                        type='text'
+                        value={addForm.longitude}
+                        onChange={(e) => setAddForm(prev => ({ ...prev, longitude: e.target.value }))}
+                        placeholder='117.1536'
+                        className='h-10 flex-1 min-w-0 rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                      />
+                      <button
+                        type='button'
+                        onClick={() => {
+                          const coords = parseCoordinatesFromUrl(addForm.googleMapsLink)
+                          if (coords) {
+                            setAddForm(prev => ({
+                              ...prev,
+                              latitude: coords.lat,
+                              longitude: coords.lng
+                            }))
+                          } else {
+                            alert('Koordinat tidak ditemukan pada link Google Maps. Pastikan link memiliki format koordinat seperti @lat,lng atau q=lat,lng.')
+                          }
+                        }}
+                        className='h-10 px-3 flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-[#F43F70] hover:text-white text-[#11182E] border border-slate-200 hover:border-[#F43F70] rounded-xl text-xs font-semibold transition shrink-0 cursor-pointer shadow-sm'
+                        title='Find Lat/Lon'
+                      >
+                        <Search size={13} />
+                        <span>Find Lat/Lon</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Map Preview */}
+                <div className='h-40 rounded-2xl border border-slate-200 overflow-hidden relative bg-slate-100 flex items-center justify-center'>
+                  {addCoordsValid ? (
+                    <iframe
+                      title="Google Maps Preview Add"
+                      width="100%"
+                      height="100%"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      allowFullScreen
+                      src={`https://maps.google.com/maps?q=${addForm.latitude},${addForm.longitude}&z=15&output=embed`}
+                    />
+                  ) : (
+                    <>
+                      <div className='absolute inset-0 bg-[radial-gradient(#e2e8f0_1.5px,transparent_1.5px)] [background-size:12px_12px] opacity-60' />
+                      <div className='flex items-center gap-1.5 z-10 text-slate-400 text-xs font-semibold'>
+                        <MapPin size={14} className='text-[#F43F70]' />
+                        <span>Map View Preview (Samarinda Central Area)</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </section>
+
+              {/* Outlet Manager Section */}
+              <section className='bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4'>
+                <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2.5'>
+                  Outlet Manager
+                </h4>
+
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Manager Name <span className='text-[#F43F70]'>*</span>
+                    </label>
+                    <input
+                      type='text'
+                      value={addForm.managerName}
+                      onChange={(e) => setAddForm(prev => ({ ...prev, managerName: e.target.value }))}
+                      placeholder='Rina Pratiwi'
+                      className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Phone Number <span className='text-[#F43F70]'>*</span>
+                    </label>
+                    <input
+                      type='text'
+                      value={addForm.managerPhone}
+                      onChange={(e) => setAddForm(prev => ({ ...prev, managerPhone: e.target.value }))}
+                      placeholder='+62 812-3456-7890'
+                      className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Email <span className='text-[#F43F70]'>*</span>
+                    </label>
+                    <input
+                      type='email'
+                      value={addForm.managerEmail}
+                      onChange={(e) => setAddForm(prev => ({ ...prev, managerEmail: e.target.value }))}
+                      placeholder='rina.pratiwi@kalisteh.id'
+                      className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-4 pt-2'>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Status <span className='text-[#F43F70]'>*</span>
+                    </label>
+                    <div className='relative'>
+                      <select
+                        value={addForm.status}
+                        onChange={(e) => setAddForm(prev => ({ ...prev, status: e.target.value }))}
+                        className='h-10 w-full appearance-none rounded-xl border border-[#E1E6EF] bg-white pl-3.5 pr-8 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                      >
+                        <option value='Active'>Active</option>
+                        <option value='Needs Attention'>Needs Attention</option>
+                        <option value='Coming Soon'>Coming Soon</option>
+                        <option value='Paused'>Paused</option>
+                      </select>
+                      <ChevronDown size={14} className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                    </div>
+                  </div>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Opening Type <span className='text-[#F43F70]'>*</span>
+                    </label>
+                    <div className='grid grid-cols-3 gap-2'>
+                      {['Active', 'Coming Soon', 'Paused'].map((type) => {
+                        const isSelected = addForm.openingType === type
+                        const typeStyles = {
+                          Active: isSelected ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'hover:bg-slate-50 text-slate-600 border-slate-200',
+                          'Coming Soon': isSelected ? 'bg-purple-50 border-[#6956E8] text-[#6956E8]' : 'hover:bg-slate-50 text-slate-600 border-slate-200',
+                          Paused: isSelected ? 'bg-amber-50 border-amber-500 text-amber-600' : 'hover:bg-slate-50 text-slate-600 border-slate-200'
+                        }
+                        return (
+                          <button
+                            key={type}
+                            type='button'
+                            onClick={() => setAddForm(prev => ({ ...prev, openingType: type, status: type }))}
+                            className={cx(
+                              'h-10 text-xs font-bold border rounded-xl transition-all cursor-pointer text-center',
+                              typeStyles[type]
+                            )}
+                          >
+                            {type}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Connected Channels Section */}
+              <section className='bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4'>
+                <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2.5'>
+                  Connected Channels
+                </h4>
+
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                  {/* WhatsApp */}
+                  <div className='flex items-center justify-between p-4 border border-slate-200/80 rounded-xl bg-slate-50/20'>
+                    <div className='flex items-center gap-3'>
+                      <div className='w-9 h-9 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#16A34A]'>
+                        <MessageCircle size={18} />
+                      </div>
+                      <div>
+                        <p className='text-xs font-bold text-slate-800 leading-tight'>WhatsApp</p>
+                        <p className='text-[10px] text-emerald-600 font-semibold mt-0.5'>Connected</p>
+                      </div>
+                    </div>
+                    <label className='relative inline-flex items-center cursor-pointer'>
+                      <input
+                        type='checkbox'
+                        checked={addForm.whatsappConnected}
+                        onChange={(e) => setAddForm(prev => ({ ...prev, whatsappConnected: e.target.checked }))}
+                        className='sr-only peer'
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#16A34A]" />
+                    </label>
+                  </div>
+
+                  {/* Telegram */}
+                  <div className='flex items-center justify-between p-4 border border-slate-200/80 rounded-xl bg-slate-50/20'>
+                    <div className='flex items-center gap-3'>
+                      <div className='w-9 h-9 rounded-full bg-sky-50 border border-sky-100 flex items-center justify-center text-[#2563EB]'>
+                        <Send size={16} />
+                      </div>
+                      <div>
+                        <p className='text-xs font-bold text-slate-800 leading-tight'>Telegram</p>
+                        <p className='text-[10px] text-sky-600 font-semibold mt-0.5'>Connected</p>
+                      </div>
+                    </div>
+                    <label className='relative inline-flex items-center cursor-pointer'>
+                      <input
+                        type='checkbox'
+                        checked={addForm.telegramConnected}
+                        onChange={(e) => setAddForm(prev => ({ ...prev, telegramConnected: e.target.checked }))}
+                        className='sr-only peer'
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2563EB]" />
+                    </label>
+                  </div>
+                </div>
+              </section>
+
+              {/* Operations Section */}
+              <section className='bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4'>
+                <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2.5'>
+                  Operations
+                </h4>
+
+                <div className='grid grid-cols-1 md:grid-cols-[1.5fr_1.2fr_1.3fr] gap-6'>
+                  {/* Operating Hours */}
+                  <div className='space-y-3'>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider'>
+                      Operating Hours <span className='text-[#F43F70]'>*</span>
+                    </label>
+                    <div className='space-y-2.5'>
+                      {/* Mon - Fri */}
+                      <div className='flex items-center justify-between gap-2.5'>
+                        <span className='text-xs font-semibold text-slate-500 w-20'>Mon - Fri</span>
+                        <div className='flex items-center gap-1.5 flex-1'>
+                          <input
+                            type='text'
+                            value={addForm.operatingHours.monFri.open}
+                            onChange={(e) => setAddForm(prev => ({
+                              ...prev,
+                              operatingHours: {
+                                ...prev.operatingHours,
+                                monFri: { ...prev.operatingHours.monFri, open: e.target.value }
+                              }
+                            }))}
+                            className='h-8 w-20 rounded-lg border border-[#E1E6EF] text-center text-xs font-bold text-[#11182E] outline-none'
+                          />
+                          <span className='text-[10px] text-slate-400'>to</span>
+                          <input
+                            type='text'
+                            value={addForm.operatingHours.monFri.close}
+                            onChange={(e) => setAddForm(prev => ({
+                              ...prev,
+                              operatingHours: {
+                                ...prev.operatingHours,
+                                monFri: { ...prev.operatingHours.monFri, close: e.target.value }
+                              }
+                            }))}
+                            className='h-8 w-20 rounded-lg border border-[#E1E6EF] text-center text-xs font-bold text-[#11182E] outline-none'
+                          />
+                        </div>
+                      </div>
+
+                      {/* Saturday */}
+                      <div className='flex items-center justify-between gap-2.5'>
+                        <span className='text-xs font-semibold text-slate-500 w-20'>Saturday</span>
+                        <div className='flex items-center gap-1.5 flex-1'>
+                          <input
+                            type='text'
+                            value={addForm.operatingHours.saturday.open}
+                            onChange={(e) => setAddForm(prev => ({
+                              ...prev,
+                              operatingHours: {
+                                ...prev.operatingHours,
+                                saturday: { ...prev.operatingHours.saturday, open: e.target.value }
+                              }
+                            }))}
+                            className='h-8 w-20 rounded-lg border border-[#E1E6EF] text-center text-xs font-bold text-[#11182E] outline-none'
+                          />
+                          <span className='text-[10px] text-slate-400'>to</span>
+                          <input
+                            type='text'
+                            value={addForm.operatingHours.saturday.close}
+                            onChange={(e) => setAddForm(prev => ({
+                              ...prev,
+                              operatingHours: {
+                                ...prev.operatingHours,
+                                saturday: { ...prev.operatingHours.saturday, close: e.target.value }
+                              }
+                            }))}
+                            className='h-8 w-20 rounded-lg border border-[#E1E6EF] text-center text-xs font-bold text-[#11182E] outline-none'
+                          />
+                        </div>
+                      </div>
+
+                      {/* Sunday */}
+                      <div className='flex items-center justify-between gap-2.5'>
+                        <span className='text-xs font-semibold text-slate-500 w-20'>Sunday</span>
+                        <div className='flex items-center gap-1.5 flex-1'>
+                          <input
+                            type='text'
+                            value={addForm.operatingHours.sunday.open}
+                            onChange={(e) => setAddForm(prev => ({
+                              ...prev,
+                              operatingHours: {
+                                ...prev.operatingHours,
+                                sunday: { ...prev.operatingHours.sunday, open: e.target.value }
+                              }
+                            }))}
+                            className='h-8 w-20 rounded-lg border border-[#E1E6EF] text-center text-xs font-bold text-[#11182E] outline-none'
+                          />
+                          <span className='text-[10px] text-slate-400'>to</span>
+                          <input
+                            type='text'
+                            value={addForm.operatingHours.sunday.close}
+                            onChange={(e) => setAddForm(prev => ({
+                              ...prev,
+                              operatingHours: {
+                                ...prev.operatingHours,
+                                sunday: { ...prev.operatingHours.sunday, close: e.target.value }
+                              }
+                            }))}
+                            className='h-8 w-20 rounded-lg border border-[#E1E6EF] text-center text-xs font-bold text-[#11182E] outline-none'
+                          />
+                        </div>
+                      </div>
+
+                      <button type='button' className='text-[11px] font-bold text-[#F43F70] hover:text-[#e62e63] transition flex items-center gap-1 cursor-pointer'>
+                        <Plus size={12} /> Add custom hours
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Avg Prep Time */}
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Preparation Time Target <span className='text-[#F43F70]'>*</span>
+                    </label>
+                    <div className='relative'>
+                      <select
+                        value={addForm.prepTime}
+                        onChange={(e) => setAddForm(prev => ({ ...prev, prepTime: e.target.value }))}
+                        className='h-10 w-full appearance-none rounded-xl border border-[#E1E6EF] bg-white pl-3.5 pr-8 text-xs text-[#11182E] outline-none'
+                      >
+                        <option value='15 min'>15 min</option>
+                        <option value='18 min'>18 min</option>
+                        <option value='20 min'>20 min</option>
+                        <option value='25 min'>25 min</option>
+                        <option value='30 min'>30 min</option>
+                      </select>
+                      <ChevronDown size={14} className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                    </div>
+                    <span className='text-[10px] text-slate-400 mt-1 block font-semibold'>e.g., 15-30 min</span>
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Notes
+                    </label>
+                    <textarea
+                      value={addForm.notes}
+                      onChange={(e) => {
+                        if (e.target.value.length <= 300) {
+                          setAddForm(prev => ({ ...prev, notes: e.target.value }))
+                        }
+                      }}
+                      placeholder='Add any additional notes about this outlet...'
+                      className='w-full h-[100px] p-3 text-xs text-[#11182E] rounded-xl border border-[#E1E6EF] outline-none resize-none placeholder:text-slate-400 focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                    />
+                    <div className='text-right text-[10px] text-slate-400 mt-1 font-semibold'>
+                      {addForm.notes.length}/300
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </form>
+
+            {/* Footer */}
+            <footer className='px-6 py-4 border-t border-slate-100 flex items-center justify-between shrink-0 bg-white'>
+              <button
+                type='button'
+                onClick={() => {
+                  setIsAddOutletOpen(false)
+                  setPhotoPreview(null)
+                }}
+                className='h-10 px-5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition active:scale-[0.98] cursor-pointer'
+              >
+                Cancel
+              </button>
+              <button
+                type='button'
+                onClick={handleSaveOutlet}
+                className='h-10 px-5 rounded-xl bg-[#F43F70] text-xs font-bold text-white shadow-[0_6px_18px_rgba(244,63,112,0.24)] hover:bg-[#e62e63] transition active:scale-[0.98] cursor-pointer'
+              >
+                Save Outlet
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Outlet Modal ── */}
+      {isEditOutletOpen && (
+        <div className='fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px] animate-in fade-in duration-150'>
+          <div className='bg-white rounded-2xl w-full max-w-[960px] shadow-2xl border border-slate-100 flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-200'>
+            {/* Header */}
+            <header className='px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0 relative'>
+              <div>
+                <h3 className='text-base font-extrabold text-[#11182E] leading-none'>
+                  Edit Outlet
+                </h3>
+                <p className='m-0 mt-1.5 text-xs text-slate-400 font-semibold leading-none'>
+                  Modify outlet details and settings
+                </p>
+              </div>
+              <button
+                type='button'
+                onClick={() => {
+                  setIsEditOutletOpen(false)
+                  setEditPhotoPreview(null)
+                }}
+                className='absolute top-4 right-4 p-2 hover:bg-slate-50 border border-slate-100 rounded-xl text-slate-400 hover:text-slate-800 transition cursor-pointer'
+              >
+                <X size={16} />
+              </button>
+            </header>
+
+            {/* Scrollable Body */}
+            <form onSubmit={handleUpdateOutlet} className='flex-1 overflow-y-auto min-h-0 bg-slate-50/40 p-6 space-y-6'>
+              {/* Outlet Information Section */}
+              <section className='bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4'>
+                <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2.5'>
+                  Outlet Information
+                </h4>
+                
+                <div className='grid grid-cols-1 md:grid-cols-[160px_1fr_1fr] gap-4'>
+                  {/* Photo Upload Box */}
+                  <div
+                    onClick={() => editFileInputRef.current?.click()}
+                    className='flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 hover:bg-slate-50 transition cursor-pointer text-center relative h-[120px] overflow-hidden'
+                  >
+                    {uploadingEditPhoto ? (
+                      <div className='flex flex-col items-center justify-center text-xs text-slate-400 gap-1.5 p-4'>
+                        <RefreshCw size={18} className='animate-spin text-[#F43F70]' />
+                        <span className='font-bold text-slate-600 animate-pulse'>Uploading...</span>
+                      </div>
+                    ) : editPhotoPreview && !editPhotoHasError ? (
+                      <div className='group relative w-full h-full'>
+                        <img
+                          src={editPhotoPreview}
+                          alt='Preview'
+                          className='w-full h-full object-cover'
+                          onError={() => setEditPhotoHasError(true)}
+                        />
+                        {/* Hover Overlay */}
+                        <div className='absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex flex-col items-center justify-center text-white gap-1'>
+                          <Camera size={18} />
+                          <span className='text-[10px] font-bold tracking-wider uppercase'>Ganti Gambar</span>
+                        </div>
+                        {/* Delete Button */}
+                        <button
+                          type='button'
+                          onClick={handleRemoveEditPhoto}
+                          className='absolute top-1.5 right-1.5 z-10 w-6.5 h-6.5 rounded-full bg-slate-900/60 hover:bg-[#F43F70] text-white flex items-center justify-center transition hover:scale-105 active:scale-95 cursor-pointer'
+                          title='Hapus Gambar'
+                        >
+                          <X size={13} strokeWidth={2.5} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className='p-4 flex flex-col items-center justify-center'>
+                        <Plus size={20} className='text-slate-400 mb-1' />
+                        <span className='text-[10px] font-bold text-slate-700 leading-tight'>Upload image</span>
+                        <span className='text-[8px] text-slate-400 mt-1'>JPG, PNG up to 5MB</span>
+                        <span className='text-[8px] text-slate-400'>Recommended 1:1</span>
+                      </div>
+                    )}
+                    <input
+                      type='file'
+                      ref={editFileInputRef}
+                      onChange={handlePhotoEditUpload}
+                      accept='image/*'
+                      className='hidden'
+                    />
+                  </div>
+
+                  {/* Name and Code */}
+                  <div className='space-y-3.5 col-span-2 grid grid-cols-2 gap-4'>
+                    <div className='col-span-1'>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        Outlet Name <span className='text-[#F43F70]'>*</span>
+                      </label>
+                      <input
+                        type='text'
+                        value={editForm.name}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder='e.g., Samarinda Central'
+                        className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                        required
+                      />
+                    </div>
+                    <div className='col-span-1'>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        Outlet Code <span className='text-[#F43F70]'>*</span>
+                      </label>
+                      <input
+                        type='text'
+                        value={editForm.code}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                        placeholder='e.g., SMR-CENTRAL-001'
+                        className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                        required
+                      />
+                    </div>
+                    
+                    {/* Region and City */}
+                    <div className='col-span-1'>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        Region <span className='text-[#F43F70]'>*</span>
+                      </label>
+                      <div className='relative'>
+                        <select
+                          value={editForm.region}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, region: e.target.value }))}
+                          className='h-10 w-full appearance-none rounded-xl border border-[#E1E6EF] bg-white pl-3.5 pr-8 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                        >
+                          <option value='Kalimantan Timur'>Kalimantan Timur</option>
+                          <option value='Kalimantan Utara'>Kalimantan Utara</option>
+                          <option value='Sulawesi Selatan'>Sulawesi Selatan</option>
+                        </select>
+                        <ChevronDown size={14} className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                      </div>
+                    </div>
+                    <div className='col-span-1'>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        City <span className='text-[#F43F70]'>*</span>
+                      </label>
+                      <div className='relative'>
+                        <select
+                          value={editForm.city}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, city: e.target.value }))}
+                          className='h-10 w-full appearance-none rounded-xl border border-[#E1E6EF] bg-white pl-3.5 pr-8 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                        >
+                          <option value='Samarinda'>Samarinda</option>
+                          <option value='Balikpapan'>Balikpapan</option>
+                          <option value='Tenggarong'>Tenggarong</option>
+                          <option value='Bontang'>Bontang</option>
+                          <option value='Sangatta'>Sangatta</option>
+                          <option value='Makassar'>Makassar</option>
+                        </select>
+                        <ChevronDown size={14} className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Full Address */}
+                <div>
+                  <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                    Full Address <span className='text-[#F43F70]'>*</span>
+                  </label>
+                  <input
+                    type='text'
+                    value={editForm.address}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
+                    placeholder='Jl. Jenderal Sudirman No. 45, Samarinda Ulu, Samarinda, Kalimantan Timur 75123'
+                    className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                    required
+                  />
+                </div>
+
+                {/* Maps and Lat/Long */}
+                <div className='grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1.5fr] gap-4'>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Google Maps Link
+                    </label>
+                    <input
+                      type='text'
+                      value={editForm.googleMapsLink}
+                      onChange={(e) => handleEditMapsLinkChange(e.target.value)}
+                      placeholder='https://maps.google.com/?q=...'
+                      className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Latitude
+                    </label>
+                    <input
+                      type='text'
+                      value={editForm.latitude}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, latitude: e.target.value }))}
+                      placeholder='0.4921'
+                      className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Longitude
+                    </label>
+                    <div className='flex gap-2'>
+                      <input
+                        type='text'
+                        value={editForm.longitude}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, longitude: e.target.value }))}
+                        placeholder='117.1536'
+                        className='h-10 flex-1 min-w-0 rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                      />
+                      <button
+                        type='button'
+                        onClick={() => {
+                          const coords = parseCoordinatesFromUrl(editForm.googleMapsLink)
+                          if (coords) {
+                            setEditForm(prev => ({
+                              ...prev,
+                              latitude: coords.lat,
+                              longitude: coords.lng
+                            }))
+                          } else {
+                            alert('Koordinat tidak ditemukan pada link Google Maps. Pastikan link memiliki format koordinat seperti @lat,lng atau q=lat,lng.')
+                          }
+                        }}
+                        className='h-10 px-3 flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-[#F43F70] hover:text-white text-[#11182E] border border-slate-200 hover:border-[#F43F70] rounded-xl text-xs font-semibold transition shrink-0 cursor-pointer shadow-sm'
+                        title='Find Lat/Lon'
+                      >
+                        <Search size={13} />
+                        <span>Find Lat/Lon</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Map Preview */}
+                <div className='h-40 rounded-2xl border border-slate-200 overflow-hidden relative bg-slate-100 flex items-center justify-center'>
+                  {editCoordsValid ? (
+                    <iframe
+                      title="Google Maps Preview Edit"
+                      width="100%"
+                      height="100%"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      allowFullScreen
+                      src={`https://maps.google.com/maps?q=${editForm.latitude},${editForm.longitude}&z=15&output=embed`}
+                    />
+                  ) : (
+                    <>
+                      <div className='absolute inset-0 bg-[radial-gradient(#e2e8f0_1.5px,transparent_1.5px)] [background-size:12px_12px] opacity-60' />
+                      <div className='flex items-center gap-1.5 z-10 text-slate-400 text-xs font-semibold'>
+                        <MapPin size={14} className='text-[#F43F70]' />
+                        <span>Map View Preview ({editForm.name || 'Selected Area'})</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </section>
+
+              {/* Outlet Manager Section */}
+              <section className='bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4'>
+                <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2.5'>
+                  Outlet Manager
+                </h4>
+
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Manager Name <span className='text-[#F43F70]'>*</span>
+                    </label>
+                    <input
+                      type='text'
+                      value={editForm.managerName}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, managerName: e.target.value }))}
+                      placeholder='Rina Pratiwi'
+                      className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Phone Number <span className='text-[#F43F70]'>*</span>
+                    </label>
+                    <input
+                      type='text'
+                      value={editForm.managerPhone}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, managerPhone: e.target.value }))}
+                      placeholder='+62 812-3456-7890'
+                      className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Email <span className='text-[#F43F70]'>*</span>
+                    </label>
+                    <input
+                      type='email'
+                      value={editForm.managerEmail}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, managerEmail: e.target.value }))}
+                      placeholder='rina.pratiwi@kalisteh.id'
+                      className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-4 pt-2'>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Status <span className='text-[#F43F70]'>*</span>
+                    </label>
+                    <div className='relative'>
+                      <select
+                        value={editForm.status}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
+                        className='h-10 w-full appearance-none rounded-xl border border-[#E1E6EF] bg-white pl-3.5 pr-8 text-xs text-[#11182E] outline-none transition focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                      >
+                        <option value='Active'>Active</option>
+                        <option value='Needs Attention'>Needs Attention</option>
+                        <option value='Coming Soon'>Coming Soon</option>
+                        <option value='Paused'>Paused</option>
+                      </select>
+                      <ChevronDown size={14} className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                    </div>
+                  </div>
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Opening Type <span className='text-[#F43F70]'>*</span>
+                    </label>
+                    <div className='grid grid-cols-3 gap-2'>
+                      {['Active', 'Coming Soon', 'Paused'].map((type) => {
+                        const isSelected = editForm.openingType === type
+                        const typeStyles = {
+                          Active: isSelected ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'hover:bg-slate-50 text-slate-600 border-slate-200',
+                          'Coming Soon': isSelected ? 'bg-purple-50 border-[#6956E8] text-[#6956E8]' : 'hover:bg-slate-50 text-slate-600 border-slate-200',
+                          Paused: isSelected ? 'bg-amber-50 border-amber-500 text-amber-600' : 'hover:bg-slate-50 text-slate-600 border-slate-200'
+                        }
+                        return (
+                          <button
+                            key={type}
+                            type='button'
+                            onClick={() => setEditForm(prev => ({ ...prev, openingType: type, status: type }))}
+                            className={cx(
+                              'h-10 text-xs font-bold border rounded-xl transition-all cursor-pointer text-center',
+                              typeStyles[type]
+                            )}
+                          >
+                            {type}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Connected Channels Section */}
+              <section className='bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4'>
+                <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2.5'>
+                  Connected Channels
+                </h4>
+
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                  {/* WhatsApp */}
+                  <div className='flex items-center justify-between p-4 border border-slate-200/80 rounded-xl bg-slate-50/20'>
+                    <div className='flex items-center gap-3'>
+                      <div className='w-9 h-9 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#16A34A]'>
+                        <MessageCircle size={18} />
+                      </div>
+                      <div>
+                        <p className='text-xs font-bold text-slate-800 leading-tight'>WhatsApp</p>
+                        <p className='text-[10px] text-emerald-600 font-semibold mt-0.5'>Connected</p>
+                      </div>
+                    </div>
+                    <label className='relative inline-flex items-center cursor-pointer'>
+                      <input
+                        type='checkbox'
+                        checked={editForm.whatsappConnected}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, whatsappConnected: e.target.checked }))}
+                        className='sr-only peer'
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#16A34A]" />
+                    </label>
+                  </div>
+
+                  {/* Telegram */}
+                  <div className='flex items-center justify-between p-4 border border-slate-200/80 rounded-xl bg-slate-50/20'>
+                    <div className='flex items-center gap-3'>
+                      <div className='w-9 h-9 rounded-full bg-sky-50 border border-sky-100 flex items-center justify-center text-[#2563EB]'>
+                        <Send size={16} />
+                      </div>
+                      <div>
+                        <p className='text-xs font-bold text-slate-800 leading-tight'>Telegram</p>
+                        <p className='text-[10px] text-sky-600 font-semibold mt-0.5'>Connected</p>
+                      </div>
+                    </div>
+                    <label className='relative inline-flex items-center cursor-pointer'>
+                      <input
+                        type='checkbox'
+                        checked={editForm.telegramConnected}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, telegramConnected: e.target.checked }))}
+                        className='sr-only peer'
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2563EB]" />
+                    </label>
+                  </div>
+                </div>
+              </section>
+
+              {/* Operations Section */}
+              <section className='bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4'>
+                <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2.5'>
+                  Operations
+                </h4>
+
+                <div className='grid grid-cols-1 md:grid-cols-[1.5fr_1.2fr_1.3fr] gap-6'>
+                  {/* Operating Hours */}
+                  <div className='space-y-3'>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider'>
+                      Operating Hours <span className='text-[#F43F70]'>*</span>
+                    </label>
+                    <div className='space-y-2.5'>
+                      {/* Mon - Fri */}
+                      <div className='flex items-center justify-between gap-2.5'>
+                        <span className='text-xs font-semibold text-slate-500 w-20'>Mon - Fri</span>
+                        <div className='flex items-center gap-1.5 flex-1'>
+                          <input
+                            type='text'
+                            value={editForm.operatingHours.monFri.open}
+                            onChange={(e) => setEditForm(prev => ({
+                              ...prev,
+                              operatingHours: {
+                                ...prev.operatingHours,
+                                monFri: { ...prev.operatingHours.monFri, open: e.target.value }
+                              }
+                            }))}
+                            className='h-8 w-20 rounded-lg border border-[#E1E6EF] text-center text-xs font-bold text-[#11182E] outline-none'
+                          />
+                          <span className='text-[10px] text-slate-400'>to</span>
+                          <input
+                            type='text'
+                            value={editForm.operatingHours.monFri.close}
+                            onChange={(e) => setEditForm(prev => ({
+                              ...prev,
+                              operatingHours: {
+                                ...prev.operatingHours,
+                                monFri: { ...prev.operatingHours.monFri, close: e.target.value }
+                              }
+                            }))}
+                            className='h-8 w-20 rounded-lg border border-[#E1E6EF] text-center text-xs font-bold text-[#11182E] outline-none'
+                          />
+                        </div>
+                      </div>
+
+                      {/* Saturday */}
+                      <div className='flex items-center justify-between gap-2.5'>
+                        <span className='text-xs font-semibold text-slate-500 w-20'>Saturday</span>
+                        <div className='flex items-center gap-1.5 flex-1'>
+                          <input
+                            type='text'
+                            value={editForm.operatingHours.saturday.open}
+                            onChange={(e) => setEditForm(prev => ({
+                              ...prev,
+                              operatingHours: {
+                                ...prev.operatingHours,
+                                saturday: { ...prev.operatingHours.saturday, open: e.target.value }
+                              }
+                            }))}
+                            className='h-8 w-20 rounded-lg border border-[#E1E6EF] text-center text-xs font-bold text-[#11182E] outline-none'
+                          />
+                          <span className='text-[10px] text-slate-400'>to</span>
+                          <input
+                            type='text'
+                            value={editForm.operatingHours.saturday.close}
+                            onChange={(e) => setEditForm(prev => ({
+                              ...prev,
+                              operatingHours: {
+                                ...prev.operatingHours,
+                                saturday: { ...prev.operatingHours.saturday, close: e.target.value }
+                              }
+                            }))}
+                            className='h-8 w-20 rounded-lg border border-[#E1E6EF] text-center text-xs font-bold text-[#11182E] outline-none'
+                          />
+                        </div>
+                      </div>
+
+                      {/* Sunday */}
+                      <div className='flex items-center justify-between gap-2.5'>
+                        <span className='text-xs font-semibold text-slate-500 w-20'>Sunday</span>
+                        <div className='flex items-center gap-1.5 flex-1'>
+                          <input
+                            type='text'
+                            value={editForm.operatingHours.sunday.open}
+                            onChange={(e) => setEditForm(prev => ({
+                              ...prev,
+                              operatingHours: {
+                                ...prev.operatingHours,
+                                sunday: { ...prev.operatingHours.sunday, open: e.target.value }
+                              }
+                            }))}
+                            className='h-8 w-20 rounded-lg border border-[#E1E6EF] text-center text-xs font-bold text-[#11182E] outline-none'
+                          />
+                          <span className='text-[10px] text-slate-400'>to</span>
+                          <input
+                            type='text'
+                            value={editForm.operatingHours.sunday.close}
+                            onChange={(e) => setEditForm(prev => ({
+                              ...prev,
+                              operatingHours: {
+                                ...prev.operatingHours,
+                                sunday: { ...prev.operatingHours.sunday, close: e.target.value }
+                              }
+                            }))}
+                            className='h-8 w-20 rounded-lg border border-[#E1E6EF] text-center text-xs font-bold text-[#11182E] outline-none'
+                          />
+                        </div>
+                      </div>
+
+                      <button type='button' className='text-[11px] font-bold text-[#F43F70] hover:text-[#e62e63] transition flex items-center gap-1 cursor-pointer'>
+                        <Plus size={12} /> Add custom hours
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Avg Prep Time */}
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Preparation Time Target <span className='text-[#F43F70]'>*</span>
+                    </label>
+                    <div className='relative'>
+                      <select
+                        value={editForm.prepTime}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, prepTime: e.target.value }))}
+                        className='h-10 w-full appearance-none rounded-xl border border-[#E1E6EF] bg-white pl-3.5 pr-8 text-xs text-[#11182E] outline-none'
+                      >
+                        <option value='15 min'>15 min</option>
+                        <option value='18 min'>18 min</option>
+                        <option value='20 min'>20 min</option>
+                        <option value='25 min'>25 min</option>
+                        <option value='30 min'>30 min</option>
+                      </select>
+                      <ChevronDown size={14} className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                    </div>
+                    <span className='text-[10px] text-slate-400 mt-1 block font-semibold'>e.g., 15-30 min</span>
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Notes
+                    </label>
+                    <textarea
+                      value={editForm.notes}
+                      onChange={(e) => {
+                        if (e.target.value.length <= 300) {
+                          setEditForm(prev => ({ ...prev, notes: e.target.value }))
+                        }
+                      }}
+                      placeholder='Add any additional notes about this outlet...'
+                      className='w-full h-[100px] p-3 text-xs text-[#11182E] rounded-xl border border-[#E1E6EF] outline-none resize-none placeholder:text-slate-400 focus:border-[#F43F70] focus:ring-2 focus:ring-[#F43F70]/10'
+                    />
+                    <div className='text-right text-[10px] text-slate-400 mt-1 font-semibold'>
+                      {editForm.notes.length}/300
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </form>
+
+            {/* Footer */}
+            <footer className='px-6 py-4 border-t border-slate-100 flex items-center justify-between shrink-0 bg-white'>
+              <button
+                type='button'
+                onClick={() => {
+                  setIsEditOutletOpen(false)
+                  setEditPhotoPreview(null)
+                }}
+                className='h-10 px-5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition active:scale-[0.98] cursor-pointer'
+              >
+                Cancel
+              </button>
+              <button
+                type='button'
+                onClick={handleUpdateOutlet}
+                className='h-10 px-5 rounded-xl bg-[#F43F70] text-xs font-bold text-white shadow-[0_6px_18px_rgba(244,63,112,0.24)] hover:bg-[#e62e63] transition active:scale-[0.98] cursor-pointer'
+              >
+                Save Changes
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* ── View Details Modal ── */}
+      {isViewDetailsOpen && viewingOutlet && (
+        <div className='fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px] animate-in fade-in duration-150'>
+          <div className='bg-white rounded-2xl w-full max-w-[700px] shadow-2xl border border-slate-100 flex flex-col max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200'>
+            {/* Header */}
+            <header className='px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0 relative'>
+              <div>
+                <h3 className='text-base font-extrabold text-[#11182E] leading-none'>
+                  Outlet Details
+                </h3>
+                <p className='m-0 mt-1.5 text-xs text-slate-400 font-semibold leading-none'>
+                  Detailed profile and operational data for {viewingOutlet.name}
+                </p>
+              </div>
+              <button
+                type='button'
+                onClick={() => setIsViewDetailsOpen(false)}
+                className='absolute top-4 right-4 p-2 hover:bg-slate-50 border border-slate-100 rounded-xl text-slate-400 hover:text-slate-800 transition cursor-pointer'
+              >
+                <X size={16} />
+              </button>
+            </header>
+
+            {/* Scrollable Body */}
+            <div className='flex-1 overflow-y-auto min-h-0 bg-slate-50/40 p-6 space-y-6'>
+              {/* Profile Card Section */}
+              <section className='bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-[120px_1fr] gap-5 items-start'>
+                <OutletImage
+                  src={viewingOutlet.image}
+                  name={viewingOutlet.name}
+                  className='h-[120px] w-[120px] rounded-2xl border border-slate-200 object-cover shadow-sm mx-auto sm:mx-0'
+                />
+                <div className='space-y-3 text-center sm:text-left'>
+                  <div>
+                    <div className='flex flex-col sm:flex-row sm:items-center gap-2 justify-center sm:justify-start'>
+                      <h4 className='text-lg font-bold text-[#11182E] tracking-tight leading-tight'>
+                        {viewingOutlet.name}
+                      </h4>
+                      <div className='mx-auto sm:mx-0'>
+                        <StatusBadge status={viewingOutlet.status} />
+                      </div>
+                    </div>
+                    {[viewingOutlet.city, viewingOutlet.region].filter(Boolean).join(', ') && (
+                      <p className='text-xs text-slate-500 font-semibold mt-1'>
+                        {[viewingOutlet.city, viewingOutlet.region].filter(Boolean).join(', ')}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className='pt-1 flex flex-wrap justify-center sm:justify-start items-center gap-4 text-xs font-semibold text-slate-600'>
+                    <span className='flex items-center gap-1.5'>
+                      <Phone size={13} className='text-slate-400' />
+                      {viewingOutlet.phone || '-'}
+                    </span>
+                    <span className='h-3 w-px bg-slate-200' />
+                    <span className='flex items-center gap-1.5'>
+                      <User size={13} className='text-slate-400' />
+                      Manager: {viewingOutlet.manager || '-'}
+                    </span>
+                  </div>
+
+                  <div className='pt-1.5 border-t border-slate-100 flex flex-wrap justify-center sm:justify-start items-center gap-2'>
+                    <span className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>Channels:</span>
+                    {viewingOutlet.channels && viewingOutlet.channels.map(ch => (
+                      <ChannelIcon key={ch} channel={ch} />
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              {/* Details Grid */}
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                {/* Location Information */}
+                <section className='bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3.5'>
+                  <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-1.5'>
+                    <MapPin size={14} className='text-[#F43F70]' /> Location & Address
+                  </h4>
+                  <div className='space-y-3 text-xs'>
+                    <div>
+                      <span className='font-bold text-slate-400 block mb-0.5'>Address</span>
+                      <span className='font-semibold text-slate-700 leading-relaxed'>{viewingOutlet.address || '-'}</span>
+                    </div>
+                    <div className='grid grid-cols-2 gap-2'>
+                      <div>
+                        <span className='font-bold text-slate-400 block mb-0.5'>Latitude</span>
+                        <span className='font-bold text-slate-700'>{viewingOutlet.latitude || viewingOutlet.metadata?.latitude || '-'}</span>
+                      </div>
+                      <div>
+                        <span className='font-bold text-slate-400 block mb-0.5'>Longitude</span>
+                        <span className='font-bold text-slate-700'>{viewingOutlet.longitude || viewingOutlet.metadata?.longitude || '-'}</span>
+                      </div>
+                    </div>
+                    {(viewingOutlet.googleMapsLink || viewingOutlet.metadata?.googleMapsLink) && (
+                      <div className='pt-2'>
+                        <a
+                          href={viewingOutlet.googleMapsLink || viewingOutlet.metadata?.googleMapsLink}
+                          target='_blank'
+                          rel='noopener noreferrer'
+                          className='inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors'
+                        >
+                          <ExternalLink size={12} /> Open in Google Maps
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                {/* Operations & Hours */}
+                <section className='bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3.5'>
+                  <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-1.5'>
+                    <Clock3 size={14} className='text-[#6956E8]' /> Operating Hours
+                  </h4>
+                  <div className='space-y-2.5 text-xs'>
+                    {viewingOutlet.hours && viewingOutlet.hours.map(([day, time]) => (
+                      <div key={day} className='flex items-center justify-between border-b border-slate-50 pb-1.5 last:border-0 last:pb-0'>
+                        <span className='text-slate-500 font-semibold'>{day}</span>
+                        <span className='font-bold text-slate-800'>{time}</span>
+                      </div>
+                    ))}
+                    <div className='pt-2 border-t border-slate-100 flex items-center justify-between'>
+                      <span className='text-slate-500 font-semibold'>Prep Time Target:</span>
+                      <span className='font-bold text-slate-800'>{viewingOutlet.avgPrep ? `${viewingOutlet.avgPrep} min` : (viewingOutlet.metadata?.prepTime || '-')}</span>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              {/* Extra Details / Notes */}
+              {(viewingOutlet.notes || viewingOutlet.metadata?.notes) && (
+                <section className='bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-2.5'>
+                  <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2'>
+                    Internal Notes
+                  </h4>
+                  <p className='text-xs text-slate-600 font-semibold leading-relaxed whitespace-pre-wrap m-0'>
+                    {viewingOutlet.notes || viewingOutlet.metadata?.notes}
+                  </p>
+                </section>
+              )}
+            </div>
+
+            {/* Footer */}
+            <footer className='px-6 py-4 border-t border-slate-100 flex items-center justify-end bg-white shrink-0 gap-2'>
+              <button
+                type='button'
+                onClick={() => {
+                  setIsViewDetailsOpen(false)
+                  handleEditOutlet(viewingOutlet)
+                }}
+                className='h-10 px-5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition active:scale-[0.98] cursor-pointer flex items-center gap-1.5'
+              >
+                <Edit3 size={13} /> Edit Details
+              </button>
+              <button
+                type='button'
+                onClick={() => setIsViewDetailsOpen(false)}
+                className='h-10 px-5 rounded-xl bg-[#6956E8] text-xs font-bold text-white shadow-[0_6px_18px_rgba(105,86,232,0.24)] hover:bg-[#5b49d3] transition active:scale-[0.98] cursor-pointer'
+              >
+                Close
               </button>
             </footer>
           </div>

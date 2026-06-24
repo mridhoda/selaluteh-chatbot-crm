@@ -2,9 +2,15 @@ import { env } from '../config/env.js';
 import { AppError } from '../utils/errors.js';
 import { ordersRepository, paymentsRepository } from '../db/repositories/index.js';
 import { assertOutletAccess, buildOutletScopedQuery } from './access-control.service.js';
+import { sendOrderStatusMessage } from './order.service.js';
 
 const TERMINAL_PAID_STATUSES = new Set(['paid', 'refunded', 'partially_refunded']);
 const ACTIVE_SESSION_STATUSES = new Set(['pending', 'created']);
+
+function resolveEntityId(value) {
+  if (!value || typeof value !== 'object') return value || null;
+  return value.id || value._id || null;
+}
 
 export async function createPayment({ user, workspaceId, outletId, orderId, customer, amount, currency = 'IDR', paymentMethod = null, provider = null }) {
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
@@ -53,7 +59,7 @@ export async function createPayment({ user, workspaceId, outletId, orderId, cust
     workspaceId,
     outletId: outletId || order.outletId,
     orderId,
-    contactId: order.contactId,
+    contactId: resolveEntityId(order.contactId),
     attemptNumber,
     provider: activeProvider,
     providerTransactionId,
@@ -145,7 +151,7 @@ export async function createXenditPaymentSessionForOrder({ user, workspaceId, or
     workspaceId,
     outletId: order.outletId,
     orderId,
-    contactId: order.contactId,
+    contactId: resolveEntityId(order.contactId),
     attemptNumber,
     provider: 'xendit',
     providerTransactionId: providerSession.providerSessionId,
@@ -197,7 +203,7 @@ export async function reconcileProviderSession({ payment, providerSession }) {
     await paymentsRepository.updatePayment(payment.id, { reconciliation_status: 'amount_mismatch' });
     throw new AppError('PAYMENT_CURRENCY_MISMATCH', 'Provider currency does not match payment currency', 409);
   }
-  const allowedFrom = providerSession.status === 'paid' ? ['pending', 'created', 'expired'] : ['pending', 'created'];
+  const allowedFrom = providerSession.status === 'paid' ? ['pending', 'expired'] : ['pending'];
   const updates = {
     reconciliation_status: providerSession.status === 'paid' ? 'matched' : 'pending',
   };
@@ -285,6 +291,8 @@ export async function syncPaymentWithProvider({ workspaceId, paymentId }) {
 
   if (result.status !== payment.status && result.status === 'paid') {
     await processPaidPayment({ payment, providerEvent: result });
+  } else if (result.status === 'paid' && payment.reconciliationStatus !== 'matched') {
+    await paymentsRepository.updatePayment(payment.id, { reconciliation_status: 'matched' });
   }
 
   return paymentsRepository.findById({ workspaceId, paymentId });
@@ -314,13 +322,38 @@ async function processPaidPayment({ payment, providerEvent }) {
     },
   });
 
-  await ordersRepository.updateOne({ workspaceId: payment.workspaceId, orderId: payment.orderId, updates: { payment_status: 'paid' } });
+  await paymentsRepository.updatePayment(payment.id, { reconciliation_status: 'matched' });
+
+  const updatedOrder = await ordersRepository.updateOne({
+    workspaceId: payment.workspaceId,
+    orderId: payment.orderId,
+    updates: { payment_status: 'paid', paid_at: new Date().toISOString(), status: 'accepted' },
+  });
+  await notifyPaidOnce({ order: updatedOrder, paymentId: payment.id });
+}
+
+async function notifyPaidOnce({ order, paymentId }) {
+  if (!order) return;
+  const sentPayments = order.metadata?.paid_notification_payment_ids || [];
+  if (sentPayments.includes(paymentId)) return;
+
+  await sendOrderStatusMessage({
+    order,
+    from: 'ai',
+    messageText: `Pembayaran pesanan ${order.orderNumber || ''} sudah kami terima ✅\n\nPesanan telah dikonfirmasi dan akan segera diproses.\n\nKami akan memberi tahu saat pesanan siap diambil.`,
+  });
+
+  await ordersRepository.updateOne({
+    workspaceId: order.workspaceId,
+    orderId: order.id,
+    updates: { metadata: { ...(order.metadata || {}), paid_notification_payment_ids: [...sentPayments, paymentId] } },
+  });
 }
 
 function buildCustomerSnapshot(order, input = {}) {
   const customerSnapshot = order.customerSnapshot || {};
   return {
-    referenceId: input.referenceId || order.contactId || order.chatId || order.id,
+    referenceId: input.referenceId || resolveEntityId(order.contactId) || resolveEntityId(order.chatId) || order.id,
     name: input.name || customerSnapshot.name || order.customerNameSnapshot || 'Customer',
     phone: input.phone || customerSnapshot.phone || order.customerPhoneSnapshot || '',
     email: input.email || customerSnapshot.email || '',

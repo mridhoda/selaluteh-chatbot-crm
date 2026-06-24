@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../../shared/api/httpClient'
 import { isDemoMode } from '../../../mocks/demoState'
 import * as XLSX from 'xlsx'
@@ -18,6 +18,8 @@ import OrderDetailDrawer from '../components/OrderDetailDrawer'
 
 export default function Orders() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const outletParam = searchParams.get('outlet')
 
   // Primary API Data States
   const [orders, setOrders] = useState([])
@@ -31,7 +33,7 @@ export default function Orders() {
 
   // Filter States
   const [filters, setFilters] = useState({
-    outlet: 'all',
+    outlet: outletParam || 'all',
     date: 'all',
     channel: 'all',
     paymentStatus: 'all',
@@ -447,9 +449,10 @@ export default function Orders() {
       const subtotalFromFormData = priceInfo
         ? priceInfo.subtotal
         : itemsFromFormData[0]?.price * itemsFromFormData[0]?.qty || 0
-      const orderIdDisplay = order._id.startsWith('order-')
-        ? `ORD-${order._id.replace('order-', '')}`
-        : `ORD-${order._id.substring(order._id.length - 4).toUpperCase()}`
+      const orderIdDisplay = order.orderNumber
+        || (order._id.startsWith('order-')
+          ? `SLTH-${order._id.replace('order-', '')}`
+          : order._id)
 
       const timeline = [
         {
@@ -495,13 +498,6 @@ export default function Orders() {
           : null) ||
         outletFromFormData
 
-      // --- Resolve channel: prefer channelSnapshot → source field → formData fallback ---
-      const channelResolved =
-        (order.channelSnapshot || '').toLowerCase() ||
-        (order.source || '').toLowerCase() ||
-        channelFromFormData ||
-        'unknown'
-
       // --- Resolve payment status: prefer server paymentStatus field, then formData fallback ---
       let paymentStatusResolved = order.paymentStatus
         ? order.paymentStatus.toLowerCase().includes('paid') ||
@@ -529,6 +525,13 @@ export default function Orders() {
           ? itemsListResolved.reduce((sum, i) => sum + i.price * i.qty, 0)
           : subtotalFromFormData || 25000)
 
+      // --- Resolve channel: prefer channelSnapshot → source field → formData fallback ---
+      let channelResolved =
+        (order.channelSnapshot || '').toLowerCase() ||
+        (order.source || '').toLowerCase() ||
+        channelFromFormData ||
+        'unknown'
+
       // --- Resolve customer name: prefer contactId object from server, then customerNameSnapshot ---
       const customerName =
         (order.contactId && typeof order.contactId === 'object'
@@ -536,12 +539,26 @@ export default function Orders() {
           : null) ||
         order.customerNameSnapshot ||
         'Unknown User'
-      const customerPhone =
+      
+      let customerPhone =
         (order.contactId && typeof order.contactId === 'object'
-          ? order.contactId.phone
+          ? (order.contactId.phone || order.contactId.handle || order.contactId.external_id || order.contactId.externalId)
           : null) ||
         order.customerPhoneSnapshot ||
         ''
+
+      // --- Smart inference for WhatsApp ---
+      // If we have a pure numeric ID starting with 62 (Indonesian country code), it is almost certainly WhatsApp
+      if (/^\d{10,15}$/.test(customerPhone) && customerPhone.startsWith('62')) {
+        channelResolved = 'whatsapp'
+      } else if (order.chatId) {
+        if (order.chatId.includes('@s.whatsapp.net') || order.chatId.includes('@g.us')) {
+          channelResolved = 'whatsapp'
+          if (!customerPhone) {
+            customerPhone = order.chatId.split('@')[0]
+          }
+        }
+      }
 
       return {
         _id: order._id,
@@ -628,7 +645,13 @@ export default function Orders() {
   const filteredOrders = useMemo(() => {
     return masterOrdersList.filter((o) => {
       // 1. Outlet Filter
-      if (filters.outlet !== 'all' && o.outlet !== filters.outlet) return false
+      if (filters.outlet !== 'all') {
+        const outletQuery = filters.outlet.toLowerCase()
+        const orderOutlet = (o.outlet || '').toLowerCase()
+        if (!orderOutlet.includes(outletQuery) && !outletQuery.includes(orderOutlet)) {
+          return false
+        }
+      }
 
       // 2. Date Filter
       if (!isDateMatched(o.createdAt, filters.date)) return false

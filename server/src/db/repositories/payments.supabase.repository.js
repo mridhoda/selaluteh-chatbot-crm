@@ -192,6 +192,7 @@ export const paymentsSupabaseRepository = {
     const result = await client.from(EVENTS_TABLE).insert({
       payment_id: paymentId,
       workspace_id: workspaceId,
+      order_id: event.orderId || null,
       provider: event.provider || null,
       provider_event_id: event.providerEventId || null,
       event_type: event.type || event.eventType || 'webhook',
@@ -204,16 +205,15 @@ export const paymentsSupabaseRepository = {
       payment_method: event.paymentMethod || null,
       raw_payload: event.rawPayload || event.raw || event.payload || {},
       status: event.status || null,
-      metadata: event.metadata || {},
     }).select().single();
     return mapRow(extractSingle(result, 'payments.createEvent'));
   },
 
   async addEvent({ paymentId, event }) {
     const client = getSupabaseServiceClient();
-    const paymentResult = await client.from(TABLE).select('workspace_id').eq('id', paymentId).maybeSingle();
+    const paymentResult = await client.from(TABLE).select('workspace_id, order_id').eq('id', paymentId).maybeSingle();
     const payment = paymentResult.data ? mapRow(paymentResult.data) : null;
-    return this.createEvent({ paymentId, workspaceId: payment?.workspaceId, event });
+    return this.createEvent({ paymentId, workspaceId: payment?.workspaceId, event: { ...event, orderId: event.orderId || payment?.orderId } });
   },
 
   async listEvents({ paymentId }) {

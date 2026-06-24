@@ -74,6 +74,7 @@ async function executeCommerceTool({ toolCall, workspaceId, chat, contact }) {
       const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId: cartContactId });
       if (!cart) throw new AppError('CART_NOT_FOUND', 'No active cart. Select outlet first.', 400);
       const productForCart = await productsRepository.findById({ workspaceId, productId: args.productId });
+      if (!productForCart) throw new AppError('PRODUCT_NOT_FOUND', 'Product not found. Call search_products again and use productId from the result.', 404);
       const updatedCart = await cartsRepository.addItem({
         workspaceId,
         cartId: cart.id,

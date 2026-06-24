@@ -11,6 +11,36 @@ import { env } from '../config/env.js';
 
 const router = express.Router();
 
+router.all('/return/:kind', (req, res) => {
+  const kind = req.params.kind === 'cancel' ? 'cancel' : 'success';
+  const isSuccess = kind === 'success';
+  res
+    .status(isSuccess ? 200 : 200)
+    .type('html')
+    .send(`<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${isSuccess ? 'Pembayaran Berhasil' : 'Pembayaran Dibatalkan'}</title>
+    <style>
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f8fafc; color: #0f172a; }
+      main { width: min(92vw, 420px); padding: 32px; border-radius: 24px; background: white; box-shadow: 0 20px 60px rgba(15, 23, 42, 0.12); text-align: center; }
+      .mark { width: 64px; height: 64px; margin: 0 auto 18px; display: grid; place-items: center; border-radius: 999px; background: ${isSuccess ? '#dcfce7' : '#fee2e2'}; color: ${isSuccess ? '#15803d' : '#b91c1c'}; font-size: 34px; font-weight: 800; }
+      h1 { margin: 0 0 10px; font-size: 24px; }
+      p { margin: 0; line-height: 1.6; color: #475569; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mark">${isSuccess ? '✓' : '!'}</div>
+      <h1>${isSuccess ? 'Pembayaran berhasil' : 'Pembayaran dibatalkan'}</h1>
+      <p>${isSuccess ? 'Terima kasih. Pembayaran kamu sedang kami verifikasi dan status pesanan akan diperbarui otomatis.' : 'Pembayaran belum selesai. Silakan kembali ke link pembayaran jika ingin mencoba lagi.'}</p>
+    </main>
+  </body>
+</html>`);
+});
+
 router.use(authRequired, attachUser, attachWorkspaceContext);
 
 router.get('/gateway/config', authorizePermission('payments', 'read'), async (req, res) => {

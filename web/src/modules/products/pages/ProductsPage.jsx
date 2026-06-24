@@ -1,4 +1,7 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import ImportModal from '../components/ImportModal'
+import * as XLSX from 'xlsx'
 import api from '../../../shared/api/httpClient'
 import { isDemoMode } from '../../../mocks/demoState'
 import {
@@ -27,6 +30,7 @@ import {
   ArrowUpRight,
   Copy,
   Archive,
+  Camera,
 } from 'lucide-react'
 
 const dummyProducts = [
@@ -400,32 +404,32 @@ function FilterSelect({ label, value, onChange, options }) {
 
 function MetricCard({ icon: Icon, label, value, change, tone }) {
   const toneClass = {
-    brand: 'bg-rose-50 text-[#F43F70]',
-    violet: 'bg-violet-50 text-[#6956E8]',
-    orange: 'bg-orange-50 text-[#EA7200]',
-    green: 'bg-emerald-50 text-[#16A34A]',
+    brand: 'bg-[#FFF1F2] text-[#DC3545]',
+    violet: 'bg-[#F5F3FF] text-[#6956E8]',
+    orange: 'bg-[#FFF7E8] text-[#EA7200]',
+    green: 'bg-[#ECFDF5] text-[#15803D]',
   }
 
   return (
-    <article className='flex min-h-[76px] items-center gap-2.5 rounded-xl border border-[#E1E6EF] bg-white px-3 py-2.5 shadow-[0_8px_22px_rgba(17,24,46,0.035)]'>
+    <article className='rounded-2xl border border-[#E1E6EF] bg-white p-3.5 shadow-[0_2px_12px_rgba(17,24,46,0.04)] flex items-center gap-3.5'>
       <span
         className={cx(
-          'grid h-8 w-8 shrink-0 place-items-center rounded-full',
+          'grid h-12 w-12 shrink-0 place-items-center rounded-full',
           toneClass[tone]
         )}
       >
-        <Icon size={16} />
+        <Icon size={22} />
       </span>
       <div className='min-w-0 flex-1'>
-        <p className='truncate text-[11px] font-semibold leading-none text-[#667085]'>
+        <p className='m-0 text-[11px] font-bold text-[#667085] leading-tight'>
           {label}
         </p>
-        <p className='mt-1 truncate text-lg font-extrabold leading-tight tracking-tight text-[#11182E]'>
+        <p className='m-0 mt-0.5 text-2xl font-bold tracking-tight text-[#11182E] leading-none'>
           {value}
         </p>
-        <div className='mt-1 flex items-center gap-1.5'>
+        <div className='mt-1 flex items-center gap-1'>
           <Trend value={change} />
-          <span className='truncate text-[11px] text-[#98A2B3]'>
+          <span className='text-[10px] font-semibold text-[#98A2B3] leading-none'>
             vs last month
           </span>
         </div>
@@ -540,7 +544,27 @@ function DetailPanel({
   onAssignOutletsClick = () => {},
   onToggleOutletAvailability = () => {},
   onOutletVisibilityChange = () => {},
+  onUpdateProduct = () => {},
+  onEditClick = () => {},
+  productActivities = [],
+  isLoadingActivities = false,
+  activityTypeFilter = 'all',
+  setActivityTypeFilter = () => {},
+  totalActivities = 0,
+  displayedActivities = [],
+  dateRangeLabel = '',
+  handleLoadMoreActivities = () => {},
+  mappedActivities = [],
 }) {
+  const [isEditingDesc, setIsEditingDesc] = useState(false)
+  const [editedDesc, setEditedDesc] = useState('')
+  const [savingDesc, setSavingDesc] = useState(false)
+
+  useEffect(() => {
+    setEditedDesc(product?.description || '')
+    setIsEditingDesc(false)
+  }, [product])
+
   if (!product) {
     return (
       <aside className='h-full bg-white flex flex-col items-center justify-center text-center p-6 text-[#667085] relative'>
@@ -662,7 +686,8 @@ function DetailPanel({
                 </h3>
                 <button
                   type='button'
-                  className='rounded-lg border border-[#D7DFEC] px-3 py-1 text-sm font-bold text-[#11182E] hover:bg-[#F6F8FB]'
+                  onClick={() => onEditClick(product)}
+                  className='rounded-lg border border-[#D7DFEC] px-3 py-1 text-sm font-bold text-[#11182E] hover:bg-[#F6F8FB] transition-colors cursor-pointer'
                 >
                   Edit
                 </button>
@@ -670,11 +695,69 @@ function DetailPanel({
               <div className='mt-3 space-y-2'>
                 <InfoRow label='Product Name' value={product.name} />
                 <InfoRow label='Category' value={product.category} />
-                <InfoRow
-                  label='Description'
-                  value={product.description}
-                  multiline
-                />
+                
+                {/* Description Inline Editing (Full Width) */}
+                <div className='border-t border-slate-100 pt-2.5 mt-2.5 pb-1'>
+                  <div className='flex items-center justify-between mb-1'>
+                    <span className='text-sm leading-5 text-[#667085]'>Description</span>
+                    {!isEditingDesc && (
+                      <button
+                        type='button'
+                        onClick={() => {
+                          setEditedDesc(product.description || '')
+                          setIsEditingDesc(true)
+                        }}
+                        className='p-1 rounded-md text-slate-400 hover:text-[#FF1F6D] hover:bg-rose-50 transition cursor-pointer'
+                        title='Edit description'
+                      >
+                        <Edit3 size={13} />
+                      </button>
+                    )}
+                  </div>
+                  <div>
+                    {isEditingDesc ? (
+                      <div className='space-y-2'>
+                        <textarea
+                          rows={3}
+                          value={editedDesc}
+                          onChange={(e) => setEditedDesc(e.target.value)}
+                          placeholder='Add product description...'
+                          className='w-full rounded-xl border border-[#E1E6EF] bg-white p-2.5 text-xs text-[#11182E] outline-none transition focus:border-[#FF1F6D] focus:ring-2 focus:ring-[#FF1F6D]/10 font-semibold resize-none'
+                        />
+                        <div className='flex items-center gap-2'>
+                          <button
+                            type='button'
+                            onClick={async () => {
+                              setSavingDesc(true)
+                              await onUpdateProduct(product.id || product._id, { description: editedDesc })
+                              setIsEditingDesc(false)
+                              setSavingDesc(false)
+                            }}
+                            disabled={savingDesc}
+                            className='px-3 py-1.5 bg-[#FF1F6D] hover:bg-[#e0155b] disabled:bg-slate-350 text-white text-xs font-bold rounded-lg transition duration-150 cursor-pointer'
+                          >
+                            {savingDesc ? 'Saving...' : 'Save'}
+                          </button>
+                          <button
+                            type='button'
+                            onClick={() => {
+                              setEditedDesc(product.description || '')
+                              setIsEditingDesc(false)
+                            }}
+                            disabled={savingDesc}
+                            className='px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition duration-150 cursor-pointer'
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className='m-0 text-sm font-semibold text-[#11182E] leading-relaxed whitespace-pre-wrap'>
+                        {product.description || <span className='text-slate-400 font-semibold italic'>No description</span>}
+                      </p>
+                    )}
+                  </div>
+                </div>
                 <InfoRow label='Price' value={money(product.price)} />
                 <InfoRow label='Cost' value={money(product.cost)} />
                 <InfoRow label='Tax' value={product.tax} />
@@ -1026,134 +1109,228 @@ function DetailPanel({
             {/* KPI Cards Row */}
             <div className='grid grid-cols-3 gap-2'>
               <div className='rounded-xl border border-[#E1E6EF] bg-white p-3 shadow-sm'>
-                <div className='text-[10px] font-bold uppercase tracking-wider text-slate-400'>Revenue</div>
-                <div className='text-[15px] font-extrabold text-slate-800 mt-1'>{money(product.salesMonth || 3240000)}</div>
+                <div className='text-[10px] font-bold text-slate-400'>Revenue</div>
+                <div className='text-[15px] font-extrabold text-slate-800 mt-1'>{money(product.salesMonth)}</div>
                 <div className='text-[10px] font-bold text-emerald-600 flex items-center gap-0.5 mt-1.5'>
-                  <ArrowUp size={10} /> {product.salesChange || 19}% <span className='text-slate-400 font-medium'>vs lm</span>
+                  <Trend value={product.salesChange} /> <span className='text-slate-400 font-medium'>vs last month</span>
                 </div>
               </div>
               
               <div className='rounded-xl border border-[#E1E6EF] bg-white p-3 shadow-sm'>
-                <div className='text-[10px] font-bold uppercase tracking-wider text-slate-400'>Units Sold</div>
-                <div className='text-[15px] font-extrabold text-slate-800 mt-1'>{product.totalSold || 270} cups</div>
+                <div className='text-[10px] font-bold text-slate-400'>Units Sold</div>
+                <div className='text-[15px] font-extrabold text-slate-800 mt-1'>{product.totalSold} cups</div>
                 <div className='text-[10px] font-bold text-emerald-600 flex items-center gap-0.5 mt-1.5'>
-                  <ArrowUp size={10} /> 12% <span className='text-slate-400 font-medium'>vs lm</span>
+                  <Trend value={product.salesChange} /> <span className='text-slate-400 font-medium'>vs last month</span>
                 </div>
               </div>
 
               <div className='rounded-xl border border-[#E1E6EF] bg-white p-3 shadow-sm'>
-                <div className='text-[10px] font-bold uppercase tracking-wider text-slate-400'>Avg. Price</div>
-                <div className='text-[15px] font-extrabold text-slate-800 mt-1'>{money(product.price || 12000)}</div>
+                <div className='text-[10px] font-bold text-slate-400'>Avg. Price</div>
+                <div className='text-[15px] font-extrabold text-slate-800 mt-1'>{money(product.price)}</div>
                 <div className='text-[10px] font-bold text-slate-400 flex items-center gap-0.5 mt-1.5'>
-                  <span className='font-medium'>— vs lm</span>
+                  <span className='font-medium'>— vs last month</span>
                 </div>
               </div>
             </div>
 
             {/* Outlet Performance */}
-            <section className='rounded-xl border border-slate-150 p-3 bg-white shadow-sm'>
-              <div className='flex items-center justify-between mb-3'>
-                <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wide'>Outlet Performance</h4>
+            <div>
+              <div className='flex items-center justify-between mb-2'>
+                <h4 className='text-xs font-bold text-slate-800'>Outlet Performance</h4>
                 <button type='button' className='text-[10px] font-bold text-[#6956E8] hover:underline'>View Full Report</button>
               </div>
-              <div className='flex items-center justify-between gap-4'>
-                <div className='flex items-center gap-3'>
+              <div className='grid grid-cols-2 rounded-xl border border-[#E1E6EF] bg-white p-3 shadow-sm divide-x divide-slate-100'>
+                {/* Left Side: Best Performing Outlet */}
+                <div className='flex items-center gap-3 pr-3.5'>
                   <span className='grid h-9 w-9 place-items-center rounded-xl bg-purple-50 border border-purple-100 text-[#6956E8] shrink-0'>
                     <Store size={18} />
                   </span>
-                  <div>
-                    <div className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>Best Performing Outlet</div>
-                    <div className='text-xs font-bold text-slate-900 mt-0.5'>SelaluTeh - Kemang</div>
-                    <div className='text-[10px] font-semibold text-slate-500 mt-0.5'>
-                      Rp680.000 • 56 cups <span className='inline-block ml-1 px-1 py-0.2 bg-emerald-50 text-emerald-600 rounded text-[9px] font-bold uppercase border border-emerald-100 leading-none'>Top Outlet</span>
+                  <div className='min-w-0'>
+                    <div className='text-[10px] font-bold text-slate-400'>Best Performing Outlet</div>
+                    <div className='text-xs font-bold text-slate-900 mt-0.5 truncate'>
+                      {product.bestPerformingOutlet?.name || 'No Sales Outlet'}
+                    </div>
+                    <div className='flex items-center gap-1.5 mt-0.5 text-[10px] font-semibold text-slate-500'>
+                      <span>{money(product.bestPerformingOutlet?.revenue || 0)}</span>
+                      <span>•</span>
+                      <span>{product.bestPerformingOutlet?.quantity || 0} cups</span>
+                      {product.bestPerformingOutlet && (
+                        <span className='inline-block px-1 py-0.2 bg-emerald-50 text-emerald-600 rounded text-[9px] font-bold uppercase border border-emerald-100/50 leading-none shrink-0'>Top Outlet</span>
+                      )}
                     </div>
                   </div>
                 </div>
-                <div className='text-right shrink-0'>
-                  <div className='text-[10px] font-bold text-slate-400 uppercase tracking-wider'>vs Last Month</div>
-                  <div className='text-xs font-bold text-emerald-600 flex items-center justify-end gap-0.5 mt-0.5'>
-                    <ArrowUp size={11} /> 28%
+                {/* Right Side: comparison */}
+                <div className='pl-3.5 flex flex-col justify-center'>
+                  <div className='text-[10px] font-bold text-slate-400'>vs Last Month</div>
+                  <div className='text-xs font-bold text-emerald-600 flex items-center gap-0.5 mt-0.5'>
+                    <Trend value={product.salesChange} />
                   </div>
-                  <div className='text-[10px] text-slate-400 font-semibold mt-0.5'>Rp530.000 • 42 cups</div>
+                  <div className='text-[10px] font-semibold text-slate-500 mt-0.5'>
+                    {(() => {
+                      const changePct = Number(product.salesChange) || 0
+                      const curRev = product.bestPerformingOutlet?.revenue || 0
+                      const curQty = product.bestPerformingOutlet?.quantity || 0
+                      const prevRev = changePct !== 0 ? Math.round(curRev / (1 + changePct / 100)) : curRev
+                      const prevQty = changePct !== 0 ? Math.round(curQty / (1 + changePct / 100)) : curQty
+                      return `${money(prevRev)} • ${prevQty} cups`
+                    })()}
+                  </div>
                 </div>
               </div>
-            </section>
+            </div>
 
             {/* Daily Sales Chart */}
-            <section className='rounded-xl border border-slate-150 p-3 bg-white shadow-sm'>
-              <div className='flex items-center justify-between mb-2.5'>
-                <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wide'>Sales by Day (This Month)</h4>
+            <div>
+              <div className='flex items-center justify-between mb-2'>
+                <h4 className='text-xs font-bold text-slate-800'>Sales by Day (This Month)</h4>
                 <button type='button' className='text-[10px] font-bold text-[#6956E8] hover:underline'>View Full Report</button>
               </div>
-              {/* Beautiful custom line chart */}
-              <div className='relative'>
-                <svg viewBox='0 0 420 140' className='h-28 w-full bg-[linear-gradient(180deg,rgba(105,86,232,0.06),rgba(105,86,232,0.01))] rounded-lg' role='img'>
-                  {/* Grid lines */}
-                  {[28, 65, 102].map((y) => (
-                    <line key={y} x1='0' y1={y} x2='420' y2={y} stroke='#E1E6EF' strokeDasharray='4 6' strokeWidth='1' />
-                  ))}
-                  {/* Data line */}
-                  <polyline
-                    points="30,100 90,85 150,55 210,95 270,60 330,88 390,45"
-                    fill='none'
-                    stroke='#6956E8'
-                    strokeWidth='2.5'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                  />
-                  {/* Dots */}
-                  {[[30,100], [90,85], [150,55], [210,95], [270,60], [330,88], [390,45]].map(([x, y], idx) => (
-                    <circle key={idx} cx={x} cy={y} r='3.5' fill='white' stroke='#6956E8' strokeWidth='2' />
-                  ))}
-                </svg>
-                <div className='flex justify-between px-2.5 mt-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider'>
-                  <span>1 May</span>
-                  <span>8 May</span>
-                  <span>15 May</span>
-                  <span>22 May</span>
-                  <span>29 May</span>
-                </div>
-              </div>
-            </section>
+              {/* Beautiful custom line chart with Y-axis */}
+              {(() => {
+                const width = 420
+                const height = 140
+                const padding = 14
+                const values = product.trend || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+                const max = Math.max(...values, 1)
+                const min = Math.min(...values, 0)
+                const range = Math.max(max - min, 1)
+                const coords = values.map((v, i) => {
+                  const x =
+                    padding + (i / Math.max(values.length - 1, 1)) * (width - padding * 2)
+                  const y = height - padding - ((v - min) / range) * (height - padding * 2)
+                  return [x, y]
+                })
+                const points = coords.map(([x, y]) => `${x},${y}`).join(' ')
 
-            {/* Contribution by Outlet */}
-            <section className='rounded-xl border border-slate-150 p-3 bg-white shadow-sm'>
-              <div className='flex items-center justify-between mb-3.5'>
-                <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wide'>Contribution by Outlet</h4>
-                <button type='button' className='text-[10px] font-bold text-[#6956E8] hover:underline'>View Full Report</button>
-              </div>
-              <div className='space-y-3'>
-                {[
-                  { rank: 1, name: 'SelaluTeh - Kemang', amount: 680000, pct: 21, active: true },
-                  { rank: 2, name: 'SelaluTeh - SCBD', amount: 540000, pct: 17, active: true },
-                  { rank: 3, name: 'SelaluTeh - Bintaro', amount: 420000, pct: 13, active: true },
-                  { rank: 4, name: 'SelaluTeh - Bandung', amount: 380000, pct: 13, active: true },
-                  { rank: 5, name: 'SelaluTeh - Surabaya', amount: 290000, pct: 9, active: true },
-                  { rank: null, name: 'Others (7 outlets)', amount: 930000, pct: 28, active: false }
-                ].map((item, idx) => (
-                  <div key={idx} className='space-y-1'>
-                    <div className='flex items-center justify-between text-xs font-bold text-slate-700'>
-                      <div className='flex items-center gap-2'>
-                        {item.rank && <span className='text-[10px] font-extrabold text-slate-400 w-3.5'>{item.rank}</span>}
-                        <span className={cx(item.active ? 'text-slate-800' : 'text-slate-500 font-semibold pl-3.5')}>{item.name}</span>
+                const maxVal = Math.max(...values, 1)
+                const labels = [
+                  maxVal,
+                  maxVal * 0.75,
+                  maxVal * 0.5,
+                  maxVal * 0.25,
+                  0
+                ]
+                const formatYLabel = (val) => {
+                  if (val >= 1000000) {
+                    return `Rp${(val / 1000000).toFixed(1)}m`
+                  }
+                  if (val >= 1000) {
+                    return `Rp${Math.round(val / 1000)}k`
+                  }
+                  return `Rp${Math.round(val)}`
+                }
+
+                return (
+                  <div className='relative'>
+                    <div className='flex gap-3'>
+                      {/* Y-axis Labels */}
+                      <div className='flex flex-col justify-between text-[9px] font-bold text-slate-400 py-1.5 text-right w-11 shrink-0'>
+                        {labels.map((lbl, idx) => (
+                          <span key={idx}>{formatYLabel(lbl)}</span>
+                        ))}
                       </div>
-                      <div className='flex items-center gap-3'>
-                        <span>{money(item.amount)}</span>
-                        <span className='text-slate-400 text-[10px] w-8 text-right'>{item.pct}%</span>
+                      
+                      {/* Chart Area */}
+                      <div className='flex-1 relative'>
+                        <svg viewBox={`0 0 ${width} ${height}`} className='h-28 w-full bg-[linear-gradient(180deg,rgba(105,86,232,0.06),rgba(105,86,232,0.01))] rounded-lg' role='img'>
+                          {/* Grid lines */}
+                          {[14, 42, 70, 98, 126].map((y, idx) => (
+                            <line key={idx} x1='0' y1={y} x2={width} y2={y} stroke='#E1E6EF' strokeDasharray='4 6' strokeWidth='1' />
+                          ))}
+                          {/* Data line */}
+                          <polyline
+                            points={points}
+                            fill='none'
+                            stroke='#6956E8'
+                            strokeWidth='2.5'
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                          />
+                          {/* Dots */}
+                          {coords.map(([x, y], idx) => (
+                            <circle key={idx} cx={x} cy={y} r='3.5' fill='white' stroke='#6956E8' strokeWidth='2' />
+                          ))}
+                        </svg>
                       </div>
                     </div>
-                    <div className='h-1.5 rounded-full bg-slate-50 overflow-hidden pl-3.5'>
-                      <div className={cx('h-full rounded-full', item.active ? 'bg-[#6956E8]' : 'bg-slate-300')} style={{ width: `${item.pct}%` }} />
+                    {/* Date labels offset to match chart area */}
+                    <div className='flex justify-between pl-14 pr-2 text-[10px] font-bold text-slate-400 mt-1.5'>
+                      <span>1 May</span>
+                      <span>8 May</span>
+                      <span>15 May</span>
+                      <span>22 May</span>
+                      <span>29 May</span>
                     </div>
                   </div>
-                ))}
+                )
+              })()}
+            </div>
+
+            {/* Contribution by Outlet */}
+            <div>
+              <div className='flex items-center justify-between mb-2'>
+                <h4 className='text-xs font-bold text-slate-800'>Contribution by Outlet</h4>
+                <button type='button' className='text-[10px] font-bold text-[#6956E8] hover:underline'>View Full Report</button>
               </div>
-            </section>
+              <div className='space-y-2.5'>
+                {(() => {
+                  const contributions = (product.outletContributions && product.outletContributions.length > 0)
+                    ? product.outletContributions.slice(0, 5).map((item, idx) => ({
+                        rank: idx + 1,
+                        name: item.name,
+                        amount: item.amount,
+                        pct: item.pct,
+                        active: true,
+                      }))
+                    : [
+                        { rank: 1, name: 'SelaluTeh - Kemang', amount: 680000, pct: 21, active: true },
+                        { rank: 2, name: 'SelaluTeh - SCBD', amount: 540000, pct: 17, active: true },
+                        { rank: 3, name: 'SelaluTeh - Bintaro', amount: 420000, pct: 13, active: true },
+                        { rank: 4, name: 'SelaluTeh - Bandung', amount: 380000, pct: 13, active: true },
+                        { rank: 5, name: 'SelaluTeh - Surabaya', amount: 290000, pct: 9, active: true },
+                      ]
+
+                  if (product.outletContributions && product.outletContributions.length > 5) {
+                    const othersList = product.outletContributions.slice(5)
+                    const othersAmount = othersList.reduce((sum, item) => sum + item.amount, 0)
+                    const othersPct = othersList.reduce((sum, item) => sum + item.pct, 0)
+                    contributions.push({
+                      rank: null,
+                      name: `Others (${othersList.length} outlets)`,
+                      amount: othersAmount,
+                      pct: othersPct,
+                      active: false,
+                    })
+                  }
+
+                  return contributions.map((item, idx) => (
+                    <div key={idx} className='flex items-center gap-3 py-0.5 text-xs font-bold text-slate-700'>
+                      <span className='text-[10px] font-extrabold text-slate-400 w-4 text-center shrink-0'>
+                        {item.rank || ''}
+                      </span>
+                      <span className={cx('w-32 truncate shrink-0', item.active ? 'text-slate-800' : 'text-slate-500 pl-0 font-semibold')}>
+                        {item.name}
+                      </span>
+                      <div className='flex-1 h-1 rounded-full bg-slate-50 overflow-hidden shrink-0 min-w-[50px]'>
+                        <div className={cx('h-full rounded-full', item.active ? 'bg-[#6956E8]' : 'bg-slate-200')} style={{ width: `${item.pct}%` }} />
+                      </div>
+                      <span className='text-slate-800 font-extrabold shrink-0 w-20 text-right'>
+                        {money(item.amount)}
+                      </span>
+                      <span className='text-slate-400 text-[10px] font-bold w-8 text-right shrink-0'>
+                        {item.pct}%
+                      </span>
+                    </div>
+                  ))
+                })()}
+              </div>
+            </div>
 
             {/* View Full Report Button */}
-            <button type='button' className='w-full py-2.5 border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm'>
+            <button type='button' className='w-full py-2.5 bg-[#F0EEFF] hover:bg-[#E5E2FF] text-xs font-extrabold text-[#6956E8] rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer'>
               View Full Report
-              <svg className='w-3.5 h-3.5 text-slate-400' fill='none' stroke='currentColor' strokeWidth='2.5' viewBox='0 0 24 24'>
+              <svg className='w-3.5 h-3.5 text-[#6956E8]' fill='none' stroke='currentColor' strokeWidth='2.5' viewBox='0 0 24 24'>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
               </svg>
             </button>
@@ -1173,20 +1350,25 @@ function DetailPanel({
             {/* Filters */}
             <div className='flex gap-2 shrink-0'>
               <div className='relative flex-1 min-w-0'>
-                <select className='w-full pl-2 pr-6 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none appearance-none cursor-pointer' style={{
-                  backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E")`,
-                  backgroundPosition: 'right 0.45rem center',
-                  backgroundSize: '0.9rem',
-                  backgroundRepeat: 'no-repeat',
-                }}>
-                  <option>All Activity Types</option>
-                  <option>Price Changes</option>
-                  <option>Stock Adjustments</option>
-                  <option>Outlet Configuration</option>
+                <select
+                  value={activityTypeFilter}
+                  onChange={(e) => setActivityTypeFilter(e.target.value)}
+                  className='w-full pl-2 pr-6 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none appearance-none cursor-pointer'
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E")`,
+                    backgroundPosition: 'right 0.45rem center',
+                    backgroundSize: '0.9rem',
+                    backgroundRepeat: 'no-repeat',
+                  }}
+                >
+                  <option value='all'>All Activity Types</option>
+                  <option value='product.price_change'>Price Changes</option>
+                  <option value='stock.adjust'>Stock Adjustments</option>
+                  <option value='product.outlet_availability_change'>Outlet Configuration</option>
                 </select>
               </div>
               <button type='button' className='inline-flex h-8 items-center gap-1.5 px-3 bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 rounded-lg shadow-sm transition-all cursor-pointer whitespace-nowrap'>
-                May 1, 2025 - May 29, 2025
+                {dateRangeLabel}
                 <Calendar size={13} className='text-slate-400' />
               </button>
             </div>
@@ -1196,130 +1378,72 @@ function DetailPanel({
               {/* Vertical line stem */}
               <div className='absolute left-3.5 top-2 bottom-2 w-[1.5px] bg-slate-100' />
 
-              {[
-                {
-                  title: 'Product Created',
-                  actor: 'Ahmad Danial',
-                  time: 'May 29, 2025 • 09:12 AM',
-                  icon: <Plus size={11} />,
-                  iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-                  details: null,
-                  avatar: 'AD'
-                },
-                {
-                  title: 'Product Edited',
-                  actor: 'Siti Nur Aisyah',
-                  time: 'May 29, 2025 • 09:35 AM',
-                  icon: <Edit3 size={11} />,
-                  iconBg: 'bg-indigo-50 text-indigo-600 border-indigo-100',
-                  details: 'Updated Description, Category',
-                  avatar: 'SA'
-                },
-                {
-                  title: 'Price Changed',
-                  actor: 'Ahmad Danial',
-                  time: 'May 29, 2025 • 09:47 AM',
-                  icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-                  iconBg: 'bg-amber-50 text-amber-600 border-amber-100',
-                  details: 'Rp11.000 → Rp12.000',
-                  avatar: 'AD'
-                },
-                {
-                  title: 'Stock Adjusted',
-                  actor: 'Siti Nur Aisyah',
-                  time: 'May 29, 2025 • 10:03 AM',
-                  icon: <Warehouse size={11} />,
-                  iconBg: 'bg-blue-50 text-blue-600 border-blue-100',
-                  details: '20 cups → 24 cups',
-                  badge: '+4 cups',
-                  badgeBg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-                  avatar: 'SA'
-                },
-                {
-                  title: 'Outlet Availability Changed',
-                  actor: 'Ahmad Danial',
-                  time: 'May 29, 2025 • 10:15 AM',
-                  icon: <Store size={11} />,
-                  iconBg: 'bg-purple-50 text-purple-600 border-purple-100',
-                  details: 'Added to 2 outlets: Setia Alam, Bangsar',
-                  avatar: 'AD'
-                },
-                {
-                  title: 'Tags Updated',
-                  actor: 'Siti Nur Aisyah',
-                  time: 'May 29, 2025 • 10:22 AM',
-                  icon: <Bookmark size={11} />,
-                  iconBg: 'bg-rose-50 text-rose-600 border-rose-100',
-                  details: 'Added tags: Teh, Favorite',
-                  avatar: 'SA'
-                },
-                {
-                  title: 'Status Changed',
-                  actor: 'Ahmad Danial',
-                  time: 'May 29, 2025 • 10:28 AM',
-                  icon: <RefreshCw size={11} />,
-                  iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-                  details: 'Inactive → Active',
-                  badge: 'Active',
-                  badgeBg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-                  avatar: 'AD'
-                },
-                {
-                  title: 'Product Exported',
-                  actor: 'Ahmad Danial',
-                  time: 'May 29, 2025 • 10:30 AM',
-                  icon: <Download size={11} />,
-                  iconBg: 'bg-sky-50 text-sky-600 border-sky-100',
-                  details: 'Exported to CSV',
-                  avatar: 'AD'
-                }
-              ].map((activity, idx) => (
-                <div key={idx} className='relative group'>
-                  {/* Circle Icon Node */}
-                  <span className={cx('absolute -left-7 top-1.5 grid h-6.5 w-6.5 place-items-center rounded-full border bg-white shadow-sm transition-all group-hover:scale-110 z-10', activity.iconBg)}>
-                    {activity.icon}
-                  </span>
+              {isLoadingActivities ? (
+                <div className='flex flex-col items-center justify-center py-8 text-slate-400 space-y-2'>
+                  <RefreshCw className='animate-spin text-[#6956E8]' size={20} />
+                  <span className='text-xs font-semibold'>Loading activities...</span>
+                </div>
+              ) : displayedActivities.length === 0 ? (
+                <div className='flex flex-col items-center justify-center py-8 text-slate-400'>
+                  <span className='text-xs font-semibold'>No activities recorded for this product</span>
+                </div>
+              ) : (
+                displayedActivities.map((activity, idx) => (
+                  <div key={idx} className='relative group'>
+                    {/* Circle Icon Node */}
+                    <span className={cx('absolute -left-7 top-1.5 grid h-6.5 w-6.5 place-items-center rounded-full border bg-white shadow-sm transition-all group-hover:scale-110 z-10', activity.iconBg)}>
+                      {activity.icon}
+                    </span>
 
-                  {/* Card content */}
-                  <div className='rounded-xl border border-slate-100 p-3 bg-white shadow-sm hover:border-slate-200 transition-all'>
-                    <div className='flex items-start justify-between gap-3'>
-                      <div className='flex items-center gap-2'>
-                        {/* Avatar */}
-                        <span className='h-5 w-5 rounded-full bg-slate-100 border border-slate-200 text-slate-500 font-extrabold text-[8px] flex items-center justify-center shrink-0 uppercase shadow-inner'>
-                          {activity.avatar}
-                        </span>
-                        <div>
-                          <div className='text-xs font-bold text-slate-800'>{activity.title}</div>
-                          <div className='text-[10px] text-slate-400 font-semibold mt-0.5'>by {activity.actor}</div>
+                    {/* Card content */}
+                    <div className='rounded-xl border border-slate-100 p-3 bg-white shadow-sm hover:border-slate-200 transition-all'>
+                      <div className='flex items-start justify-between gap-3'>
+                        <div className='flex items-center gap-2'>
+                          {/* Avatar */}
+                          <span className='h-5 w-5 rounded-full bg-slate-100 border border-slate-200 text-slate-500 font-extrabold text-[8px] flex items-center justify-center shrink-0 uppercase shadow-inner'>
+                            {activity.avatar}
+                          </span>
+                          <div>
+                            <div className='text-xs font-bold text-slate-800'>{activity.title}</div>
+                            <div className='text-[10px] text-slate-400 font-semibold mt-0.5'>by {activity.actor}</div>
+                          </div>
+                        </div>
+                        <div className='text-[10px] text-slate-400 font-bold tracking-wide text-right shrink-0 whitespace-nowrap'>
+                          {activity.time}
                         </div>
                       </div>
-                      <div className='text-[10px] text-slate-400 font-bold tracking-wide text-right shrink-0 whitespace-nowrap'>
-                        {activity.time}
-                      </div>
-                    </div>
 
-                    {/* Secondary details */}
-                    {activity.details && (
-                      <div className='mt-2.5 text-xs text-slate-500 font-semibold pl-7 leading-normal'>
-                        {activity.details}
-                        {activity.badge && (
-                          <span className={cx('inline-block ml-1.5 px-1 py-0.2 rounded text-[9px] font-extrabold uppercase border leading-none', activity.badgeBg)}>
-                            {activity.badge}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                      {/* Secondary details */}
+                      {activity.details && (
+                        <div className='mt-2.5 text-xs text-slate-500 font-semibold pl-7 leading-normal'>
+                          {activity.details}
+                          {activity.badge && (
+                            <span className={cx('inline-block ml-1.5 px-1 py-0.2 rounded text-[9px] font-extrabold uppercase border leading-none', activity.badgeBg)}>
+                              {activity.badge}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
             {/* Bottom info */}
             <div className='flex items-center justify-between mt-5 pt-3 border-t border-slate-100 shrink-0'>
-              <span className='text-[11px] text-slate-400 font-bold uppercase tracking-wider'>8 activities found</span>
-              <button type='button' className='px-4.5 py-2.5 border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 rounded-xl transition-all shadow-sm'>
-                Load more
-              </button>
+              <span className='text-[11px] text-slate-400 font-bold uppercase tracking-wider'>
+                {productActivities.length > 0 ? totalActivities : mappedActivities.length} activities found
+              </span>
+              {displayedActivities.length < (productActivities.length > 0 ? totalActivities : mappedActivities.length) && (
+                <button
+                  type='button'
+                  onClick={handleLoadMoreActivities}
+                  className='px-4.5 py-2.5 border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 rounded-xl transition-all shadow-sm cursor-pointer'
+                >
+                  Load more
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -1338,6 +1462,8 @@ function RowCheckbox() {
     />
   )
 }
+
+let demoProductsList = null
 
 export default function ProductsPage() {
   const [search, setSearch] = useState('')
@@ -1377,11 +1503,11 @@ export default function ProductsPage() {
   const [filterMaxPrice, setFilterMaxPrice] = useState('')
   const [filterMinSales, setFilterMinSales] = useState('')
   const [filterMaxSales, setFilterMaxSales] = useState('')
-  const [filterStockCondition, setFilterStockCondition] = useState(['low', 'out']) // 'low', 'out', 'in'
-  const [filterOutletsList, setFilterOutletsList] = useState(['Kemang', 'Gading Serpong'])
-  const [filterCategoriesList, setFilterCategoriesList] = useState(['Minuman', 'Makanan Ringan'])
-  const [filterStatusList, setFilterStatusList] = useState(['Active', 'Inactive', 'Out of Stock'])
-  const [filterTagsList, setFilterTagsList] = useState(['Teh', 'Favorit', 'Signature'])
+  const [filterStockCondition, setFilterStockCondition] = useState([]) // 'low', 'out', 'in'
+  const [filterOutletsList, setFilterOutletsList] = useState([])
+  const [filterCategoriesList, setFilterCategoriesList] = useState([])
+  const [filterStatusList, setFilterStatusList] = useState([])
+  const [filterTagsList, setFilterTagsList] = useState([])
   const [filterUpdatedDate, setFilterUpdatedDate] = useState('Anytime')
   const [filterCreatedDate, setFilterCreatedDate] = useState('Anytime')
 
@@ -1389,7 +1515,7 @@ export default function ProductsPage() {
     let count = 0
     if (filterMinPrice || filterMaxPrice) count++
     if (filterMinSales || filterMaxSales) count++
-    if (filterStockCondition.length < 3) count++
+    if (filterStockCondition.length > 0 && filterStockCondition.length < 3) count++
     if (filterOutletsList.length > 0) count++
     if (filterCategoriesList.length > 0) count++
     if (filterStatusList.length > 0) count++
@@ -1415,6 +1541,18 @@ export default function ProductsPage() {
 
   // Inventory detail tab & stock adjustment states
   const [activeDetailTab, setActiveDetailTab] = useState('Overview')
+  const [productActivities, setProductActivities] = useState([])
+  const [isLoadingActivities, setIsLoadingActivities] = useState(false)
+  const [activityTypeFilter, setActivityTypeFilter] = useState('all')
+  const [activitiesLimit, setActivitiesLimit] = useState(10)
+  const [totalActivities, setTotalActivities] = useState(0)
+  // Import states
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  const [importProductsList, setImportProductsList] = useState([])
+  const [isImporting, setIsImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState(0)
+  const [importStatusText, setImportStatusText] = useState('')
+  const [importErrors, setImportErrors] = useState([])
   const [outletInventory, setOutletInventory] = useState([])
   const [isAdjustStockOpen, setIsAdjustStockOpen] = useState(false)
   const [adjustStockOutlet, setAdjustStockOutlet] = useState('')
@@ -1428,124 +1566,334 @@ export default function ProductsPage() {
   const [bulkUseDefaultPrice, setBulkUseDefaultPrice] = useState(true)
   const [bulkVisibility, setBulkVisibility] = useState('Show')
 
-  // Initialize outlet inventory dynamically for selectedProduct
-  useEffect(() => {
-    if (selectedProduct) {
-      let list = []
-      // Check if it's the first product or has matching stock
-      if (selectedProduct.sku === 'SKU-SEL-001' || selectedProduct.id === 1) {
-        list = [
-          { outlet: 'Kalis Selayang', available: 24, reserved: 4, threshold: 10, updated: 'Today, 10:15 AM' },
-          { outlet: 'Kalis Kepong', available: 18, reserved: 2, threshold: 10, updated: 'Today, 9:42 AM' },
-          { outlet: 'Kalis Setapak', available: 12, reserved: 1, threshold: 10, updated: 'Today, 9:21 AM' },
-          { outlet: 'Kalis Ampang', available: 9, reserved: 1, threshold: 10, updated: 'Today, 8:50 AM' },
-          { outlet: 'Kalis Gombak', available: 7, reserved: 0, threshold: 10, updated: 'Today, 8:05 AM' },
-          { outlet: 'Kalis Rawang', available: 6, reserved: 1, threshold: 10, updated: 'Today, 7:45 AM' },
-          { outlet: 'Kalis Batu Caves', available: 0, reserved: 0, threshold: 10, updated: 'Today, 7:10 AM' },
-          { outlet: 'Kalis Sungai Buloh', available: 10, reserved: 0, threshold: 10, updated: 'Today, 6:58 AM' }
+  const loadProductAvailabilityAndInventory = async (product, currentOutlets = outlets) => {
+    if (!product) return
+
+    try {
+      if (isDemoMode()) {
+        let inventoryList = []
+        if (product.sku === 'SKU-SEL-001' || product.id === 1) {
+          inventoryList = [
+            { outlet: 'Kalis Selayang', available: 24, reserved: 4, threshold: 10, updated: 'Today, 10:15 AM' },
+            { outlet: 'Kalis Kepong', available: 18, reserved: 2, threshold: 10, updated: 'Today, 9:42 AM' },
+            { outlet: 'Kalis Setapak', available: 12, reserved: 1, threshold: 10, updated: 'Today, 9:21 AM' },
+            { outlet: 'Kalis Ampang', available: 9, reserved: 1, threshold: 10, updated: 'Today, 8:50 AM' },
+            { outlet: 'Kalis Gombak', available: 7, reserved: 0, threshold: 10, updated: 'Today, 8:05 AM' },
+            { outlet: 'Kalis Rawang', available: 6, reserved: 1, threshold: 10, updated: 'Today, 7:45 AM' },
+            { outlet: 'Kalis Batu Caves', available: 0, reserved: 0, threshold: 10, updated: 'Today, 7:10 AM' },
+            { outlet: 'Kalis Sungai Buloh', available: 10, reserved: 0, threshold: 10, updated: 'Today, 6:58 AM' }
+          ]
+        } else {
+          const defaultNames = [
+            'Kalis Selayang', 'Kalis Kepong', 'Kalis Setapak', 'Kalis Ampang',
+            'Kalis Gombak', 'Kalis Rawang', 'Kalis Batu Caves', 'Kalis Sungai Buloh'
+          ]
+          const totalStock = product.stock || 0
+          const count = defaultNames.length
+          let remaining = totalStock
+          inventoryList = defaultNames.map((name, idx) => {
+            let avail = 0
+            if (idx === count - 1) {
+              avail = remaining
+            } else {
+              avail = Math.floor(totalStock / count)
+              remaining -= avail
+            }
+            const reserved = avail > 5 ? 1 : 0
+            return {
+              outlet: name,
+              available: avail,
+              reserved: reserved,
+              threshold: 10,
+              updated: 'Today, 12:00 PM'
+            }
+          })
+        }
+        setOutletInventory(inventoryList)
+
+        const initialOutlets = [
+          { outletId: 'Senayan', outletName: 'Kalis Cafe - Senayan', isAvailable: true, price: product.price, isOverride: false, visibility: 'Show' },
+          { outletId: 'Kemang', outletName: 'Kalis Cafe - Kemang', isAvailable: true, price: product.price + 500, isOverride: true, visibility: 'Show' },
+          { outletId: 'KelapaGading', outletName: 'Kalis Cafe - Kelapa Gading', isAvailable: false, price: product.price, isOverride: false, visibility: 'Hide' },
+          { outletId: 'Bandung', outletName: 'Kalis Cafe - Bandung', isAvailable: true, price: product.price, isOverride: false, visibility: 'Show' },
+          { outletId: 'Surabaya', outletName: 'Kalis Cafe - Surabaya', isAvailable: true, price: product.price - 500, isOverride: true, visibility: 'Show' },
+          { outletId: 'Bali', outletName: 'Kalis Cafe - Bali', isAvailable: false, price: product.price, isOverride: false, visibility: 'Show' },
+          { outletId: 'Medan', outletName: 'Kalis Cafe - Medan', isAvailable: false, price: product.price, isOverride: false, visibility: 'Show' },
         ]
+        setOutletAssignmentRows(initialOutlets)
       } else {
-        const defaultNames = [
-          'Kalis Selayang', 'Kalis Kepong', 'Kalis Setapak', 'Kalis Ampang',
-          'Kalis Gombak', 'Kalis Rawang', 'Kalis Batu Caves', 'Kalis Sungai Buloh'
-        ]
-        const totalStock = selectedProduct.stock || 0
-        const count = defaultNames.length
-        let remaining = totalStock
-        list = defaultNames.map((name, idx) => {
-          let avail = 0
-          if (idx === count - 1) {
-            avail = remaining
-          } else {
-            avail = Math.floor(totalStock / count)
-            remaining -= avail
-          }
-          const reserved = avail > 5 ? 1 : 0
+        const res = await api.get(`/products/${product.id}/outlet-availability`)
+        const data = res.data?.data || []
+        
+        const availabilityRows = currentOutlets.map((o) => {
+          const match = data.find(
+            (item) => item.outletId === o.id || item.outlet_id === o.id
+          )
+          
+          const priceVal = match && match.priceOverride !== null && match.priceOverride !== undefined
+            ? match.priceOverride
+            : (match && match.price !== undefined ? match.price : product.price)
+
+          const stockQuantityVal = match && match.stockQuantity !== null && match.stockQuantity !== undefined
+            ? match.stockQuantity
+            : (match && match.stock_quantity !== undefined ? match.stock_quantity : product.stock)
+
           return {
-            outlet: name,
-            available: avail,
-            reserved: reserved,
-            threshold: 10,
-            updated: 'Today, 12:00 PM'
+            outletId: o.id,
+            outletName: o.name,
+            isAvailable: match ? !!match.isAvailable : true,
+            price: priceVal,
+            stockQuantity: stockQuantityVal,
+            isOverride: match ? (match.priceOverride !== null && match.priceOverride !== undefined && match.priceOverride !== product.price) : false,
+            visibility: match && match.status === 'inactive' ? 'Hide' : 'Show',
           }
         })
-      }
-      setOutletInventory(list)
+        setOutletAssignmentRows(availabilityRows)
 
-      // Initialize outlet availability configuration
-      const initialOutlets = [
-        { outletId: 'Senayan', outletName: 'Kalis Cafe - Senayan', isAvailable: true, price: selectedProduct.price, isOverride: false, visibility: 'Show' },
-        { outletId: 'Kemang', outletName: 'Kalis Cafe - Kemang', isAvailable: true, price: selectedProduct.price + 500, isOverride: true, visibility: 'Show' },
-        { outletId: 'KelapaGading', outletName: 'Kalis Cafe - Kelapa Gading', isAvailable: false, price: selectedProduct.price, isOverride: false, visibility: 'Hide' },
-        { outletId: 'Bandung', outletName: 'Kalis Cafe - Bandung', isAvailable: true, price: selectedProduct.price, isOverride: false, visibility: 'Show' },
-        { outletId: 'Surabaya', outletName: 'Kalis Cafe - Surabaya', isAvailable: true, price: selectedProduct.price - 500, isOverride: true, visibility: 'Show' },
-        { outletId: 'Bali', outletName: 'Kalis Cafe - Bali', isAvailable: false, price: selectedProduct.price, isOverride: false, visibility: 'Show' },
-        { outletId: 'Medan', outletName: 'Kalis Cafe - Medan', isAvailable: false, price: selectedProduct.price, isOverride: false, visibility: 'Show' },
-      ]
-      setOutletAssignmentRows(initialOutlets)
-    }
-  }, [selectedProduct])
+        const inventoryRows = currentOutlets.map((o) => {
+          const match = data.find(
+            (item) => item.outletId === o.id || item.outlet_id === o.id
+          )
+          const avail = match && match.stockQuantity !== null && match.stockQuantity !== undefined
+            ? match.stockQuantity
+            : (match && match.stock_quantity !== undefined ? match.stock_quantity : 0)
 
-  const handleConfirmAdjustStock = () => {
-    const qty = Number(adjustStockQuantity) || 0
-    const updated = outletInventory.map((item) => {
-      if (item.outlet === adjustStockOutlet) {
-        const diff = adjustStockType === 'add' ? qty : -qty
-        const newAvail = Math.max(0, item.available + diff)
-        return {
-          ...item,
-          available: newAvail,
-          updated: 'Just now',
-        }
-      }
-      return item
-    })
+          const lastUpdatedStr = match && match.updatedAt 
+            ? new Date(match.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : '—'
 
-    setOutletInventory(updated)
-    const newTotal = updated.reduce((sum, item) => sum + item.available, 0)
-
-    // Update main products state
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id === selectedProduct.id) {
           return {
+            outletId: o.id,
+            outlet: o.name,
+            available: avail,
+            reserved: 0,
+            threshold: product.lowStockAlert || 10,
+            updated: match && match.updatedAt ? `Today, ${lastUpdatedStr}` : '—'
+          }
+        })
+        setOutletInventory(inventoryRows)
+      }
+    } catch (err) {
+      console.error('Failed to load product availability and inventory:', err)
+    }
+  }
+
+  const loadProductActivities = async (product, limit = activitiesLimit) => {
+    if (!product || isDemoMode()) {
+      setProductActivities([])
+      return
+    }
+
+    setIsLoadingActivities(true)
+    try {
+      const res = await api.get('/audit/logs', {
+        params: {
+          resourceType: 'product',
+          resourceId: product.id,
+          limit: limit,
+        }
+      })
+      const list = res.data?.data || []
+      setProductActivities(list)
+      setTotalActivities(res.data?.meta?.total || list.length)
+    } catch (err) {
+      console.error('Failed to load product activities:', err)
+      setProductActivities([])
+    } finally {
+      setIsLoadingActivities(false)
+    }
+  }
+
+  useEffect(() => {
+    setActivitiesLimit(10)
+    loadProductAvailabilityAndInventory(selectedProduct, outlets)
+    loadProductActivities(selectedProduct, 10)
+  }, [selectedProduct, outlets])
+
+  const handleConfirmAdjustStock = async () => {
+    const qty = Number(adjustStockQuantity) || 0
+    const targetOutletRow = outletAssignmentRows.find(
+      (r) => r.outletName === adjustStockOutlet || r.outletId === adjustStockOutlet
+    )
+    
+    const outletId = targetOutletRow ? targetOutletRow.outletId : adjustStockOutlet
+    const currentStock = targetOutletRow ? targetOutletRow.stockQuantity : 0
+    const diff = adjustStockType === 'add' ? qty : -qty
+    const newStock = Math.max(0, currentStock + diff)
+
+    try {
+      if (isDemoMode()) {
+        const updated = outletInventory.map((item) => {
+          if (item.outlet === adjustStockOutlet) {
+            return {
+              ...item,
+              available: newStock,
+              updated: 'Just now',
+            }
+          }
+          return item
+        })
+        setOutletInventory(updated)
+        
+        const newTotal = updated.reduce((sum, item) => sum + item.available, 0)
+        setProducts((prev) =>
+          prev.map((p) => (p.id === selectedProduct.id) ? {
             ...p,
             stock: newTotal,
-            stockState:
-              newTotal > 10
-                ? 'In Stock'
-                : newTotal > 0
-                  ? 'Low Stock'
-                  : 'Out of Stock',
-          }
+            stockState: newTotal > 10 ? 'In Stock' : (newTotal > 0 ? 'Low Stock' : 'Out of Stock'),
+          } : p)
+        )
+
+        if (!demoProductsList) {
+          demoProductsList = dummyProducts.map(p => ({ ...p }))
         }
-        return p
-      })
+        demoProductsList = demoProductsList.map((p) => (p.id === selectedProduct.id || p._id === selectedProduct.id) ? {
+          ...p,
+          stock: newTotal,
+          stockState: newTotal > 10 ? 'In Stock' : (newTotal > 0 ? 'Low Stock' : 'Out of Stock'),
+        } : p)
+
+        setSelectedProduct((prev) => ({
+          ...prev,
+          stock: newTotal,
+          stockState: newTotal > 10 ? 'In Stock' : (newTotal > 0 ? 'Low Stock' : 'Out of Stock'),
+          inventorySummary: {
+            total: newTotal,
+            lowStock: updated.filter((item) => item.available > 0 && item.available <= item.threshold).length,
+            outOfStock: updated.filter((item) => item.available === 0).length,
+          },
+        }))
+      } else {
+        await api.put(`/products/${selectedProduct.id}/outlet-availability`, {
+          outlets: [
+            {
+              outletId: outletId,
+              stockQuantity: newStock,
+              isAvailable: targetOutletRow ? targetOutletRow.isAvailable : true,
+              priceOverride: targetOutletRow && targetOutletRow.isOverride ? targetOutletRow.price : null,
+            }
+          ]
+        })
+
+        await loadProducts()
+        await loadProductAvailabilityAndInventory(selectedProduct, outlets)
+        await loadProductActivities(selectedProduct)
+      }
+
+      setIsAdjustStockOpen(false)
+      alert('Stock adjusted successfully!')
+    } catch (err) {
+      console.error('Failed to adjust stock:', err)
+      alert('Failed to adjust stock. Please try again.')
+    }
+  }
+
+  const handleToggleOutletAvailability = async (idx, val) => {
+    const targetRow = outletAssignmentRows[idx]
+    if (!targetRow) return
+
+    setOutletAssignmentRows((prev) =>
+      prev.map((r, i) => (i === idx ? { ...r, isAvailable: val } : r))
     )
 
-    // Also update selectedProduct
-    setSelectedProduct((prev) => ({
-      ...prev,
-      stock: newTotal,
-      stockState:
-        newTotal > 10
-          ? 'In Stock'
-          : newTotal > 0
-            ? 'Low Stock'
-            : 'Out of Stock',
-      inventorySummary: {
-        total: newTotal,
-        lowStock: updated.filter((item) => item.available > 0 && item.available <= item.threshold).length,
-        outOfStock: updated.filter((item) => item.available === 0).length,
-      },
-    }))
+    try {
+      if (!isDemoMode()) {
+        await api.put(`/products/${selectedProduct.id}/outlet-availability`, {
+          outlets: [
+            {
+              outletId: targetRow.outletId,
+              isAvailable: val,
+              priceOverride: targetRow.isOverride ? Number(targetRow.price) : null,
+              stockQuantity: Number(targetRow.stockQuantity),
+            }
+          ]
+        })
+        await loadProducts()
+        await loadProductAvailabilityAndInventory(selectedProduct, outlets)
+        await loadProductActivities(selectedProduct)
+      }
+    } catch (err) {
+      console.error('Failed to toggle outlet availability:', err)
+      setOutletAssignmentRows((prev) =>
+        prev.map((r, i) => (i === idx ? { ...r, isAvailable: !val } : r))
+      )
+      alert('Failed to save outlet availability update.')
+    }
+  }
 
-    setIsAdjustStockOpen(false)
-    alert('Stock adjusted successfully!')
+  const handleOutletVisibilityChange = async (idx, val) => {
+    const targetRow = outletAssignmentRows[idx]
+    if (!targetRow) return
+
+    setOutletAssignmentRows((prev) =>
+      prev.map((r, i) => (i === idx ? { ...r, visibility: val } : r))
+    )
+
+    try {
+      if (!isDemoMode()) {
+        await api.put(`/products/${selectedProduct.id}/outlet-availability`, {
+          outlets: [
+            {
+              outletId: targetRow.outletId,
+              isAvailable: targetRow.isAvailable,
+              priceOverride: targetRow.isOverride ? Number(targetRow.price) : null,
+              stockQuantity: Number(targetRow.stockQuantity),
+              status: val === 'Hide' ? 'inactive' : 'active',
+            }
+          ]
+        })
+        await loadProducts()
+        await loadProductAvailabilityAndInventory(selectedProduct, outlets)
+        await loadProductActivities(selectedProduct)
+      }
+    } catch (err) {
+      console.error('Failed to change outlet visibility:', err)
+      setOutletAssignmentRows((prev) =>
+        prev.map((r, i) => (i === idx ? { ...r, visibility: val === 'Hide' ? 'Show' : 'Hide' } : r))
+      )
+      alert('Failed to save outlet visibility update.')
+    }
   }
 
   // Add Product Drawer State
   const [isAddProductOpen, setIsAddProductOpen] = useState(false)
+  const [photoPreview, setPhotoPreview] = useState(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const fileInputRef = useRef(null)
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const localUrl = URL.createObjectURL(file)
+    setPhotoPreview(localUrl)
+
+    if (isDemoMode()) {
+      return
+    }
+
+    setUploadingPhoto(true)
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await api.post('/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      const fileData = res.data && res.data.data ? res.data.data : res.data
+      const fileUrl = `/files/${fileData.storedName || fileData.stored_name}`
+      setPhotoPreview(fileUrl)
+    } catch (err) {
+      console.error('Failed to upload product image:', err)
+      alert('Failed to upload image. Please try again.')
+      setPhotoPreview(null)
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
   const [addName, setAddName] = useState('')
   const [addSku, setAddSku] = useState('')
   const [addCategory, setAddCategory] = useState('')
@@ -1559,52 +1907,184 @@ export default function ProductsPage() {
   const [addTrackStock, setAddTrackStock] = useState(true)
   const [addInitialStock, setAddInitialStock] = useState('')
   const [addLowStockAlert, setAddLowStockAlert] = useState('10')
-  const [addSelectedOutlets, setAddSelectedOutlets] = useState(['Pusat', 'Kemang', 'BSD', 'Bandung'])
+  const [addSelectedOutlets, setAddSelectedOutlets] = useState([])
+  const [outletSearchQuery, setOutletSearchQuery] = useState('')
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editingProductId, setEditingProductId] = useState(null)
+
+  useEffect(() => {
+    if (isAddProductOpen && outlets.length > 0 && !isEditMode) {
+      setAddSelectedOutlets(outlets.map(o => o.id))
+    }
+  }, [isAddProductOpen, outlets, isEditMode])
+
+  const handleOpenAddProduct = () => {
+    setIsEditMode(false)
+    setEditingProductId(null)
+    setAddName('')
+    setAddSku('')
+    setAddCategory('')
+    setAddDescription('')
+    setAddPrice('')
+    setAddCost('')
+    setAddTax('PPN 11%')
+    setAddTags('')
+    setAddStatus('Active')
+    setAddAvailability('Always available')
+    setAddTrackStock(true)
+    setAddInitialStock('')
+    setPhotoPreview(null)
+    setAddSelectedOutlets(outlets.map(o => o.id))
+    setIsAddProductOpen(true)
+  }
+
+  const handleEditProduct = (product) => {
+    setIsEditMode(true)
+    setEditingProductId(product.id || product._id)
+    setAddName(product.name || '')
+    setAddSku(product.sku || '')
+    setAddCategory(product.category || '')
+    setAddDescription(product.description || '')
+    setAddPrice(product.price || '')
+    setAddCost(product.cost || '')
+    setAddTax(product.tax || 'PPN 11%')
+    setAddTags(Array.isArray(product.tags) ? product.tags.join(', ') : '')
+    setAddStatus(product.status || 'Active')
+    setAddAvailability(product.metadata?.availability || 'Always available')
+    setAddTrackStock(product.stockTracking ?? true)
+    setAddInitialStock(product.stock || '')
+    setPhotoPreview(product.image || null)
+    
+    // Extract assigned outlets if exists
+    let selectedOutlets = []
+    if (Array.isArray(product.metadata?.outlets)) {
+      selectedOutlets = product.metadata.outlets
+    } else if (product.metadata?.outlets) {
+      selectedOutlets = [product.metadata.outlets]
+    } else if (product.outlets) {
+      selectedOutlets = outlets.slice(0, Number(product.outlets) || 1).map(o => o.id)
+    } else {
+      selectedOutlets = outlets.map(o => o.id)
+    }
+    setAddSelectedOutlets(selectedOutlets)
+    setIsAddProductOpen(true)
+  }
 
   const handleSaveProduct = async () => {
+    if (!addName.trim()) {
+      alert('Product Name is required')
+      return
+    }
+
     try {
       const payload = {
         name: addName,
         sku: addSku || `SKU-SEL-00${products.length + 1}`,
-        category: addCategory || 'Signature',
-        base_price: Number(addPrice) || 0,
-        cost_price: Number(addCost) || 0,
-        stock_quantity: Number(addInitialStock) || 0,
-        is_active: addStatus === 'Active',
+        basePrice: Number(addPrice) || 0,
+        costPrice: Number(addCost) || 0,
+        stockTracking: addTrackStock,
+        stockQuantity: Number(addInitialStock) || 0,
+        isActive: addStatus === 'Active',
+        status: addStatus === 'Active' ? 'active' : 'inactive',
         description: addDescription,
+        thumbnailUrl: photoPreview || '',
+        tags: addTags ? addTags.split(',').map(t => t.trim()) : [],
+        metadata: {
+          category: addCategory || 'Signature',
+          tax: addTax,
+          availability: addAvailability,
+          outlets: addSelectedOutlets,
+        }
       }
 
       if (!isDemoMode()) {
-        await api.post('/products', payload)
-      } else {
-        // Mock add product to state in demo mode
-        const mockNewProduct = {
-          id: products.length + 1,
-          _id: String(products.length + 1),
-          name: addName,
-          sku: addSku || `SKU-SEL-0${products.length + 1}`,
-          image: '/images/products/salty-caramel.png',
-          category: addCategory || 'Signature',
-          outlets: addSelectedOutlets.length,
-          price: Number(addPrice) || 0,
-          cost: Number(addCost) || 0,
-          stock: Number(addInitialStock) || 0,
-          stockState: (Number(addInitialStock) || 0) > 10 ? 'In Stock' : ((Number(addInitialStock) || 0) > 0 ? 'Low Stock' : 'Out of Stock'),
-          status: addStatus,
-          salesMonth: 0,
-          salesChange: 0,
-          totalSold: 0,
-          description: addDescription,
-          tags: addTags ? addTags.split(',').map(t => t.trim()) : [],
-          tax: addTax,
-          trend: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-          inventorySummary: {
-            total: Number(addInitialStock) || 0,
-            lowStock: 0,
-            outOfStock: 0,
-          }
+        if (isEditMode) {
+          await api.put(`/products/${editingProductId}`, payload)
+        } else {
+          await api.post('/products', payload)
         }
-        setProducts(prev => [mockNewProduct, ...prev])
+      } else {
+        // Mock save product in demo mode
+        if (isEditMode) {
+          const updatedFields = {
+            name: addName,
+            sku: addSku,
+            category: addCategory,
+            price: Number(addPrice) || 0,
+            cost: Number(addCost) || 0,
+            stock: Number(addInitialStock) || 0,
+            stockState: (Number(addInitialStock) || 0) > 10 ? 'In Stock' : ((Number(addInitialStock) || 0) > 0 ? 'Low Stock' : 'Out of Stock'),
+            status: addStatus,
+            description: addDescription,
+            tags: addTags ? addTags.split(',').map(t => t.trim()) : [],
+            tax: addTax,
+            outlets: addSelectedOutlets.length,
+          }
+
+          setProducts(prev => prev.map(p => (p.id === editingProductId || p._id === editingProductId) ? {
+            ...p,
+            ...updatedFields,
+            image: photoPreview || p.image,
+            sku: addSku || p.sku,
+            category: addCategory || p.category,
+          } : p))
+
+          if (!demoProductsList) {
+            demoProductsList = dummyProducts.map(p => ({ ...p }))
+          }
+          demoProductsList = demoProductsList.map(p => (p.id === editingProductId || p._id === editingProductId) ? {
+            ...p,
+            ...updatedFields,
+            image: photoPreview || p.image,
+            sku: addSku || p.sku,
+            category: addCategory || p.category,
+          } : p)
+
+          setSelectedProduct(prev => {
+            if (prev && (prev.id === editingProductId || prev._id === editingProductId)) {
+              return {
+                ...prev,
+                ...updatedFields,
+                image: photoPreview || prev.image,
+                sku: addSku || prev.sku,
+                category: addCategory || prev.category,
+              }
+            }
+            return prev
+          })
+        } else {
+          const mockNewProduct = {
+            id: products.length + 1,
+            _id: String(products.length + 1),
+            name: addName,
+            sku: addSku || `SKU-SEL-00${products.length + 1}`,
+            image: photoPreview || '/images/products/salty-caramel.png',
+            category: addCategory || 'Signature',
+            outlets: addSelectedOutlets.length,
+            price: Number(addPrice) || 0,
+            cost: Number(addCost) || 0,
+            stock: Number(addInitialStock) || 0,
+            stockState: (Number(addInitialStock) || 0) > 10 ? 'In Stock' : ((Number(addInitialStock) || 0) > 0 ? 'Low Stock' : 'Out of Stock'),
+            status: addStatus,
+            salesMonth: 0,
+            salesChange: 0,
+            totalSold: 0,
+            description: addDescription,
+            tags: addTags ? addTags.split(',').map(t => t.trim()) : [],
+            tax: addTax,
+            trend: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            inventorySummary: {
+              total: Number(addInitialStock) || 0,
+              lowStock: 0,
+              outOfStock: 0,
+            }
+          }
+          setProducts(prev => [mockNewProduct, ...prev])
+          if (!demoProductsList) {
+            demoProductsList = dummyProducts.map(p => ({ ...p }))
+          }
+          demoProductsList = [mockNewProduct, ...demoProductsList]
+        }
       }
 
       // Reset form
@@ -1617,12 +2097,60 @@ export default function ProductsPage() {
       setAddTags('')
       setAddStatus('Active')
       setAddInitialStock('')
+      setPhotoPreview(null)
       setIsAddProductOpen(false)
-      alert(`Product "${payload.name}" added successfully!`)
+      setIsEditMode(false)
+      setEditingProductId(null)
+      alert(isEditMode ? `Product updated successfully!` : `Product "${payload.name}" added successfully!`)
       loadProducts()
     } catch (err) {
-      console.error("Failed to add product:", err)
-      alert("Failed to add product.")
+      console.error("Failed to save product:", err)
+      const errorMsg = err.response?.data?.error?.message || err.message || 'Unknown error'
+      alert("Failed to save product: " + errorMsg)
+    }
+  }
+
+  const handleUpdateProduct = async (productId, updates) => {
+    try {
+      if (isDemoMode()) {
+        // Mock update in demo mode
+        setProducts(prev => prev.map(p => (p.id === productId || p._id === productId) ? { ...p, ...updates } : p))
+        setSelectedProduct(prev => (prev && (prev.id === productId || prev._id === productId)) ? { ...prev, ...updates } : prev)
+      } else {
+        const res = await api.put(`/products/${productId}`, updates)
+        const updatedRaw = res.data && res.data.data ? res.data.data : res.data
+        // Refresh products list
+        await loadProducts()
+        // Update selected product state
+        setSelectedProduct(prev => {
+          if (!prev) return null
+          const basePrice = updatedRaw.basePrice ?? updatedRaw.base_price ?? updatedRaw.price ?? prev.price
+          const costPrice = updatedRaw.costPrice ?? updatedRaw.cost_price ?? updatedRaw.cost ?? prev.cost
+          const stockQuantity = updatedRaw.stockQuantity ?? updatedRaw.stock_quantity ?? updatedRaw.stock ?? prev.stock
+          const isActive = updatedRaw.isActive ?? updatedRaw.is_active ?? (updatedRaw.status === 'active' || updatedRaw.status === 'Active' || prev.status === 'Active')
+          const thumbnailUrl = updatedRaw.thumbnailUrl ?? updatedRaw.thumbnail_url ?? updatedRaw.image ?? prev.image
+          const taxLabel = updatedRaw.taxLabel ?? updatedRaw.tax_label ?? updatedRaw.tax ?? prev.tax
+
+          return {
+            ...prev,
+            ...updates,
+            name: updatedRaw.name ?? prev.name,
+            sku: updatedRaw.sku ?? prev.sku,
+            image: thumbnailUrl,
+            price: basePrice,
+            cost: costPrice,
+            stock: stockQuantity,
+            status: isActive ? 'Active' : 'Inactive',
+            description: updatedRaw.description ?? prev.description,
+            tags: updatedRaw.tags ?? prev.tags,
+            tax: taxLabel,
+          }
+        })
+      }
+    } catch (err) {
+      console.error("Failed to update product:", err)
+      const errorMsg = err.response?.data?.error?.message || err.message || 'Unknown error'
+      alert("Failed to update product: " + errorMsg)
     }
   }
 
@@ -1823,11 +2351,366 @@ export default function ProductsPage() {
     loadOutlets()
   }, [])
 
+  const findProductForOrderItem = (itemName, productsList) => {
+    const cleanItem = itemName.toLowerCase().trim()
+    for (const p of productsList) {
+      const cleanProd = p.name.toLowerCase().trim()
+      if (cleanItem === cleanProd || cleanProd.includes(cleanItem) || cleanItem.includes(cleanProd)) {
+        return p
+      }
+    }
+    // Hardcoded mappings for variations in mocks
+    if (cleanItem.includes('sally') || cleanItem.includes('caramel')) {
+      return productsList.find(p => p.sku === 'SKU-SEL-001' || p.name.toLowerCase().includes('caramel'))
+    }
+    if (cleanItem.includes('aren') || cleanItem.includes('gula')) {
+      return productsList.find(p => p.sku === 'SKU-SEL-002' || p.name.toLowerCase().includes('aren'))
+    }
+    if (cleanItem.includes('lemon') || cleanItem.includes('es teh')) {
+      return productsList.find(p => p.sku === 'SKU-SEL-004' || p.name.toLowerCase().includes('lemon'))
+    }
+    if (cleanItem.includes('thai') || cleanItem.includes('teh')) {
+      return productsList.find(p => p.sku === 'SKU-SEL-006' || p.name.toLowerCase().includes('thai') || p.name.toLowerCase().includes('teh'))
+    }
+    return null
+  }
+
+  const fetchAndNormalizeOrders = async () => {
+    if (isDemoMode()) {
+      const mockList = [
+        {
+          _id: 'order-1028',
+          status: 'preparing',
+          outlet: 'Samarinda',
+          itemsList: [
+            { name: 'Sally Caramel', qty: 1, price: 26000 },
+            { name: 'Kopi Susu Gula Aren', qty: 1, price: 14000 },
+          ],
+          total: 38000,
+          paymentStatus: 'Paid',
+          createdAt: '2025-05-16T10:21:00Z',
+        },
+        {
+          _id: 'order-1027',
+          status: 'new',
+          outlet: 'Tenggarong',
+          itemsList: [
+            { name: 'Es Teh Lemon', qty: 2, price: 15000 },
+            { name: 'Kopi Susu Gula Aren', qty: 1, price: 22000 },
+          ],
+          total: 52000,
+          paymentStatus: 'Paid',
+          createdAt: '2025-05-16T10:19:00Z',
+        },
+        {
+          _id: 'order-1026',
+          status: 'ready',
+          outlet: 'Bontang',
+          itemsList: [
+            { name: 'Sally Caramel', qty: 1, price: 24000 },
+          ],
+          total: 24000,
+          paymentStatus: 'Unpaid',
+          createdAt: '2025-05-16T10:12:00Z',
+        },
+        {
+          _id: 'order-1025',
+          status: 'preparing',
+          outlet: 'Samarinda',
+          itemsList: [
+            { name: 'Es Teh Lemon', qty: 2, price: 15000 },
+            { name: 'Sally Caramel', qty: 2, price: 23000 },
+          ],
+          total: 76000,
+          paymentStatus: 'Paid',
+          createdAt: '2025-05-16T10:08:00Z',
+        },
+        {
+          _id: 'order-1024',
+          status: 'completed',
+          outlet: 'Balikpapan',
+          itemsList: [
+            { name: 'Es Teh Lemon', qty: 1, price: 15000 },
+            { name: 'Kopi Susu Gula Aren', qty: 1, price: 16000 },
+          ],
+          total: 31000,
+          paymentStatus: 'Paid',
+          createdAt: '2025-05-16T09:58:00Z',
+        },
+        {
+          _id: 'order-1023',
+          status: 'completed',
+          outlet: 'Tenggarong',
+          itemsList: [
+            { name: 'Kopi Susu Gula Aren', qty: 1, price: 18000 },
+          ],
+          total: 18000,
+          paymentStatus: 'Paid',
+          createdAt: '2025-05-16T09:45:00Z',
+        },
+        {
+          _id: 'order-1022',
+          status: 'cancelled',
+          outlet: 'Bontang',
+          itemsList: [
+            { name: 'Es Teh', qty: 2, price: 12000 },
+            { name: 'Lemon Tea', qty: 1, price: 5000 },
+          ],
+          total: 29000,
+          paymentStatus: 'Unpaid',
+          createdAt: '2025-05-16T09:32:00Z',
+        },
+      ]
+      return mockList
+    }
+
+    try {
+      const res = await api.get('/orders')
+      const rawOrders = Array.isArray(res.data)
+        ? res.data
+        : res.data && Array.isArray(res.data.data)
+          ? res.data.data
+          : []
+
+      const normalizedOrders = rawOrders.map((order) => ({
+        ...order,
+        _id: order._id || order.id,
+        id: order.id || order._id,
+      }))
+
+      // Fetch agents
+      const agentIds = [
+        ...new Set(normalizedOrders.map((o) => o.agentId).filter(Boolean)),
+      ]
+      const agentMap = {}
+      for (const agentId of agentIds) {
+        try {
+          const agentRes = await api.get(`/agents/${agentId}`)
+          agentMap[agentId] = agentRes.data
+        } catch (err) {
+          console.error('Failed to load agent:', agentId)
+        }
+      }
+
+      // Map to standard shape
+      const mappedOrders = normalizedOrders.map((order) => {
+        const agent = agentMap[order.agentId]
+        
+        let priceInfo = null
+        if (agent && agent.salesForms) {
+          const salesForm = agent.salesForms.find((f) => f.name === order.formName)
+          if (salesForm && salesForm.products && salesForm.products.length > 0) {
+            const formData = order.formData || {}
+            const itemNameKey = Object.keys(formData).find(
+              (k) => k.toLowerCase().includes('item') && k.toLowerCase().includes('name')
+            )
+            const quantityKey = Object.keys(formData).find(
+              (k) => k.toLowerCase() === 'quantity' || k.toLowerCase() === 'qty'
+            )
+            if (itemNameKey && quantityKey) {
+              const itemName = formData[itemNameKey]
+              const quantity = parseInt(formData[quantityKey]) || 1
+              const product = salesForm.products.find(
+                (p) => p.name.toLowerCase() === itemName.toLowerCase()
+              )
+              if (product) {
+                priceInfo = {
+                  itemName: product.name,
+                  quantity,
+                  unitPrice: product.price || 0,
+                  subtotal: (product.price || 0) * quantity,
+                }
+              }
+            }
+          }
+        }
+
+        let itemsListResolved = []
+        if (Array.isArray(order.items) && order.items.length > 0) {
+          itemsListResolved = order.items.map((item) => ({
+            name: item.name || item.productNameSnapshot || 'Item',
+            qty: item.quantity || 1,
+            variant: item.metadata?.variant || '',
+            price: item.unitPrice || 0,
+          }))
+        } else if (priceInfo) {
+          itemsListResolved.push({
+            name: priceInfo.itemName,
+            qty: priceInfo.quantity,
+            variant: 'Default Variant',
+            price: priceInfo.unitPrice,
+          })
+        } else {
+          const entries = Object.entries(order.formData || {})
+          const itemNameEntry = entries.find(([key]) => key.toLowerCase().includes('item') && key.toLowerCase().includes('name'))
+          const qtyEntry = entries.find(([key]) => key.toLowerCase() === 'qty' || key.toLowerCase() === 'quantity')
+          if (itemNameEntry) {
+            itemsListResolved.push({
+              name: itemNameEntry[1],
+              qty: qtyEntry ? parseInt(qtyEntry[1]) || 1 : 1,
+              variant: 'Standard',
+              price: 15000,
+            })
+          }
+        }
+
+        const outletName = (order.outlet && typeof order.outlet === 'object' ? order.outlet.name : null) ||
+          (order.outlet && typeof order.outlet === 'string' ? order.outlet : null) ||
+          order.formData?.outlet || 'Samarinda'
+
+        return {
+          _id: order._id,
+          status: order.status,
+          outlet: outletName,
+          itemsList: itemsListResolved,
+          paymentStatus: order.paymentStatus || 'Unpaid',
+          createdAt: order.createdAt,
+        }
+      })
+      return mappedOrders
+    } catch (err) {
+      console.error('Failed to fetch and normalize orders:', err)
+      return []
+    }
+  }
+
+  const aggregateSalesData = (mappedProducts, ordersList) => {
+    const now = new Date()
+
+    return mappedProducts.map((product) => {
+      const productOrdersThisMonth = []
+      const productOrdersLastMonth = []
+      const outletSalesMap = {}
+
+      ordersList.forEach((order) => {
+        if (order.status === 'cancelled') return
+
+        const orderDate = new Date(order.createdAt)
+        const isMockOrder = orderDate.getFullYear() === 2025 && orderDate.getMonth() === 4
+
+        let period = null
+        
+        if (isMockOrder) {
+          period = 'thisMonth'
+        } else if (orderDate.getFullYear() === now.getFullYear() && orderDate.getMonth() === now.getMonth()) {
+          period = 'thisMonth'
+        } else if (
+          orderDate.getFullYear() === (now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()) &&
+          orderDate.getMonth() === (now.getMonth() === 0 ? 11 : now.getMonth() - 1)
+        ) {
+          period = 'lastMonth'
+        }
+
+        if (!period) return
+
+        order.itemsList.forEach((item) => {
+          const matchedProduct = findProductForOrderItem(item.name, mappedProducts)
+          if (matchedProduct && matchedProduct.sku === product.sku) {
+            const itemTotal = (item.price || product.price) * (item.qty || 1)
+            const itemQty = item.qty || 1
+
+            if (period === 'thisMonth') {
+              productOrdersThisMonth.push({
+                createdAt: order.createdAt,
+                itemTotal,
+                itemQty,
+                outlet: order.outlet,
+              })
+
+              const outlet = order.outlet || 'Unknown'
+              if (!outletSalesMap[outlet]) {
+                outletSalesMap[outlet] = { revenue: 0, quantity: 0 }
+              }
+              outletSalesMap[outlet].revenue += itemTotal
+              outletSalesMap[outlet].quantity += itemQty
+            } else if (period === 'lastMonth') {
+              productOrdersLastMonth.push({
+                itemTotal,
+                itemQty,
+              })
+            }
+          }
+        })
+      })
+
+      const totalSales = productOrdersThisMonth.reduce((sum, o) => sum + o.itemTotal, 0)
+      const totalSold = productOrdersThisMonth.reduce((sum, o) => sum + o.itemQty, 0)
+      const lastMonthSales = productOrdersLastMonth.reduce((sum, o) => sum + o.itemTotal, 0)
+
+      let salesChange = product.salesChange || 0
+      if (lastMonthSales > 0) {
+        salesChange = Math.round(((totalSales - lastMonthSales) / lastMonthSales) * 100)
+      } else if (totalSales > 0 && !isDemoMode()) {
+        salesChange = 100
+      }
+
+      let trend = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      if (productOrdersThisMonth.length > 0) {
+        productOrdersThisMonth.forEach((o) => {
+          const d = new Date(o.createdAt)
+          const day = d.getDate()
+          const idx = Math.min(11, Math.floor((day - 1) / 31 * 12))
+          trend[idx] += o.itemTotal
+        })
+      } else {
+        const defaultTrendPattern = [0.1, 0.12, 0.15, 0.14, 0.16, 0.18, 0.17, 0.19, 0.22, 0.25, 0.28, 0.3]
+        trend = defaultTrendPattern.map(val => Math.round(val * (product.price * 5)))
+      }
+
+      let bestPerformingOutlet = null
+      let topOutletName = 'No Outlet'
+      let topOutletRevenue = 0
+      let topOutletQty = 0
+
+      Object.entries(outletSalesMap).forEach(([name, data]) => {
+        if (data.revenue > topOutletRevenue) {
+          topOutletRevenue = data.revenue
+          topOutletQty = data.quantity
+          topOutletName = name
+        }
+      })
+
+      if (topOutletRevenue > 0) {
+        bestPerformingOutlet = {
+          name: topOutletName,
+          revenue: topOutletRevenue,
+          quantity: topOutletQty,
+        }
+      }
+
+      const outletContributions = Object.entries(outletSalesMap)
+        .map(([name, data]) => {
+          const pct = totalSales > 0 ? Math.round((data.revenue / totalSales) * 100) : 0
+          return {
+            name,
+            amount: data.revenue,
+            pct,
+          }
+        })
+        .sort((a, b) => b.amount - a.amount)
+
+      return {
+        ...product,
+        salesMonth: totalSales,
+        salesChange,
+        totalSold,
+        trend,
+        bestPerformingOutlet,
+        outletContributions,
+      }
+    })
+  }
+
   const loadProducts = async () => {
     setLoading(true)
     try {
+      let mappedProducts = []
+
       if (isDemoMode()) {
-        setProducts(dummyProducts)
+        if (!demoProductsList) {
+          demoProductsList = dummyProducts.map(p => ({ ...p }))
+        }
+        mappedProducts = demoProductsList.map(p => ({ ...p }))
       } else {
         const res = await api.get('/products')
         const rawProducts = Array.isArray(res.data)
@@ -1836,36 +2719,51 @@ export default function ProductsPage() {
             ? res.data.data
             : []
 
-        const mappedProducts = rawProducts.map((item, idx) => ({
-          id: item.id || item._id,
-          _id: item.id || item._id,
-          name: item.name,
-          sku: item.sku || `SKU-SEL-00${idx + 1}`,
-          image: item.thumbnail_url || '/images/products/salty-caramel.png',
-          category: item.metadata?.category || item.category || 'Teh',
-          outlets: item.outlets || 1,
-          price: item.base_price || 0,
-          cost: item.cost_price || 0,
-          stock: item.stock_quantity || 0,
-          stockState: item.is_active ? 'In Stock' : 'Out of Stock',
-          status: item.is_active ? 'Active' : 'Inactive',
-          salesMonth: item.salesMonth || 0,
-          salesChange: item.salesChange || 0,
-          totalSold: item.totalSold || 0,
-          description: item.description || '',
-          tags: item.tags || [],
-          tax: item.tax_label || 'PPN 11%',
-          trend: item.trend || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-          inventorySummary: item.inventorySummary || {
-            total: item.stock_quantity || 0,
-            lowStock: 0,
-            outOfStock: 0,
-          },
-        }))
-        setProducts(mappedProducts)
+        mappedProducts = rawProducts.map((item, idx) => {
+          const basePrice = item.basePrice ?? item.base_price ?? item.price ?? 0
+          const costPrice = item.costPrice ?? item.cost_price ?? item.cost ?? 0
+          const stockQuantity = item.stockQuantity ?? item.stock_quantity ?? item.stock ?? 0
+          const isActive = item.isActive ?? item.is_active ?? (item.status === 'active' || item.status === 'Active' || item.status === true)
+          const thumbnailUrl = item.thumbnailUrl ?? item.thumbnail_url ?? item.image ?? '/images/products/salty-caramel.png'
+          const taxLabel = item.taxLabel ?? item.tax_label ?? item.tax ?? 'PPN 11%'
+
+          return {
+            id: item.id || item._id,
+            _id: item.id || item._id,
+            name: item.name,
+            sku: item.sku || `SKU-SEL-00${idx + 1}`,
+            image: thumbnailUrl,
+            category: item.metadata?.category || item.category || 'Teh',
+            outlets: item.outlets || 1,
+            price: basePrice,
+            cost: costPrice,
+            stock: stockQuantity,
+            stockState: stockQuantity > 10 ? 'In Stock' : (stockQuantity > 0 ? 'Low Stock' : 'Out of Stock'),
+            status: isActive ? 'Active' : 'Inactive',
+            salesMonth: item.salesMonth || 0,
+            salesChange: item.salesChange || 0,
+            totalSold: item.totalSold || 0,
+            description: item.description || '',
+            tags: item.tags || [],
+            tax: taxLabel,
+            trend: item.trend || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            inventorySummary: item.inventorySummary || {
+              total: stockQuantity,
+              lowStock: 0,
+              outOfStock: 0,
+            },
+          }
+        })
       }
+
+      // Fetch and normalize orders
+      const ordersList = await fetchAndNormalizeOrders()
+
+      // Aggregate sales metrics dynamically from ordersList
+      const aggregated = aggregateSalesData(mappedProducts, ordersList)
+      setProducts(aggregated)
     } catch (err) {
-      console.error('Failed to load products:', err)
+      console.error('Failed to load products and sales data:', err)
     } finally {
       setLoading(false)
     }
@@ -1903,6 +2801,13 @@ export default function ProductsPage() {
         for (const p of productsToArchive) {
           if (!isDemoMode()) {
             await api.delete(`/products/${p.id}`)
+          } else {
+            if (!demoProductsList) {
+              demoProductsList = dummyProducts.map(item => ({ ...item }))
+            }
+            demoProductsList = demoProductsList.map(item => 
+              item.sku === p.sku ? { ...item, status: 'Inactive' } : item
+            )
           }
         }
         alert(`Successfully archived ${productsToArchive.length} products.`)
@@ -1910,6 +2815,15 @@ export default function ProductsPage() {
       } else {
         if (!isDemoMode()) {
           await api.delete(`/products/${archiveTarget.id}`)
+        } else {
+          if (!demoProductsList) {
+            demoProductsList = dummyProducts.map(item => ({ ...item }))
+          }
+          demoProductsList = demoProductsList.map(item => 
+            (item.id === archiveTarget.id || item._id === archiveTarget.id)
+              ? { ...item, status: 'Inactive' }
+              : item
+          )
         }
         alert(`Product "${archiveTarget.name}" archived successfully.`)
       }
@@ -1928,6 +2842,10 @@ export default function ProductsPage() {
         await api.delete(`/products/${deleteTarget.id}`)
       } else {
         setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id))
+        if (!demoProductsList) {
+          demoProductsList = dummyProducts.map(item => ({ ...item }))
+        }
+        demoProductsList = demoProductsList.filter(p => p.id !== deleteTarget.id)
       }
       alert(`Product "${deleteTarget.name}" deleted successfully.`)
       setIsDeleteConfirmOpen(false)
@@ -1985,15 +2903,20 @@ export default function ProductsPage() {
             outlets: outletAssignmentRows.map((r) => ({
               outletId: r.outletId,
               isAvailable: r.isAvailable,
-              price: Number(r.price),
+              priceOverride: r.isOverride ? Number(r.price) : null,
               stockQuantity: Number(r.stockQuantity),
+              status: r.visibility === 'Hide' ? 'inactive' : 'active',
             })),
           }
         )
       }
       setIsAssignOutletsOpen(false)
       alert(`Outlet availability saved for "${outletAssignmentProduct.name}".`)
-      loadProducts()
+      await loadProducts()
+      if (selectedProduct && (selectedProduct.id === outletAssignmentProduct.id || selectedProduct._id === outletAssignmentProduct.id)) {
+        await loadProductAvailabilityAndInventory(selectedProduct, outlets)
+        await loadProductActivities(selectedProduct)
+      }
     } catch (err) {
       console.error('Failed to save outlet assignment:', err)
       alert('Failed to save outlet assignment.')
@@ -2001,8 +2924,15 @@ export default function ProductsPage() {
   }
 
   useEffect(() => {
-    if (products.length > 0 && !selectedProduct) {
-      setSelectedProduct(products[0])
+    if (products.length > 0) {
+      if (!selectedProduct) {
+        setSelectedProduct(products[0])
+      } else {
+        const updated = products.find((p) => p.sku === selectedProduct.sku || p.id === selectedProduct.id)
+        if (updated) {
+          setSelectedProduct(updated)
+        }
+      }
     }
   }, [products])
 
@@ -2084,6 +3014,504 @@ export default function ProductsPage() {
     URL.revokeObjectURL(url)
   }
 
+  const mapLogToActivity = (log) => {
+    const formatDate = (dateStr) => {
+      try {
+        const date = new Date(dateStr)
+        const optionsDate = { month: 'short', day: 'numeric', year: 'numeric' }
+        const optionsTime = { hour: '2-digit', minute: '2-digit', hour12: true }
+        const formattedDate = date.toLocaleDateString('en-US', optionsDate)
+        const formattedTime = date.toLocaleTimeString('en-US', optionsTime)
+        return `${formattedDate} • ${formattedTime}`
+      } catch (e) {
+        return dateStr
+      }
+    }
+
+    const actorName = log.actor?.name || 'System'
+    const getInitials = (name) => {
+      if (!name) return 'SYS'
+      const parts = name.split(' ')
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase()
+      }
+      return name.slice(0, 2).toUpperCase()
+    }
+    const avatar = getInitials(actorName)
+
+    let title = 'Activity Logged'
+    let icon = <Plus size={11} />
+    let iconBg = 'bg-slate-50 text-slate-600 border-slate-100'
+    let details = null
+    let badge = null
+    let badgeBg = null
+
+    switch (log.action) {
+      case 'product.create':
+        title = 'Product Created'
+        icon = <Plus size={11} />
+        iconBg = 'bg-emerald-50 text-emerald-600 border-emerald-100'
+        details = `Created with SKU ${log.details?.sku || 'N/A'}`
+        break
+      case 'product.update':
+        title = 'Product Edited'
+        icon = <Edit3 size={11} />
+        iconBg = 'bg-indigo-50 text-indigo-600 border-indigo-100'
+        details = log.details?.fields ? `Updated ${log.details.fields.join(', ')}` : 'Updated product details'
+        break
+      case 'product.price_change':
+        title = 'Price Changed'
+        icon = <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        iconBg = 'bg-amber-50 text-amber-600 border-amber-100'
+        details = `${money(log.details?.oldPrice)} → ${money(log.details?.newPrice)}`
+        break
+      case 'stock.adjust': {
+        title = 'Stock Adjusted'
+        icon = <Warehouse size={11} />
+        iconBg = 'bg-blue-50 text-blue-600 border-blue-100'
+        
+        const change = log.details?.quantityChange ?? 0
+        const unit = 'cups'
+        const changeStr = change > 0 ? `+${change} ${unit}` : `${change} ${unit}`
+        
+        const oldQty = log.details?.oldQuantity ?? 0
+        const newQty = log.details?.newQuantity ?? 0
+        
+        const outletSuffix = log.outlet?.name ? ` at ${log.outlet.name}` : ''
+        details = `${oldQty} ${unit} → ${newQty} ${unit}${outletSuffix}`
+        badge = changeStr
+        badgeBg = change > 0 
+          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+          : 'bg-rose-50 text-rose-600 border-rose-100'
+        break
+      }
+      case 'product.outlet_availability_change':
+        title = 'Outlet Availability Changed'
+        icon = <Store size={11} />
+        iconBg = 'bg-purple-50 text-purple-600 border-purple-100'
+        
+        if (log.details?.outlets && Array.isArray(log.details.outlets)) {
+          const outletChanges = log.details.outlets.map(o => {
+            const outletName = outlets.find(item => item.id === o.outletId)?.name || `Outlet #${o.outletId}`
+            return `${outletName} (${o.isAvailable ? 'Available' : 'Unavailable'})`
+          })
+          details = `Updated outlets: ${outletChanges.join(', ')}`
+        } else {
+          details = 'Outlet availability updated'
+        }
+        break
+      case 'product.tags_update': {
+        title = 'Tags Updated'
+        icon = <Bookmark size={11} />
+        iconBg = 'bg-rose-50 text-rose-600 border-rose-100'
+        const newTags = log.details?.newTags || []
+        details = newTags.length > 0 ? `Tags: ${newTags.join(', ')}` : 'Cleared tags'
+        break
+      }
+      case 'product.status_change': {
+        title = 'Status Changed'
+        icon = <RefreshCw size={11} />
+        iconBg = 'bg-emerald-50 text-emerald-600 border-emerald-100'
+        const oldStatus = log.details?.oldStatus || 'Inactive'
+        const newStatus = log.details?.newStatus || 'Active'
+        details = `${oldStatus} → ${newStatus}`
+        badge = newStatus
+        badgeBg = newStatus === 'Active'
+          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+          : 'bg-rose-50 text-rose-600 border-rose-100'
+        break
+      }
+      case 'product.delete':
+        title = 'Product Deleted'
+        icon = <Trash2 size={11} />
+        iconBg = 'bg-rose-50 text-rose-600 border-rose-100'
+        details = `Deleted product ${log.details?.name || ''}`
+        break
+      default:
+        title = log.action ? log.action.split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Action Logged'
+        icon = <Plus size={11} />
+        iconBg = 'bg-slate-50 text-slate-600 border-slate-100'
+        details = typeof log.details === 'object' ? JSON.stringify(log.details) : String(log.details)
+        break
+    }
+
+    return {
+      title,
+      actor: actorName,
+      time: formatDate(log.created_at || log.createdAt),
+      icon,
+      iconBg,
+      details,
+      badge,
+      badgeBg,
+      avatar
+    }
+  }
+
+  const filteredActivities = useMemo(() => {
+    if (activityTypeFilter === 'all') return productActivities
+    return productActivities.filter(act => act.action === activityTypeFilter)
+  }, [productActivities, activityTypeFilter])
+
+  const mappedActivities = useMemo(() => {
+    if (productActivities.length === 0) {
+      // Mock logs for fallback / demo mode
+      const mockLogs = [
+        {
+          title: 'Product Created',
+          actor: 'Ahmad Danial',
+          time: 'May 29, 2025 • 09:12 AM',
+          icon: <Plus size={11} />,
+          iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+          details: null,
+          avatar: 'AD',
+          type: 'product.create'
+        },
+        {
+          title: 'Product Edited',
+          actor: 'Siti Nur Aisyah',
+          time: 'May 29, 2025 • 09:35 AM',
+          icon: <Edit3 size={11} />,
+          iconBg: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+          details: 'Updated Description, Category',
+          avatar: 'SA',
+          type: 'product.update'
+        },
+        {
+          title: 'Price Changed',
+          actor: 'Ahmad Danial',
+          time: 'May 29, 2025 • 09:47 AM',
+          icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+          iconBg: 'bg-amber-50 text-amber-600 border-amber-100',
+          details: 'Rp11.000 → Rp12.000',
+          avatar: 'AD',
+          type: 'product.price_change'
+        },
+        {
+          title: 'Stock Adjusted',
+          actor: 'Siti Nur Aisyah',
+          time: 'May 29, 2025 • 10:03 AM',
+          icon: <Warehouse size={11} />,
+          iconBg: 'bg-blue-50 text-blue-600 border-blue-100',
+          details: '20 cups → 24 cups',
+          badge: '+4 cups',
+          badgeBg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+          avatar: 'SA',
+          type: 'stock.adjust'
+        },
+        {
+          title: 'Outlet Availability Changed',
+          actor: 'Ahmad Danial',
+          time: 'May 29, 2025 • 10:15 AM',
+          icon: <Store size={11} />,
+          iconBg: 'bg-purple-50 text-purple-600 border-purple-100',
+          details: 'Added to 2 outlets: Setia Alam, Bangsar',
+          avatar: 'AD',
+          type: 'product.outlet_availability_change'
+        },
+        {
+          title: 'Tags Updated',
+          actor: 'Siti Nur Aisyah',
+          time: 'May 29, 2025 • 10:22 AM',
+          icon: <Bookmark size={11} />,
+          iconBg: 'bg-rose-50 text-rose-600 border-rose-100',
+          details: 'Added tags: Teh, Favorite',
+          avatar: 'SA',
+          type: 'product.tags_update'
+        },
+        {
+          title: 'Status Changed',
+          actor: 'Ahmad Danial',
+          time: 'May 29, 2025 • 10:28 AM',
+          icon: <RefreshCw size={11} />,
+          iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+          details: 'Inactive → Active',
+          badge: 'Active',
+          badgeBg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+          avatar: 'AD',
+          type: 'product.status_change'
+        },
+        {
+          title: 'Product Exported',
+          actor: 'Ahmad Danial',
+          time: 'May 29, 2025 • 10:30 AM',
+          icon: <Download size={11} />,
+          iconBg: 'bg-sky-50 text-sky-600 border-sky-100',
+          details: 'Exported to CSV',
+          avatar: 'AD',
+          type: 'product.export'
+        }
+      ]
+      
+      if (activityTypeFilter === 'all') return mockLogs
+      return mockLogs.filter(act => act.type === activityTypeFilter)
+    }
+
+    return filteredActivities.map(mapLogToActivity)
+  }, [productActivities, filteredActivities, activityTypeFilter, outlets])
+
+  const displayedActivities = useMemo(() => {
+    return mappedActivities.slice(0, activitiesLimit)
+  }, [mappedActivities, activitiesLimit])
+
+  const dateRangeLabel = useMemo(() => {
+    const list = productActivities.length > 0 ? filteredActivities : mappedActivities
+    if (!list || list.length === 0) return 'All-time'
+    try {
+      const dates = list.map(a => {
+        const val = a.created_at || a.createdAt || a.time || Date.now()
+        if (typeof val === 'string' && val.includes('•')) {
+          return new Date(val.split(' • ')[0])
+        }
+        return new Date(val)
+      }).filter(d => !isNaN(d.getTime()))
+
+      if (dates.length === 0) return 'May 1, 2025 - May 29, 2025'
+      const minDate = new Date(Math.min(...dates))
+      const maxDate = new Date(Math.max(...dates))
+      const options = { month: 'short', day: 'numeric', year: 'numeric' }
+      return `${minDate.toLocaleDateString('en-US', options)} - ${maxDate.toLocaleDateString('en-US', options)}`
+    } catch (e) {
+      return 'May 1, 2025 - May 29, 2025'
+    }
+  }, [productActivities, filteredActivities, mappedActivities])
+
+  const handleLoadMoreActivities = () => {
+    const newLimit = activitiesLimit + 10
+    setActivitiesLimit(newLimit)
+    loadProductActivities(selectedProduct, newLimit)
+  }
+
+  const parseNumber = (val) => {
+    if (val === undefined || val === null) return 0
+    if (typeof val === 'number') return val
+    const str = String(val).trim()
+    if (!str) return 0
+    let clean = str.replace(/[Rp\s]/gi, '')
+    if (clean.includes('.') && clean.includes(',')) {
+      clean = clean.replace(/\./g, '').replace(/,/g, '.')
+    } else if (clean.includes(',')) {
+      const parts = clean.split(',')
+      if (parts[1] && parts[1].length === 3) {
+        clean = clean.replace(/,/g, '')
+      } else {
+        clean = clean.replace(/,/g, '.')
+      }
+    } else if (clean.includes('.')) {
+      const parts = clean.split('.')
+      if (parts.length === 2 && parts[1].length === 3) {
+        clean = clean.replace(/\./g, '')
+      }
+    }
+    return Number(clean) || 0
+  }
+
+  const parseImportFile = (data) => {
+    if (!data || data.length < 2) return []
+
+    const headers = data[0].map(h => String(h).trim().toLowerCase())
+    
+    const findColumnIndex = (aliases) => {
+      return headers.findIndex(h => aliases.includes(h))
+    }
+
+    const nameIdx = findColumnIndex(['name', 'nama', 'product name', 'nama produk', 'title'])
+    const skuIdx = findColumnIndex(['sku', 'product code', 'kode', 'kode produk', 'item code'])
+    const catIdx = findColumnIndex(['category', 'kategori', 'tipe', 'category name'])
+    const descIdx = findColumnIndex(['description', 'deskripsi', 'keterangan', 'desc'])
+    const priceIdx = findColumnIndex(['price', 'harga', 'harga jual', 'base price', 'jual'])
+    const costIdx = findColumnIndex(['cost', 'harga beli', 'cost price', 'modal', 'beli'])
+    const stockIdx = findColumnIndex(['stock', 'stok', 'initial stock', 'jumlah', 'quantity', 'qty'])
+    const statusIdx = findColumnIndex(['status', 'aktif', 'active', 'isactive', 'is active'])
+    const tagsIdx = findColumnIndex(['tags', 'tag', 'label'])
+
+    if (nameIdx === -1) {
+      alert("Invalid template: 'Name' or 'Nama' column is required.")
+      return []
+    }
+
+    const parsed = []
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i]
+      if (!row || row.length === 0 || !row[nameIdx]) continue
+
+      const name = String(row[nameIdx]).trim()
+      const sku = skuIdx !== -1 && row[skuIdx] ? String(row[skuIdx]).trim() : `SKU-IMP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
+      const category = catIdx !== -1 && row[catIdx] ? String(row[catIdx]).trim() : 'Minuman'
+      const description = descIdx !== -1 && row[descIdx] ? String(row[descIdx]).trim() : ''
+      const price = priceIdx !== -1 && row[priceIdx] ? parseNumber(row[priceIdx]) : 0
+      const cost = costIdx !== -1 && row[costIdx] ? parseNumber(row[costIdx]) : 0
+      const stock = stockIdx !== -1 && row[stockIdx] ? parseNumber(row[stockIdx]) : 0
+      const status = statusIdx !== -1 && row[statusIdx] ? String(row[statusIdx]).trim().toLowerCase() : 'active'
+      const tags = tagsIdx !== -1 && row[tagsIdx] ? String(row[tagsIdx]).split(',').map(t => t.trim()).filter(Boolean) : []
+
+      parsed.push({
+        name,
+        sku,
+        category,
+        description,
+        basePrice: price,
+        costPrice: cost,
+        stockQuantity: stock,
+        isActive: ['active', 'aktif', 'true', '1', 'yes'].includes(status),
+        tags,
+        stockTracking: true,
+      })
+    }
+    return parsed
+  }
+
+  const processFile = (file) => {
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result
+        const wb = XLSX.read(bstr, { type: 'binary' })
+        const wsname = wb.SheetNames[0]
+        const ws = wb.Sheets[wsname]
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1 })
+        
+        const parsed = parseImportFile(data)
+        if (parsed.length > 0) {
+          setImportProductsList(parsed)
+          setImportStatusText(`Found ${parsed.length} products to import.`)
+        } else {
+          setImportProductsList([])
+          setImportStatusText('No valid products found in the file.')
+        }
+      } catch (err) {
+        console.error('Failed to parse file:', err)
+        alert('Failed to parse file. Make sure it is a valid CSV or Excel file.')
+      }
+    }
+    reader.readAsBinaryString(file)
+  }
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0]
+    processFile(file)
+  }
+
+  const handleFileDrop = (e) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files?.[0]
+    processFile(file)
+  }
+
+  const handleCloseImportModal = () => {
+    setIsImportModalOpen(false)
+    setImportProductsList([])
+    setImportProgress(0)
+    setImportStatusText('')
+    setImportErrors([])
+    setIsImporting(false)
+  }
+
+  const handleDownloadTemplate = () => {
+    const headers = ['Name', 'SKU', 'Category', 'Description', 'Price', 'Cost', 'Stock', 'Status', 'Tags']
+    const sampleRows = [
+      ['Salty Caramel', 'SKU-SEL-001', 'Signature', 'Espresso with milk and caramel', '24000', '8500', '100', 'active', 'Best Seller, Premium'],
+      ['Matcha Latte', 'SKU-SEL-003', 'Non Coffee', 'Creamy green tea latte', '22000', '9000', '50', 'active', 'Premium']
+    ]
+    const csvContent = [headers.join(','), ...sampleRows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(','))].join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'kalis_products_template.csv')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleExecuteImport = async () => {
+    if (importProductsList.length === 0) return
+
+    setIsImporting(true)
+    setImportProgress(0)
+    setImportErrors([])
+    setImportStatusText('Starting batch import...')
+
+    const list = [...importProductsList]
+    const total = list.length
+    let succeeded = 0
+    let failed = 0
+    const errors = []
+
+    const batchSize = 5
+    for (let i = 0; i < total; i += batchSize) {
+      const batch = list.slice(i, i + batchSize)
+      setImportStatusText(`Importing products ${i + 1} to ${Math.min(i + batchSize, total)} of ${total}...`)
+      
+      const promises = batch.map(async (item) => {
+        try {
+          if (isDemoMode()) {
+            await new Promise(resolve => setTimeout(resolve, 300))
+            const mockNew = {
+              id: products.length + succeeded + 1,
+              _id: String(products.length + succeeded + 1),
+              name: item.name,
+              sku: item.sku,
+              category: item.category,
+              description: item.description,
+              price: item.basePrice,
+              cost: item.costPrice,
+              stock: item.stockQuantity,
+              status: item.isActive ? 'Active' : 'Inactive',
+              image: '/images/products/salty-caramel.png',
+              outlets: outlets.length,
+              salesMonth: 0,
+              salesChange: 0,
+              totalSold: 0,
+              tags: item.tags || [],
+              tax: 'PPN 11%',
+              trend: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+              inventorySummary: { total: item.stockQuantity, lowStock: 0, outOfStock: 0 }
+            }
+            setProducts(prev => [mockNew, ...prev])
+            if (!demoProductsList) {
+              demoProductsList = dummyProducts.map(p => ({ ...p }))
+            }
+            demoProductsList = [mockNew, ...demoProductsList]
+          } else {
+            await api.post('/products', {
+              ...item,
+              outlets: outlets.map(o => o.id),
+            })
+          }
+          succeeded++
+        } catch (err) {
+          failed++
+          errors.push({
+            name: item.name,
+            sku: item.sku,
+            message: err.response?.data?.error?.message || err.message || 'Unknown error'
+          })
+        }
+      })
+
+      await Promise.all(promises)
+      setImportProgress(Math.round(((i + batch.length) / total) * 100))
+    }
+
+    setIsImporting(false)
+    setImportStatusText(`Import completed: ${succeeded} succeeded, ${failed} failed.`)
+    setImportErrors(errors)
+    
+    await loadProducts()
+
+    if (failed === 0) {
+      alert(`Successfully imported all ${succeeded} products!`)
+      setIsImportModalOpen(false)
+      setImportProductsList([])
+    } else {
+      alert(`Import finished with errors: ${succeeded} succeeded, ${failed} failed.`)
+    }
+  }
+
   return (
     <div className='flex flex-1 overflow-hidden bg-[#F6F8FB] -m-4 h-[calc(100vh-58px)] max-h-[calc(100vh-58px)] text-[#11182E]'>
       <main
@@ -2116,18 +3544,26 @@ export default function ProductsPage() {
               )}
               <button
                 type='button'
+                onClick={() => setIsImportModalOpen(true)}
+                className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#D6DCE8] bg-white px-4 text-base font-bold text-[#11182E] shadow-sm transition hover:border-[#C8D0DF] hover:bg-[#F2F4F8] cursor-pointer'
+              >
+                <UploadCloud size={14} />
+                Import
+              </button>
+              <button
+                type='button'
                 onClick={() => {
                   setExportScope('all')
                   setIsExportModalOpen(true)
                 }}
-                className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#D6DCE8] bg-white px-4 text-base font-bold text-[#11182E] shadow-sm transition hover:border-[#C8D0DF] hover:bg-[#F2F4F8]'
+                className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#D6DCE8] bg-white px-4 text-base font-bold text-[#11182E] shadow-sm transition hover:border-[#C8D0DF] hover:bg-[#F2F4F8] cursor-pointer'
               >
                 <Download size={14} />
                 Export
               </button>
               <button
                 type='button'
-                onClick={() => setIsAddProductOpen(true)}
+                onClick={handleOpenAddProduct}
                 className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-[#F43F70] px-4 text-base font-bold text-white shadow-[0_10px_24px_rgba(244,63,112,0.24)] transition hover:bg-[#e62e63]'
               >
                 <Plus size={16} />
@@ -2395,7 +3831,7 @@ export default function ProductsPage() {
                       onClick={() => openProduct(item)}
                     >
                       <td
-                        className='border-b border-[#F2F4F8] px-3 py-3'
+                        className='border-b border-[#F2F4F8] px-3 py-4.5'
                         onClick={(e) => e.stopPropagation()}
                       >
                         <input
@@ -2405,24 +3841,24 @@ export default function ProductsPage() {
                           className='h-4 w-4 rounded border-[#D0D5DD] text-[#F43F70] focus:ring-[#F43F70] cursor-pointer'
                         />
                       </td>
-                      <td className='border-b border-[#F2F4F8] px-3 py-3'>
+                      <td className='border-b border-[#F2F4F8] px-3 py-4.5'>
                         <div className='flex items-center gap-3'>
                           <ProductImage
                             src={item.image}
                             name={item.name}
                             className='h-9 w-9 rounded-lg'
                           />
-                          <div className='min-w-0'>
-                            <p className='truncate text-sm font-extrabold text-[#11182E]'>
+                          <div className='min-w-0 flex flex-col justify-center gap-1.5'>
+                            <p className='truncate text-sm font-extrabold text-[#11182E] m-0 p-0 leading-none'>
                               {item.name}
                             </p>
-                            <p className='mt-1 text-xs text-[#667085]'>
+                            <p className='text-xs text-[#667085] m-0 p-0 leading-none'>
                               {item.sku}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className='border-b border-[#F2F4F8] px-3 py-3'>
+                      <td className='border-b border-[#F2F4F8] px-3 py-4.5'>
                         <span
                           className={cx(
                             'rounded-md px-2 py-1 text-[11px] font-bold',
@@ -2432,26 +3868,28 @@ export default function ProductsPage() {
                           {item.category}
                         </span>
                       </td>
-                      <td className='border-b border-[#F2F4F8] px-3 py-3 text-sm font-semibold text-[#11182E]'>
+                      <td className='border-b border-[#F2F4F8] px-3 py-4.5 text-sm font-semibold text-[#11182E]'>
                         {item.outlets} outlets
                       </td>
-                      <td className='border-b border-[#F2F4F8] px-3 py-3 text-sm font-bold text-[#11182E]'>
+                      <td className='border-b border-[#F2F4F8] px-3 py-4.5 text-sm font-bold text-[#11182E]'>
                         {money(item.price)}
                       </td>
-                      <td className='border-b border-[#F2F4F8] px-3 py-3'>
-                        <p className='text-sm font-extrabold text-[#11182E]'>
-                          {item.stock}
-                        </p>
-                        <p
-                          className={cx(
-                            'mt-0.5 text-xs font-bold',
-                            stockTone[item.stockState]
-                          )}
-                        >
-                          {item.stockState}
-                        </p>
+                      <td className='border-b border-[#F2F4F8] px-3 py-4.5'>
+                        <div className='flex flex-col gap-1.5 justify-center'>
+                          <p className='text-sm font-extrabold text-[#11182E] m-0 p-0 leading-none'>
+                            {item.stock}
+                          </p>
+                          <p
+                            className={cx(
+                              'text-xs font-bold m-0 p-0 leading-none',
+                              stockTone[item.stockState]
+                            )}
+                          >
+                            {item.stockState}
+                          </p>
+                        </div>
                       </td>
-                      <td className='border-b border-[#F2F4F8] px-3 py-3'>
+                      <td className='border-b border-[#F2F4F8] px-3 py-4.5'>
                         <span
                           className={cx(
                             'rounded-md px-2 py-1 text-[11px] font-bold',
@@ -2461,15 +3899,17 @@ export default function ProductsPage() {
                           {item.status}
                         </span>
                       </td>
-                      <td className='border-b border-[#F2F4F8] px-3 py-3'>
-                        <p className='text-sm font-bold text-[#11182E]'>
-                          {money(item.salesMonth)}
-                        </p>
-                        <div className='mt-0.5'>
-                          <Trend value={item.salesChange} />
+                      <td className='border-b border-[#F2F4F8] px-3 py-4.5'>
+                        <div className='flex flex-col gap-1.5 justify-center'>
+                          <p className='text-sm font-bold text-[#11182E] m-0 p-0 leading-none'>
+                            {money(item.salesMonth)}
+                          </p>
+                          <div className='flex items-center m-0 p-0 leading-none'>
+                            <Trend value={item.salesChange} />
+                          </div>
                         </div>
                       </td>
-                      <td className='border-b border-[#F2F4F8] px-3 py-3'>
+                      <td className='border-b border-[#F2F4F8] px-3 py-4.5'>
                         <div className='flex justify-end gap-2'>
                           <button
                             type='button'
@@ -2664,9 +4104,11 @@ export default function ProductsPage() {
             setActiveTab={setActiveDetailTab}
             outletInventory={outletInventory}
             outletAvailability={outletAssignmentRows}
+            onUpdateProduct={handleUpdateProduct}
+            onEditClick={handleEditProduct}
             onAdjustStockClick={() => {
               if (outletInventory && outletInventory.length > 0) {
-                setAdjustStockOutlet(outletInventory[0].outlet)
+                setAdjustStockOutlet(outletInventory[0].outletId || outletInventory[0].outlet)
               }
               setAdjustStockType('add')
               setAdjustStockQuantity('10')
@@ -2675,16 +4117,17 @@ export default function ProductsPage() {
               setIsAdjustStockOpen(true)
             }}
             onAssignOutletsClick={() => handleOpenAssignOutlets(selectedProduct)}
-            onToggleOutletAvailability={(idx, val) => {
-              setOutletAssignmentRows((prev) =>
-                prev.map((r, i) => (i === idx ? { ...r, isAvailable: val } : r))
-              )
-            }}
-            onOutletVisibilityChange={(idx, val) => {
-              setOutletAssignmentRows((prev) =>
-                prev.map((r, i) => (i === idx ? { ...r, visibility: val } : r))
-              )
-            }}
+            onToggleOutletAvailability={handleToggleOutletAvailability}
+            onOutletVisibilityChange={handleOutletVisibilityChange}
+            productActivities={productActivities}
+            isLoadingActivities={isLoadingActivities}
+            activityTypeFilter={activityTypeFilter}
+            setActivityTypeFilter={setActivityTypeFilter}
+            totalActivities={totalActivities}
+            displayedActivities={displayedActivities}
+            dateRangeLabel={dateRangeLabel}
+            handleLoadMoreActivities={handleLoadMoreActivities}
+            mappedActivities={mappedActivities}
           />
         </div>
       )}
@@ -2704,9 +4147,11 @@ export default function ProductsPage() {
             setActiveTab={setActiveDetailTab}
             outletInventory={outletInventory}
             outletAvailability={outletAssignmentRows}
+            onUpdateProduct={handleUpdateProduct}
+            onEditClick={handleEditProduct}
             onAdjustStockClick={() => {
               if (outletInventory && outletInventory.length > 0) {
-                setAdjustStockOutlet(outletInventory[0].outlet)
+                setAdjustStockOutlet(outletInventory[0].outletId || outletInventory[0].outlet)
               }
               setAdjustStockType('add')
               setAdjustStockQuantity('10')
@@ -2715,16 +4160,17 @@ export default function ProductsPage() {
               setIsAdjustStockOpen(true)
             }}
             onAssignOutletsClick={() => handleOpenAssignOutlets(selectedProduct)}
-            onToggleOutletAvailability={(idx, val) => {
-              setOutletAssignmentRows((prev) =>
-                prev.map((r, i) => (i === idx ? { ...r, isAvailable: val } : r))
-              )
-            }}
-            onOutletVisibilityChange={(idx, val) => {
-              setOutletAssignmentRows((prev) =>
-                prev.map((r, i) => (i === idx ? { ...r, visibility: val } : r))
-              )
-            }}
+            onToggleOutletAvailability={handleToggleOutletAvailability}
+            onOutletVisibilityChange={handleOutletVisibilityChange}
+            productActivities={productActivities}
+            isLoadingActivities={isLoadingActivities}
+            activityTypeFilter={activityTypeFilter}
+            setActivityTypeFilter={setActivityTypeFilter}
+            totalActivities={totalActivities}
+            displayedActivities={displayedActivities}
+            dateRangeLabel={dateRangeLabel}
+            handleLoadMoreActivities={handleLoadMoreActivities}
+            mappedActivities={mappedActivities}
           />
         </div>
       )}
@@ -3165,7 +4611,7 @@ export default function ProductsPage() {
                   <Check size={13} />
                   <span>Apply filters</span>
                   {countActiveMoreFilters() > 0 && (
-                    <span className='flex h-5 w-5 items-center justify-center rounded-full bg-white text-[#FF1F6D] text-[10px] font-bold shadow-sm shrink-0'>
+<span className='flex h-5 w-5 items-center justify-center rounded-full bg-white text-[#FF1F6D] text-[10px] font-bold shadow-sm shrink-0'>
                       {countActiveMoreFilters()}
                     </span>
                   )}
@@ -3176,424 +4622,460 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* ADD PRODUCT DRAWER */}
-      {isAddProductOpen && (
-        <div className='fixed inset-0 z-[100] flex justify-end'>
-          {/* Backdrop */}
-          <button
-            type='button'
-            onClick={() => setIsAddProductOpen(false)}
-            className='fixed inset-0 bg-[#11182E]/40 backdrop-blur-[2px] cursor-default border-0 focus:outline-none'
-          />
-
-          {/* Drawer Panel */}
-          <div className='relative z-10 bg-white w-full max-w-[560px] h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200'>
+      {/* ADD PRODUCT MODAL */}
+      {isAddProductOpen && createPortal(
+        <div className='fixed inset-0 z-[999] flex items-center justify-center p-4 bg-[#11182E]/40 backdrop-blur-[4px] animate-in fade-in duration-150'>
+          <div className='bg-white rounded-3xl w-full max-w-[850px] shadow-2xl border border-slate-100 flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-200'>
             {/* Header */}
-            <header className='px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0'>
+            <header className='px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white shrink-0 relative'>
               <div>
-                <h3 className='text-lg font-extrabold text-slate-900 flex items-center gap-2.5'>
-                  <span>Add Product</span>
+                <h3 className='text-base font-extrabold text-[#11182E] leading-none flex items-center gap-2.5'>
+                  <span>{isEditMode ? 'Edit Product' : 'Add Product'}</span>
                   <span className='text-[10px] font-bold bg-purple-50 text-purple-600 border border-purple-100/50 px-2 py-0.5 rounded-full uppercase tracking-wider'>
-                    Create new product
+                    {isEditMode ? 'Modify details' : 'Create new product'}
                   </span>
                 </h3>
-                <p className='text-xs text-slate-400 font-semibold mt-1'>
-                  Fill in the details below to add a new product to your catalog.
+                <p className='m-0 mt-1.5 text-xs text-slate-400 font-semibold leading-none'>
+                  {isEditMode
+                    ? 'Modify the details of this product below.'
+                    : 'Fill in the details below to add a new product to your catalog.'}
                 </p>
               </div>
               <button
-                onClick={() => setIsAddProductOpen(false)}
-                className='p-2 hover:bg-slate-50 border border-slate-100 rounded-xl text-slate-400 hover:text-slate-800 transition-all cursor-pointer'
+                type='button'
+                onClick={() => {
+                  setIsAddProductOpen(false)
+                  setIsEditMode(false)
+                  setEditingProductId(null)
+                  setPhotoPreview(null)
+                }}
+                className='p-1.5 hover:bg-slate-50 border border-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-colors cursor-pointer'
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </header>
 
             {/* Scrollable Form */}
-            <div className='p-6 overflow-y-auto space-y-6 flex-1 min-h-0 text-slate-700 text-sm'>
-              {/* Product Image & Primary Fields Row */}
-              <div className='flex gap-5 items-start'>
-                {/* Left: Product Image */}
-                <div className='w-[140px] shrink-0'>
-                  <label className='block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2'>
-                    Product Image
-                  </label>
-                  <div className='w-[140px] h-[140px] border-2 border-dashed border-slate-200 hover:border-[#FF1F6D] rounded-2xl flex flex-col items-center justify-center p-3 text-center cursor-pointer transition-all bg-slate-50/50 hover:bg-rose-50/5 group'>
-                    <UploadCloud size={24} className='text-slate-400 group-hover:text-[#FF1F6D] transition-colors mb-2' />
-                    <span className='text-xs font-bold text-slate-700 group-hover:text-[#FF1F6D] transition-colors'>Upload image</span>
-                    <span className='text-[9px] text-slate-400 font-semibold leading-relaxed mt-1'>
-                      PNG, JPG or WEBP<br />Max 2MB • 1:1 ratio
-                    </span>
-                  </div>
-                </div>
-
-                {/* Right: Input fields */}
-                <div className='flex-1 space-y-4'>
-                  <div>
-                    <label className='block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
-                      Product Name <span className='text-[#FF1F6D]'>*</span>
-                    </label>
-                    <input
-                      type='text'
-                      required
-                      value={addName}
-                      onChange={(e) => setAddName(e.target.value)}
-                      placeholder='e.g. Teh Tarik Vanilla'
-                      className='w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF1F6D]/20 focus:border-[#FF1F6D] text-xs text-slate-700 transition-all font-bold'
-                    />
-                  </div>
-
-                  <div>
-                    <label className='block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
-                      SKU <span className='text-[#FF1F6D]'>*</span>
-                    </label>
-                    <input
-                      type='text'
-                      required
-                      value={addSku}
-                      onChange={(e) => setAddSku(e.target.value)}
-                      placeholder='e.g. SKU-SEL-007'
-                      className='w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF1F6D]/20 focus:border-[#FF1F6D] text-xs text-slate-700 transition-all font-bold'
-                    />
-                  </div>
-
-                  <div>
-                    <label className='block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
-                      Category <span className='text-[#FF1F6D]'>*</span>
-                    </label>
-                    <div className='relative'>
-                      <select
-                        value={addCategory}
-                        onChange={(e) => setAddCategory(e.target.value)}
-                        className='w-full pl-3.5 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF1F6D]/20 focus:border-[#FF1F6D] text-xs text-slate-700 transition-all font-bold appearance-none cursor-pointer'
-                        style={{
-                          backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E")`,
-                          backgroundPosition: 'right 0.75rem center',
-                          backgroundSize: '1rem',
-                          backgroundRepeat: 'no-repeat',
-                        }}
-                      >
-                        <option value=''>Select category</option>
-                        <option value='Minuman'>Minuman</option>
-                        <option value='Makanan'>Makanan</option>
-                        <option value='Signature'>Signature</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className='block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
-                  Description
-                </label>
-                <textarea
-                  rows={3}
-                  maxLength={500}
-                  value={addDescription}
-                  onChange={(e) => setAddDescription(e.target.value)}
-                  placeholder='Describe the product, ingredients, taste, or other key details...'
-                  className='w-full px-3.5 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF1F6D]/20 focus:border-[#FF1F6D] text-xs text-slate-700 transition-all font-bold resize-none'
-                />
-                <div className='text-right text-[10px] text-slate-400 font-bold mt-1'>
-                  {addDescription.length}/500
-                </div>
-              </div>
-
-              {/* Price, Cost & Tax Row */}
-              <div className='grid grid-cols-3 gap-3.5'>
-                <div>
-                  <label className='block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
-                    Price <span className='text-[#FF1F6D]'>*</span>
-                  </label>
-                  <div className='flex items-center bg-slate-50 border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-[#FF1F6D]/20 focus-within:border-[#FF1F6D] overflow-hidden'>
-                    <span className='text-xs font-bold text-slate-400 bg-slate-100 border-r border-slate-200 px-3 py-2.5 shrink-0'>
-                      Rp
-                    </span>
-                    <input
-                      type='number'
-                      value={addPrice}
-                      onChange={(e) => setAddPrice(e.target.value)}
-                      placeholder='0'
-                      className='w-full px-3 py-2 bg-transparent text-xs text-slate-700 outline-none font-bold'
-                    />
-                  </div>
-                  <span className='text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-1.5 block leading-tight'>
-                    Selling price visible to customers
-                  </span>
-                </div>
-
-                <div>
-                  <label className='block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
-                    Cost <span className='text-[#FF1F6D]'>*</span>
-                  </label>
-                  <div className='flex items-center bg-slate-50 border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-[#FF1F6D]/20 focus-within:border-[#FF1F6D] overflow-hidden'>
-                    <span className='text-xs font-bold text-slate-400 bg-slate-100 border-r border-slate-200 px-3 py-2.5 shrink-0'>
-                      Rp
-                    </span>
-                    <input
-                      type='number'
-                      value={addCost}
-                      onChange={(e) => setAddCost(e.target.value)}
-                      placeholder='0'
-                      className='w-full px-3 py-2 bg-transparent text-xs text-slate-700 outline-none font-bold'
-                    />
-                  </div>
-                  <span className='text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-1.5 block leading-tight'>
-                    Your purchase / production cost
-                  </span>
-                </div>
-
-                <div>
-                  <label className='block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
-                    Tax
-                  </label>
-                  <div className='relative'>
-                    <select
-                      value={addTax}
-                      onChange={(e) => setAddTax(e.target.value)}
-                      className='w-full pl-3.5 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF1F6D]/20 focus:border-[#FF1F6D] text-xs text-slate-700 transition-all font-bold appearance-none cursor-pointer'
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E")`,
-                        backgroundPosition: 'right 0.75rem center',
-                        backgroundSize: '1rem',
-                        backgroundRepeat: 'no-repeat',
-                      }}
-                    >
-                      <option value='PPN 11%'>PPN 11%</option>
-                      <option value='No Tax'>No Tax</option>
-                    </select>
-                  </div>
-                  <span className='text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-1.5 block leading-tight'>
-                    Tax applied to this product
-                  </span>
-                </div>
-              </div>
-
-              {/* Tags & Product Status */}
-              <div className='grid grid-cols-2 gap-4'>
-                <div>
-                  <label className='block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
-                    Tags
-                  </label>
-                  <input
-                    type='text'
-                    value={addTags}
-                    onChange={(e) => setAddTags(e.target.value)}
-                    placeholder='Add tags...'
-                    className='w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF1F6D]/20 focus:border-[#FF1F6D] text-xs text-slate-700 transition-all font-bold'
-                  />
-                  <div className='flex items-center justify-between text-[10px] text-slate-400 font-bold mt-1'>
-                    <span>Press Enter to add tags</span>
-                    <span>{addTags ? addTags.split(',').length : 0}/10</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className='block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
-                    Product Status
-                  </label>
-                  <div className='relative'>
-                    <select
-                      value={addStatus}
-                      onChange={(e) => setAddStatus(e.target.value)}
-                      className='w-full pl-3.5 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF1F6D]/20 focus:border-[#FF1F6D] text-xs text-slate-700 transition-all font-bold appearance-none cursor-pointer'
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E")`,
-                        backgroundPosition: 'right 0.75rem center',
-                        backgroundSize: '1rem',
-                        backgroundRepeat: 'no-repeat',
-                      }}
-                    >
-                      <option value='Active'>Active</option>
-                      <option value='Inactive'>Inactive</option>
-                    </select>
-                  </div>
-                  <span className='text-[10px] text-slate-400 font-semibold mt-1.5 block'>
-                    Only active products are visible in POS
-                  </span>
-                </div>
-              </div>
-
-              {/* Availability Type */}
-              <div>
-                <label className='block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5'>
-                  <span>Availability Type</span>
-                  <svg className='w-3.5 h-3.5 text-slate-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' />
-                  </svg>
-                </label>
-                <div className='relative'>
-                  <select
-                    value={addAvailability}
-                    onChange={(e) => setAddAvailability(e.target.value)}
-                    className='w-full pl-3.5 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF1F6D]/20 focus:border-[#FF1F6D] text-xs text-slate-700 transition-all font-bold appearance-none cursor-pointer'
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E")`,
-                      backgroundPosition: 'right 0.75rem center',
-                      backgroundSize: '1rem',
-                      backgroundRepeat: 'no-repeat',
-                    }}
-                  >
-                    <option value='Always available'>Always available</option>
-                    <option value='Custom availability'>Custom availability</option>
-                  </select>
-                </div>
-                <span className='text-[10px] text-slate-400 font-semibold mt-1.5 block'>
-                  Control how this product is available for sale
-                </span>
-              </div>
-
-              {/* Outlet Assignment Preview */}
-              <div>
-                <div className='flex items-center justify-between mb-1.5'>
-                  <div>
-                    <h4 className='font-bold text-slate-800 text-xs uppercase tracking-wider'>
-                      Outlet Assignment (Preview)
-                    </h4>
-                    <p className='text-[10px] text-slate-400 font-bold mt-0.5'>
-                      Select outlets where this product will be available.
-                    </p>
-                  </div>
-                  <button
-                    type='button'
-                    onClick={() => {
-                      if (addSelectedOutlets.length === 4) {
-                        setAddSelectedOutlets([])
-                      } else {
-                        setAddSelectedOutlets(['Pusat', 'Kemang', 'BSD', 'Bandung'])
-                      }
-                    }}
-                    className='text-xs font-bold text-[#FF1F6D] hover:text-[#e0155b] transition-colors border-0 bg-transparent cursor-pointer'
-                  >
-                    {addSelectedOutlets.length === 4 ? 'Clear All' : 'Select All'}
-                  </button>
-                </div>
-
-                <div className='grid grid-cols-2 gap-2.5 mt-3'>
-                  {[
-                    { key: 'Pusat', name: 'SelaluTeh Pusat', loc: 'Jakarta' },
-                    { key: 'Kemang', name: 'SelaluTeh Kemang', loc: 'Jakarta Selatan' },
-                    { key: 'BSD', name: 'SelaluTeh BSD', loc: 'Tangerang' },
-                    { key: 'Bandung', name: 'SelaluTeh Bandung', loc: 'Bandung' },
-                  ].map((outlet) => (
-                    <label
-                      key={outlet.key}
-                      className={`border rounded-xl p-3 flex items-start gap-3 bg-white relative cursor-pointer hover:border-[#FF1F6D]/50 transition-colors ${
-                        addSelectedOutlets.includes(outlet.key) ? 'border-[#FF1F6D]/30 bg-rose-50/5' : 'border-slate-200'
-                      }`}
-                    >
-                      <input
-                        type='checkbox'
-                        checked={addSelectedOutlets.includes(outlet.key)}
-                        onChange={() => {
-                          setAddSelectedOutlets((prev) =>
-                            prev.includes(outlet.key)
-                              ? prev.filter((k) => k !== outlet.key)
-                              : [...prev, outlet.key]
-                          )
-                        }}
-                        className='rounded border-slate-300 text-[#FF1F6D] focus:ring-[#FF1F6D] w-4 h-4 cursor-pointer mt-0.5'
-                      />
-                      <div>
-                        <div className='font-bold text-slate-800 text-xs'>{outlet.name}</div>
-                        <div className='text-[10px] text-slate-400 mt-0.5 font-semibold'>{outlet.loc}</div>
-                      </div>
-                    </label>
-                  ))}
-
-                  <div className='border border-slate-200 border-dashed rounded-xl p-3 flex items-center justify-center text-xs font-bold text-slate-500 hover:border-slate-300 transition-all cursor-pointer bg-slate-50/50'>
-                    +8 more
-                  </div>
-                </div>
-              </div>
-
-              {/* Inventory Defaults */}
-              <div className='border-t border-slate-100 pt-5 space-y-4'>
-                <div>
-                  <h4 className='font-bold text-slate-800 text-sm'>
-                    Inventory Defaults
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                handleSaveProduct()
+              }}
+              className='flex-1 overflow-y-auto min-h-0 bg-slate-50/40 p-6 space-y-6'
+            >
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                {/* Column 1: Product Info */}
+                <div className='space-y-4 bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm'>
+                  <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2.5'>
+                    Product Info
                   </h4>
-                  <p className='text-[10px] text-slate-400 font-bold mt-0.5'>
-                    Set initial inventory defaults for this product.
-                  </p>
+
+                  {/* Image & Main fields side-by-side */}
+                  <div className='flex gap-4 items-start'>
+                    {/* Image Upload Box */}
+                    <div className='flex flex-col shrink-0'>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        Product Image
+                      </label>
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className='w-[110px] h-[110px] border-2 border-dashed border-slate-200 hover:border-[#FF1F6D] rounded-2xl flex flex-col items-center justify-center p-2 text-center cursor-pointer transition-all bg-slate-50/50 hover:bg-rose-50/5 group relative overflow-hidden'
+                      >
+                        {uploadingPhoto ? (
+                          <div className='flex flex-col items-center justify-center gap-1 text-[10px] text-slate-400'>
+                            <RefreshCw size={16} className='animate-spin text-[#FF1F6D]' />
+                            <span className='font-bold text-slate-600 animate-pulse'>Uploading</span>
+                          </div>
+                        ) : photoPreview ? (
+                          <div className='w-full h-full relative group/img'>
+                            <img src={photoPreview} alt='Preview' className='w-full h-full object-cover rounded-xl' />
+                            <div className='absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[9px] font-bold uppercase'>
+                              <Camera size={14} className='mb-0.5' />
+                              Ganti
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <UploadCloud size={18} className='text-slate-400 group-hover:text-[#FF1F6D] transition-colors mb-0.5' />
+                            <span className='text-[10px] font-bold text-slate-700 group-hover:text-[#FF1F6D] transition-colors'>Upload image</span>
+                            <span className='text-[8px] text-slate-400 font-semibold leading-tight mt-0.5'>Max 2MB</span>
+                          </>
+                        )}
+                      </div>
+                      <input
+                        type='file'
+                        ref={fileInputRef}
+                        onChange={handlePhotoUpload}
+                        style={{ display: 'none' }}
+                        accept='image/*'
+                      />
+                    </div>
+
+                    {/* Primary inputs */}
+                    <div className='flex-1 space-y-3.5'>
+                      <div>
+                        <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                          Product Name <span className='text-[#FF1F6D]'>*</span>
+                        </label>
+                        <input
+                          type='text'
+                          required
+                          value={addName}
+                          onChange={(e) => setAddName(e.target.value)}
+                          placeholder='e.g., Teh Tarik Vanilla'
+                          className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#FF1F6D] focus:ring-2 focus:ring-[#FF1F6D]/10 font-bold'
+                        />
+                      </div>
+
+                      <div>
+                        <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                          SKU <span className='text-[#FF1F6D]'>*</span>
+                        </label>
+                        <input
+                          type='text'
+                          required
+                          value={addSku}
+                          onChange={(e) => setAddSku(e.target.value)}
+                          placeholder='e.g., SKU-SEL-007'
+                          className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#FF1F6D] focus:ring-2 focus:ring-[#FF1F6D]/10 font-bold'
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className='grid grid-cols-2 gap-4'>
+                    <div>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        Category <span className='text-[#FF1F6D]'>*</span>
+                      </label>
+                      <div className='relative'>
+                        <select
+                          value={addCategory}
+                          onChange={(e) => setAddCategory(e.target.value)}
+                          className='h-10 w-full appearance-none rounded-xl border border-[#E1E6EF] bg-white pl-3.5 pr-8 text-xs text-[#11182E] outline-none transition focus:border-[#FF1F6D] focus:ring-2 focus:ring-[#FF1F6D]/10 font-bold cursor-pointer'
+                        >
+                          <option value=''>Select Category</option>
+                          <option value='Minuman'>Minuman</option>
+                          <option value='Makanan'>Makanan</option>
+                          <option value='Signature'>Signature</option>
+                        </select>
+                        <ChevronDown size={14} className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        Status
+                      </label>
+                      <div className='relative'>
+                        <select
+                          value={addStatus}
+                          onChange={(e) => setAddStatus(e.target.value)}
+                          className='h-10 w-full appearance-none rounded-xl border border-[#E1E6EF] bg-white pl-3.5 pr-8 text-xs text-[#11182E] outline-none transition focus:border-[#FF1F6D] focus:ring-2 focus:ring-[#FF1F6D]/10 font-bold cursor-pointer'
+                        >
+                          <option value='Active'>Active</option>
+                          <option value='Inactive'>Inactive</option>
+                        </select>
+                        <ChevronDown size={14} className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Description
+                    </label>
+                    <textarea
+                      rows={6}
+                      maxLength={500}
+                      value={addDescription}
+                      onChange={(e) => setAddDescription(e.target.value)}
+                      placeholder='Describe the product flavor, ingredients, etc...'
+                      className='w-full rounded-xl border border-[#E1E6EF] bg-white p-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#FF1F6D] focus:ring-2 focus:ring-[#FF1F6D]/10 font-semibold resize-none'
+                    />
+                    <div className='text-right text-[9px] text-slate-400 font-bold mt-1.5'>
+                      {addDescription.length}/500
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      Tags (Comma separated)
+                    </label>
+                    <input
+                      type='text'
+                      value={addTags}
+                      onChange={(e) => setAddTags(e.target.value)}
+                      placeholder='e.g., sweet, iced, favorite'
+                      className='h-10 w-full rounded-xl border border-[#E1E6EF] bg-white px-3.5 text-xs text-[#11182E] outline-none transition focus:border-[#FF1F6D] focus:ring-2 focus:ring-[#FF1F6D]/10 font-bold'
+                    />
+                  </div>
                 </div>
 
-                <div className='flex items-center gap-4 flex-wrap'>
-                  <div>
-                    <label className='block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
-                      Initial Stock
-                    </label>
-                    <div className='flex items-center bg-slate-50 border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-[#FF1F6D]/20 focus-within:border-[#FF1F6D] overflow-hidden w-36'>
-                      <input
-                        type='number'
-                        value={addInitialStock}
-                        onChange={(e) => setAddInitialStock(e.target.value)}
-                        placeholder='0'
-                        className='w-full px-3 py-2 bg-transparent text-xs text-slate-700 outline-none font-bold'
-                      />
-                      <span className='text-xs text-slate-400 font-semibold bg-slate-100 border-l border-slate-200 px-3 py-2 shrink-0'>
-                        cups
-                      </span>
+                {/* Column 2: Pricing & Inventory */}
+                <div className='space-y-4 bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm'>
+                  <h4 className='text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2.5'>
+                    Pricing & Inventory
+                  </h4>
+
+                  <div className='grid grid-cols-2 gap-4'>
+                    <div>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        Price <span className='text-[#FF1F6D]'>*</span>
+                      </label>
+                      <div className='flex items-center bg-white border border-[#E1E6EF] rounded-xl focus-within:ring-2 focus-within:ring-[#FF1F6D]/10 focus-within:border-[#FF1F6D] overflow-hidden'>
+                        <span className='text-xs font-bold text-slate-400 bg-slate-50 border-r border-slate-150 px-3 py-2.5 shrink-0 select-none'>
+                          Rp
+                        </span>
+                        <input
+                          type='number'
+                          required
+                          value={addPrice}
+                          onChange={(e) => setAddPrice(e.target.value)}
+                          placeholder='0'
+                          className='w-full px-3 py-2 bg-transparent text-xs text-[#11182E] border-none outline-none focus:outline-none focus:ring-0 font-bold'
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        Cost Price
+                      </label>
+                      <div className='flex items-center bg-white border border-[#E1E6EF] rounded-xl focus-within:ring-2 focus-within:ring-[#FF1F6D]/10 focus-within:border-[#FF1F6D] overflow-hidden'>
+                        <span className='text-xs font-bold text-slate-400 bg-slate-50 border-r border-slate-150 px-3 py-2.5 shrink-0 select-none'>
+                          Rp
+                        </span>
+                        <input
+                          type='number'
+                          value={addCost}
+                          onChange={(e) => setAddCost(e.target.value)}
+                          placeholder='0'
+                          className='w-full px-3 py-2 bg-transparent text-xs text-[#11182E] border-none outline-none focus:outline-none focus:ring-0 font-bold'
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <label className='block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
-                      Low Stock Alert
-                    </label>
-                    <div className='flex items-center bg-slate-50 border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-[#FF1F6D]/20 focus-within:border-[#FF1F6D] overflow-hidden w-36'>
-                      <input
-                        type='number'
-                        value={addLowStockAlert}
-                        onChange={(e) => setAddLowStockAlert(e.target.value)}
-                        placeholder='10'
-                        className='w-full px-3 py-2 bg-transparent text-xs text-slate-700 outline-none font-bold'
-                      />
-                      <span className='text-xs text-slate-400 font-semibold bg-slate-100 border-l border-slate-200 px-3 py-2 shrink-0'>
-                        cups
-                      </span>
+                  <div className='grid grid-cols-2 gap-4'>
+                    <div>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        Tax Rate
+                      </label>
+                      <div className='relative'>
+                        <select
+                          value={addTax}
+                          onChange={(e) => setAddTax(e.target.value)}
+                          className='h-10 w-full appearance-none rounded-xl border border-[#E1E6EF] bg-white pl-3.5 pr-8 text-xs text-[#11182E] outline-none transition focus:border-[#FF1F6D] focus:ring-2 focus:ring-[#FF1F6D]/10 font-bold cursor-pointer'
+                        >
+                          <option value='PPN 11%'>PPN 11%</option>
+                          <option value='No Tax'>No Tax</option>
+                        </select>
+                        <ChevronDown size={14} className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                        Availability
+                      </label>
+                      <div className='relative'>
+                        <select
+                          value={addAvailability}
+                          onChange={(e) => setAddAvailability(e.target.value)}
+                          className='h-10 w-full appearance-none rounded-xl border border-[#E1E6EF] bg-white pl-3.5 pr-8 text-xs text-[#11182E] outline-none transition focus:border-[#FF1F6D] focus:ring-2 focus:ring-[#FF1F6D]/10 font-bold cursor-pointer'
+                        >
+                          <option value='Always available'>Always available</option>
+                          <option value='Custom availability'>Custom availability</option>
+                        </select>
+                        <ChevronDown size={14} className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
+                      </div>
                     </div>
                   </div>
 
-                  <label className='flex items-center gap-2.5 cursor-pointer text-xs font-bold text-slate-700 hover:text-slate-900 transition-colors self-end pb-2.5 select-none'>
-                    <input
-                      type='checkbox'
-                      checked={addTrackStock}
-                      onChange={(e) => setAddTrackStock(e.target.checked)}
-                      className='rounded border-slate-300 text-[#FF1F6D] focus:ring-[#FF1F6D] w-4.5 h-4.5 cursor-pointer'
-                    />
-                    <span>Track stock for this product</span>
-                  </label>
+                  {/* Stock tracking section */}
+                  <div className='border-t border-slate-100 pt-3.5 space-y-3.5'>
+                    <div className='flex items-center justify-between'>
+                      <span className='text-[11px] font-extrabold text-slate-500 uppercase tracking-wider'>Track Stock Settings</span>
+                      <label className='flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 hover:text-slate-900 transition-colors select-none'>
+                        <input
+                          type='checkbox'
+                          checked={addTrackStock}
+                          onChange={(e) => setAddTrackStock(e.target.checked)}
+                          className='rounded border-slate-350 text-[#FF1F6D] focus:ring-[#FF1F6D] w-4.5 h-4.5 cursor-pointer'
+                        />
+                        <span>Enable Tracking</span>
+                      </label>
+                    </div>
+
+                    {addTrackStock && (
+                      <div className='grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1 duration-150'>
+                        <div>
+                          <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                            Initial Stock Level
+                          </label>
+                          <div className='flex items-center bg-white border border-[#E1E6EF] rounded-xl focus-within:ring-2 focus-within:ring-[#FF1F6D]/10 focus-within:border-[#FF1F6D] overflow-hidden'>
+                            <input
+                              type='number'
+                              value={addInitialStock}
+                              onChange={(e) => setAddInitialStock(e.target.value)}
+                              placeholder='0'
+                              className='w-full px-3.5 py-2.5 bg-transparent text-xs text-[#11182E] border-none outline-none focus:outline-none focus:ring-0 font-bold'
+                            />
+                            <span className='text-xs font-bold text-slate-400 bg-slate-50 border-l border-slate-150 px-3 py-2 shrink-0 select-none'>
+                              cups
+                            </span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                            Low Stock Limit
+                          </label>
+                          <div className='flex items-center bg-white border border-[#E1E6EF] rounded-xl focus-within:ring-2 focus-within:ring-[#FF1F6D]/10 focus-within:border-[#FF1F6D] overflow-hidden'>
+                            <input
+                              type='number'
+                              value={addLowStockAlert}
+                              onChange={(e) => setAddLowStockAlert(e.target.value)}
+                              placeholder='10'
+                              className='w-full px-3.5 py-2.5 bg-transparent text-xs text-[#11182E] border-none outline-none focus:outline-none focus:ring-0 font-bold'
+                            />
+                            <span className='text-xs font-bold text-slate-400 bg-slate-50 border-l border-slate-150 px-3 py-2 shrink-0 select-none'>
+                              cups
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Outlet Assignment preview grid */}
+                  <div className='border-t border-slate-100 pt-3.5 space-y-2.5'>
+                    <div className='flex items-center justify-between'>
+                      <div className='flex items-baseline gap-1.5'>
+                        <span className='text-[10px] font-extrabold text-slate-500 uppercase tracking-wider'>Outlet Assignment</span>
+                        <span className='text-[9px] font-bold text-slate-400'>
+                          ({addSelectedOutlets.length} of {outlets.length} selected)
+                        </span>
+                      </div>
+                      <button
+                        type='button'
+                        onClick={() => {
+                          if (addSelectedOutlets.length === outlets.length) {
+                            setAddSelectedOutlets([])
+                          } else {
+                            setAddSelectedOutlets(outlets.map(o => o.id))
+                          }
+                        }}
+                        className='text-[10px] font-extrabold text-[#FF1F6D] hover:text-[#e0155b] border-none bg-transparent cursor-pointer'
+                      >
+                        {addSelectedOutlets.length === outlets.length ? 'CLEAR ALL' : 'SELECT ALL'}
+                      </button>
+                    </div>
+
+                    {/* Search bar inside Outlet Assignment */}
+                    <div className='relative flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-1.5 focus-within:ring-2 focus-within:ring-[#FF1F6D]/10 focus-within:border-[#FF1F6D] transition-all'>
+                      <Search size={12} className='text-slate-400 mr-2 shrink-0' />
+                      <input
+                        type='text'
+                        value={outletSearchQuery}
+                        onChange={(e) => setOutletSearchQuery(e.target.value)}
+                        placeholder='Search outlets...'
+                        className='w-full bg-transparent text-xs text-[#11182E] outline-none border-none p-0 focus:ring-0 font-semibold'
+                      />
+                      {outletSearchQuery && (
+                        <button
+                          type='button'
+                          onClick={() => setOutletSearchQuery('')}
+                          className='p-0.5 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-700 transition-colors border-none bg-transparent'
+                        >
+                          <X size={10} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Scrollable list */}
+                    <div className='h-[200px] overflow-y-auto border border-slate-200/60 rounded-2xl p-2.5 bg-slate-50/30 space-y-1.5 scrollbar-thin pr-1.5'>
+                      {outlets.filter(o => o.name.toLowerCase().includes(outletSearchQuery.toLowerCase())).length > 0 ? (
+                        outlets
+                          .filter(o => o.name.toLowerCase().includes(outletSearchQuery.toLowerCase()))
+                          .map((outlet) => (
+                            <label
+                              key={outlet.id}
+                              className={`border rounded-xl px-3.5 py-2 flex items-center justify-between bg-white cursor-pointer hover:border-[#FF1F6D]/50 hover:bg-rose-50/5 transition-all ${
+                                addSelectedOutlets.includes(outlet.id) ? 'border-[#FF1F6D]/30 bg-rose-50/5 shadow-sm' : 'border-slate-200'
+                              }`}
+                            >
+                              <div className='flex items-center gap-2.5 min-w-0'>
+                                <input
+                                  type='checkbox'
+                                  checked={addSelectedOutlets.includes(outlet.id)}
+                                  onChange={() => {
+                                    setAddSelectedOutlets((prev) =>
+                                      prev.includes(outlet.id)
+                                        ? prev.filter((id) => id !== outlet.id)
+                                        : [...prev, outlet.id]
+                                    )
+                                  }}
+                                  className='rounded border-slate-350 text-[#FF1F6D] focus:ring-[#FF1F6D] w-4.5 h-4.5 cursor-pointer shrink-0'
+                                />
+                                <div className='min-w-0'>
+                                  <div className='font-bold text-slate-800 text-xs truncate leading-tight'>
+                                    {outlet.name}
+                                  </div>
+                                  {outlet.city && (
+                                    <div className='text-[10px] text-slate-400 font-bold mt-0.5 leading-none'>
+                                      {outlet.city}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              {addSelectedOutlets.includes(outlet.id) && (
+                                <span className='text-[9px] font-extrabold text-[#FF1F6D] bg-rose-50 border border-rose-100/50 px-1.5 py-0.5 rounded-full shrink-0 uppercase tracking-wider'>
+                                  Assigned
+                                </span>
+                              )}
+                            </label>
+                          ))
+                      ) : (
+                        <div className='text-center py-6 text-xs text-slate-400 font-semibold'>
+                          No outlets match &quot;{outletSearchQuery}&quot;
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            </form>
 
             {/* Footer */}
-            <footer className='px-6 py-4.5 border-t border-slate-100 bg-white flex items-center justify-between gap-3 shrink-0'>
+            <footer className='px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-between gap-3 shrink-0'>
               <button
                 type='button'
-                onClick={() => setIsAddProductOpen(false)}
-                className='px-5 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-bold rounded-xl transition-all shadow-sm font-semibold'
+                onClick={() => {
+                  setIsAddProductOpen(false)
+                  setPhotoPreview(null)
+                }}
+                className='px-5 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition shadow-sm font-semibold cursor-pointer'
               >
                 Cancel
               </button>
               <button
                 type='button'
                 onClick={handleSaveProduct}
-                className='px-5 py-2.5 bg-[#FF1F6D] text-white text-sm font-bold rounded-xl shadow-md shadow-rose-200/50 hover:bg-[#e0155b] transition-all font-semibold'
+                className='px-5 py-2.5 bg-[#FF1F6D] text-white text-xs font-bold rounded-xl shadow-md shadow-rose-200/50 hover:bg-[#e0155b] transition font-semibold cursor-pointer'
               >
-                Save Product
+                {isEditMode ? 'Update Product' : 'Save Product'}
               </button>
             </footer>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root') || document.body
       )}
 
       {/* 3. ASSIGN OUTLETS MODAL */}
-      {isAssignOutletsOpen && outletAssignmentProduct && (
-        <div className='fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px] animate-fade-in'>
+      {isAssignOutletsOpen && outletAssignmentProduct && createPortal(
+        <div className='fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px] animate-fade-in'>
           <div className='bg-white rounded-2xl w-full max-w-[760px] shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden animate-scale-up'>
             <header className='px-6 py-4.5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0'>
               <div>
@@ -3902,12 +5384,13 @@ export default function ProductsPage() {
               </button>
             </footer>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root') || document.body
       )}
 
       {/* 4. ARCHIVE CONFIRMATION MODAL */}
-      {isArchiveConfirmOpen && archiveTarget && (
-        <div className='fixed inset-0 z-[130] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]'>
+      {isArchiveConfirmOpen && archiveTarget && createPortal(
+        <div className='fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]'>
           <div className='bg-white rounded-2xl w-full max-w-[420px] shadow-2xl border border-slate-100 flex flex-col'>
             <div className='p-6 text-center flex flex-col items-center gap-4.5'>
               <span className='grid h-16 w-16 place-items-center rounded-2xl bg-rose-50 border border-rose-100/50 text-[#FF1F6D]'>
@@ -3943,12 +5426,13 @@ export default function ProductsPage() {
               </button>
             </footer>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root') || document.body
       )}
 
       {/* 4.5 DELETE CONFIRMATION MODAL */}
-      {isDeleteConfirmOpen && deleteTarget && (
-        <div className='fixed inset-0 z-[130] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]'>
+      {isDeleteConfirmOpen && deleteTarget && createPortal(
+        <div className='fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]'>
           <div className='bg-white rounded-2xl w-full max-w-[420px] shadow-2xl border border-slate-100 flex flex-col'>
             <div className='p-6 text-center flex flex-col items-center gap-4.5'>
               <span className='grid h-16 w-16 place-items-center rounded-2xl bg-rose-50 border border-rose-100/50 text-[#FF1F6D]'>
@@ -3982,12 +5466,13 @@ export default function ProductsPage() {
               </button>
             </footer>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root') || document.body
       )}
 
       {/* 5. EXPORT MODAL */}
-      {isExportModalOpen && (
-        <div className='fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]'>
+      {isExportModalOpen && createPortal(
+        <div className='fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]'>
           <div className='bg-white rounded-2xl w-full max-w-[620px] shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150'>
             <header className='px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white rounded-t-2xl shrink-0'>
               <h3 className='text-lg font-bold text-slate-900'>
@@ -4001,7 +5486,7 @@ export default function ProductsPage() {
               </button>
             </header>
 
-            <div className='p-6 overflow-y-auto space-y-6 flex-1 min-h-0 text-slate-700 text-sm'>
+            <div className='p-6 overflow-y-auto overflow-x-hidden space-y-6 flex-1 min-h-0 text-slate-700 text-sm'>
               {/* 1. Export Format */}
               <div>
                 <h4 className='font-bold text-slate-800 text-xs uppercase tracking-wider mb-2.5'>
@@ -4337,12 +5822,13 @@ export default function ProductsPage() {
               </button>
             </footer>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root') || document.body
       )}
 
       {/* ADJUST STOCK MODAL */}
-      {isAdjustStockOpen && (
-        <div className='fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]'>
+      {isAdjustStockOpen && createPortal(
+        <div className='fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[2px]'>
           <div className='bg-white rounded-2xl w-full max-w-[500px] shadow-2xl border border-slate-100 flex flex-col animate-in fade-in zoom-in-95 duration-150'>
             {/* Header */}
             <header className='px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white rounded-t-2xl shrink-0'>
@@ -4380,7 +5866,7 @@ export default function ProductsPage() {
                         }}
                       >
                         {outletInventory.map((item) => (
-                          <option key={item.outlet} value={item.outlet}>
+                          <option key={item.outlet} value={item.outletId || item.outlet}>
                             {item.outlet}
                           </option>
                         ))}
@@ -4499,8 +5985,27 @@ export default function ProductsPage() {
               </button>
             </footer>
           </div>
-        </div>
+        </div>,
+        document.getElementById('modal-root') || document.body
       )}
+
+      {/* 6. IMPORT MODAL */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={handleCloseImportModal}
+        onFileDrop={handleFileDrop}
+        onFileChange={handleFileChange}
+        onDownloadTemplate={handleDownloadTemplate}
+        onExecuteImport={handleExecuteImport}
+        onClearProducts={() => setImportProductsList([])}
+        isImporting={isImporting}
+        importProductsList={importProductsList}
+        importErrors={importErrors}
+        importProgress={importProgress}
+        importStatusText={importStatusText}
+        money={money}
+      />
     </div>
   )
 }
+

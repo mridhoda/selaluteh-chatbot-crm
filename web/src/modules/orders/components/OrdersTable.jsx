@@ -76,7 +76,7 @@ export default function OrdersTable({
       <table className='w-full min-w-[1080px] text-left border-collapse'>
         <thead className='bg-gray-50 border-b border-gray-200 sticky top-0 z-10'>
           <tr>
-            <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider'>
+            <th className='w-[140px] min-w-[140px] px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider'>
               Order ID
             </th>
             <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider'>
@@ -85,7 +85,7 @@ export default function OrdersTable({
             <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider'>
               Outlet
             </th>
-            <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider'>
+            <th className='w-[80px] min-w-[80px] px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center'>
               Channel
             </th>
             <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider'>
@@ -134,16 +134,18 @@ export default function OrdersTable({
               >
                 {/* Order ID */}
                 <td
-                  className={`py-4.5 pr-6 text-sm font-semibold text-gray-800 transition-all duration-150 ${
+                  className={`py-4.5 pr-6 text-[12px] font-mono text-gray-800 transition-all duration-150 w-[140px] min-w-[140px] ${
                     isSelected
                       ? 'border-l-4 border-l-brand-500 pl-5'
                       : 'border-l-4 border-l-transparent pl-5'
                   }`}
                 >
-                  <div className='flex flex-col'>
-                    <span>{order.orderIdDisplay}</span>
+                  <div className='flex flex-col min-w-0'>
+                    <span className='font-mono text-[12px] font-semibold tracking-tight truncate' title={order.orderIdDisplay}>
+                      {order.orderIdDisplay}
+                    </span>
                     {order.status === 'new' && (
-                      <span className='inline-flex items-center w-max mt-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded'>
+                      <span className='inline-flex items-center w-max mt-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded font-sans'>
                         New
                       </span>
                     )}
@@ -157,7 +159,7 @@ export default function OrdersTable({
                       {order.contactId?.name || 'Unknown'}
                     </span>
                     <span className='text-gray-400 text-xs mt-0.5'>
-                      {order.contactId?.phone || '-'}
+                      {order.contactId?.phone || order.contactId?.id || '-'}
                     </span>
                   </div>
                 </td>
@@ -177,12 +179,9 @@ export default function OrdersTable({
                 </td>
 
                 {/* Channel */}
-                <td className='px-6 py-4.5'>
-                  <div className='flex items-center gap-2'>
+                <td className='w-[80px] min-w-[80px] px-4 py-4.5 text-center'>
+                  <div className='inline-flex items-center justify-center' title={order.channel || 'WhatsApp'}>
                     {getChannelIcon(order.channel)}
-                    <span className='text-sm text-gray-700 capitalize'>
-                      {order.channel || 'WhatsApp'}
-                    </span>
                   </div>
                 </td>
 

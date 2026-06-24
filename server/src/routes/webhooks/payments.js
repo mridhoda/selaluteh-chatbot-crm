@@ -1,5 +1,5 @@
 import express from 'express';
-import { processXenditPaymentSessionWebhook } from '../../services/payment-webhook.service.js';
+import { processPaymentWebhook, processXenditPaymentSessionWebhook } from '../../services/payment-webhook.service.js';
 import { assertWebhookPayloadSafe } from '../../security/webhook-security.js';
 
 const router = express.Router();

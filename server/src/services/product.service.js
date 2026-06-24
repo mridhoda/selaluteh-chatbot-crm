@@ -2,6 +2,7 @@ import { productsRepository } from '../db/repositories/index.js';
 import { assertOutletAccess, buildOutletScopedQuery, canManageWorkspace } from './access-control.service.js';
 import { AppError } from '../utils/errors.js';
 import { resolveEffectivePrice } from './effective-price.service.js';
+import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
 
 export async function listProducts({ user, outletId, status, search, page, limit, sort }) {
   const workspaceId = user.workspaceId;
@@ -107,6 +108,19 @@ export async function createProduct({ user, data }) {
     metadata: data.metadata || {},
   });
 
+  try {
+    await auditLogsRepository.log({
+      workspaceId: user.workspaceId,
+      actorId: user.id,
+      action: 'product.create',
+      resourceType: 'product',
+      resourceId: product.id,
+      details: { name: product.name, sku: product.sku }
+    });
+  } catch (err) {
+    console.error('Failed to log product.create audit log:', err);
+  }
+
   return product;
 }
 
@@ -131,6 +145,63 @@ export async function updateProduct({ user, productId, data }) {
   }
 
   const updated = await productsRepository.update({ workspaceId: user.workspaceId, productId, updates: allowedUpdates });
+
+  try {
+    if (existing.basePrice !== updated.basePrice) {
+      await auditLogsRepository.log({
+        workspaceId: user.workspaceId,
+        actorId: user.id,
+        action: 'product.price_change',
+        resourceType: 'product',
+        resourceId: productId,
+        details: { oldPrice: existing.basePrice, newPrice: updated.basePrice }
+      });
+    }
+
+    if (existing.isActive !== updated.isActive) {
+      await auditLogsRepository.log({
+        workspaceId: user.workspaceId,
+        actorId: user.id,
+        action: 'product.status_change',
+        resourceType: 'product',
+        resourceId: productId,
+        details: { oldStatus: existing.isActive ? 'Active' : 'Inactive', newStatus: updated.isActive ? 'Active' : 'Inactive' }
+      });
+    }
+
+    const oldTags = existing.tags || [];
+    const newTags = updated.tags || [];
+    if (JSON.stringify(oldTags) !== JSON.stringify(newTags)) {
+      await auditLogsRepository.log({
+        workspaceId: user.workspaceId,
+        actorId: user.id,
+        action: 'product.tags_update',
+        resourceType: 'product',
+        resourceId: productId,
+        details: { oldTags, newTags }
+      });
+    }
+
+    const editedFields = [];
+    if (existing.name !== updated.name) editedFields.push('Name');
+    if (existing.description !== updated.description) editedFields.push('Description');
+    if (existing.shortDescription !== updated.shortDescription) editedFields.push('Short Description');
+    if (existing.category !== updated.category) editedFields.push('Category');
+    if (existing.sku !== updated.sku) editedFields.push('SKU');
+    if (editedFields.length > 0) {
+      await auditLogsRepository.log({
+        workspaceId: user.workspaceId,
+        actorId: user.id,
+        action: 'product.update',
+        resourceType: 'product',
+        resourceId: productId,
+        details: { fields: editedFields }
+      });
+    }
+  } catch (err) {
+    console.error('Failed to log product update audit logs:', err);
+  }
+
   return updated;
 }
 
@@ -140,7 +211,22 @@ export async function archiveProduct({ user, productId }) {
   const existing = await productsRepository.findById({ workspaceId: user.workspaceId, productId });
   if (!existing) throw new AppError('NOT_FOUND', 'Product not found', 404);
 
-  return productsRepository.archive({ workspaceId: user.workspaceId, productId });
+  const res = await productsRepository.archive({ workspaceId: user.workspaceId, productId });
+
+  try {
+    await auditLogsRepository.log({
+      workspaceId: user.workspaceId,
+      actorId: user.id,
+      action: 'product.delete',
+      resourceType: 'product',
+      resourceId: productId,
+      details: { name: existing.name, sku: existing.sku }
+    });
+  } catch (err) {
+    console.error('Failed to log product.delete audit log:', err);
+  }
+
+  return res;
 }
 
 export async function updateOutletAvailability({ user, productId, outlets }) {
@@ -168,6 +254,19 @@ export async function updateOutletAvailability({ user, productId, outlets }) {
       },
     });
     results.push(row);
+  }
+
+  try {
+    await auditLogsRepository.log({
+      workspaceId: user.workspaceId,
+      actorId: user.id,
+      action: 'product.outlet_availability_change',
+      resourceType: 'product',
+      resourceId: productId,
+      details: { outlets: outlets.map(o => ({ outletId: o.outletId || o.outlet_id, isAvailable: o.isAvailable ?? true })) }
+    });
+  } catch (err) {
+    console.error('Failed to log product.outlet_availability_change:', err);
   }
 
   return results;

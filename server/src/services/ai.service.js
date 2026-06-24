@@ -187,7 +187,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
         'STEP 1: Only when customer says they want to order/buy something, call get_outlets to get the list, then present the outlet NAMES as a simple numbered text list. NEVER send location pins or links.\n' +
         'STEP 2: After customer picks an outlet by name/number, call select_outlet with the correct outletId from the get_outlets result.\n' +
         'STEP 3: Ask what items the customer wants. Use search_products to find them.\n' +
-        'STEP 4: Call add_cart_item for each item (use productId from search result, NEVER invent IDs).\n' +
+        'STEP 4: Call add_cart_item for each item, and you MUST specify the quantity the user asked for (use productId from search result, NEVER invent IDs).\n' +
         'STEP 5: After ALL items added, summarize the order and say: "Pesananmu sudah saya siapkan! Silakan klik tombol Checkout yang akan muncul."\n' +
         'CRITICAL RULES:\n' +
         '- Do NOT call get_outlets or show outlets unless the customer explicitly wants to ORDER something.\n' +
@@ -269,7 +269,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
           }
 
           if (toolName === 'search_products') {
-            const results = await productsRepository.list({ workspaceId, search: toolArgs.query || '', limit: 10 });
+            const results = await productsRepository.search({ workspaceId, query: toolArgs.query || '', limit: 10 });
             const items = Array.isArray(results) ? results : (results?.data || results?.items || []);
             return JSON.stringify(items.slice(0, 10).map(p => ({
               productId: p.id || p._id,
@@ -295,6 +295,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
             const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId });
             if (!cart) return JSON.stringify({ error: 'No active cart. Call select_outlet first.' });
             const product = await productsRepository.findById({ workspaceId, productId: toolArgs.productId });
+            if (!product) return JSON.stringify({ error: 'Product not found. Call search_products again and use productId from the result.' });
             const updatedCart = await cartsRepository.addItem({
               workspaceId,
               cartId: cart.id,

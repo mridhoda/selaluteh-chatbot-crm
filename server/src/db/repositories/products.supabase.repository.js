@@ -10,6 +10,7 @@ import { getSupabaseServiceClient } from '../supabase.js';
 import { mapRow, mapRows } from '../supabase-mapper.js';
 import { extractData, extractSingle } from '../supabase-errors.js';
 import { requireWorkspaceId, applyPagination } from '../supabase-query.js';
+import Fuse from 'fuse.js';
 
 const TABLE = 'products';
 const AVAIL_TABLE = 'product_outlet_availability';
@@ -29,6 +30,42 @@ export const productsSupabaseRepository = {
     q = applyPagination(q, { page, limit });
     const result = await q;
     return mapRows(extractData(result, 'products.list') ?? []);
+  },
+
+  async search({ workspaceId, query, limit = 10, status = 'active' }) {
+    requireWorkspaceId(workspaceId);
+    const searchTerm = String(query || '').trim();
+    if (!searchTerm) return this.list({ workspaceId, status, limit });
+
+    const exactMatches = await this.list({ workspaceId, status, search: searchTerm, limit });
+    if (exactMatches.length >= limit) return exactMatches.slice(0, limit);
+
+    const products = await this.findProducts({ workspaceId, isActive: status === 'active' ? true : undefined });
+    const fuse = new Fuse(products, {
+      keys: [
+        { name: 'name', weight: 0.75 },
+        { name: 'shortDescription', weight: 0.12 },
+        { name: 'description', weight: 0.08 },
+        { name: 'sku', weight: 0.03 },
+        { name: 'tags', weight: 0.02 },
+      ],
+      threshold: 0.45,
+      ignoreLocation: true,
+      minMatchCharLength: 2,
+      includeScore: true,
+    });
+
+    const seen = new Set(exactMatches.map((product) => String(product.id)));
+    const fuzzyMatches = fuse.search(searchTerm)
+      .map((result) => result.item)
+      .filter((product) => {
+        const key = String(product.id);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+    return [...exactMatches, ...fuzzyMatches].slice(0, limit);
   },
 
   /**

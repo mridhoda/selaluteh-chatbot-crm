@@ -171,7 +171,7 @@ export default function OrderDetailDrawer({
       <header className='shrink-0 sticky top-0 z-10 px-5 pt-4 pb-3 border-b border-[var(--brand-100)] bg-[image:var(--orders-sidebar-header-bg)]'>
         <div className='flex justify-between items-start mb-2'>
           <div className='flex items-center gap-2'>
-            <h2 className='text-lg font-bold text-[var(--text-primary)] m-0'>
+            <h2 className={`font-bold text-[var(--text-primary)] m-0 ${order.orderIdDisplay && order.orderIdDisplay.length > 15 ? 'text-sm break-all font-mono' : 'text-lg'}`}>
               Order #{order.orderIdDisplay}
             </h2>
             <OrderStatusBadge status={order.status} />

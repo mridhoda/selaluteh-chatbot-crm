@@ -18,8 +18,8 @@ export default function OrdersSummaryCards({ orders = [] }) {
       percentage: '18%',
       isPositive: true,
       icon: '🛍️',
-      bgColor: 'bg-[var(--brand-50)]',
-      iconColor: 'text-[var(--brand-500)]',
+      bgColor: 'bg-[#FFF1F2]',
+      iconColor: 'text-[#DC3545]',
     },
     {
       title: 'Pending Payment',
@@ -27,8 +27,8 @@ export default function OrdersSummaryCards({ orders = [] }) {
       percentage: '12%',
       isPositive: true,
       icon: '⏱️',
-      bgColor: 'bg-[var(--pending-50)]',
-      iconColor: 'text-[var(--pending-500)]',
+      bgColor: 'bg-[#FFF7E8]',
+      iconColor: 'text-[#EA7200]',
     },
     {
       title: 'Preparing',
@@ -36,8 +36,8 @@ export default function OrdersSummaryCards({ orders = [] }) {
       percentage: '5%',
       isPositive: false,
       icon: '🍲',
-      bgColor: 'bg-[var(--warning-50)]',
-      iconColor: 'text-[var(--warning-500)]',
+      bgColor: 'bg-[#FFF7E8]',
+      iconColor: 'text-[#EA7200]',
     },
     {
       title: 'Ready to Process',
@@ -45,8 +45,8 @@ export default function OrdersSummaryCards({ orders = [] }) {
       percentage: '8%',
       isPositive: true,
       icon: '🚚',
-      bgColor: 'bg-[var(--ai-50)]',
-      iconColor: 'text-[var(--ai-500)]',
+      bgColor: 'bg-[#F5F3FF]',
+      iconColor: 'text-[#6956E8]',
     },
     {
       title: 'Completed',
@@ -54,8 +54,8 @@ export default function OrdersSummaryCards({ orders = [] }) {
       percentage: '23%',
       isPositive: true,
       icon: '✅',
-      bgColor: 'bg-[var(--success-50)]',
-      iconColor: 'text-[var(--success-500)]',
+      bgColor: 'bg-[#ECFDF5]',
+      iconColor: 'text-[#15803D]',
     },
     {
       title: 'Needs Attention',
@@ -63,8 +63,8 @@ export default function OrdersSummaryCards({ orders = [] }) {
       percentage: '40%',
       isPositive: true,
       icon: '⚠️',
-      bgColor: 'bg-[var(--danger-50)]',
-      iconColor: 'text-[var(--danger-500)]',
+      bgColor: 'bg-[#FFF1F2]',
+      iconColor: 'text-[#DC3545]',
     },
   ]
 
@@ -73,27 +73,25 @@ export default function OrdersSummaryCards({ orders = [] }) {
       {cards.map((card, index) => (
         <div
           key={index}
-          className='bg-[var(--surface-primary)] px-3 py-2.5 rounded-xl border border-[var(--border-subtle)] shadow-[var(--orders-summary-shadow)] flex items-center gap-2.5'
+          className='bg-white px-3 py-4.5 rounded-xl border border-[#E1E6EF] shadow-[0_2px_12px_rgba(17,24,46,0.03)] flex items-center gap-2.5'
         >
           <div
             className={`w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0 ${card.bgColor} ${card.iconColor}`}
           >
             {card.icon}
           </div>
-          <div className='flex flex-col min-w-0'>
-            <div className='text-[var(--text-muted)] text-[10px] font-semibold truncate leading-none'>
+          <div className='flex flex-col min-w-0 flex-1'>
+            <p className='m-0 text-[10px] font-bold text-[#667085] leading-tight truncate'>
               {card.title}
-            </div>
-            <h3 className='text-base font-bold text-[var(--text-primary)] leading-tight mt-0.5'>
+            </p>
+            <p className='m-0 mt-0.5 text-base font-bold tracking-tight text-[#11182E] leading-none'>
               {card.value}
-            </h3>
-            <div
-              className={`text-[9px] font-bold mt-0.5 flex items-center gap-1 whitespace-nowrap ${card.isPositive ? 'text-[var(--success-500)]' : 'text-[var(--danger-500)]'}`}
-            >
-              <span>
+            </p>
+            <div className='mt-1 flex items-center gap-1 whitespace-nowrap text-[9px] leading-none'>
+              <span className={`font-bold flex items-center gap-0.5 ${card.isPositive ? 'text-[#16A34A]' : 'text-[#DC3545]'}`}>
                 {card.isPositive ? '▲' : '▼'} {card.percentage}
               </span>
-              <span className='text-[var(--text-muted)] font-normal'>
+              <span className='text-[#98A2B3] font-semibold'>
                 vs yesterday
               </span>
             </div>

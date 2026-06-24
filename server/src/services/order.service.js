@@ -1,4 +1,4 @@
-import { chatsRepository, messagesRepository, ordersRepository } from '../db/repositories/index.js';
+import { chatsRepository, messagesRepository, ordersRepository, contactsRepository } from '../db/repositories/index.js';
 import { tgSend, waSend, igSend } from './sender.js';
 import { buildOutletScopedQuery, assertOutletAccess, canAccessAllOutlets } from './access-control.service.js';
 import { AppError } from '../utils/errors.js';
@@ -21,13 +21,25 @@ export async function generateOrderNumber(workspaceId) {
   }
   const date = new Date();
   const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-  return `ORD-${dateStr}-${String(seq).padStart(4, '0')}`;
+  return `SLTH-${dateStr}-${String(seq).padStart(4, '0')}`;
 }
 
 export async function createOrderFromCheckout({ workspaceId, checkout, user }) {
   if (user) {
     await assertOutletAccess(user, checkout.outletId);
   }
+  
+  let inferredSource = 'telegram';
+  if (checkout.contactId) {
+    const contact = await contactsRepository.findById({ workspaceId, contactId: checkout.contactId });
+    if (contact) {
+      const handleStr = contact.handle || contact.phone || '';
+      if (/^\d{10,15}$/.test(handleStr) && handleStr.startsWith('62')) {
+        inferredSource = 'whatsapp';
+      }
+    }
+  }
+
   const orderNumber = await generateOrderNumber(workspaceId);
   const order = await ordersRepository.create({
     workspaceId,
@@ -45,6 +57,7 @@ export async function createOrderFromCheckout({ workspaceId, checkout, user }) {
     subtotalAmount: checkout.subtotal ?? checkout.subtotalAmount ?? 0,
     totalAmount: checkout.total ?? checkout.totalAmount ?? 0,
     currency: checkout.currency || 'IDR',
+    source: inferredSource,
     status: 'new',
     paymentStatus: 'unpaid',
     fulfillmentStatus: 'unfulfilled',
@@ -57,6 +70,17 @@ export async function createOrderFromAI({ chat, agent, orderData, paymentProofUr
   const workspaceId = chat.workspaceId || agent.workspaceId;
   const orderNumber = await generateOrderNumber(workspaceId);
 
+  let inferredSource = 'telegram';
+  if (chat.contactId) {
+    const contact = await contactsRepository.findById({ workspaceId, contactId: chat.contactId });
+    if (contact) {
+      const handleStr = contact.handle || contact.phone || '';
+      if (/^\d{10,15}$/.test(handleStr) && handleStr.startsWith('62')) {
+        inferredSource = 'whatsapp';
+      }
+    }
+  }
+
   return ordersRepository.create({
     workspaceId,
     outletId,
@@ -67,6 +91,7 @@ export async function createOrderFromAI({ chat, agent, orderData, paymentProofUr
     orderNumber,
     formName: orderData.formName || 'General Order',
     formData: orderData.formData || {},
+    source: inferredSource,
     status: OrderStatus.PENDING_PAYMENT,
     paymentStatus: paymentProofUrl ? 'pending' : 'unpaid',
     paymentProofUrl,
@@ -265,18 +290,18 @@ export async function sendOrderStatusMessage({ order, messageText, from = 'human
   const chat = await chatsRepository.findByIdWithPlatformAndContact(chatId);
   if (!chat?.platformId || !chat?.contactId) return null;
 
-  const platform = chat.platformId;
-  const contact = chat.contactId;
+  const platform = chat.platforms;
+  const contact = chat.contacts;
   let sentMessageId = null;
 
   if (platform.type === 'telegram') {
-    const result = await tgSend(platform.token, contact.platformAccountId, messageText);
+    const result = await tgSend(platform.token, chat.platformAccountId, messageText);
     sentMessageId = result.result?.message_id?.toString();
   } else if (platform.type === 'whatsapp') {
-    const result = await waSend(platform.token, platform.phoneNumberId, contact.platformAccountId, messageText);
+    const result = await waSend(platform.token, platform.phoneNumberId, chat.platformAccountId, messageText);
     sentMessageId = result.messages?.[0]?.id;
   } else if (platform.type === 'instagram') {
-    const result = await igSend(platform.token, contact.platformAccountId, messageText);
+    const result = await igSend(platform.token, chat.platformAccountId, messageText);
     sentMessageId = result.message_id;
   }
 

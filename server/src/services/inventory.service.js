@@ -40,9 +40,32 @@ export async function adjustStock({ workspaceId, outletId, productId, variant = 
   if (!validReasons.includes(reason)) {
     throw new AppError('VALIDATION', `reason must be one of: ${validReasons.join(', ')}`, 400);
   }
-  return inventoryRepository.atomicAdjust({
+  const res = await inventoryRepository.atomicAdjust({
     workspaceId, outletId, productId, variant, delta, reason, notes, userId,
   });
+
+  try {
+    await auditLogsRepository.log({
+      workspaceId,
+      outletId,
+      actorId: userId,
+      action: 'stock.adjust',
+      resourceType: 'product',
+      resourceId: productId,
+      details: {
+        quantityChange: delta,
+        oldQuantity: res.quantity - delta,
+        newQuantity: res.quantity,
+        reason,
+        notes,
+        variant,
+      }
+    });
+  } catch (err) {
+    console.error('Failed to log stock adjust audit log:', err);
+  }
+
+  return res;
 }
 
 export async function reserveStock({ workspaceId, outletId, productId, variant = null, quantity, orderId }) {

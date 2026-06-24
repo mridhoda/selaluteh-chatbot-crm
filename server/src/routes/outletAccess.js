@@ -7,9 +7,9 @@ import { outletsSupabaseRepository } from '../db/repositories/index.js';
 
 const router = express.Router();
 
-router.use(authRequired, attachUser, attachWorkspaceContext);
+const auth = [authRequired, attachUser, attachWorkspaceContext];
 
-router.get('/me/outlet-access', async (req, res, next) => {
+router.get('/me/outlet-access', auth, async (req, res, next) => {
   try {
     const workspaceId = req.me.workspaceId;
     const userId = req.me.id;
@@ -20,7 +20,7 @@ router.get('/me/outlet-access', async (req, res, next) => {
   }
 });
 
-router.get('/users/:userId/outlet-access', async (req, res, next) => {
+router.get('/users/:userId/outlet-access', auth, async (req, res, next) => {
   try {
     if (!canManageWorkspace(req.me)) return res.status(403).json({ error: 'Forbidden' });
     const workspaceId = req.me.workspaceId;
@@ -32,7 +32,7 @@ router.get('/users/:userId/outlet-access', async (req, res, next) => {
   }
 });
 
-router.put('/users/:userId/outlet-access', async (req, res, next) => {
+router.put('/users/:userId/outlet-access', auth, async (req, res, next) => {
   try {
     const rows = await setUserOutletAccess({
       user: req.me,

@@ -44,6 +44,7 @@ import createLocationAdminRouter from './routes/location-admin.js';
 import createLocationInternalRouter from './routes/location-internal.js';
 import { start as startFollowups } from './services/followups.service.js';
 import { start as startCartExpiry } from './workers/cart-expiry.worker.js';
+import { start as startPaymentReconciliation } from './workers/payment-reconciliation.worker.js';
 import { createTelegramWebhookManager } from './workers/webhook-manager.worker.js';
 
 const app = express();
@@ -167,6 +168,7 @@ async function bootstrap() {
 
   startFollowups();
   startCartExpiry();
+  startPaymentReconciliation();
   const webhookManager = createTelegramWebhookManager();
   webhookManager.start();
 

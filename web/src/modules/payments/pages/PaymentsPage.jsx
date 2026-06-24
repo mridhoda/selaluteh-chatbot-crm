@@ -702,7 +702,7 @@ function PaymentDetailDrawer({
             <span>{payment.outlet}</span>
           </div>
           <div className='flex items-center gap-2'>
-            <BrandIcon type={payment.channel.toLowerCase()} size={14} />
+            <BrandIcon type={(payment.channel || payment.provider || 'xendit').toLowerCase()} size={14} />
             <span className='capitalize'>{payment.channel}</span>
           </div>
         </div>
@@ -1038,23 +1038,36 @@ export default function PaymentsPage() {
             ? res.data.data
             : []
 
-        const mappedPayments = rawPayments.map((p, idx) => ({
-          id: p.id || p._id,
-          _id: p.id || p._id,
-          orderId: p.order_id || p.orderId || '-',
-          outlet: p.outlet_id || 'Samarinda',
-          provider: p.provider || 'xendit',
-          paymentMethod: p.payment_method || 'Virtual Account',
-          amount: p.amount || p.total_amount || 0,
-          paymentStatus: p.payment_status || p.status || 'Pending',
-          reconciliationStatus: p.reconciliation_status || 'Reconciled',
-          createdAt: p.created_at || new Date().toISOString(),
-          customer: {
-            name: p.customer_name_snapshot || 'Unknown User',
-            phone: p.customer_phone_snapshot || '-',
-          },
-          events: p.events || [],
-        }))
+        const mappedPayments = rawPayments.map((p, idx) => {
+          const outletName = p.outlet_name || p.outlet_id || p.outlet || 'Samarinda'
+          const channelVal = p.channel || p.payment_channel || p.provider || 'xendit'
+          const methodVal = p.method || p.payment_method || p.paymentMethod || 'Virtual Account'
+          const providerVal = p.provider || 'xendit'
+          const statusVal = p.payment_status || p.status || 'Pending'
+          return {
+            id: p.id || p._id || `pay-${idx}`,
+            _id: p.id || p._id || `pay-${idx}`,
+            orderId: p.order_id || p.orderId || '-',
+            outlet: outletName,
+            outletInitial: (outletName || 'S').charAt(0).toUpperCase(),
+            provider: providerVal,
+            channel: channelVal,
+            method: methodVal,
+            paymentMethod: methodVal,
+            amount: p.amount || p.total_amount || 0,
+            status: statusVal,
+            paymentStatus: statusVal,
+            reconciliationStatus: p.reconciliation_status || 'Reconciled',
+            createdAt: p.created_at || new Date().toISOString(),
+            providerTransactionId: p.provider_transaction_id || p.providerTransactionId || p.reference || '-',
+            paymentLink: p.payment_link || p.paymentLink || null,
+            customer: {
+              name: p.customer_name_snapshot || p.customer?.name || 'Unknown User',
+              phone: p.customer_phone_snapshot || p.customer?.phone || '-',
+            },
+            events: p.events || [],
+          }
+        })
         setPayments(mappedPayments)
       }
     } catch (err) {
@@ -1089,23 +1102,23 @@ export default function PaymentsPage() {
 
       const matchesSearch =
         !keyword ||
-        payment.id.toLowerCase().includes(keyword) ||
-        payment.orderId.toLowerCase().includes(keyword) ||
-        payment.customer.name.toLowerCase().includes(keyword) ||
-        payment.customer.phone.toLowerCase().includes(keyword) ||
-        payment.providerTransactionId.toLowerCase().includes(keyword)
+        (payment.id || '').toLowerCase().includes(keyword) ||
+        (payment.orderId || '').toLowerCase().includes(keyword) ||
+        (payment.customer?.name || '').toLowerCase().includes(keyword) ||
+        (payment.customer?.phone || '').toLowerCase().includes(keyword) ||
+        (payment.providerTransactionId || '').toLowerCase().includes(keyword)
 
       const matchesOutlet =
         outlet === 'all' ||
-        payment.outlet.toLowerCase() === outlet.toLowerCase()
+        (payment.outlet || '').toLowerCase() === outlet.toLowerCase()
 
       const matchesProvider =
         provider === 'all' ||
-        payment.provider.toLowerCase() === provider.toLowerCase()
+        (payment.provider || '').toLowerCase() === provider.toLowerCase()
 
       const matchesMethod =
         method === 'all' ||
-        payment.method.toLowerCase() === method.toLowerCase()
+        (payment.method || payment.paymentMethod || '').toLowerCase() === method.toLowerCase()
 
       const matchesReconciliation =
         reconciliation === 'all' ||

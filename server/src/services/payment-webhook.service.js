@@ -95,7 +95,9 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
 
   const eventKey = event.providerEventId || `${event.providerSessionId}:${event.eventType}:${event.updatedAt || ''}`;
   const existingEvent = await paymentEventsRepository.findByProviderEventId('xendit', eventKey);
-  if (existingEvent) {
+  // Only treat fully-processed events as true duplicates.
+  // Events stuck in 'received' (e.g. due to a previous crash) are re-processed on retry.
+  if (existingEvent && existingEvent.processingStatus === 'processed') {
     return { processed: false, reason: 'duplicate', existingEventId: existingEvent.id };
   }
 
@@ -109,19 +111,25 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
     return { processed: false, reason: 'no_payment_found' };
   }
 
-  const registered = await paymentEventsRepository.create({
-    workspaceId: targetPayment.workspaceId,
-    provider: 'xendit',
-    providerEventId: eventKey,
-    eventType: event.eventType,
-    status: event.status,
-    amount: event.amount,
-    currency: event.currency,
-    raw: safePaymentSessionPayload(event.raw),
-    processingStatus: 'received',
-  });
-
-  await paymentEventsRepository.updateReferences({ eventId: registered.id, paymentId: targetPayment.id, orderId: targetPayment.orderId });
+  // If the previous attempt left a stuck 'received' event, reuse that record (avoids unique constraint error on retry).
+  let registered;
+  if (existingEvent && existingEvent.processingStatus === 'received') {
+    console.log(`[PaymentWebhook] Retrying stuck event ${existingEvent.id} for session ${event.providerSessionId}`);
+    registered = existingEvent;
+  } else {
+    registered = await paymentEventsRepository.create({
+      workspaceId: targetPayment.workspaceId,
+      provider: 'xendit',
+      providerEventId: eventKey,
+      eventType: event.eventType,
+      status: event.status,
+      amount: event.amount,
+      currency: event.currency,
+      raw: safePaymentSessionPayload(event.raw),
+      processingStatus: 'received',
+    });
+    await paymentEventsRepository.updateReferences({ eventId: registered.id, paymentId: targetPayment.id, orderId: targetPayment.orderId });
+  }
 
   if (event.providerSessionId && targetPayment.providerTransactionId !== event.providerSessionId) {
     await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'provider_session_mismatch' });
@@ -148,15 +156,23 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
   }
 
   if (event.status === 'paid') {
-    const confirmed = await adapter.getPaymentSession(event.providerSessionId);
-    if (confirmed.status !== 'paid') {
-      await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'provider_not_paid' });
-      return { processed: false, reason: 'provider_not_paid' };
+    try {
+      const confirmed = await adapter.getPaymentSession(event.providerSessionId);
+      if (confirmed.status !== 'paid') {
+        await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'provider_not_paid' });
+        return { processed: false, reason: 'provider_not_paid' };
+      }
+    } catch (verifyErr) {
+      // Secondary verification failed (network/API error). Mark event as 'pending_retry'
+      // so the next Xendit retry can re-process it rather than getting blocked by idempotency.
+      console.error('[PaymentWebhook] Secondary Xendit verification failed, will retry on next webhook:', verifyErr.message);
+      await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'received', verificationResult: 'verify_error' });
+      throw verifyErr;
     }
   }
 
   const nextStatus = event.status === 'paid' ? 'paid' : event.status === 'expired' ? 'expired' : targetPayment.status;
-  const allowedFrom = nextStatus === 'paid' ? ['pending', 'created', 'expired'] : ['pending', 'created'];
+  const allowedFrom = nextStatus === 'paid' ? ['pending', 'expired'] : ['pending'];
   const updatedPayment = await paymentsRepository.transitionStatus({
     paymentId: targetPayment.id,
     fromStatuses: allowedFrom,
@@ -180,10 +196,17 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
       orderId: targetPayment.orderId,
       updates: { payment_status: 'paid', paid_at: new Date().toISOString(), status: 'accepted' },
     });
-    await paymentsRepository.addEvent({ paymentId: targetPayment.id, event: {
-      provider: 'xendit', providerEventId: eventKey, eventType: event.eventType, status: 'paid',
-      amount: event.amount, currency: event.currency, paymentMethod: 'LINK_PAYMENT', paidAt: new Date(), rawPayload: safePaymentSessionPayload(event.raw),
-    } });
+    // Only add a settlement event if this is a fresh processing (not a retry of a stuck event)
+    if (!existingEvent) {
+      try {
+        await paymentsRepository.addEvent({ paymentId: targetPayment.id, event: {
+          provider: 'xendit', providerEventId: eventKey, eventType: event.eventType, status: 'paid',
+          amount: event.amount, currency: event.currency, paymentMethod: 'LINK_PAYMENT', paidAt: new Date(), rawPayload: safePaymentSessionPayload(event.raw),
+        } });
+      } catch (evtErr) {
+        console.error('[PaymentWebhook] addEvent warning (non-fatal):', evtErr.message);
+      }
+    }
     const outletName = updatedOrder?.outletNameSnapshot || '';
     await notifyPaidOnce({ order: updatedOrder, paymentId: targetPayment.id, outletName });
   } else if (nextStatus === 'expired') {

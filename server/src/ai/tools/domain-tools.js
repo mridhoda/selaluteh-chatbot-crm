@@ -42,7 +42,7 @@ export const commerceToolDefinitions = [
   {
     name: 'add_cart_item',
     description: 'Menambahkan produk ke keranjang.',
-    inputSchema: { type: 'object', properties: { productId: { type: 'string' }, quantity: { type: 'integer', minimum: 1 } }, required: ['productId'] },
+    inputSchema: { type: 'object', properties: { productId: { type: 'string' }, quantity: { type: 'integer', minimum: 1, description: 'Jumlah produk yang dipesan (wajib)' } }, required: ['productId', 'quantity'] },
     permission: 'commerce_write',
     confirmation: 'customer',
     mutation: true,

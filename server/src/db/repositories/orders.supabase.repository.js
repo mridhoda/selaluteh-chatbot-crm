@@ -53,6 +53,8 @@ function mapOrder(row) {
       id: row.contacts.id,
       name: row.contacts.name || null,
       phone: row.contacts.phone || null,
+      handle: row.contacts.handle || null,
+      external_id: row.contacts.external_id || null,
     };
   }
 
@@ -101,11 +103,8 @@ export const ordersSupabaseRepository = {
       notes: data.notes || null,
       form_data: data.formData || {},
       metadata: data.metadata || {},
+      order_number: data.orderNumber ?? undefined,
     };
-
-    // Let the DB auto-generate order_number via generate_order_number() function.
-    // Only override if explicitly provided AND it won't conflict.
-    // (Passing null causes the DB default to be used)
 
     const result = await client.from(TABLE).insert(insert).select().single();
     const order = mapRow(extractSingle(result, 'orders.create'));
@@ -128,7 +127,7 @@ export const ordersSupabaseRepository = {
   async workspaceList({ workspaceId, outletId, status, paymentStatus, search, page = 1, limit = 50 }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    let q = client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status), order_items(*)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
+    let q = client.from(TABLE).select('*, contacts(id, name, phone, handle, external_id), outlets(id, name, code, city, status), order_items(*)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
     if (outletId) q = q.eq('outlet_id', outletId);
     if (status) q = q.eq('status', status);
     if (paymentStatus) q = q.eq('payment_status', paymentStatus);
@@ -141,7 +140,7 @@ export const ordersSupabaseRepository = {
   async workspaceListScoped({ workspaceId, outletId, outletIds, status, paymentStatus, search, page = 1, limit = 50 }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    let q = client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status), order_items(*)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
+    let q = client.from(TABLE).select('*, contacts(id, name, phone, handle, external_id), outlets(id, name, code, city, status), order_items(*)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
     if (outletId) q = q.eq('outlet_id', outletId);
     else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
     if (status) q = q.eq('status', status);
@@ -180,7 +179,7 @@ export const ordersSupabaseRepository = {
   async workspaceFindById({ workspaceId, orderId }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    const result = await client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status), chats(*), order_items(*)').eq('workspace_id', workspaceId).eq('id', orderId).maybeSingle();
+    const result = await client.from(TABLE).select('*, contacts(id, name, phone, handle, external_id), outlets(id, name, code, city, status), chats(*), order_items(*)').eq('workspace_id', workspaceId).eq('id', orderId).maybeSingle();
     const row = extractSingle(result, 'orders.workspaceFindById');
     return row ? mapOrder(row) : null;
   },
@@ -188,7 +187,7 @@ export const ordersSupabaseRepository = {
   async workspaceFindByIdScoped({ workspaceId, orderId, outletIds }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    let q = client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status), chats(*), order_items(*)').eq('workspace_id', workspaceId).eq('id', orderId);
+    let q = client.from(TABLE).select('*, contacts(id, name, phone, handle, external_id), outlets(id, name, code, city, status), chats(*), order_items(*)').eq('workspace_id', workspaceId).eq('id', orderId);
     if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
     const result = await q.maybeSingle();
     const row = extractSingle(result, 'orders.workspaceFindByIdScoped');
@@ -211,7 +210,7 @@ export const ordersSupabaseRepository = {
   async findList({ workspaceId, chatId, contactId, status, outletId, outletIds }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    let q = client.from(TABLE).select('*, contacts(id, name, phone), outlets(id, name, code, city, status)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
+    let q = client.from(TABLE).select('*, contacts(id, name, phone, handle, external_id), outlets(id, name, code, city, status)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
     if (chatId) q = q.eq('chat_id', chatId);
     if (contactId) q = q.eq('contact_id', contactId);
     if (status) q = q.eq('status', status);

@@ -28,7 +28,7 @@ export const auditLogsRepository = {
   async list({ workspaceId, action, resourceType, resourceId, outletId, actorId, page = 1, limit = 50 }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    let q = client.from(TABLE).select('*').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
+    let q = client.from(TABLE).select('*, actor:users(name), outlet:outlets(name)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
     if (action) q = q.eq('action', action);
     if (resourceType) q = q.eq('resource_type', resourceType);
     if (resourceId) q = q.eq('resource_id', resourceId);

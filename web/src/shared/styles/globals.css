@@ -2,6 +2,13 @@
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 
+/* Portal overlay container — must NOT have transform, filter, or overflow
+   so that position:fixed children resolve against the true viewport */
+#modal-root {
+  position: relative;
+  z-index: 9999;
+}
+
 @theme {
   --color-brand-50: var(--brand-50);
   --color-brand-100: var(--brand-100);
@@ -825,7 +832,7 @@ body {
 .dashboard-layout {
   height: 100vh;
   max-height: 100vh;
-  overflow: hidden;
+  overflow: clip;
   display: flex;
   flex-direction: column;
   background-color: var(--dashboard-bg);
@@ -841,7 +848,7 @@ body {
   /* Increased padding */
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: clip;
 }
 
 body.sidebar-pinned .main {
@@ -863,7 +870,7 @@ body.sidebar-pinned .dashboard-layout.no-sidebar .navbar {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: clip;
 }
 
 /* NAVBAR */

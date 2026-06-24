@@ -16,6 +16,7 @@ import { getSupabaseServiceClient } from '../supabase.js';
 import { mapRow, mapRows } from '../supabase-mapper.js';
 import { extractData, extractSingle } from '../supabase-errors.js';
 import { requireWorkspaceId } from '../supabase-query.js';
+import { decrypt } from '../../utils/encryption.js';
 
 const TABLE = 'chats';
 
@@ -31,6 +32,7 @@ function mapChatRow(row) {
   }
   if (row.platforms) {
     mapped.platforms = mapRow(row.platforms);
+    mapped.platforms.token = row.platforms.token_encrypted ? decrypt(row.platforms.token_encrypted) : '';
     mapped.platform = row.platforms.type || '';
     mapped.outletName = row.platforms.label || '';
   }
