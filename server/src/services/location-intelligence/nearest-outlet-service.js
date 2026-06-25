@@ -28,7 +28,7 @@ export function sortByDistance(origin, outlets) {
         openingStatus: o.openingStatus || 'unknown',
         rankReason: o.rankReason || 'nearest_absolute',
         withinServiceRadius: true,
-        googleMapsUrl: '',
+        googleMapsUrl: o.googleMapsUrl || '',
       };
     })
     .sort((a, b) => {

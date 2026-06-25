@@ -19,14 +19,34 @@ const WORKSPACE_WIDE_ROLES = new Set(['owner', 'super', 'admin']);
 
 /**
  * Resolve the active workspace context for a user.
- * Returns the first active membership found.
+ * If a workspace is explicitly selected, it must match an active membership.
+ * Otherwise, the first active membership is used as the single-workspace MVP
+ * default.
  *
  * @param {import('../db/repositories/users.repository.js').UserRecord} user - camelCase UserRecord
+ * @param {string|null|undefined} selectedWorkspaceId
  * @returns {Promise<{ workspaceId: string, role: string, membershipId: string }|null>}
  */
-export async function resolveWorkspaceContext(user) {
+export async function resolveWorkspaceContext(user, selectedWorkspaceId = null) {
   const memberships = await membershipsSupabaseRepository.listUserMemberships({ userId: user.id });
-  const active = memberships.find((m) => m.status === 'active');
+  const activeMemberships = memberships.filter((m) => m.status === 'active');
+
+  if (selectedWorkspaceId) {
+    const selected = activeMemberships.find((m) => String(m.workspaceId) === String(selectedWorkspaceId));
+    if (!selected) {
+      const err = new Error('Active workspace membership required');
+      err.status = 403;
+      err.code = 'MEMBERSHIP_REQUIRED';
+      throw err;
+    }
+    return {
+      workspaceId: selected.workspaceId,
+      role: selected.role,
+      membershipId: selected.id,
+    };
+  }
+
+  const active = activeMemberships[0];
   if (!active) return null;
   return {
     workspaceId: active.workspaceId,
@@ -57,11 +77,12 @@ function resolveUserId(user) {
 }
 
 export function canManageWorkspace(user) {
-  return WRITE_WORKSPACE_ROLES.has(user?.role) || hasPermission(getEffectiveWorkspaceRole(user), 'settings', 'write');
+  const role = getEffectiveWorkspaceRole(user);
+  return WRITE_WORKSPACE_ROLES.has(role) || hasPermission(role, 'settings', 'write');
 }
 
 export function canAccessAllOutlets(user) {
-  return ALL_OUTLET_WORKSPACE_ROLES.has(user?.role);
+  return ALL_OUTLET_WORKSPACE_ROLES.has(getEffectiveWorkspaceRole(user));
 }
 
 export function isWorkspaceWideRole(role) {

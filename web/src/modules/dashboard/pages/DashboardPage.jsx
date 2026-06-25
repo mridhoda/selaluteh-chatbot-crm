@@ -36,6 +36,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import FileInput from '../../../shared/components/ui/FileInput'
 import ProductsPage from '../../products/pages/ProductsPage'
+import KitchenPage from '../../kitchen/pages/KitchenPage'
 import OutletsPage from '../../outlets/pages/OutletsPage'
 import PaymentsPage from '../../payments/pages/PaymentsPage'
 import SettingsPage from '../../settings/pages/SettingsPage'
@@ -1235,6 +1236,7 @@ export default function Dashboard() {
             <Route path='contacts' element={<Contacts />} />
             <Route path='complaints' element={<Complaints />} />
             <Route path='orders' element={<Orders />} />
+            <Route path='kitchen' element={<KitchenPage />} />
             <Route path='products' element={<ProductsPage />} />
             <Route path='outlets' element={<OutletsPage />} />
             <Route path='payments' element={<PaymentsPage />} />

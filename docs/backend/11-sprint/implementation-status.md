@@ -325,3 +325,21 @@ Test outcome: 113 tests, 44 suites, 96 pass, 0 fail, 17 skipped (after removing 
 | Order types unit tests | 15 pass, 0 fail |
 | Outlet status unit tests | 18 pass, 0 fail |
 | Operating hours unit tests | 7 pass, 0 fail |
+
+## Outlet Management Operations (Three-Dots Dropdown & Delete) — 2026-06-25
+
+| Module | Status | Key Files |
+|---|---|---|
+| Dropdown Menu | ✅ Implemented | `OutletsPage.jsx` (Three-dots dropdown with 8 actions) |
+| Pause Dialog | ✅ Implemented | `OutletsPage.jsx` (Pause confirmation modal, UI mockup style) |
+| Delete Dialog | ✅ Implemented | `OutletsPage.jsx` (Delete confirmation modal, UI mockup style) |
+| Duplication/Needs Attention | ✅ Implemented | `OutletsPage.jsx` (Duplication and toggle needs attention triggers) |
+| Repository Delete | ✅ Implemented | `outlets.supabase.repository.js` (Delete outlet & cascading data) |
+| Service Delete | ✅ Implemented | `outlet.service.js` (deleteOutlet function with role checks, expanded status validator) |
+| API Route Delete | ✅ Implemented | `routes/outlets.js` (DELETE /:outletId with workspace-scoped role guards) |
+| Service Integration Tests | ✅ Implemented | `outlet-service.integration.test.js` (3 new scenarios, all passing) |
+
+| Test Suite | Result |
+|---|---|
+| Outlet service integration tests | 8 pass, 0 fail (`node --test`) |
+| Web client compilation | Vite build compiled successfully |

@@ -1,6 +1,7 @@
 import express from 'express';
 import { env } from '../config/env.js';
 import { authRequired, attachUser } from '../middleware/auth.js';
+import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
 import { platformsSupabaseRepository } from '../db/repositories/index.js';
 import { providerSyncRateLimit } from '../middleware/rate-limit.js';
 import { redactSecrets } from '../utils/redaction.js';
@@ -47,7 +48,7 @@ router.get('/instagram/callback', async (req, res) => {
   }
 });
 
-router.post('/telegram/:id/setWebhook', authRequired, attachUser, providerSyncRateLimit, async (req, res) => {
+router.post('/telegram/:id/setWebhook', authRequired, attachUser, attachWorkspaceContext, providerSyncRateLimit, async (req, res) => {
   try {
     const { id } = req.params;
     const platform = await platformsSupabaseRepository.findByIdWithCredentials({

@@ -1,5 +1,6 @@
 import { computeGreetingFlags } from './greeting-flags.js';
 import { loadRecentMessages } from './recent-messages.js';
+import { getAgentPromptRules } from '../../services/ai.service.js';
 
 const PLATFORM_POLICY = `## Platform Policy (Immutable)
 - You are an AI assistant for SelaluTeh.
@@ -35,10 +36,11 @@ export async function buildContext({
   });
 
   const systemMessages = [];
+  const promptRules = getAgentPromptRules(agent);
 
   systemMessages.push({
     role: 'system',
-    content: PLATFORM_POLICY,
+    content: promptRules.platformPolicy || PLATFORM_POLICY,
   });
 
   if (agent?.behavior) {

@@ -7,10 +7,11 @@ import {
   faInstagram,
   faFacebook,
 } from '@fortawesome/free-brands-svg-icons'
-import { faComment, faBox } from '@fortawesome/free-solid-svg-icons'
+import { faComment, faBox, faMotorcycle, faUtensils, faShoppingBag } from '@fortawesome/free-solid-svg-icons'
 
 export default function BrandIcon({ type = 'custom', size = 20, color }) {
   const s = { width: size, height: size, display: 'inline-block' }
+  const t = String(type || '').toLowerCase().replace(/\s/g, '') || 'custom'
 
   const map = {
     telegram: (
@@ -49,6 +50,48 @@ export default function BrandIcon({ type = 'custom', size = 20, color }) {
         style={{ ...s, color: color || '#9b9ca1' }}
       />
     ),
+    gofood: (
+      <FontAwesomeIcon
+        icon={faUtensils}
+        style={{ ...s, color: color || '#ee2737' }}
+      />
+    ),
+    gojek: (
+      <FontAwesomeIcon
+        icon={faMotorcycle}
+        style={{ ...s, color: color || '#00aa13' }}
+      />
+    ),
+    grabfood: (
+      <FontAwesomeIcon
+        icon={faShoppingBag}
+        style={{ ...s, color: color || '#00B14F' }}
+      />
+    ),
+    grab: (
+      <FontAwesomeIcon
+        icon={faMotorcycle}
+        style={{ ...s, color: color || '#00B14F' }}
+      />
+    ),
+    shopeefood: (
+      <FontAwesomeIcon
+        icon={faUtensils}
+        style={{ ...s, color: color || '#ee4d2d' }}
+      />
+    ),
+    shopee: (
+      <FontAwesomeIcon
+        icon={faShoppingBag}
+        style={{ ...s, color: color || '#ee4d2d' }}
+      />
+    ),
+    tokopedia: (
+      <FontAwesomeIcon
+        icon={faShoppingBag}
+        style={{ ...s, color: color || '#03AC0E' }}
+      />
+    ),
     custom: (
       <FontAwesomeIcon
         icon={faBox}
@@ -57,5 +100,5 @@ export default function BrandIcon({ type = 'custom', size = 20, color }) {
     ),
   }
 
-  return map[type] || map.custom
+  return map[t] || map.custom
 }

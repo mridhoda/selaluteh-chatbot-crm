@@ -12,9 +12,10 @@ export function findDatabaseFileMention(text, agent) {
   // Supported formats:
   // ![Menu](menu.jpg)
   // ![{format:image} Menu](menu.jpg)
+  // ![{{format:image}} Menu](menu.jpg)
   // ![Menu]({format:image}menu.jpg)
   // !{format:image}[Menu](menu.jpg)
-  const regex = /!(?:\{format:(image|sticker|document|file)\})?\[([^\]]*)\]\(([^)]+)\)/gi;
+  const regex = /!(?:(?:\{\{?format:(image|sticker|document|file)\}?\})\s*)?\[([^\]]*)\]\(([^)]+)\)/gi;
   let match;
   while ((match = regex.exec(text)) !== null) {
     let explicitFormat = (match[1] || '').trim().toLowerCase();
@@ -22,13 +23,13 @@ export function findDatabaseFileMention(text, agent) {
     let rawRef = (match[3] || '').trim();
     if (!rawRef) continue;
 
-    const altFormatMatch = altText.match(/^\{format:(image|sticker|document|file)\}\s*/i);
+    const altFormatMatch = altText.match(/^\{\{?format:(image|sticker|document|file)\}?\}\s*/i);
     if (altFormatMatch) {
       explicitFormat ||= altFormatMatch[1].toLowerCase();
       altText = altText.replace(altFormatMatch[0], '').trim();
     }
 
-    const refFormatMatch = rawRef.match(/^\{format:(image|sticker|document|file)\}\s*/i);
+    const refFormatMatch = rawRef.match(/^\{\{?format:(image|sticker|document|file)\}?\}\s*/i);
     if (refFormatMatch) {
       explicitFormat ||= refFormatMatch[1].toLowerCase();
       rawRef = rawRef.replace(refFormatMatch[0], '').trim();
@@ -60,18 +61,32 @@ export function findDatabaseFileMention(text, agent) {
 export function findUrlFileMention(text) {
   if (!text) return null;
 
-  // Regex to find markdown links or plain URLs ending with file extensions
-  // Matches: [Title](url) or just url
-  const regex = /(?:\[([^\]]*)\]\((https?:\/\/[^)]+\.(?:pdf|jpg|jpeg|png|mp4|docx|xlsx|pptx))\)|(https?:\/\/[^\s]+\.(?:pdf|jpg|jpeg|png|mp4|docx|xlsx|pptx)))/gi;
+  // Regex to find markdown links with optional ! and {format:xx}
+  // Matches: ![{format:image} Title](https://...jpg) or https://...jpg
+  const regex = /!?(?:(?:\{\{?format:(image|sticker|document|file)\}?\})\s*)?\[([^\]]*)\]\((https?:\/\/[^)]+\.(?:pdf|jpg|jpeg|png|mp4|docx|xlsx|pptx|gif|webp))\)|(https?:\/\/[^\s]+\.(?:pdf|jpg|jpeg|png|mp4|docx|xlsx|pptx|gif|webp))/gi;
 
   const match = regex.exec(text);
   if (match) {
-    // match[2] is url from markdown, match[3] is plain url
-    const url = match[2] || match[3];
-    const altText = match[1] || '';
+    let explicitFormat = (match[1] || '').trim().toLowerCase();
+    let altText = (match[2] || '').trim();
+    let url = match[3] || match[4];
     const token = match[0];
 
-    return { url, token, altText };
+    const altFormatMatch = altText.match(/^\{\{?format:(image|sticker|document|file)\}?\}\s*/i);
+    if (altFormatMatch) {
+      explicitFormat ||= altFormatMatch[1].toLowerCase();
+      altText = altText.replace(altFormatMatch[0], '').trim();
+    }
+
+    const refFormatMatch = url.match(/^\{\{?format:(image|sticker|document|file)\}?\}\s*/i);
+    if (refFormatMatch) {
+      explicitFormat ||= refFormatMatch[1].toLowerCase();
+      url = url.replace(refFormatMatch[0], '').trim();
+    }
+
+    if (explicitFormat === 'file') explicitFormat = 'document';
+
+    return { url, token, altText, format: explicitFormat || null };
   }
 
   return null;

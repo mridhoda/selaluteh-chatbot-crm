@@ -3,7 +3,7 @@ import { createModelRouter } from './model-router.js';
 import { createToolGateway } from '../tools/tool-gateway.js';
 import { createTurnState } from './turn-state-machine.js';
 import { classifyIntent } from './semantic-router.js';
-import { cartsRepository, productsRepository, outletsSupabaseRepository, paymentsRepository, ordersRepository } from '../../db/repositories/index.js';
+import { cartsRepository, productsRepository, outletsSupabaseRepository, paymentsRepository, ordersRepository, chatsSupabaseRepository } from '../../db/repositories/index.js';
 import { AppError } from '../../utils/errors.js';
 import { env } from '../../config/env.js';
 
@@ -66,12 +66,18 @@ async function executeCommerceTool({ toolCall, workspaceId, chat, contact }) {
       if (!outlet) throw new AppError('NOT_FOUND', 'Outlet not found', 404);
       const contactId = typeof chat?.contactId === 'object' ? chat.contactId?.id : chat?.contactId;
       await cartsRepository.upsertByContact({ workspaceId, contactId, outletId: args.outletId, chatId: chat?.id || null });
+      if (chat?.id) {
+        await chatsSupabaseRepository.setCurrentOutlet(chat.id, args.outletId);
+      }
       return { result: { outletId: args.outletId, name: outlet.name }, toolName: name };
 
 
     case 'add_cart_item':
       const cartContactId = typeof chat?.contactId === 'object' ? chat.contactId?.id : chat?.contactId;
-      const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId: cartContactId });
+      const selectedOutletId = chat?.currentOutletId || chat?.current_outlet_id || null;
+      const cart = selectedOutletId
+        ? await cartsRepository.findActiveByContact({ workspaceId, contactId: cartContactId, outletId: selectedOutletId })
+        : await cartsRepository.findActiveByContact({ workspaceId, contactId: cartContactId });
       if (!cart) throw new AppError('CART_NOT_FOUND', 'No active cart. Select outlet first.', 400);
       const productForCart = await productsRepository.findById({ workspaceId, productId: args.productId });
       if (!productForCart) throw new AppError('PRODUCT_NOT_FOUND', 'Product not found. Call search_products again and use productId from the result.', 404);
@@ -100,9 +106,10 @@ async function executeCommerceTool({ toolCall, workspaceId, chat, contact }) {
       const ordWorkspaceId = workspaceId;
       const ordCartId = args.cartId;
       const orderContactId = typeof chat?.contactId === 'object' ? chat.contactId?.id : chat?.contactId;
+      const orderOutletId = chat?.currentOutletId || chat?.current_outlet_id || args.outletId || null;
       const activeOrdCart = ordCartId
-        ? await cartsRepository.findById(ordCartId)
-        : await cartsRepository.findActiveByContact({ workspaceId: ordWorkspaceId, contactId: orderContactId });
+        ? await cartsRepository.findById({ workspaceId: ordWorkspaceId, cartId: ordCartId })
+        : await cartsRepository.findActiveByContact({ workspaceId: ordWorkspaceId, contactId: orderContactId, outletId: orderOutletId });
       if (!activeOrdCart) throw new AppError('CART_NOT_FOUND', 'No active cart', 400);
 
       const { createCheckout, confirmCheckout } = await import('../../services/checkout.service.js');

@@ -4,6 +4,7 @@ export const navigationGroups = [
     items: [
       { label: 'Dashboard', path: '/app', key: 'dashboard' },
       { label: 'Orders', path: '/app/orders', key: 'orders' },
+      { label: 'Kitchen View', path: '/app/kitchen', key: 'kitchen-view' },
       { label: 'Products', path: '/app/products', key: 'products' },
       { label: 'Outlets', path: '/app/outlets', key: 'outlets' },
       { label: 'Payments', path: '/app/payments', key: 'payments' },

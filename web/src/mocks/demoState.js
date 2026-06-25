@@ -1,4 +1,4 @@
-const DEMO_STORAGE_KEY = 'kalis-demo-state'
+const DEMO_STORAGE_KEY = 'kalis-demo-state-v2'
 const DEMO_MODE_KEY = 'demoMode'
 const DEMO_TOKEN = 'demo-token'
 
@@ -151,36 +151,313 @@ const seedState = {
   ],
   orders: [
     {
-      _id: 'order-1',
+      _id: 'order-12',
+      orderIdDisplay: '#12',
+      invoiceId: 'INV-250521-1023',
       status: 'new',
-      contactId: {
-        _id: 'contact-1',
-        name: 'Ayu Putri',
-        phone: '081234567890',
-      },
-      agentId: 'agent-1',
-      formName: 'Default',
-      formData: {
-        itemName: 'Es Teh Lemon',
-        quantity: 2,
-        total: 'Rp 30.000',
-      },
-      createdAt: new Date(now - 5 * day).toISOString(),
+      channelSnapshot: 'whatsapp',
+      createdAt: new Date(Date.now() - 134 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [
+        { name: 'Teh Tarik Original', quantity: 2, metadata: { variant: 'Less Sugar' }, unitPrice: 6.90 },
+        { name: 'Lemon Teh', quantity: 1, metadata: { variant: 'Less Ice' }, unitPrice: 5.50 }
+      ],
+      customerNameSnapshot: 'Ahmad Faisal',
+      customerPhoneSnapshot: '+60 17-654 3210',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: 'Tolong packing rapi ya kak.',
+      totalAmount: 20.60
     },
+    {
+      _id: 'order-11',
+      orderIdDisplay: '#11',
+      invoiceId: 'INV-250521-1024',
+      status: 'new',
+      channelSnapshot: 'telegram',
+      createdAt: new Date(Date.now() - 272 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [
+        { name: 'Teh Cincau', quantity: 1, metadata: { variant: 'Less Sugar' }, unitPrice: 6.90 },
+        { name: 'Roti Bakar Kaya', quantity: 1, metadata: { variant: 'Extra Kaya' }, unitPrice: 4.55 }
+      ],
+      customerNameSnapshot: 'Sarah Lee',
+      customerPhoneSnapshot: '+60 11-987 6543',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: '',
+      totalAmount: 12.75
+    },
+    {
+      _id: 'order-10',
+      orderIdDisplay: '#10',
+      invoiceId: 'INV-250521-1025',
+      status: 'new',
+      channelSnapshot: 'whatsapp',
+      createdAt: new Date(Date.now() - 310 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [
+        { name: 'Teh O Lemon', quantity: 1, metadata: { variant: 'Less Ice' }, unitPrice: 5.00 }
+      ],
+      customerNameSnapshot: 'Jonathan Tan',
+      customerPhoneSnapshot: '+60 19-333 4444',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: 'Kurang manis',
+      totalAmount: 6.30
+    },
+    {
+      _id: 'order-8',
+      orderIdDisplay: '#8',
+      invoiceId: 'INV-250521-1018',
+      status: 'preparing',
+      channelSnapshot: 'whatsapp',
+      createdAt: new Date(Date.now() - 378 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [
+        { name: 'Teh Tarik Original', quantity: 1, metadata: { variant: 'Less Sugar' }, unitPrice: 6.90 },
+        { name: 'Teh Cincau', quantity: 1, metadata: { variant: 'No Ice' }, unitPrice: 6.90 },
+        { name: 'Roti Bakar Butter', quantity: 1, metadata: { variant: 'Extra Butter' }, unitPrice: 4.50 }
+      ],
+      customerNameSnapshot: 'Mrihda Rahman',
+      customerPhoneSnapshot: '+60 12-345 6789',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: 'Sila kurang manis untuk teh tarik ya, terima kasih! 😊',
+      totalAmount: 19.60
+    },
+    {
+      _id: 'order-7',
+      orderIdDisplay: '#7',
+      invoiceId: 'INV-250521-1019',
+      status: 'preparing',
+      channelSnapshot: 'telegram',
+      createdAt: new Date(Date.now() - 561 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [
+        { name: 'Teh O Limau', quantity: 1, metadata: { variant: 'Less Sugar' }, unitPrice: 5.50 },
+        { name: 'Karipap', quantity: 1, metadata: { variant: 'Pedas' }, unitPrice: 3.50 }
+      ],
+      customerNameSnapshot: 'Fatimah Az-Zahra',
+      customerPhoneSnapshot: '+60 14-888 7777',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: 'Karipap yang garing ya.',
+      totalAmount: 10.30
+    },
+    {
+      _id: 'order-6',
+      orderIdDisplay: '#6',
+      invoiceId: 'INV-250521-1020',
+      status: 'preparing',
+      channelSnapshot: 'whatsapp',
+      createdAt: new Date(Date.now() - 765 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [
+        { name: 'Teh Tarik Kaw', quantity: 2, metadata: { variant: 'Normal Sugar' }, unitPrice: 7.50 }
+      ],
+      customerNameSnapshot: 'Daniel Lim',
+      customerPhoneSnapshot: '+60 13-222 1111',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: '',
+      totalAmount: 16.30
+    },
+    {
+      _id: 'order-5',
+      orderIdDisplay: '#5',
+      invoiceId: 'INV-250521-1015',
+      status: 'ready',
+      channelSnapshot: 'whatsapp',
+      createdAt: new Date(Date.now() - 1112 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [
+        { name: 'Teh Tarik Original', quantity: 1, metadata: { variant: 'Less Sugar' }, unitPrice: 6.90 },
+        { name: 'Roti Bakar Kaya', quantity: 1, metadata: { variant: 'Normal' }, unitPrice: 4.50 }
+      ],
+      customerNameSnapshot: 'Chong Wei',
+      customerPhoneSnapshot: '+60 18-555 9999',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: '',
+      totalAmount: 12.70
+    },
+    {
+      _id: 'order-4',
+      orderIdDisplay: '#4',
+      invoiceId: 'INV-250521-1016',
+      status: 'ready',
+      channelSnapshot: 'telegram',
+      createdAt: new Date(Date.now() - 1166 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [
+        { name: 'Teh Cincau', quantity: 1, metadata: { variant: 'Less Sugar' }, unitPrice: 6.90 },
+        { name: 'Donut Coklat', quantity: 1, metadata: { variant: 'Normal' }, unitPrice: 3.50 }
+      ],
+      customerNameSnapshot: 'Siti Aminah',
+      customerPhoneSnapshot: '+60 16-777 8888',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: 'Donat coklatnya minta yang mesesnya banyak.',
+      totalAmount: 11.70
+    },
+    {
+      _id: 'order-3',
+      orderIdDisplay: '#3',
+      invoiceId: 'INV-250521-1017',
+      status: 'ready',
+      channelSnapshot: 'whatsapp',
+      createdAt: new Date(Date.now() - 1305 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [
+        { name: 'Lemon Teh', quantity: 1, metadata: { variant: 'Less Ice' }, unitPrice: 5.50 }
+      ],
+      customerNameSnapshot: 'Rajkumar',
+      customerPhoneSnapshot: '+60 15-444 3333',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: '',
+      totalAmount: 6.80
+    },
+    {
+      _id: 'order-28',
+      orderIdDisplay: '#28',
+      invoiceId: 'INV-250521-1010',
+      status: 'completed',
+      createdAt: new Date(Date.now() - 2000 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [],
+      customerNameSnapshot: 'Customer 28',
+      customerPhoneSnapshot: '',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: '',
+      totalAmount: 15.90
+    },
+    {
+      _id: 'order-27',
+      orderIdDisplay: '#27',
+      invoiceId: 'INV-250521-1009',
+      status: 'completed',
+      createdAt: new Date(Date.now() - 2100 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [],
+      customerNameSnapshot: 'Customer 27',
+      customerPhoneSnapshot: '',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: '',
+      totalAmount: 9.50
+    },
+    {
+      _id: 'order-26',
+      orderIdDisplay: '#26',
+      invoiceId: 'INV-250521-1008',
+      status: 'completed',
+      createdAt: new Date(Date.now() - 3000 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [],
+      customerNameSnapshot: 'Customer 26',
+      customerPhoneSnapshot: '',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: '',
+      totalAmount: 18.30
+    },
+    {
+      _id: 'order-25',
+      orderIdDisplay: '#25',
+      invoiceId: 'INV-250521-1007',
+      status: 'completed',
+      createdAt: new Date(Date.now() - 4000 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [],
+      customerNameSnapshot: 'Customer 25',
+      customerPhoneSnapshot: '',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: '',
+      totalAmount: 7.90
+    },
+    {
+      _id: 'order-24',
+      orderIdDisplay: '#24',
+      invoiceId: 'INV-250521-1006',
+      status: 'completed',
+      createdAt: new Date(Date.now() - 5000 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [],
+      customerNameSnapshot: 'Customer 24',
+      customerPhoneSnapshot: '',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: '',
+      totalAmount: 12.50
+    },
+    {
+      _id: 'order-23',
+      orderIdDisplay: '#23',
+      invoiceId: 'INV-250521-1005',
+      status: 'completed',
+      createdAt: new Date(Date.now() - 6000 * 1000).toISOString(),
+      paymentStatus: 'Paid',
+      items: [],
+      customerNameSnapshot: 'Customer 23',
+      customerPhoneSnapshot: '',
+      outletNameSnapshot: 'SelaluTeh Danau Murung',
+      notes: '',
+      totalAmount: 10.90
+    }
   ],
   complaints: [
     {
-      _id: 'comp-1',
+      _id: '#ST-789456123',
       status: 'open',
       createdAt: new Date(now - day).toISOString(),
       contactId: {
-        _id: 'contact-2',
-        name: 'Bima',
-        phone: '081298765432',
+        _id: 'contact-budi',
+        name: 'Budi Hartono',
+        phone: '+62 812-3456-7890',
       },
-      text: 'Pesanan terlambat datang 20 menit',
-      platformType: 'instagram',
+      title: 'Pesanan tidak sesuai dengan yang diterima',
+      text: 'Saya memesan Teh Tarik Original, tapi yang datang Teh Lemon. Tolong ditindaklanjuti. Terima kasih.',
+      platformType: 'instagram', // using instagram since shopee icon might not be available out of the box in our BrandIcon
+      platformAccount: 'selaluteh.official',
+      priority: 'high',
+      orderDate: 'May 20, 2025 13:42',
+      category: 'Produk',
+      slaDue: 'Today, 14:00',
+      lastUpdate: 'May 20, 2025 12:45',
+      updatedBy: 'Dinda A.',
+      context: {
+        product: 'Teh Tarik Original (Large)',
+        paymentMethod: 'ShopeePay',
+        orderAmount: 'Rp 28.000',
+        deliveryType: 'Shopee Express',
+      },
+      tags: ['Salah Produk', 'Pengiriman', 'First Order'],
+      outlet: {
+        name: 'Selalu Teh - Kemang',
+        id: 'OUT-10023'
+      }
     },
+    {
+      _id: '#ST-123456789',
+      status: 'in_progress',
+      createdAt: new Date(now - 2 * day).toISOString(),
+      contactId: {
+        _id: 'contact-ayu',
+        name: 'Ayu Putri',
+        phone: '081234567890',
+      },
+      title: 'Kurir belum sampai',
+      text: 'Pesanan saya sudah sejam yang lalu statusnya dikirim, tapi kurir belum sampai juga.',
+      platformType: 'whatsapp',
+      platformAccount: 'selaluteh.official',
+      priority: 'medium',
+      orderDate: 'May 19, 2025 10:15',
+      category: 'Pengiriman',
+      slaDue: 'Tomorrow, 10:00',
+      lastUpdate: 'May 19, 2025 11:30',
+      updatedBy: 'System',
+      context: {
+        product: 'Es Teh Lemon (Medium)',
+        paymentMethod: 'GoPay',
+        orderAmount: 'Rp 15.000',
+        deliveryType: 'GoFood',
+      },
+      tags: ['Pengiriman'],
+      outlet: {
+        name: 'Selalu Teh - Melawai',
+        id: 'OUT-10021'
+      }
+    }
   ],
   analytics: {
     traffic: [
@@ -494,6 +771,35 @@ export async function mockApi(method, url, payload, config = {}) {
       next = next.filter((order) => order.status === params.status)
     }
     return response(next)
+  }
+
+  if (
+    path.startsWith('/orders/') &&
+    path.endsWith('/status') &&
+    (method === 'patch' || method === 'put')
+  ) {
+    const id = path.split('/')[2]
+    const order = state.orders.find((item) => item._id === id)
+    if (order) {
+      order.status = payload?.status || order.status
+      saveState(state)
+    }
+    return response(clone(order || null))
+  }
+
+  if (
+    path.startsWith('/orders/') &&
+    path.endsWith('/cancel') &&
+    method === 'put'
+  ) {
+    const id = path.split('/')[2]
+    const order = state.orders.find((item) => item._id === id)
+    if (order) {
+      order.status = 'cancelled'
+      order.notes = payload?.reason || order.notes
+      saveState(state)
+    }
+    return response(clone(order || null))
   }
 
   if (path.startsWith('/orders/') && method === 'put') {

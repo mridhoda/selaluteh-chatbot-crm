@@ -1,3 +1,5 @@
+import { stripCustomerLocationPrefix } from './location-parser.js';
+
 const ABBREVIATIONS = {
   'Jl.': 'Jalan',
   'Jln.': 'Jalan',
@@ -9,7 +11,7 @@ export function normalizeQuery(fields) {
   let text = '';
 
   if (fields.rawText) {
-    text = fields.rawText;
+    text = stripCustomerLocationPrefix(fields.rawText);
     const injectionMarkers = ['abaikan', 'ignore', 'tampilkan', 'jangan', 'lupakan', 'perintah'];
     for (const marker of injectionMarkers) {
       const idx = text.toLowerCase().indexOf(marker);

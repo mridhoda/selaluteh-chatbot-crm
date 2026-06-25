@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import api from '../../../shared/api/httpClient'
+import { registerOrderPushNotifications } from '../../../shared/services/webPush'
 import {
   getDemoToken,
   getDemoUser,
@@ -57,6 +58,9 @@ export default function Login() {
       sessionStorage.setItem('token', r.data.token)
       if (remember) localStorage.setItem('token', r.data.token)
       sessionStorage.setItem('user', JSON.stringify(r.data.user))
+      registerOrderPushNotifications().catch((err) => {
+        console.warn('Order push notification registration failed:', err?.message || err)
+      })
       navigate('/app')
     } catch (e) {
       setError(e.response?.data?.error || 'Invalid email or password')

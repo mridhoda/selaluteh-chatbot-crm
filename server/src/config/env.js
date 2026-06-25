@@ -65,6 +65,9 @@ const raw = {
   corsOriginList: process.env.CORS_ORIGIN || '*',
   telegramWebhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || '',
   allowMetaTestWebhook: process.env.ALLOW_META_TEST_WEBHOOK || '',
+  webPushVapidPublicKey: process.env.WEB_PUSH_VAPID_PUBLIC_KEY || '',
+  webPushVapidPrivateKey: process.env.WEB_PUSH_VAPID_PRIVATE_KEY || '',
+  webPushSubject: process.env.WEB_PUSH_SUBJECT || process.env.PUBLIC_BASE_URL || 'mailto:admin@example.test',
 
   // AI Agent Architecture vars
   aiDefaultProvider: process.env.AI_DEFAULT_PROVIDER || 'local_openai_compatible',
@@ -172,6 +175,9 @@ export const env = {
   publicFilesBaseUrl: raw.publicFilesBaseUrl,
   telegramWebhookSecret: raw.telegramWebhookSecret,
   allowMetaTestWebhook: raw.allowMetaTestWebhook === 'true',
+  webPushVapidPublicKey: raw.webPushVapidPublicKey,
+  webPushVapidPrivateKey: raw.webPushVapidPrivateKey,
+  webPushSubject: raw.webPushSubject,
 
   aiDefaultProvider: raw.aiDefaultProvider,
   aiDefaultModel: raw.aiDefaultModel,
@@ -186,6 +192,8 @@ export const env = {
   localAiBaseUrl: raw.localAiBaseUrl,
   ollamaBaseUrl: raw.ollamaBaseUrl,
   localAiApiKey: raw.localAiApiKey,
+  googleMapsApiKey: raw.googleMapsApiKey,
+  locationProvider: raw.locationProvider,
 };
 
 export function getAllowedCorsOrigins() {
@@ -239,5 +247,8 @@ export function redactedConfig() {
     publicFilesBaseUrl: env.publicFilesBaseUrl,
     telegramWebhookSecret: env.telegramWebhookSecret ? 'configured' : '',
     allowMetaTestWebhook: env.allowMetaTestWebhook,
+    webPushVapidPublicKey: env.webPushVapidPublicKey ? 'configured' : '',
+    webPushVapidPrivateKey: env.webPushVapidPrivateKey ? 'configured' : '',
+    webPushSubject: env.webPushSubject,
   };
 }

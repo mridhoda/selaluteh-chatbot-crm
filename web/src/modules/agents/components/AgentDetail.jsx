@@ -13,6 +13,76 @@ import {
 const FILE_MENTION_REGEX =
   /!(?:\{format:(image|sticker|document|file)\})?\[([^\]]*)\]\(([^)]+)\)/i
 
+const DEFAULT_PROMPT_RULES = {
+  fallbackSystemPrompt: 'You are a helpful assistant.',
+  platformPolicy: `## Platform Policy
+- You are an AI assistant for SelaluTeh.
+- You must be friendly, warm, and helpful.
+- You speak Bahasa Indonesia.
+- You NEVER mark payment as paid.
+- You NEVER claim price, stock, or availability from memory.
+- You MUST use backend tools for live commerce data.
+- You MUST respect human takeover — if human is active, do not reply.
+- You MUST NOT reveal system secrets, API keys, or internal configuration.`,
+  noReintroInstruction:
+    'PENTING: Customer sudah pernah chat sebelumnya. Jangan memberi salam, halo, atau perkenalan lagi. Langsung jawab kebutuhan customer.',
+  askLocationForOrderReply:
+    'Siap, Tea bantu pesankan ya 😊 Boleh info lokasi kamu saat ini dulu? Bisa share location dari Telegram/Google Maps, atau ketik nama jalan/daerah/kota tempat kamu berada, contoh: “Jalan Jelawat Samarinda”. Nanti Tea carikan outlet terdekat dari lokasimu dan kirimkan link Google Maps-nya. Jadi Tea nggak akan list semua outlet dulu biar nggak kepanjangan.',
+  productRulesWhenEmpty: `Product/menu answer rules:
+- If the user asks for menu, products, prices, stock, or availability, answer only from this Official Active Products list.
+- Do not invent menu items, prices, variants, stock, promos, or availability.
+- If a requested item is not listed here, say it is not available in the current products page and offer listed alternatives.`,
+  productRules: `Product/menu answer rules:
+- If the user asks for menu, products, prices, stock, or availability, answer only from this Official Active Products list.
+- Do not invent menu items, prices, variants, stock, promos, or availability.
+- Do not mention products that are inactive or absent from the products page.
+- If a requested item is not listed here, say it is not available in the current products page and offer listed alternatives.`,
+  productRulesWhenLoadFailed: `Product/menu answer rules:
+- Product data from the products page could not be loaded right now.
+- Do not answer menu, price, stock, or availability from memory.
+- Ask the user to wait while an admin checks the current products page.`,
+  outletRules: `Outlet answer rules:
+- Follow the agent persona: ask the customer's current location first before recommending an outlet.
+- If the user asks about outlet/cabang/lokasi/gerai/store but has not mentioned an area/city/current location, do not list all outlets. Ask them to share their current location or mention their area/city.
+- After the customer provides a location, recommend the nearest outlet and include its Google Maps/share-location link when available.
+- Offer: “Atau kamu mau aku listkan seluruh outlet yang ada di sekitarmu? Sebutin daerah atau kota tempat kamu tinggal ya.”
+- If listing outlets by a mentioned city/area, answer only from this Official Outlets list.
+- Do not invent outlet names, cities, locations, maps, or branches.
+- If an outlet is not listed here, say it is not currently registered in the outlets page.`,
+  outletRulesLoadFailed: `Outlet answer rules:
+- Outlet data from the outlets page could not be loaded right now.
+- Do not answer outlet availability from memory.
+- Ask the user to wait while an admin checks the current outlets page.`,
+  commerceInstructions: `OFFICIAL OUTLET RULES:
+- If the customer asks about outlet/cabang/lokasi/gerai/store list or availability without mentioning an area/city/current location, ask their current location first. Do NOT call get_outlets just to dump all outlets.
+- If the customer mentions a city/area and asks to list outlets there, you may answer only from official outlet context/tool result for that city/area.
+- Never invent outlet names, branches, cities, maps, or locations.
+
+ORDER FLOW (only activate when customer explicitly wants to place an order):
+STEP 1: Ask the customer current location first. Do NOT call get_outlets and do NOT present all outlet names as the first response.
+STEP 2: After customer sends location/share location/address, the location-intelligence flow will recommend the nearest outlet and include Google Maps/share-location link.
+STEP 3: After an outlet has been selected/recommended and customer agrees, call select_outlet with the matching outletId.
+STEP 4: Ask what items the customer wants. Use search_products to find them.
+STEP 5: Call add_cart_item for each item, and you MUST specify the quantity the user asked for (use productId from search result, NEVER invent IDs).
+STEP 6: After ALL items added, summarize the order and say: "Pesananmu sudah saya siapkan! Silakan klik tombol Checkout yang akan muncul."
+CRITICAL RULES:
+- When customer starts an order, ask location first; never show the full outlet list first.
+- Do NOT call get_outlets or show all outlets unless customer specifically asks to list outlets around a mentioned area/city.
+- Always call select_outlet BEFORE add_cart_item.
+- Never fabricate product IDs or prices. Only use IDs from search_products results.
+- If customer just asks about menu/prices, answer from the products list without starting the order flow.`,
+}
+
+const DEFAULT_AI_SETTINGS = {
+  provider: 'openai',
+  baseUrl: '',
+  apiKey: '',
+  model: '',
+  temperature: 0.7,
+  maxTokens: '',
+  promptRules: DEFAULT_PROMPT_RULES,
+}
+
 const isImageFilename = (filename = '') =>
   /\.(png|jpe?g|gif|webp)$/i.test(filename)
 
@@ -353,14 +423,7 @@ export default function AgentDetail() {
     platformId: '',
     destination: '',
   })
-  const [aiSettings, setAiSettings] = useState({
-    provider: 'openai',
-    baseUrl: '',
-    apiKey: '',
-    model: '',
-    temperature: 0.7,
-    maxTokens: '',
-  })
+  const [aiSettings, setAiSettings] = useState(DEFAULT_AI_SETTINGS)
   const [knowledgeTab, setKnowledgeTab] = useState('text')
   const [newUrl, setNewUrl] = useState('')
   const [newText, setNewText] = useState('')
@@ -518,16 +581,14 @@ export default function AgentDetail() {
             destination: '',
           }
         )
-        setAiSettings(
-          a.data.aiSettings || {
-            provider: 'openai',
-            baseUrl: '',
-            apiKey: '',
-            model: '',
-            temperature: 0.7,
-            maxTokens: '',
-          }
-        )
+        setAiSettings({
+          ...DEFAULT_AI_SETTINGS,
+          ...(a.data.aiSettings || {}),
+          promptRules: {
+            ...DEFAULT_PROMPT_RULES,
+            ...(a.data.aiSettings?.promptRules || {}),
+          },
+        })
         setPlatforms(p.data)
       } catch (error) {
         console.error('Error fetching agent data:', error)
@@ -2477,6 +2538,138 @@ export default function AgentDetail() {
                   </div>
                 </div>
               )}
+
+              {/* Advanced Prompt Rules */}
+              <div className='bg-white rounded-2xl p-6 shadow-xl shadow-slate-200/60 border border-slate-100 space-y-5'>
+                <div className='flex flex-col md:flex-row md:items-start md:justify-between gap-4'>
+                  <div>
+                    <div className='flex items-center gap-3 mb-1'>
+                      <div className='w-10 h-10 bg-violet-500 rounded-xl flex items-center justify-center shadow-lg shadow-violet-100'>
+                        <i className='fa-solid fa-shield-halved text-white'></i>
+                      </div>
+                      <div>
+                        <h4 className='text-base font-bold text-slate-800'>
+                          Advanced Prompt Rules
+                        </h4>
+                        <p className='text-xs text-slate-500'>
+                          Semua instruksi bawaan sistem di bawah ini disimpan per
+                          agent, cocok untuk test multi-account.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type='button'
+                    onClick={() =>
+                      setAiSettings((prev) => ({
+                        ...prev,
+                        promptRules: DEFAULT_PROMPT_RULES,
+                      }))
+                    }
+                    className='self-start px-4 py-2 rounded-full border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition'
+                  >
+                    Reset Default
+                  </button>
+                </div>
+
+                <div className='bg-amber-50 border border-amber-100 rounded-xl p-4 text-xs text-amber-800 flex gap-3'>
+                  <i className='fa-solid fa-triangle-exclamation text-amber-500 mt-0.5'></i>
+                  <div>
+                    <strong>Catatan:</strong> ubah bagian ini hanya jika agent
+                    butuh aturan berbeda. Jika dikosongkan, backend akan tetap
+                    memakai default lama agar bot tidak rusak.
+                  </div>
+                </div>
+
+                {[
+                  {
+                    key: 'fallbackSystemPrompt',
+                    label: 'Fallback System Prompt',
+                    rows: 2,
+                    hint: 'Dipakai kalau field Behavior/System Prompt utama agent kosong.',
+                  },
+                  {
+                    key: 'platformPolicy',
+                    label: 'Platform / Safety Policy',
+                    rows: 7,
+                    hint: 'Guardrail umum: bahasa, safety, payment, secrets, dan human takeover.',
+                  },
+                  {
+                    key: 'noReintroInstruction',
+                    label: 'No Re-introduction Rule',
+                    rows: 2,
+                    hint: 'Instruksi saat customer sudah pernah chat agar AI tidak memperkenalkan diri lagi.',
+                  },
+                  {
+                    key: 'askLocationForOrderReply',
+                    label: 'Order Start Auto Reply',
+                    rows: 3,
+                    hint: 'Balasan cepat saat customer mulai order sebelum model dipanggil.',
+                  },
+                  {
+                    key: 'productRules',
+                    label: 'Product/Menu Rules',
+                    rows: 5,
+                    hint: 'Aturan menjawab menu, harga, stok, dan availability saat produk tersedia.',
+                  },
+                  {
+                    key: 'productRulesWhenEmpty',
+                    label: 'Product/Menu Rules When Empty',
+                    rows: 4,
+                    hint: 'Aturan saat tidak ada produk aktif di Products Page.',
+                  },
+                  {
+                    key: 'productRulesWhenLoadFailed',
+                    label: 'Product/Menu Rules Load Failed',
+                    rows: 3,
+                    hint: 'Aturan fallback kalau data produk gagal dimuat.',
+                  },
+                  {
+                    key: 'outletRules',
+                    label: 'Outlet Rules',
+                    rows: 7,
+                    hint: 'Aturan menjawab outlet/cabang/lokasi berdasarkan data resmi.',
+                  },
+                  {
+                    key: 'outletRulesLoadFailed',
+                    label: 'Outlet Rules Load Failed',
+                    rows: 3,
+                    hint: 'Aturan fallback kalau data outlet gagal dimuat.',
+                  },
+                  {
+                    key: 'commerceInstructions',
+                    label: 'Commerce Tool / Order Flow Instructions',
+                    rows: 12,
+                    hint: 'Instruksi tool get_outlets, select_outlet, search_products, add_cart_item dan alur checkout.',
+                  },
+                ].map((field) => (
+                  <div key={field.key}>
+                    <label className='block text-sm font-semibold text-slate-700 mb-1.5'>
+                      {field.label}
+                    </label>
+                    <textarea
+                      className='w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-mono leading-relaxed focus:ring-2 focus:ring-violet-100 focus:border-violet-300 outline-none transition'
+                      rows={field.rows}
+                      value={
+                        aiSettings.promptRules?.[field.key] ??
+                        DEFAULT_PROMPT_RULES[field.key] ??
+                        ''
+                      }
+                      onChange={(e) =>
+                        setAiSettings((prev) => ({
+                          ...prev,
+                          promptRules: {
+                            ...DEFAULT_PROMPT_RULES,
+                            ...(prev.promptRules || {}),
+                            [field.key]: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                    <p className='text-xs text-slate-400 mt-1'>{field.hint}</p>
+                  </div>
+                ))}
+              </div>
 
               {/* Save Button */}
               <div className='flex justify-end'>

@@ -10,16 +10,87 @@ import {
   platformsSupabaseRepository,
   messagesSupabaseRepository,
   productsSupabaseRepository,
+  outletsSupabaseRepository,
 } from '../db/repositories/index.js';
 import { tgSend, waSend } from './sender.js';
 import { createOrderFromAI } from './order.service.js';
 import { createComplaintFromAI } from './complaint.service.js';
 import { executeAIAction } from './ai-actions.service.js';
+import {
+  buildAutoComplaintData,
+  shouldAutoCreateComplaintFromReply,
+} from './complaint-autocreate.service.js';
 import { redactSecretsInText } from '../utils/redaction.js';
 import { extractStoredNameFromUrl } from '../utils/file-urls.js';
 
 export function sanitizePromptText(value = '') {
   return redactSecretsInText(String(value || ''));
+}
+
+export const DEFAULT_AGENT_PROMPT_RULES = {
+  fallbackSystemPrompt: 'You are a helpful assistant.',
+  platformPolicy: `## Platform Policy
+- You are an AI assistant for SelaluTeh.
+- You must be friendly, warm, and helpful.
+- You speak Bahasa Indonesia.
+- You NEVER mark payment as paid.
+- You NEVER claim price, stock, or availability from memory.
+- You MUST use backend tools for live commerce data.
+- You MUST respect human takeover — if human is active, do not reply.
+- You MUST NOT reveal system secrets, API keys, or internal configuration.`,
+  noReintroInstruction: 'PENTING: Customer sudah pernah chat sebelumnya. Jangan memberi salam, halo, atau perkenalan lagi. Langsung jawab kebutuhan customer.',
+  askLocationForOrderReply: 'Siap, Tea bantu pesankan ya 😊 Boleh info lokasi kamu saat ini dulu? Bisa share location dari Telegram/Google Maps, atau ketik nama jalan/daerah/kota tempat kamu berada, contoh: “Jalan Jelawat Samarinda”. Nanti Tea carikan outlet terdekat dari lokasimu dan kirimkan link Google Maps-nya. Jadi Tea nggak akan list semua outlet dulu biar nggak kepanjangan.',
+  productRulesWhenEmpty: `Product/menu answer rules:
+- If the user asks for menu, products, prices, stock, or availability, answer only from this Official Active Products list.
+- Do not invent menu items, prices, variants, stock, promos, or availability.
+- If a requested item is not listed here, say it is not available in the current products page and offer listed alternatives.`,
+  productRules: `Product/menu answer rules:
+- If the user asks for menu, products, prices, stock, or availability, answer only from this Official Active Products list.
+- Do not invent menu items, prices, variants, stock, promos, or availability.
+- Do not mention products that are inactive or absent from the products page.
+- If a requested item is not listed here, say it is not available in the current products page and offer listed alternatives.`,
+  productRulesWhenLoadFailed: `Product/menu answer rules:
+- Product data from the products page could not be loaded right now.
+- Do not answer menu, price, stock, or availability from memory.
+- Ask the user to wait while an admin checks the current products page.`,
+  outletRules: `Outlet answer rules:
+- Follow the agent persona: ask the customer's current location first before recommending an outlet.
+- If the user asks about outlet/cabang/lokasi/gerai/store but has not mentioned an area/city/current location, do not list all outlets. Ask them to share their current location or mention their area/city.
+- After the customer provides a location, recommend the nearest outlet and include its Google Maps/share-location link when available.
+- Offer: “Atau kamu mau aku listkan seluruh outlet yang ada di sekitarmu? Sebutin daerah atau kota tempat kamu tinggal ya.”
+- If listing outlets by a mentioned city/area, answer only from this Official Outlets list.
+- Do not invent outlet names, cities, locations, maps, or branches.
+- If an outlet is not listed here, say it is not currently registered in the outlets page.`,
+  outletRulesLoadFailed: `Outlet answer rules:
+- Outlet data from the outlets page could not be loaded right now.
+- Do not answer outlet availability from memory.
+- Ask the user to wait while an admin checks the current outlets page.`,
+  commerceInstructions: `OFFICIAL OUTLET RULES:
+- If the customer asks about outlet/cabang/lokasi/gerai/store list or availability without mentioning an area/city/current location, ask their current location first. Do NOT call get_outlets just to dump all outlets.
+- If the customer mentions a city/area and asks to list outlets there, you may answer only from official outlet context/tool result for that city/area.
+- Never invent outlet names, branches, cities, maps, or locations.
+
+ORDER FLOW (only activate when customer explicitly wants to place an order):
+STEP 1: Ask the customer current location first. Do NOT call get_outlets and do NOT present all outlet names as the first response.
+STEP 2: After customer sends location/share location/address, the location-intelligence flow will recommend the nearest outlet and include Google Maps/share-location link.
+STEP 3: After an outlet has been selected/recommended and customer agrees, call select_outlet with the matching outletId.
+STEP 4: Ask what items the customer wants. Use search_products to find them.
+STEP 5: Call add_cart_item for each item, and you MUST specify the quantity the user asked for (use productId from search result, NEVER invent IDs).
+STEP 6: After ALL items added, summarize the order and say: "Pesananmu sudah saya siapkan! Silakan klik tombol Checkout yang akan muncul."
+CRITICAL RULES:
+- When customer starts an order, ask location first; never show the full outlet list first.
+- If a selected outlet already exists in the chat context/current outlet, do NOT ask for location again. Continue with product search and add_cart_item immediately.
+- Do NOT call get_outlets or show all outlets unless customer specifically asks to list outlets around a mentioned area/city.
+- Always call select_outlet BEFORE add_cart_item.
+- Never fabricate product IDs or prices. Only use IDs from search_products results.
+- If customer just asks about menu/prices, answer from the products list without starting the order flow.`,
+};
+
+export function getAgentPromptRules(agent = {}) {
+  return {
+    ...DEFAULT_AGENT_PROMPT_RULES,
+    ...(agent?.aiSettings?.promptRules || {}),
+  };
 }
 
 // Helper to get MIME type from filename
@@ -44,17 +115,14 @@ function formatRupiah(value) {
   return `Rp ${number.toLocaleString('id-ID')}`;
 }
 
-function buildProductMenuContext(products = []) {
+function buildProductMenuContext(products = [], promptRules = DEFAULT_AGENT_PROMPT_RULES) {
   if (!products.length) {
     return `
 
 Official Active Products from Products Page:
 - No active products are currently registered in the products page.
 
-Product/menu answer rules:
-- If the user asks for menu, products, prices, stock, or availability, answer only from this Official Active Products list.
-- Do not invent menu items, prices, variants, stock, promos, or availability.
-- If a requested item is not listed here, say it is not available in the current products page and offer listed alternatives.`;
+${promptRules.productRulesWhenEmpty}`;
   }
 
   const lines = products.slice(0, 80).map((product) => {
@@ -74,32 +142,136 @@ Official Active Products from Products Page:
 ${lines.join('\n')}
 ${products.length > 80 ? `- ...${products.length - 80} more active products are registered but not shown in this prompt.` : ''}
 
-Product/menu answer rules:
-- If the user asks for menu, products, prices, stock, or availability, answer only from this Official Active Products list.
-- Do not invent menu items, prices, variants, stock, promos, or availability.
-- Do not mention products that are inactive or absent from the products page.
-- If a requested item is not listed here, say it is not available in the current products page and offer listed alternatives.`;
+${promptRules.productRules}`;
 }
 
-async function loadProductMenuContext({ workspaceId }) {
+async function loadProductMenuContext({ workspaceId, promptRules = DEFAULT_AGENT_PROMPT_RULES }) {
   if (!workspaceId) return '';
 
   try {
     const products = await productsSupabaseRepository.findProducts({ workspaceId, isActive: true });
-    return buildProductMenuContext(products);
+    return buildProductMenuContext(products, promptRules);
   } catch (error) {
     console.error('[AI] Failed to load products context:', error.message);
     return `
 
-Product/menu answer rules:
+${promptRules.productRulesWhenLoadFailed || `Product/menu answer rules:
 - Product data from the products page could not be loaded right now.
 - Do not answer menu, price, stock, or availability from memory.
-- Ask the user to wait while an admin checks the current products page.`;
+- Ask the user to wait while an admin checks the current products page.`}`;
+  }
+}
+
+function isOutletListQuestion(text = '') {
+  const lower = String(text || '').toLowerCase();
+  const asksOutlet = /\b(outlet(?:nya)?|cabang(?:nya)?|lokasi(?:nya)?|gerai(?:nya)?|store(?:nya)?)\b/.test(lower);
+  const asksList = /(mana|apa aja|apa saja|daftar|list|tersedia|ada|dimana|di mana)/.test(lower);
+  return asksOutlet && asksList;
+}
+
+export function isOrderStartIntent(text = '') {
+  const lower = String(text || '').toLowerCase();
+  if (!lower.trim()) return false;
+  if (/\b(status|cek|lihat|lacak|batalkan|cancel|komplain|keluhan)\b.*\b(pesanan|order)\b/.test(lower)) return false;
+  return /\b(mau|ingin|pengen|pingin|boleh|bisa|aku|saya|sy|aq|kak|ka)?\s*(pesan|pesen|order|beli|checkout)\b/.test(lower)
+    || /\b(pesan|pesen|order|beli)\s+(?:dong|minuman|teh|menu|produk|\d+)/.test(lower);
+}
+
+export function shouldAskLocationForOrder(text = '', chat = {}) {
+  const selectedOutletId = chat?.currentOutletId || chat?.current_outlet_id || null;
+  return isOrderStartIntent(text) && !selectedOutletId;
+}
+
+export function buildAskCurrentLocationForOrderReply() {
+  return DEFAULT_AGENT_PROMPT_RULES.askLocationForOrderReply;
+}
+
+function buildAskCurrentLocationForOrderReplyForAgent(agent) {
+  return getAgentPromptRules(agent).askLocationForOrderReply;
+}
+
+export function extractOutletCityFilter(text = '') {
+  const lower = String(text || '').toLowerCase();
+  const match = lower.match(/\bdi\s+([a-zA-ZÀ-ÿ\s-]+?)(?:\s+(?:ada|apa|aja|saja|outlet|cabang|lokasi|gerai|store|yang|tersedia)\b|[?!.]|$)/i);
+  const city = match?.[1]?.trim();
+  if (!city || city.length < 2) return null;
+  return city.replace(/\s+/g, ' ');
+}
+
+function normalizeCity(value = '') {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function formatOutletList(outlets = [], { cityFilter = null } = {}) {
+  const normalizedCityFilter = normalizeCity(cityFilter);
+  if (!normalizedCityFilter) {
+    return 'Boleh info lokasi kamu saat ini dulu? Bisa sebut nama jalan/daerah/kota tempat kamu tinggal, contoh: “Jalan Jelawat Samarinda”. Nanti Tea carikan outlet terdekat dan kirimkan link Google Maps-nya. Kalau kamu mau, Tea juga bisa listkan seluruh outlet yang ada di sekitarmu setelah kamu sebutkan daerah atau kotanya ya.';
+  }
+
+  const available = outlets.filter((outlet) => outlet.status !== 'archived');
+  const filtered = normalizedCityFilter
+    ? available.filter((outlet) => normalizeCity(outlet.city).includes(normalizedCityFilter))
+    : available;
+
+  if (!filtered.length) {
+    if (normalizedCityFilter) {
+      return `Saat ini belum ada outlet Selalu Teh yang terdaftar di kota ${cityFilter}.`;
+    }
+    return 'Saat ini belum ada outlet Selalu Teh yang terdaftar di sistem.';
+  }
+
+  const lines = filtered.map((outlet, index) => {
+    const location = outlet.city ? ` (${outlet.city})` : '';
+    return `${index + 1}. ${outlet.name}${location}`;
+  });
+
+  const scope = normalizedCityFilter ? ` di ${cityFilter}` : ' yang terdaftar saat ini';
+  return `Outlet Selalu Teh${scope}:\n${lines.join('\n')}\n\nSilakan pilih outlet yang kamu mau.`;
+}
+
+async function answerOfficialOutletList({ workspaceId, userText = '' }) {
+  if (!workspaceId) return null;
+  try {
+    const outlets = await outletsSupabaseRepository.list({ workspaceId, page: 1, limit: 100 });
+    return formatOutletList(outlets || [], { cityFilter: extractOutletCityFilter(userText) });
+  } catch (error) {
+    console.error('[AI] Failed to load outlets context:', error.message);
+    return 'Maaf, daftar outlet sedang tidak bisa dimuat dari sistem. Saya akan hubungkan ke admin agar bisa dicek.';
+  }
+}
+
+async function loadOfficialOutletContext({ workspaceId, promptRules = DEFAULT_AGENT_PROMPT_RULES }) {
+  if (!workspaceId) return '';
+  try {
+    const outlets = await outletsSupabaseRepository.list({ workspaceId, page: 1, limit: 100 });
+    const available = (outlets || []).filter((outlet) => outlet.status !== 'archived');
+    const lines = available.map((outlet) => `- ${outlet.name}${outlet.city ? ` (${outlet.city})` : ''}`).join('\n');
+    return `\n\nOfficial Outlets from Outlets Page:\n${lines || '- No outlets are currently registered.'}\n\n${promptRules.outletRules}`;
+  } catch (error) {
+    console.error('[AI] Failed to load official outlet context:', error.message);
+    return `\n\n${promptRules.outletRulesLoadFailed}`;
   }
 }
 
 export async function generateAIReply({ system, prompt, message, knowledge, agent, chat, history = [] }) {
   const currentMessageText = sanitizePromptText(message.text || (message.attachment ? '[Attachment]' : ''));
+  const promptRules = getAgentPromptRules(agent);
+  const selectedOutletId = chat?.currentOutletId || chat?.current_outlet_id || null;
+
+  if (shouldAskLocationForOrder(currentMessageText, { currentOutletId: selectedOutletId })) {
+    return buildAskCurrentLocationForOrderReplyForAgent(agent);
+  }
+
+  if (isOutletListQuestion(currentMessageText)) {
+    const outletReply = await answerOfficialOutletList({ workspaceId: chat?.workspaceId || agent?.workspaceId, userText: currentMessageText });
+    if (outletReply) return outletReply;
+  }
 
   // --- Per-agent AI settings override ---
   // If the agent has its own aiSettings configured, those take priority over global env
@@ -150,7 +322,8 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
   const contactId = typeof chat?.contactId === 'object' ? chat.contactId?.id : chat?.contactId;
   const contact = contactId ? await contactsSupabaseRepository.findById({ workspaceId: chat.workspaceId, contactId }) : null;
   const contactName = contact?.name ? ` The user's name is ${contact.name}.` : '';
-  const productMenuContext = await loadProductMenuContext({ workspaceId: chat?.workspaceId });
+  const productMenuContext = await loadProductMenuContext({ workspaceId: chat?.workspaceId, promptRules });
+  const officialOutletContext = await loadOfficialOutletContext({ workspaceId: chat?.workspaceId, promptRules });
 
   let knowledgeContent = '';
   if (knowledge && knowledge.length > 0) {
@@ -181,20 +354,36 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
 
   try {
     let reply = '';
+    let complaintFiled = false;
+
+    const autoCreateComplaintIfAcknowledged = async () => {
+      if (complaintFiled) return;
+      if (!shouldAutoCreateComplaintFromReply({ reply, userText: currentMessageText })) return;
+
+      const complaintData = buildAutoComplaintData({ reply, userText: currentMessageText, contact });
+      console.log('[AI] Auto-filing acknowledged complaint:', complaintData);
+
+      const aiActionResult = await executeAIAction({
+        workspaceId: chat.workspaceId || agent.workspaceId,
+        chatId: chat.id,
+        chatMessageId: message.id || null,
+        agentId: agent.id,
+        actionType: 'create_legacy_complaint',
+        input: { complaintData, source: 'ai_acknowledged_complaint_fallback' },
+        executor: () => createComplaintFromAI({ chat, agent, complaintData }),
+      });
+      if (!aiActionResult.valid) {
+        throw new Error(`AI complaint fallback action rejected: ${aiActionResult.validationErrors.join(', ')}`);
+      }
+
+      complaintFiled = true;
+    };
+
     // Prioritize OpenAI (or per-agent override) if available
     if (effectiveOpenaiClient) {
-      const commerceInstructions = '\n\nORDER FLOW (only activate when customer explicitly wants to place an order):\n' +
-        'STEP 1: Only when customer says they want to order/buy something, call get_outlets to get the list, then present the outlet NAMES as a simple numbered text list. NEVER send location pins or links.\n' +
-        'STEP 2: After customer picks an outlet by name/number, call select_outlet with the correct outletId from the get_outlets result.\n' +
-        'STEP 3: Ask what items the customer wants. Use search_products to find them.\n' +
-        'STEP 4: Call add_cart_item for each item, and you MUST specify the quantity the user asked for (use productId from search result, NEVER invent IDs).\n' +
-        'STEP 5: After ALL items added, summarize the order and say: "Pesananmu sudah saya siapkan! Silakan klik tombol Checkout yang akan muncul."\n' +
-        'CRITICAL RULES:\n' +
-        '- Do NOT call get_outlets or show outlets unless the customer explicitly wants to ORDER something.\n' +
-        '- Do NOT send location links, maps, or coordinates. Only show outlet names as plain text.\n' +
-        '- Always call select_outlet BEFORE add_cart_item.\n' +
-        '- Never fabricate product IDs or prices. Only use IDs from search_products results.\n' +
-        '- If customer just asks about menu/prices, answer from the products list without starting the order flow.';
+      const commerceInstructions = promptRules.commerceInstructions
+        ? `\n\n${promptRules.commerceInstructions}`
+        : '';
 
 
       // ── Commerce tool definitions for OpenAI function calling ──────────────
@@ -292,7 +481,10 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
           }
 
           if (toolName === 'add_cart_item') {
-            const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId });
+            const outletId = chat?.currentOutletId || chat?.current_outlet_id || null;
+            const cart = outletId
+              ? await cartsRepository.findActiveByContact({ workspaceId, contactId, outletId })
+              : await cartsRepository.findActiveByContact({ workspaceId, contactId });
             if (!cart) return JSON.stringify({ error: 'No active cart. Call select_outlet first.' });
             const product = await productsRepository.findById({ workspaceId, productId: toolArgs.productId });
             if (!product) return JSON.stringify({ error: 'Product not found. Call search_products again and use productId from the result.' });
@@ -324,7 +516,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
 
       try {
         const openaiMessages = [
-          { role: 'system', content: sanitizePromptText((system || 'You are a helpful assistant.') + contactName + fileInstruction + productMenuContext + commerceInstructions) },
+          { role: 'system', content: sanitizePromptText((system || promptRules.fallbackSystemPrompt) + contactName + fileInstruction + productMenuContext + officialOutletContext + commerceInstructions) },
         ];
 
         for (const msg of history) {
@@ -385,7 +577,14 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
         console.error('OpenAI error:', e.message);
       }
       // Return cartItemAdded flag alongside reply
-      if (reply) return { text: reply, cartItemAdded };
+      if (reply) {
+        try {
+          await autoCreateComplaintIfAcknowledged();
+        } catch (err) {
+          console.error('[AI] Failed to auto-create acknowledged complaint:', err);
+        }
+        return { text: reply, cartItemAdded };
+      }
     } // end if (effectiveOpenaiClient)
 
     // Fallback to Gemini if OpenAI fails or is not available
@@ -457,7 +656,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
         5. Do not add any other text if you decide to escalate.
         `;
 
-        let systemInstruction = sanitizePromptText((system || 'You are a helpful assistant.') + contactName + fileInstruction + productMenuContext + escalationInstruction);
+        let systemInstruction = sanitizePromptText((system || promptRules.fallbackSystemPrompt) + contactName + fileInstruction + productMenuContext + officialOutletContext + escalationInstruction);
 
         // --- Tools Injection ---
         if (agent.tools && agent.tools.includes('time')) {
@@ -668,6 +867,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
               if (!aiActionResult.valid) {
                 throw new Error(`AI complaint action rejected: ${aiActionResult.validationErrors.join(', ')}`);
               }
+              complaintFiled = true;
 
               // Notification Logic
               if (agent.complaintNotification?.enabled && agent.complaintNotification?.platformId && agent.complaintNotification?.destination) {
@@ -721,6 +921,12 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
             // Best effort: hide the line containing FILE_COMPLAINT_JSON
             reply = reply.replace(/FILE_COMPLAINT_JSON:.*(\n|$)/, '').trim();
           }
+        }
+
+        try {
+          await autoCreateComplaintIfAcknowledged();
+        } catch (err) {
+          console.error('[AI] Failed to auto-create acknowledged complaint:', err);
         }
 
         // Check for escalation

@@ -21,6 +21,73 @@ import { requireWorkspaceId, withWorkspace, applyPagination, withSearch } from '
 
 const TABLE = 'outlets';
 const ACCESS_TABLE = 'user_outlet_access';
+const MANAGERS_TABLE = 'outlet_managers';
+
+function normalizeWhatsappNumber(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits || null;
+}
+
+function extractManagerInput(data = {}) {
+  const metadata = data.metadata || {};
+  const hasManagerData = ['managerName', 'managerPhone', 'managerEmail'].some((key) => metadata[key] !== undefined)
+    || data.managerName !== undefined
+    || data.managerPhone !== undefined
+    || data.managerEmail !== undefined;
+
+  if (!hasManagerData) return null;
+
+  const name = data.managerName ?? metadata.managerName ?? '';
+  const phone = data.managerPhone ?? metadata.managerPhone ?? data.phone ?? null;
+  const email = data.managerEmail ?? metadata.managerEmail ?? data.email ?? null;
+
+  return {
+    name: name || '',
+    phone: phone || null,
+    email: email || null,
+    whatsappNumber: normalizeWhatsappNumber(phone),
+  };
+}
+
+function mergeManagerIntoOutlet(row) {
+  if (!row) return null;
+  const outlet = mapRow(row);
+  const managerRow = Array.isArray(row.outlet_managers) ? row.outlet_managers[0] : row.outlet_managers;
+  if (!managerRow) return outlet;
+
+  const manager = mapRow(managerRow);
+  outlet.managerRecord = manager;
+  outlet.manager = manager.name || '';
+  outlet.managerName = manager.name || '';
+  outlet.managerPhone = manager.phone || '';
+  outlet.managerEmail = manager.email || '';
+  outlet.metadata = {
+    ...(outlet.metadata || {}),
+    managerName: manager.name || '',
+    managerPhone: manager.phone || '',
+    managerEmail: manager.email || '',
+  };
+  return outlet;
+}
+
+function mergeManagersIntoOutlets(rows = []) {
+  return rows.map(mergeManagerIntoOutlet);
+}
+
+async function upsertOutletManager(client, { workspaceId, outletId, data }) {
+  const manager = extractManagerInput(data);
+  if (!manager) return;
+
+  await client.from(MANAGERS_TABLE).upsert({
+    workspace_id: workspaceId,
+    outlet_id: outletId,
+    name: manager.name,
+    phone: manager.phone,
+    email: manager.email,
+    whatsapp_number: manager.whatsappNumber,
+    status: 'active',
+  }, { onConflict: 'outlet_id' });
+}
 
 export const outletsSupabaseRepository = {
   // ─── Outlets ──────────────────────────────────────────────────────────────
@@ -31,13 +98,13 @@ export const outletsSupabaseRepository = {
   async list({ workspaceId, status, search, page = 1, limit = 50 }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    let q = client.from(TABLE).select('*').eq('workspace_id', workspaceId).order('name');
+    let q = client.from(TABLE).select('*, outlet_managers(*)').eq('workspace_id', workspaceId).order('name');
     if (status) q = q.eq('status', status);
     if (search) q = withSearch(q, 'name', search);
     q = applyPagination(q, { page, limit });
     const result = await q;
     const rows = extractData(result, 'outlets.list');
-    return mapRows(rows ?? []);
+    return mergeManagersIntoOutlets(rows ?? []);
   },
 
   /**
@@ -63,12 +130,12 @@ export const outletsSupabaseRepository = {
     const client = getSupabaseServiceClient();
     const result = await client
       .from(TABLE)
-      .select('*')
+      .select('*, outlet_managers(*)')
       .eq('workspace_id', workspaceId)
       .eq('id', outletId)
       .maybeSingle();
     const row = extractSingle(result, 'outlets.findById');
-    return row ? mapRow(row) : null;
+    return row ? mergeManagerIntoOutlet(row) : null;
   },
 
   /**
@@ -86,12 +153,12 @@ export const outletsSupabaseRepository = {
     const client = getSupabaseServiceClient();
     const result = await client
       .from(TABLE)
-      .select('*')
+      .select('*, outlet_managers(*)')
       .eq('workspace_id', workspaceId)
       .eq('code', code.toUpperCase())
       .maybeSingle();
     const row = extractSingle(result, 'outlets.findByCode');
-    return row ? mapRow(row) : null;
+    return row ? mergeManagerIntoOutlet(row) : null;
   },
 
   /**
@@ -102,12 +169,12 @@ export const outletsSupabaseRepository = {
     const client = getSupabaseServiceClient();
     const result = await client
       .from(TABLE)
-      .select('*')
+      .select('*, outlet_managers(*)')
       .eq('workspace_id', workspaceId)
       .eq('status', 'active')
       .order('name');
     const rows = extractData(result, 'outlets.findActiveByWorkspace');
-    return mapRows(rows ?? []);
+    return mergeManagersIntoOutlets(rows ?? []);
   },
 
   /**
@@ -130,7 +197,7 @@ export const outletsSupabaseRepository = {
    * Create a new outlet.
    */
   async create(data) {
-    const { workspaceId, name, code, city, region, address, postalCode, phone,
+    const { workspaceId, name, code, slug, city, region, address, postalCode, phone, email,
       managerUserId, status = 'active', timezone = 'Asia/Makassar', openingHours = {}, metadata = {} } = data;
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
@@ -140,11 +207,13 @@ export const outletsSupabaseRepository = {
         workspace_id: workspaceId,
         name,
         code: code ? code.toUpperCase() : null,
+        slug: slug || null,
         city: city || null,
         region: region || null,
         address: address || null,
         postal_code: postalCode || null,
         phone: phone || null,
+        email: email || null,
         manager_user_id: managerUserId || null,
         status,
         timezone,
@@ -154,7 +223,9 @@ export const outletsSupabaseRepository = {
       .select()
       .single();
     const row = extractSingle(result, 'outlets.create');
-    return mapRow(row);
+    const outlet = mapRow(row);
+    await upsertOutletManager(client, { workspaceId, outletId: outlet.id, data });
+    return this.findById({ workspaceId, outletId: outlet.id });
   },
 
   /**
@@ -163,8 +234,8 @@ export const outletsSupabaseRepository = {
   async update({ workspaceId, outletId, updates }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    const allowed = ['name', 'code', 'city', 'region', 'address', 'postalCode',
-      'phone', 'managerUserId', 'status', 'timezone', 'openingHours', 'metadata'];
+    const allowed = ['name', 'code', 'slug', 'city', 'region', 'address', 'postalCode',
+      'phone', 'email', 'managerUserId', 'status', 'timezone', 'openingHours', 'metadata'];
     const set = {};
     for (const key of allowed) {
       if (updates[key] !== undefined) {
@@ -186,7 +257,9 @@ export const outletsSupabaseRepository = {
       .select()
       .maybeSingle();
     const row = extractSingle(result, 'outlets.update');
-    return row ? mapRow(row) : null;
+    if (!row) return null;
+    await upsertOutletManager(client, { workspaceId, outletId, data: updates });
+    return this.findById({ workspaceId, outletId });
   },
 
   /**
@@ -277,5 +350,26 @@ export const outletsSupabaseRepository = {
     const result = await client.from(ACCESS_TABLE).insert(inserts).select();
     const inserted = extractData(result, 'outlets.replaceUserAccess');
     return mapRows(inserted ?? []);
+  },
+
+  /**
+   * Delete an outlet and its related data (access, manager records).
+   */
+  async delete({ workspaceId, outletId }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    
+    // Explicitly delete managers/access records just in case foreign keys don't cascade delete
+    await client.from(ACCESS_TABLE).delete().eq('workspace_id', workspaceId).eq('outlet_id', outletId);
+    await client.from(MANAGERS_TABLE).delete().eq('workspace_id', workspaceId).eq('outlet_id', outletId);
+
+    const result = await client
+      .from(TABLE)
+      .delete()
+      .eq('workspace_id', workspaceId)
+      .eq('id', outletId);
+    
+    extractData(result, 'outlets.delete');
+    return true;
   },
 };

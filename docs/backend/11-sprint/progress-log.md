@@ -905,3 +905,37 @@ Completed all sections of `selaluteh-location-intelligence` spec: core domain co
 - Continue cart-order-lifecycle implementation (Tasks 3-8, 17-34)
 - Wire inventory commit/release into approve/reject
 - Add comprehensive test suites
+
+## 2026-06-25 — Outlet Three-Dots Dropdown Menu, Pause UI & Backend Delete Integration
+
+### Completed
+- Implemented **Three Dots Pop-up Menu** on each outlet card in `OutletsPage.jsx` with actions: View details, Edit outlet, Manage channels, Edit operating hours, Duplicate outlet, Mark needs attention, Pause/Reactivate, and Delete.
+- Added **Pause Outlet Confirmation Modal** to frontend UI mimicking user mockup design.
+- Added **Delete Outlet Confirmation Modal** to frontend UI mimicking user mockup design.
+- Extended **Vite/React client API calls** to handle toggling needs_attention, duplication, pausing/reactivating, and deleting.
+- Added `delete` method to `outlets.supabase.repository.js` to delete an outlet and clean up related access and manager records.
+- Added `deleteOutlet` service function to `outlet.service.js` with access checks.
+- Expanded validator checks on `updateOutletStatus` to include `paused`, `needs_attention`, and `coming_soon`.
+- Exposed `DELETE /:outletId` route in `routes/outlets.js`.
+- Added node integration tests for the `deleteOutlet` service logic (permissions, existence, success) in `outlet-service.integration.test.js`.
+
+### Changed Files
+- `server/src/db/repositories/outlets.supabase.repository.js`
+- `server/src/services/outlet.service.js`
+- `server/src/routes/outlets.js`
+- `server/test/integration/outlets/outlet-service.integration.test.js`
+- `web/src/modules/outlets/pages/OutletsPage.jsx`
+- `docs/backend/11-sprint/progress-log.md`
+- `docs/backend/11-sprint/implementation-status.md`
+
+### Notes
+- Preserved existing database and UI components without regression.
+- Tested and compiled frontend successfully with Vite.
+- Tested backend integration successfully (all 8 tests passing).
+
+### Tests
+- `node --test test/integration/outlets/outlet-service.integration.test.js` (8/8 pass)
+- `npm run build` from `web/` (successful compile)
+
+### Next
+- Continue implementing remaining tasks under active specs.

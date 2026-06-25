@@ -12,6 +12,24 @@ import { requireWorkspaceId } from '../supabase-query.js';
 
 const TABLE = 'complaints';
 
+function mapComplaintRow(row) {
+  if (!row) return null;
+  const mapped = mapRow(row);
+  if (row.order) {
+    mapped.order = {
+      id: row.order.id,
+      orderNumber: row.order.order_number,
+      source: row.order.source,
+    };
+  }
+  return mapped;
+}
+
+function mapComplaintRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map(mapComplaintRow);
+}
+
 export const complaintsSupabaseRepository = {
   /**
    * List complaints for a workspace, with optional outlet and status filters.
@@ -21,14 +39,16 @@ export const complaintsSupabaseRepository = {
     const client = getSupabaseServiceClient();
     let q = client
       .from(TABLE)
-      .select('*, contacts(id, name, phone, email), agents(id, name)')
+      .select(
+        '*, contact:contacts(id, name, phone, email), agent:agents(id, name), outlet:outlets(id, name, code, city), platform:platforms(id, type, label), order:orders(id, order_number, source), assignedTo:users!complaints_assigned_to_user_id_fkey(id, name, email)'
+      )
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false });
     if (status) q = q.eq('status', status);
     if (outletId) q = q.eq('outlet_id', outletId);
     else if (outletIds && outletIds.length > 0) q = q.in('outlet_id', outletIds);
     const result = await q;
-    return mapRows(extractData(result, 'complaints.list') ?? []);
+    return mapComplaintRows(extractData(result, 'complaints.list') ?? []);
   },
 
   /**
@@ -39,12 +59,14 @@ export const complaintsSupabaseRepository = {
     const client = getSupabaseServiceClient();
     const result = await client
       .from(TABLE)
-      .select('*, contacts(id, name, phone, email)')
+      .select(
+        '*, contact:contacts(id, name, phone, email), agent:agents(id, name), outlet:outlets(id, name, code, city), platform:platforms(id, type, label), order:orders(id, order_number, source), assignedTo:users!complaints_assigned_to_user_id_fkey(id, name, email)'
+      )
       .eq('workspace_id', workspaceId)
       .eq('id', complaintId)
       .maybeSingle();
     const row = extractSingle(result, 'complaints.findById');
-    return row ? mapRow(row) : null;
+    return row ? mapComplaintRow(row) : null;
   },
 
   /**
@@ -61,6 +83,7 @@ export const complaintsSupabaseRepository = {
       platform_id: data.platformId || null,
       agent_id: data.agentId || null,
       order_id: data.orderId || null,
+      channel: data.channel || null,
       subject: data.subject || data.text || '',
       description: data.description || data.text || null,
       status: data.status || 'open',

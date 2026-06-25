@@ -48,6 +48,21 @@ export const cartsSupabaseRepository = {
     return rows?.[0] ? mapCart(rows[0]) : null;
   },
 
+  async expireActiveByContactExceptOutlet({ workspaceId, contactId, outletId }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    let q = client
+      .from(TABLE)
+      .update({ status: 'expired' })
+      .eq('workspace_id', workspaceId)
+      .eq('contact_id', contactId)
+      .eq('status', 'active');
+
+    if (outletId) q = q.neq('outlet_id', outletId);
+
+    await q;
+  },
+
   async findActiveByChat({ workspaceId, chatId }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
@@ -82,17 +97,8 @@ export const cartsSupabaseRepository = {
 
   async upsertByContact({ workspaceId, contactId, outletId, chatId }) {
     requireWorkspaceId(workspaceId);
-    // Try to find existing active cart for this contact (across ANY outlet)
-    const existing = await this.findActiveByContact({ workspaceId, contactId });
-    if (existing) {
-      // If outlet changed, update it
-      if (outletId && String(existing.outletId) !== String(outletId)) {
-        const client = getSupabaseServiceClient();
-        await client.from(TABLE).update({ outlet_id: outletId }).eq('workspace_id', workspaceId).eq('id', existing.id);
-        return this.findById({ workspaceId, cartId: existing.id });
-      }
-      return existing;
-    }
+    const existing = await this.findActiveByContact({ workspaceId, contactId, outletId });
+    if (existing) return existing;
     // No active cart — create a new one
     return this.create({ workspaceId, outletId, contactId, chatId: chatId || null });
   },

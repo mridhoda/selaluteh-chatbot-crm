@@ -19,6 +19,7 @@ function fetchWithIPv4(url, body, timeoutMs = 10000) {
         hostname: addresses[0],
         path: urlObj.pathname,
         method: 'POST',
+        servername: urlObj.hostname,
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postData),
@@ -43,6 +44,84 @@ function fetchWithIPv4(url, body, timeoutMs = 10000) {
       req.end();
     });
   });
+}
+
+function requestMultipartWithIPv4(url, { fields = {}, fileField, filePath, filename, mimeType }, timeoutMs = 30000) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const urlObj = new URL(url);
+      const boundary = '----selaluteh-' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+      const chunks = [];
+
+      for (const [key, value] of Object.entries(fields)) {
+        if (value === undefined || value === null || value === '') continue;
+        chunks.push(Buffer.from(`--${boundary}\r\n`));
+        chunks.push(Buffer.from(`Content-Disposition: form-data; name="${key}"\r\n\r\n`));
+        chunks.push(Buffer.from(String(value)));
+        chunks.push(Buffer.from('\r\n'));
+      }
+
+      const fileContent = await fs.readFile(filePath);
+      chunks.push(Buffer.from(`--${boundary}\r\n`));
+      chunks.push(Buffer.from(`Content-Disposition: form-data; name="${fileField}"; filename="${String(filename).replace(/"/g, '\\"')}"\r\n`));
+      chunks.push(Buffer.from(`Content-Type: ${mimeType || 'application/octet-stream'}\r\n\r\n`));
+      chunks.push(fileContent);
+      chunks.push(Buffer.from('\r\n'));
+      chunks.push(Buffer.from(`--${boundary}--\r\n`));
+      const postData = Buffer.concat(chunks);
+
+      dns.resolve4(urlObj.hostname, (err, addresses) => {
+        if (err || !addresses || addresses.length === 0) {
+          return reject(new Error('DNS resolution failed for ' + urlObj.hostname));
+        }
+
+        const options = {
+          hostname: addresses[0],
+          path: urlObj.pathname,
+          method: 'POST',
+          servername: urlObj.hostname,
+          headers: {
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+            'Content-Length': postData.length,
+            'Host': urlObj.hostname,
+          },
+          timeout: timeoutMs,
+          rejectUnauthorized: true,
+        };
+
+        const req = https.request(options, (res) => {
+          let data = '';
+          res.on('data', (chunk) => data += chunk);
+          res.on('end', () => {
+            try { resolve(JSON.parse(data)); }
+            catch { reject(new Error('Invalid JSON response: ' + data.slice(0, 200))); }
+          });
+        });
+
+        req.on('error', reject);
+        req.on('timeout', () => { req.destroy(); reject(Object.assign(new Error('Timeout'), { code: 'ETIMEDOUT' })); });
+        req.write(postData);
+        req.end();
+      });
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+async function telegramRequestWithRetry(requestFn) {
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await requestFn();
+      if (!response.ok) throw new Error(`Telegram API failed: ${JSON.stringify(response)}`);
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+  throw lastError || new Error('Telegram API failed after retry');
 }
 
 export async function tgSendSplit(token, chatId, text, replyToMessageId = null) {
@@ -74,18 +153,7 @@ export async function tgSend(token, chatId, text, replyToMessageId = null, optio
     body.reply_markup = options.replyMarkup || options.reply_markup;
   }
 
-  let lastError;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const j = await fetchWithIPv4(url, body, 10000);
-      if (!j.ok) throw new Error(`Telegram sendMessage failed: ${JSON.stringify(j)}`)
-      return j
-    } catch (e) {
-      lastError = e;
-      if (attempt === 0) await new Promise(r => setTimeout(r, 1000));
-    }
-  }
-  throw lastError || new Error('Telegram send failed after retry');
+  return telegramRequestWithRetry(() => fetchWithIPv4(url, body, 10000));
 }
 export async function waSend(token, fromPhoneNumberId, to, text) {
   const url = `https://graph.facebook.com/v19.0/${fromPhoneNumberId}/messages`;
@@ -272,14 +340,7 @@ export async function igGetUserProfile(userId, token) {
 export async function tgSendSticker(token, chatId, stickerUrl) {
   const url = `https://api.telegram.org/bot${token}/sendSticker`;
   const body = { chat_id: chatId, sticker: stickerUrl };
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const j = await r.json();
-  if (!j.ok) throw new Error(`Telegram sendSticker failed: ${JSON.stringify(j)}`);
-  return j;
+  return telegramRequestWithRetry(() => fetchWithIPv4(url, body, 10000));
 }
 
 function getMimeType(filename) {
@@ -307,89 +368,53 @@ function getMimeType(filename) {
 export async function tgSendDocument(token, chatId, localFilePath, caption, replyToMessageId = null) {
   const url = `https://api.telegram.org/bot${token}/sendDocument`;
 
-  const fileContent = await fs.readFile(localFilePath);
   const filename = path.basename(localFilePath);
   const mimeType = getMimeType(filename);
-  const fileBlob = new Blob([fileContent], { type: mimeType });
-
-  const formData = new FormData();
-  formData.append('chat_id', String(chatId));
-  if (caption) {
-    formData.append('caption', caption);
-  }
-  if (replyToMessageId) {
-    formData.append('reply_to_message_id', String(parseInt(replyToMessageId)));
-  }
-  formData.append('document', fileBlob, filename);
-
-  const r = await fetch(url, {
-    method: 'POST',
-    body: formData,
-  });
-
-  const j = await r.json();
-  if (!j.ok) throw new Error(`Telegram sendDocument failed: ${JSON.stringify(j)}`);
-  return j;
+  return telegramRequestWithRetry(() => requestMultipartWithIPv4(url, {
+    fields: {
+      chat_id: String(chatId),
+      caption,
+      reply_to_message_id: replyToMessageId ? String(parseInt(replyToMessageId)) : null,
+    },
+    fileField: 'document',
+    filePath: localFilePath,
+    filename,
+    mimeType,
+  }));
 }
 
 export async function tgSendPhoto(token, chatId, localFilePath, caption, replyToMessageId = null) {
   const url = `https://api.telegram.org/bot${token}/sendPhoto`;
 
-  const fileContent = await fs.readFile(localFilePath);
   const filename = path.basename(localFilePath);
   const mimeType = getMimeType(filename);
-  const fileBlob = new Blob([fileContent], { type: mimeType });
-
-  const formData = new FormData();
-  formData.append('chat_id', String(chatId));
-  if (caption) {
-    formData.append('caption', caption);
-  }
-  if (replyToMessageId) {
-    formData.append('reply_to_message_id', String(parseInt(replyToMessageId)));
-  }
-  formData.append('photo', fileBlob, filename);
-
-  const r = await fetch(url, {
-    method: 'POST',
-    body: formData,
-  });
-
-  const j = await r.json();
-  if (!j.ok) {
-    console.error('Telegram sendPhoto failed:', JSON.stringify(j));
-    throw new Error(`Telegram sendPhoto failed: ${JSON.stringify(j)}`);
-  }
-  return j;
+  return telegramRequestWithRetry(() => requestMultipartWithIPv4(url, {
+    fields: {
+      chat_id: String(chatId),
+      caption,
+      reply_to_message_id: replyToMessageId ? String(parseInt(replyToMessageId)) : null,
+    },
+    fileField: 'photo',
+    filePath: localFilePath,
+    filename,
+    mimeType,
+  }));
 }
 
 export async function tgSendVideo(token, chatId, localFilePath, caption, replyToMessageId = null) {
   const url = `https://api.telegram.org/bot${token}/sendVideo`;
 
-  const fileContent = await fs.readFile(localFilePath);
   const filename = path.basename(localFilePath);
   const mimeType = getMimeType(filename);
-  const fileBlob = new Blob([fileContent], { type: mimeType });
-
-  const formData = new FormData();
-  formData.append('chat_id', String(chatId));
-  if (caption) {
-    formData.append('caption', caption);
-  }
-  if (replyToMessageId) {
-    formData.append('reply_to_message_id', String(parseInt(replyToMessageId)));
-  }
-  formData.append('video', fileBlob, filename);
-
-  const r = await fetch(url, {
-    method: 'POST',
-    body: formData,
-  });
-
-  const j = await r.json();
-  if (!j.ok) {
-    console.error('Telegram sendVideo failed:', JSON.stringify(j));
-    throw new Error(`Telegram sendVideo failed: ${JSON.stringify(j)}`);
-  }
-  return j;
+  return telegramRequestWithRetry(() => requestMultipartWithIPv4(url, {
+    fields: {
+      chat_id: String(chatId),
+      caption,
+      reply_to_message_id: replyToMessageId ? String(parseInt(replyToMessageId)) : null,
+    },
+    fileField: 'video',
+    filePath: localFilePath,
+    filename,
+    mimeType,
+  }));
 }

@@ -1,7 +1,9 @@
-import { chatsRepository, messagesRepository, ordersRepository, contactsRepository } from '../db/repositories/index.js';
+import { chatsRepository, messagesRepository, ordersRepository, contactsRepository, outletsRepository } from '../db/repositories/index.js';
 import { tgSend, waSend, igSend } from './sender.js';
 import { buildOutletScopedQuery, assertOutletAccess, canAccessAllOutlets } from './access-control.service.js';
 import { AppError } from '../utils/errors.js';
+import { sendOrderCreatedPush } from './web-push.service.js';
+import { broadcastToWorkspace } from './realtime.service.js';
 import {
   OrderStatus, isValidOrderTransition, ORDER_ERRORS, ActorType,
 } from '../orders/order-types.js';
@@ -41,10 +43,15 @@ export async function createOrderFromCheckout({ workspaceId, checkout, user }) {
   }
 
   const orderNumber = await generateOrderNumber(workspaceId);
+  let outletNameSnapshot = checkout.fulfillmentSnapshot?.outletName || '';
+  if (!outletNameSnapshot && checkout.outletId) {
+    const outlet = await outletsRepository.findById({ workspaceId, outletId: checkout.outletId });
+    outletNameSnapshot = outlet?.name || '';
+  }
   const order = await ordersRepository.create({
     workspaceId,
     outletId: checkout.outletId,
-    outletNameSnapshot: checkout.fulfillmentSnapshot?.outletName || '',
+    outletNameSnapshot,
     checkoutId: checkout.id,
     chatId: checkout.chatId,
     contactId: checkout.contactId,
@@ -62,6 +69,7 @@ export async function createOrderFromCheckout({ workspaceId, checkout, user }) {
     paymentStatus: 'unpaid',
     fulfillmentStatus: 'unfulfilled',
   });
+  notifyOrderCreated({ workspaceId, outletId: order.outletId, order });
   return order;
 }
 
@@ -81,10 +89,16 @@ export async function createOrderFromAI({ chat, agent, orderData, paymentProofUr
     }
   }
 
-  return ordersRepository.create({
+  let outletNameSnapshot = resolveOutletName(orderData.formData);
+  if (!outletNameSnapshot || outletNameSnapshot === 'Kami') {
+    const outlet = outletId ? await outletsRepository.findById({ workspaceId, outletId }) : null;
+    outletNameSnapshot = outlet?.name || '';
+  }
+
+  const order = await ordersRepository.create({
     workspaceId,
     outletId,
-    outletNameSnapshot: resolveOutletName(orderData.formData),
+    outletNameSnapshot,
     chatId: chat.id,
     contactId: chat.contactId,
     agentId: agent.id,
@@ -98,6 +112,33 @@ export async function createOrderFromAI({ chat, agent, orderData, paymentProofUr
     totals: { subtotal: 0, total: 0, currency: 'IDR' },
     timeline: [{ type: 'order:created', actor: 'ai', note: 'Legacy order from AI', timestamp: new Date() }],
   });
+  notifyOrderCreated({ workspaceId, outletId: order.outletId, order });
+  return order;
+}
+
+function notifyOrderCreated({ workspaceId, outletId, order }) {
+  broadcastToWorkspace({
+    workspaceId,
+    event: 'order.created',
+    data: buildOrderCreatedEvent({ workspaceId, outletId, order }),
+  });
+  sendOrderCreatedPush({ workspaceId, outletId, order }).catch((err) => {
+    console.error('[OrderPushNotification] Failed to send order.created push:', err.message);
+  });
+}
+
+function buildOrderCreatedEvent({ workspaceId, outletId, order }) {
+  return {
+    type: 'order.created',
+    workspaceId,
+    outletId,
+    orderId: order?.id,
+    orderNumber: order?.orderNumber,
+    title: 'Pesanan baru masuk',
+    body: `${order?.orderNumber || order?.id || 'Order baru'} dari ${order?.customerNameSnapshot || order?.customerSnapshot?.name || 'Customer'}`,
+    order,
+    createdAt: new Date().toISOString(),
+  };
 }
 
 export async function approveOrder({ workspaceId, orderId, outletId, userId }) {

@@ -14,6 +14,23 @@ const ABBREVIATIONS = {
 
 const MAX_INPUT_LENGTH = 500;
 
+const CUSTOMER_LOCATION_PREFIX_PATTERNS = [
+  /^(?:kalau|kalo|jika|misal|misalnya)\s+(?:aku|saya|sy|aq|kami)\s+(?:ada\s+)?di\s+/i,
+  /^lokasi\s+(?:ku|aku|saya|kami)\s+(?:ada\s+)?(?:di\s+)?/i,
+  /^posisi\s+(?:ku|aku|saya|kami)\s+(?:ada\s+)?(?:di\s+)?/i,
+  /^alamat\s+(?:ku|aku|saya|kami)\s+(?:ada\s+)?(?:di\s+)?/i,
+  /^(?:aku|saya|kami)\s+(?:ada\s+)?di\s+/i,
+  /^(?:lokasiku|posisiku|alamatku)\s+(?:ada\s+)?(?:di\s+)?/i,
+];
+
+export function stripCustomerLocationPrefix(text = '') {
+  let normalized = String(text || '').trim();
+  for (const pattern of CUSTOMER_LOCATION_PREFIX_PATTERNS) {
+    normalized = normalized.replace(pattern, '').trim();
+  }
+  return normalized;
+}
+
 export function parseLocationText(text) {
   const result = {
     street: null,
@@ -27,7 +44,7 @@ export function parseLocationText(text) {
 
   if (!text || typeof text !== 'string') return result;
 
-  let normalized = text.trim().slice(0, MAX_INPUT_LENGTH);
+  let normalized = stripCustomerLocationPrefix(text).slice(0, MAX_INPUT_LENGTH);
 
   const injectionMarkers = ['abaikan', 'ignore', 'tampilkan', 'jangan', 'lupakan'];
   for (const marker of injectionMarkers) {

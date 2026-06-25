@@ -84,7 +84,7 @@ export const ordersSupabaseRepository = {
       agent_id: data.agentId || null,
       cart_id: data.cartId || null,
       checkout_id: data.checkoutId || null,
-      // outlet_name_snapshot does NOT exist in the orders table schema
+      outlet_name_snapshot: data.outletNameSnapshot || data.outletName || '',
       source: data.source || 'telegram',
       status: data.status || 'new',
       payment_status: data.paymentStatus || 'unpaid',
@@ -181,6 +181,19 @@ export const ordersSupabaseRepository = {
     const client = getSupabaseServiceClient();
     const result = await client.from(TABLE).select('*, contacts(id, name, phone, handle, external_id), outlets(id, name, code, city, status), chats(*), order_items(*)').eq('workspace_id', workspaceId).eq('id', orderId).maybeSingle();
     const row = extractSingle(result, 'orders.workspaceFindById');
+    return row ? mapOrder(row) : null;
+  },
+
+  async workspaceFindByOrderNumber({ workspaceId, orderNumber }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .select('*, contacts(id, name, phone, handle, external_id), outlets(id, name, code, city, status), chats(*), order_items(*)')
+      .eq('workspace_id', workspaceId)
+      .eq('order_number', orderNumber)
+      .maybeSingle();
+    const row = extractSingle(result, 'orders.workspaceFindByOrderNumber');
     return row ? mapOrder(row) : null;
   },
 

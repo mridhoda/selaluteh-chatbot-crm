@@ -87,6 +87,11 @@ export async function selectOutletForChat({ workspaceId, chat, contact, agent, o
     actionType: 'select_outlet',
     input: { outletId },
     executor: async () => {
+      await cartsRepository.expireActiveByContactExceptOutlet({
+        workspaceId,
+        contactId: contact.id,
+        outletId: outlet.id,
+      });
       await chatsRepository.setCurrentOutlet(chat.id, outlet.id);
       await contactsRepository.setLastOutlet(contact.id, outlet.id);
       return { outletId: outlet.id, outletName: outlet.name };

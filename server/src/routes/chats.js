@@ -9,14 +9,16 @@
 import express from 'express';
 import path from 'path';
 import { authRequired, attachUser } from '../middleware/auth.js';
+import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
 import { acquireTakeover, releaseTakeover } from '../services/human-takeover.service.js';
 import { chatsSupabaseRepository, messagesSupabaseRepository } from '../db/repositories/index.js';
 import { decrypt } from '../utils/encryption.js';
 import { tgSend, tgSendDocument, tgSendPhoto, waSend, waSendDocument, waSendImage, waSendSticker } from '../services/sender.js';
 
 const router = express.Router();
+const auth = [authRequired, attachUser, attachWorkspaceContext];
 
-router.get('/', authRequired, attachUser, async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
     const {
       unreadOnly,
@@ -74,7 +76,7 @@ router.get('/', authRequired, attachUser, async (req, res) => {
   }
 });
 
-router.get('/:chatId/messages', authRequired, attachUser, async (req, res) => {
+router.get('/:chatId/messages', auth, async (req, res) => {
   try {
     const { chatId } = req.params;
     const workspaceId = req.me.workspaceId;
@@ -95,7 +97,7 @@ router.get('/:chatId/messages', authRequired, attachUser, async (req, res) => {
   }
 });
 
-router.post('/:chatId/send', authRequired, attachUser, async (req, res) => {
+router.post('/:chatId/send', auth, async (req, res) => {
   try {
     const { chatId } = req.params;
     const { text, content, attachment, replyTo } = req.body;
@@ -250,21 +252,21 @@ router.post('/:chatId/send', authRequired, attachUser, async (req, res) => {
   }
 });
 
-router.post('/:chatId/takeover', authRequired, attachUser, async (req, res, next) => {
+router.post('/:chatId/takeover', auth, async (req, res, next) => {
   try {
     const chat = await acquireTakeover({ chatId: req.params.chatId, userId: req.me.id });
     res.json({ data: chat });
   } catch (err) { next(err); }
 });
 
-router.post('/:chatId/release', authRequired, attachUser, async (req, res, next) => {
+router.post('/:chatId/release', auth, async (req, res, next) => {
   try {
     const chat = await releaseTakeover({ chatId: req.params.chatId, userId: req.me.id });
     res.json({ data: chat });
   } catch (err) { next(err); }
 });
 
-router.delete('/:chatId', authRequired, attachUser, async (req, res) => {
+router.delete('/:chatId', auth, async (req, res) => {
   try {
     const { chatId } = req.params;
     const workspaceId = req.me.workspaceId;

@@ -23,6 +23,9 @@ import {
   Megaphone,
   MessageCircle,
   MoreVertical,
+  Pause,
+  Trash2,
+  Eye,
   Phone,
   Plus,
   RefreshCw,
@@ -750,8 +753,20 @@ function CardMetric({ label, value, trend, detail, dot, star }) {
   )
 }
 
-/* ─── Outlet card (grid item) ──────────────────────────────── */
-function OutletCard({ outlet, selected, onSelect }) {
+function OutletCard({
+  outlet,
+  selected,
+  onSelect,
+  onViewDetails,
+  onEdit,
+  onManageChannels,
+  onDuplicate,
+  onToggleNeedsAttention,
+  onPause,
+  onDelete,
+}) {
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+
   return (
     <div
       role='button'
@@ -763,7 +778,7 @@ function OutletCard({ outlet, selected, onSelect }) {
         }
       }}
       className={cx(
-        'w-full min-w-0 box-border rounded-2xl border p-3 text-left transition-all duration-150 outline-none cursor-pointer',
+        'w-full min-w-0 box-border rounded-2xl border p-3 text-left transition-all duration-150 outline-none cursor-pointer relative',
         'hover:border-[#F43F70]/40 hover:shadow-[0_8px_28px_rgba(17,24,46,0.07)]',
         selected
           ? 'border-[#F43F70] bg-[#FFF5F7]/30 shadow-[0_0_0_1px_#F43F70,0_4px_20px_rgba(244,63,112,0.06)]'
@@ -787,17 +802,137 @@ function OutletCard({ outlet, selected, onSelect }) {
                 {[outlet.city, outlet.region].filter(Boolean).join(', ')}
               </p>
             </div>
-            <div className='flex shrink-0 items-center gap-1.5'>
+            <div className='flex shrink-0 items-center gap-1.5 relative'>
               <StatusBadge status={outlet.status} />
-              <button
-                type='button'
-                onClick={(e) => {
-                  e.stopPropagation()
-                }}
-                className='grid h-7 w-7 place-items-center rounded-lg text-[#98A2B3] hover:bg-[#F2F4F8] hover:text-[#667085] transition-colors'
-              >
-                <MoreVertical size={16} />
-              </button>
+              
+              <div className="relative shrink-0">
+                <button
+                  type='button'
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setDropdownOpen(!dropdownOpen)
+                  }}
+                  className='grid h-7 w-7 place-items-center rounded-lg text-[#98A2B3] hover:bg-[#F2F4F8] hover:text-[#667085] transition-colors cursor-pointer'
+                >
+                  <MoreVertical size={16} />
+                </button>
+
+                {dropdownOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-[90] cursor-default" 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDropdownOpen(false)
+                      }}
+                    />
+                    <div 
+                      className="absolute right-0 top-8 z-[100] bg-white border border-[#E1E6EF] rounded-2xl shadow-[0_12px_32px_rgba(17,24,46,0.12)] p-1.5 w-[200px] text-[#11182E] text-xs font-semibold select-none animate-in fade-in slide-in-from-top-1 duration-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDropdownOpen(false)
+                          onViewDetails(outlet)
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-slate-50 transition cursor-pointer text-left font-bold"
+                      >
+                        <Eye size={14} className="text-slate-400" />
+                        View details
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDropdownOpen(false)
+                          onEdit(outlet)
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-slate-50 transition cursor-pointer text-left font-bold"
+                      >
+                        <Edit3 size={14} className="text-slate-400" />
+                        Edit outlet
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDropdownOpen(false)
+                          onManageChannels(outlet)
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-slate-50 transition cursor-pointer text-left font-bold"
+                      >
+                        <Layers size={14} className="text-slate-400" />
+                        Manage channels
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDropdownOpen(false)
+                          onEdit(outlet)
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-slate-50 transition cursor-pointer text-left font-bold"
+                      >
+                        <Clock3 size={14} className="text-slate-400" />
+                        Edit operating hours
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDropdownOpen(false)
+                          onDuplicate(outlet)
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-slate-50 transition cursor-pointer text-left font-bold"
+                      >
+                        <Copy size={14} className="text-slate-400" />
+                        Duplicate outlet
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDropdownOpen(false)
+                          onToggleNeedsAttention(outlet)
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-slate-50 transition cursor-pointer text-left font-bold"
+                      >
+                        <AlertTriangle size={14} className="text-slate-400" />
+                        {outlet.status === 'Needs Attention' ? 'Mark active' : 'Mark needs attention'}
+                      </button>
+                      
+                      <div className="h-px bg-slate-100 my-1" />
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDropdownOpen(false)
+                          onPause(outlet)
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[#F43F70] hover:bg-[#FFF0F3] transition cursor-pointer text-left font-bold"
+                      >
+                        <Pause size={14} className="text-[#F43F70]" />
+                        {outlet.status === 'Paused' ? 'Reactivate' : 'Pause outlet'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDropdownOpen(false)
+                          onDelete(outlet)
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[#F43F70] hover:bg-[#FFF0F3] transition cursor-pointer text-left font-bold"
+                      >
+                        <Trash2 size={14} className="text-[#F43F70]" />
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1304,6 +1439,12 @@ export default function OutletsPage() {
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false)
   const [isDetailOpen, setIsDetailOpen] = useState(true)
 
+  // Pause/Delete modals states
+  const [isPauseModalOpen, setIsPauseModalOpen] = useState(false)
+  const [outletToPause, setOutletToPause] = useState(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [outletToDelete, setOutletToDelete] = useState(null)
+
   // Add Outlet Modal states
   const [isAddOutletOpen, setIsAddOutletOpen] = useState(false)
   const [addForm, setAddForm] = useState({
@@ -1568,7 +1709,7 @@ export default function OutletsPage() {
                   : o.status === 'coming_soon'
                     ? 'Coming Soon'
                     : 'Paused',
-            manager: o.manager || 'Agus',
+            manager: o.manager || o.managerName || o.metadata?.managerName || '',
             orders: todayOrdersCount,
             revenue: todayRevenue,
             rating: o.rating || 4.5,
@@ -1579,7 +1720,8 @@ export default function OutletsPage() {
             image: o.image || o.metadata?.image || `/images/outlets/outlet-${(idx % 4) + 1}.png`,
             channels: o.channels || ['whatsapp', 'telegram'],
             address: o.address || '',
-            phone: o.phone || '-',
+            phone: o.managerPhone || o.metadata?.managerPhone || o.phone || '-',
+            email: o.managerEmail || o.metadata?.managerEmail || o.email || '',
             salesTrend: o.salesTrend || [0, 0, 0, 0, 0, 0],
             reconciliationStatus: o.reconciliationStatus || 'Reconciled',
             discrepancyCount: o.discrepancyCount || 0,
@@ -1914,8 +2056,8 @@ export default function OutletsPage() {
       region: addForm.region,
       address: addForm.address,
       postalCode: addForm.postalCode || null,
-      phone: addForm.phone || addForm.managerPhone,
-      email: addForm.email || addForm.managerEmail,
+      phone: addForm.managerPhone,
+      email: addForm.managerEmail,
       status: addForm.status.toLowerCase().replace(' ', '_'),
       openingHours: {
         'Mon - Fri': `${addForm.operatingHours.monFri.open} - ${addForm.operatingHours.monFri.close}`,
@@ -2169,8 +2311,8 @@ export default function OutletsPage() {
       region: editForm.region,
       address: editForm.address,
       postalCode: editForm.postalCode || null,
-      phone: editForm.phone || editForm.managerPhone,
-      email: editForm.email || editForm.managerEmail,
+      phone: editForm.managerPhone,
+      email: editForm.managerEmail,
       status: editForm.status.toLowerCase().replace(' ', '_'),
       openingHours: {
         'Mon - Fri': `${editForm.operatingHours.monFri.open} - ${editForm.operatingHours.monFri.close}`,
@@ -2286,9 +2428,9 @@ export default function OutletsPage() {
       latitude: outlet.latitude || outlet.metadata?.latitude || '',
       longitude: outlet.longitude || outlet.metadata?.longitude || '',
       googleMapsLink: outlet.googleMapsLink || outlet.metadata?.googleMapsLink || '',
-      managerName: outlet.manager || '',
-      managerPhone: outlet.phone || '',
-      managerEmail: outlet.email || '',
+      managerName: outlet.managerName || outlet.metadata?.managerName || outlet.manager || '',
+      managerPhone: outlet.managerPhone || outlet.metadata?.managerPhone || outlet.phone || '',
+      managerEmail: outlet.managerEmail || outlet.metadata?.managerEmail || outlet.email || '',
       status: outlet.status || 'Active',
       openingType: outlet.status || 'Active',
       whatsappConnected: outlet.channels ? outlet.channels.some(c => c.toLowerCase() === 'whatsapp') : false,
@@ -2314,6 +2456,153 @@ export default function OutletsPage() {
   const handleOpenOrders = (outlet) => {
     if (!outlet) return
     navigate(`/app/orders?outlet=${encodeURIComponent(outlet.name)}`)
+  }
+
+  const handleConfirmPauseOutlet = async () => {
+    if (!outletToPause) return
+    try {
+      if (isDemoMode()) {
+        const updated = { ...outletToPause, status: 'Paused' }
+        setOutlets(prev => prev.map(o => o.id === outletToPause.id ? updated : o))
+        if (selectedOutlet?.id === outletToPause.id) setSelectedOutlet(updated)
+      } else {
+        await api.patch(`/outlets/${outletToPause.id}/status`, { status: 'inactive' })
+        await loadOutlets()
+        if (selectedOutlet?.id === outletToPause.id) {
+          const updated = { ...selectedOutlet, status: 'Paused' }
+          setSelectedOutlet(updated)
+        }
+      }
+      setIsPauseModalOpen(false)
+      setOutletToPause(null)
+    } catch (err) {
+      console.error('Failed to pause outlet:', err)
+      alert('Failed to pause outlet: ' + (err.response?.data?.error?.message || err.message || 'Unknown error'))
+    }
+  }
+
+  const handleConfirmRereactivateOutlet = async (outlet) => {
+    if (!outlet) return
+    try {
+      if (isDemoMode()) {
+        const updated = { ...outlet, status: 'Active' }
+        setOutlets(prev => prev.map(o => o.id === outlet.id ? updated : o))
+        if (selectedOutlet?.id === outlet.id) setSelectedOutlet(updated)
+      } else {
+        await api.patch(`/outlets/${outlet.id}/status`, { status: 'active' })
+        await loadOutlets()
+        if (selectedOutlet?.id === outlet.id) {
+          const updated = { ...selectedOutlet, status: 'Active' }
+          setSelectedOutlet(updated)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to reactivate outlet:', err)
+      alert('Failed to reactivate outlet: ' + (err.response?.data?.error?.message || err.message || 'Unknown error'))
+    }
+  }
+
+  const handleConfirmDeleteOutlet = async () => {
+    if (!outletToDelete) return
+    try {
+      if (isDemoMode()) {
+        setOutlets(prev => prev.filter(o => o.id !== outletToDelete.id))
+        if (selectedOutlet?.id === outletToDelete.id) setSelectedOutlet(null)
+      } else {
+        await api.delete(`/outlets/${outletToDelete.id}`)
+        if (selectedOutlet?.id === outletToDelete.id) setSelectedOutlet(null)
+        await loadOutlets()
+      }
+      setIsDeleteModalOpen(false)
+      setOutletToDelete(null)
+    } catch (err) {
+      console.error('Failed to delete outlet:', err)
+      alert('Failed to delete outlet: ' + (err.response?.data?.error?.message || err.message || 'Unknown error'))
+    }
+  }
+
+  const handleToggleNeedsAttention = async (outlet) => {
+    if (!outlet) return
+    try {
+      const nextStatus = outlet.status === 'Needs Attention' ? 'Active' : 'Needs Attention'
+      const dbStatus = nextStatus === 'Active' ? 'active' : 'needs_attention'
+      if (isDemoMode()) {
+        const updated = { ...outlet, status: nextStatus }
+        setOutlets(prev => prev.map(o => o.id === outlet.id ? updated : o))
+        if (selectedOutlet?.id === outlet.id) setSelectedOutlet(updated)
+      } else {
+        await api.put(`/outlets/${outlet.id}`, { status: dbStatus })
+        await loadOutlets()
+        if (selectedOutlet?.id === outlet.id) {
+          const updated = { ...selectedOutlet, status: nextStatus }
+          setSelectedOutlet(updated)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to toggle needs attention status:', err)
+      alert('Failed to update attention status: ' + (err.response?.data?.error?.message || err.message || 'Unknown error'))
+    }
+  }
+
+  const handleDuplicateOutlet = (outlet) => {
+    if (!outlet) return
+
+    let monFriHours = { open: '08:00', close: '22:00' }
+    let satHours = { open: '08:00', close: '22:00' }
+    let sunHours = { open: '08:00', close: '22:00' }
+
+    if (outlet.hours) {
+      outlet.hours.forEach(([day, range]) => {
+        if (day.toLowerCase().includes('mon') || day.toLowerCase().includes('fri') || day.toLowerCase().includes('workday')) {
+          const parts = range.split(' - ')
+          if (parts.length === 2) {
+            monFriHours = { open: parts[0], close: parts[1] }
+          }
+        } else if (day.toLowerCase().includes('sat')) {
+          const parts = range.split(' - ')
+          if (parts.length === 2) {
+            satHours = { open: parts[0], close: parts[1] }
+          }
+        } else if (day.toLowerCase().includes('sun')) {
+          const parts = range.split(' - ')
+          if (parts.length === 2) {
+            sunHours = { open: parts[0], close: parts[1] }
+          }
+        }
+      })
+    }
+
+    setAddForm({
+      name: `${outlet.name} (Copy)`,
+      code: `${outlet.code ? outlet.code + 'C' : ''}`,
+      slug: `${outlet.slug ? outlet.slug + '-copy' : ''}`,
+      region: outlet.region || 'Kalimantan Timur',
+      city: outlet.city || 'Samarinda',
+      address: outlet.address || '',
+      phone: outlet.phone || '',
+      email: outlet.email || '',
+      postalCode: outlet.postalCode || '',
+      latitude: outlet.latitude || outlet.metadata?.latitude || '',
+      longitude: outlet.longitude || outlet.metadata?.longitude || '',
+      googleMapsLink: outlet.googleMapsLink || outlet.metadata?.googleMapsLink || '',
+      managerName: outlet.managerName || outlet.metadata?.managerName || outlet.manager || '',
+      managerPhone: outlet.managerPhone || outlet.metadata?.managerPhone || outlet.phone || '',
+      managerEmail: outlet.managerEmail || outlet.metadata?.managerEmail || outlet.email || '',
+      status: outlet.status || 'Active',
+      openingType: outlet.status || 'Active',
+      whatsappConnected: outlet.channels ? outlet.channels.some(c => c.toLowerCase() === 'whatsapp') : false,
+      telegramConnected: outlet.channels ? outlet.channels.some(c => c.toLowerCase() === 'telegram') : false,
+      prepTime: outlet.avgPrep ? `${outlet.avgPrep} min` : (outlet.metadata?.prepTime || '18 min'),
+      notes: outlet.notes || outlet.metadata?.notes || '',
+      operatingHours: {
+        monFri: monFriHours,
+        saturday: satHours,
+        sunday: sunHours
+      }
+    })
+
+    setPhotoPreview(outlet.image || null)
+    setIsAddOutletOpen(true)
   }
 
   const handleRemovePhoto = (e) => {
@@ -2565,6 +2854,23 @@ export default function OutletsPage() {
                     outlet={o}
                     selected={selectedOutlet?.id === o.id}
                     onSelect={chooseOutlet}
+                    onViewDetails={handleViewDetails}
+                    onEdit={handleEditOutlet}
+                    onManageChannels={openManageChannelsModal}
+                    onDuplicate={handleDuplicateOutlet}
+                    onToggleNeedsAttention={handleToggleNeedsAttention}
+                    onPause={(outlet) => {
+                      if (outlet.status === 'Paused') {
+                        handleConfirmRereactivateOutlet(outlet)
+                      } else {
+                        setOutletToPause(outlet)
+                        setIsPauseModalOpen(true)
+                      }
+                    }}
+                    onDelete={(outlet) => {
+                      setOutletToDelete(outlet)
+                      setIsDeleteModalOpen(true)
+                    }}
                   />
                 ))}
               </div>
@@ -5414,6 +5720,100 @@ export default function OutletsPage() {
                 Save Changes
               </button>
             </footer>
+          </div>
+        </div>
+      )}
+
+      {/* ── Pause Outlet Confirmation Modal ── */}
+      {isPauseModalOpen && outletToPause && (
+        <div className='fixed inset-0 z-[130] flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-[2px] animate-in fade-in duration-150'>
+          <div className='bg-white rounded-3xl w-full max-w-[400px] shadow-2xl border border-slate-100 flex flex-col p-6 animate-in zoom-in-95 duration-200 relative'>
+            <button
+              type='button'
+              onClick={() => setIsPauseModalOpen(false)}
+              className='absolute top-4 right-4 p-1.5 hover:bg-slate-50 border border-slate-100 rounded-xl text-slate-400 hover:text-slate-800 transition cursor-pointer'
+            >
+              <X size={16} />
+            </button>
+            <div className='flex flex-col items-start gap-4'>
+              <div className='w-12 h-12 rounded-full bg-[#FFF0F3] border border-[#FFE4E8] flex items-center justify-center text-[#F43F70] shadow-sm shrink-0 font-bold text-lg select-none'>
+                ||
+              </div>
+              <div className='space-y-2.5 w-full'>
+                <h3 className='text-base font-extrabold text-[#11182E] leading-tight'>
+                  Pause {outletToPause.name}?
+                </h3>
+                <p className='m-0 text-xs text-slate-500 font-semibold leading-relaxed'>
+                  This outlet will be paused and will no longer receive new orders until reactivated.
+                </p>
+                <div className='bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs font-bold text-slate-700'>
+                  {outletToPause.name}
+                </div>
+              </div>
+            </div>
+            <div className='mt-6 flex items-center justify-end gap-3'>
+              <button
+                type='button'
+                onClick={() => setIsPauseModalOpen(false)}
+                className='h-10 px-4.5 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer'
+              >
+                Cancel
+              </button>
+              <button
+                type='button'
+                onClick={handleConfirmPauseOutlet}
+                className='h-10 px-4.5 bg-[#F43F70] hover:bg-[#e03460] text-white text-xs font-bold rounded-xl transition shadow-sm cursor-pointer'
+              >
+                Yes, pause outlet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Outlet Confirmation Modal ── */}
+      {isDeleteModalOpen && outletToDelete && (
+        <div className='fixed inset-0 z-[130] flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-[2px] animate-in fade-in duration-150'>
+          <div className='bg-white rounded-3xl w-full max-w-[400px] shadow-2xl border border-slate-100 flex flex-col p-6 animate-in zoom-in-95 duration-200 relative'>
+            <button
+              type='button'
+              onClick={() => setIsDeleteModalOpen(false)}
+              className='absolute top-4 right-4 p-1.5 hover:bg-slate-50 border border-slate-100 rounded-xl text-slate-400 hover:text-slate-800 transition cursor-pointer'
+            >
+              <X size={16} />
+            </button>
+            <div className='flex flex-col items-start gap-4'>
+              <div className='w-12 h-12 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-sm shrink-0'>
+                <Trash2 size={20} className='text-[#F43F70]' />
+              </div>
+              <div className='space-y-2.5 w-full'>
+                <h3 className='text-base font-extrabold text-[#11182E] leading-tight'>
+                  Delete {outletToDelete.name}?
+                </h3>
+                <p className='m-0 text-xs text-slate-500 font-semibold leading-relaxed'>
+                  This action is permanent and cannot be undone. All data associated with this outlet will be deleted.
+                </p>
+                <div className='bg-rose-50/30 border border-rose-100 rounded-xl p-3 text-xs font-bold text-[#F43F70]'>
+                  {outletToDelete.name}
+                </div>
+              </div>
+            </div>
+            <div className='mt-6 flex items-center justify-end gap-3'>
+              <button
+                type='button'
+                onClick={() => setIsDeleteModalOpen(false)}
+                className='h-10 px-4.5 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer'
+              >
+                Cancel
+              </button>
+              <button
+                type='button'
+                onClick={handleConfirmDeleteOutlet}
+                className='h-10 px-4.5 bg-[#F43F70] hover:bg-[#e03460] text-white text-xs font-bold rounded-xl transition shadow-sm cursor-pointer'
+              >
+                Yes, delete outlet
+              </button>
+            </div>
           </div>
         </div>
       )}

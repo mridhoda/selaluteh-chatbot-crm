@@ -13,3 +13,12 @@ Password semua sama: `demo12345`
 - Agent: `agent@selaluteh.demo`
 
 Kalau login real backend gagal, kemungkinan seed Supabase belum dijalankan atau backend belum connect ke database yang benar.
+
+**Akun test backend dari seed Supabase**
+Password semua sama: `tenggarong1`
+
+- Owner : `owner@selalukopi.demo`
+- Admin : `admin@selalukopi.demo`
+- outlet: `outlet@selalukopi.demo`
+
+Kalau login real backend gagal, kemungkinan seed Supabase belum dijalankan atau backend belum connect ke database yang benar.

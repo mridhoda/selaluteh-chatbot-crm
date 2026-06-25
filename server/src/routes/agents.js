@@ -13,7 +13,7 @@ import { authRequired, attachUser } from '../middleware/auth.js';
 import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
 import { authorizePermission } from '../middleware/authorization.js';
 import { aiRateLimit, uploadRateLimit } from '../middleware/rate-limit.js';
-import { generateAIReply, findAndSendFile } from '../services/ai.service.js';
+import { generateAIReply, findAndSendFile, getAgentPromptRules } from '../services/ai.service.js';
 import { openaiClient, geminiClient } from '../services/aiClient.js';
 import { findDatabaseFileMention } from '../utils/fileMentions.js';
 import { agentsSupabaseRepository } from '../db/repositories/index.js';
@@ -240,7 +240,8 @@ router.post('/:id/test', authRequired, attachUser, attachWorkspaceContext, autho
     if (fileResponse) return res.json({ reply: fileResponse });
 
     const messageObj = { text: message || '', attachment: attachment || null };
-    const system = agent.behavior || 'You are a helpful assistant.';
+    const promptRules = getAgentPromptRules(agent);
+    const system = agent.behavior || promptRules.fallbackSystemPrompt;
 
     const reply = await generateAIReply({
       system,

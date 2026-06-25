@@ -1,17 +1,12 @@
 ---
 schema_version: 2
 document_type: active-task-pointer
-status: active
-active_spec:
-  id: selaluteh-payments-xendit
-  path: specs/active/selaluteh-payments-xendit/spec.yaml
-active_task:
-  id: "1"
-  title: "Core types + schema + audit"
-  source: specs/active/selaluteh-payments-xendit/tasks.md
-updated_at: 2026-06-23
+status: idle
+updated_at: 2026-06-25
 ---
 
 # Current Task
 
-## Task 0: Preflight and Repository Audit
+## Task 28.2: Implement status/duplicate/archive/restore endpoints and delete integration
+
+Completed implementation of frontend three-dots dropdown actions, pause/delete modals, and backend repository/service/routes for deleting outlets. all tests verified and pass.

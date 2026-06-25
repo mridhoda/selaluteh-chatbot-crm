@@ -23,6 +23,8 @@ export function normalizeTelegramUpdate(update = {}) {
     chatId: message?.chat?.id || null,
     sender: message?.from || callback?.from || message?.chat || {},
     callbackData: callback?.data || null,
+    location: message?.location || null,
+    venue: message?.venue || null,
     raw: update,
   };
 }

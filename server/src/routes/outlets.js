@@ -3,7 +3,7 @@ import { authRequired, attachUser } from '../middleware/auth.js';
 import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
 import { authorizePermission, requireOutletAccess } from '../middleware/authorization.js';
 import { canManageWorkspace } from '../services/access-control.service.js';
-import { createOutlet, listOutlets, getOutletDetail, updateOutlet, updateOutletStatus, setUserOutletAccess, getOutletSummary, getSetupChecklist, getOrderAcceptance, changeOutletOperationalStatus, upsertServiceSettings, replaceOperatingHours } from '../services/outlet.service.js';
+import { createOutlet, listOutlets, getOutletDetail, updateOutlet, updateOutletStatus, setUserOutletAccess, getOutletSummary, getSetupChecklist, getOrderAcceptance, changeOutletOperationalStatus, upsertServiceSettings, replaceOperatingHours, deleteOutlet } from '../services/outlet.service.js';
 import { outletsSupabaseRepository, outletManagementRepository } from '../db/repositories/index.js';
 
 const router = express.Router();
@@ -175,6 +175,15 @@ router.put('/:outletId/tags', authorizePermission('outlets', 'write'), requireOu
     const tags = await outletManagementRepository.getTags(req.me.workspaceId, req.params.outletId);
     res.json({ data: tags });
   } catch (err) { next(err); }
+});
+
+router.delete('/:outletId', authorizePermission('outlets', 'write'), requireOutletAccess('outletId'), async (req, res, next) => {
+  try {
+    const result = await deleteOutlet({ user: req.me, outletId: req.params.outletId });
+    res.json({ data: result });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

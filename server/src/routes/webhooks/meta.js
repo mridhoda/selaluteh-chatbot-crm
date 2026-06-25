@@ -10,7 +10,7 @@ import {
   checkoutsRepository,
   cartsRepository,
 } from '../../db/repositories/index.js';
-import { generateAIReply } from '../../services/ai.service.js';
+import { generateAIReply, getAgentPromptRules } from '../../services/ai.service.js';
 import { createCheckout, confirmCheckout } from '../../services/checkout.service.js';
 import { createOrderFromCheckout } from '../../services/order.service.js';
 import { buildPaymentInstruction, createPaymentForOrder, createXenditPaymentSessionForOrder } from '../../services/payment.service.js';
@@ -25,7 +25,7 @@ import {
   waSendSticker,
   waSendInteractiveButton,
 } from '../../services/sender.js';
-import { findDatabaseFileMention } from '../../utils/fileMentions.js';
+import { findDatabaseFileMention, findUrlFileMention } from '../../utils/fileMentions.js';
 import {
   beginWebhookEvent,
   getMetaMessageEventId,
@@ -60,20 +60,40 @@ function resolveMessageType(filename = '', format = null) {
 
 function extractDatabaseAttachment(replyText, agent) {
   const mention = findDatabaseFileMention(replyText, agent);
-  if (!mention?.file?.storedName) return null;
-  const cleanedText = (replyText || '').replace(mention.token, mention.altText || '').trim();
-  const filename = mention.file.originalName || mention.file.storedName;
-  return {
-    text: cleanedText || mention.altText || '',
-    messageType: resolveMessageType(filename, mention.format),
-    attachment: {
-      url: getPublicFileUrl(mention.file.storedName),
-      filename,
-      storedName: mention.file.storedName,
-      type: resolveMessageType(filename, mention.format) === 'image' ? 'image' : 'document',
-      format: mention.format || null,
-    },
-  };
+  if (mention?.file?.storedName) {
+    const cleanedText = (replyText || '').replace(mention.token, mention.altText || '').trim();
+    const filename = mention.file.originalName || mention.file.storedName;
+    return {
+      text: cleanedText || mention.altText || '',
+      messageType: resolveMessageType(filename, mention.format),
+      attachment: {
+        url: getPublicFileUrl(mention.file.storedName),
+        filename,
+        storedName: mention.file.storedName,
+        type: resolveMessageType(filename, mention.format) === 'image' ? 'image' : 'document',
+        format: mention.format || null,
+      },
+    };
+  }
+
+  const urlMention = findUrlFileMention(replyText);
+  if (urlMention) {
+    const cleanedText = (replyText || '').replace(urlMention.token, urlMention.altText || '').trim();
+    const filename = urlMention.url.split('/').pop() || 'file';
+    return {
+      text: cleanedText || urlMention.altText || '',
+      messageType: resolveMessageType(filename, urlMention.format),
+      attachment: {
+        url: urlMention.url,
+        filename,
+        storedName: filename,
+        type: resolveMessageType(filename, urlMention.format) === 'image' ? 'image' : 'document',
+        format: urlMention.format || null,
+      },
+    };
+  }
+
+  return null;
 }
 
 async function sendWhatsappTextOrAttachment({ platform, fromPhoneNumberId, to, text, agent }) {
@@ -311,7 +331,8 @@ async function handleWhatsapp(data) {
       const workspaceAgents = await agentsSupabaseRepository.list({ workspaceId: platform.workspaceId });
       let agent = workspaceAgents.find((a) => a.platformId === platform.id);
       if (!agent) agent = workspaceAgents[0] || null;
-      const system = agent?.behavior || 'You are a helpful assistant.';
+      const promptRules = getAgentPromptRules(agent);
+      const system = agent?.behavior || promptRules.fallbackSystemPrompt;
       const prompt = agent?.prompt || '';
       const welcome =
         agent?.welcomeMessage || 'Halo! Ada yang bisa saya bantu?';
@@ -473,7 +494,7 @@ async function handleWhatsapp(data) {
             const history = await messagesSupabaseRepository.listByChatId(chat.id, { limit: 10 });
             const effectiveSystem = computedGreetingFlags.isFirstAssistantMessageInChat
               ? system
-              : system + '\n\nPENTING: Customer sudah pernah chat sebelumnya. Jangan memberi salam, halo, atau perkenalan lagi. Langsung jawab kebutuhan customer.';
+              : `${system}\n\n${promptRules.noReintroInstruction}`;
             reply = await generateAIReply({
               system: effectiveSystem,
               prompt,
@@ -633,7 +654,8 @@ async function handleInstagram(data) {
       const workspaceAgents2 = await agentsSupabaseRepository.list({ workspaceId: platform.workspaceId });
       let agent = workspaceAgents2.find((a) => a.platformId === platform.id);
       if (!agent) agent = workspaceAgents2[0] || null;
-      const system = agent?.behavior || 'You are a helpful assistant.';
+      const promptRules = getAgentPromptRules(agent);
+      const system = agent?.behavior || promptRules.fallbackSystemPrompt;
       const prompt = agent?.prompt || '';
       const welcome = agent?.welcomeMessage || 'Halo! Ada yang bisa saya bantu?';
 

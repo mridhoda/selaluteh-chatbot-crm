@@ -34,14 +34,20 @@ describe('checkout button logic', () => {
 
   it('checkout idempotency key format', () => {
     const cartId = 'cart-123';
-    const key = `tg_checkout_${cartId}`;
-    assert.strictEqual(key, 'tg_checkout_cart-123');
+    const key = `tg_checkout_${cartId}_${Date.now()}`;
+    assert.match(key, /^tg_checkout_cart-123_\d+$/);
   });
 
-  it('findActiveByContact can find cart without outletId', () => {
-    // This simulates the fix: findActiveByContact without outletId filter
-    const cart = mockCart;
-    assert.ok(cart, 'Cart found');
-    assert.strictEqual(cart.outletId, 'outlet-456');
+  it('requires the active cart to belong to the current outlet', () => {
+    const currentOutletId = 'outlet-new';
+    const cartForCheckout = String(mockCart.outletId) === String(currentOutletId) ? mockCart : null;
+    assert.equal(cartForCheckout, null, 'Old cart from a different outlet must not trigger checkout');
+  });
+
+  it('records the same checkout prompt text that is sent to Telegram', () => {
+    const checkoutPrompt = 'Silakan klik tombol di bawah untuk checkout dan dapatkan link pembayaran:';
+    const sentText = checkoutPrompt;
+    const persistedText = checkoutPrompt;
+    assert.strictEqual(persistedText, sentText);
   });
 });

@@ -2,16 +2,19 @@ import express from 'express';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { messagesSupabaseRepository } from '../../db/repositories/index.js';
-import { generateAIReply, findAndSendFile } from '../../services/ai.service.js';
+import { generateAIReply, findAndSendFile, getAgentPromptRules } from '../../services/ai.service.js';
 import { openaiClient, geminiClient } from '../../services/aiClient.js';
 import {
     tgSend,
+    tgSendSplit,
     tgSendDocument,
+    tgSendPhoto,
+    tgSendVideo,
     tgSendSticker,
 } from '../../services/sender.js';
-import { findDatabaseFileMention } from '../../utils/fileMentions.js';
+import { findDatabaseFileMention, findUrlFileMention } from '../../utils/fileMentions.js';
+import { downloadFile } from '../../utils/downloader.js';
 import { bufferMessage, getAndClearBuffer, clearBuffer } from '../../services/messageBuffer.js';
-
 const router = express.Router();
 
 // Process buffered messages for a chat
@@ -76,7 +79,8 @@ async function processBufferedAIReply(chatId) {
     try {
         const history = await messagesSupabaseRepository.listByChatId(chat.id, { limit: 10 });
 
-        const system = agent?.behavior || 'You are a helpful assistant.';
+        const promptRules = getAgentPromptRules(agent);
+        const system = agent?.behavior || promptRules.fallbackSystemPrompt;
         const prompt = agent?.prompt || '';
 
         reply = await generateAIReply({
@@ -98,6 +102,8 @@ async function processBufferedAIReply(chatId) {
 
     // Check for database file mention
     const mention = findDatabaseFileMention(replyText, agent);
+    const urlMention = findUrlFileMention(replyText);
+
     if (mention && mention.file?.storedName) {
         const { file, token, altText } = mention;
         const cleanedText = (replyText || '').replace(token, altText || '').trim();
@@ -125,6 +131,52 @@ async function processBufferedAIReply(chatId) {
                 storedName: file.storedName,
             }},
         });
+    } else if (urlMention) {
+        const { url, token, altText } = urlMention;
+        const cleanedText = (replyText || '').replace(token, altText || '').trim();
+        const caption = cleanedText || altText || '';
+
+        try {
+            const { filePath, filename } = await downloadFile(url);
+            const ext = path.extname(filename).toLowerCase();
+            const isImage = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext);
+            const isVideo = ['.mp4', '.mov', '.avi'].includes(ext);
+
+            if (caption && caption.length > 0) {
+                await tgSendSplit(platform.token, chat.platformChatId, caption);
+            }
+
+            if (isImage) {
+                await tgSendPhoto(platform.token, chat.platformChatId, filePath);
+            } else if (isVideo) {
+                await tgSendVideo(platform.token, chat.platformChatId, filePath);
+            } else {
+                await tgSendDocument(platform.token, chat.platformChatId, filePath);
+            }
+
+            fs.unlink(filePath).catch(err => console.error('[telegram] Failed to delete temp file:', err));
+
+            await messagesSupabaseRepository.create({
+                workspaceId: platform.workspaceId,
+                chatId: chat.id,
+                platformId: platform.id,
+                contactId: chat.contactId,
+                senderType: 'ai',
+                direction: 'outbound',
+                messageType: isImage ? 'image' : isVideo ? 'video' : 'document',
+                content: caption,
+                rawPayload: { attachment: { url: `/files/${filename}`, filename, storedName: filename } },
+            });
+        } catch (e) {
+            console.error('[telegram] Failed to send external file:', e);
+            if (replyText) {
+                try {
+                    await tgSendSplit(platform.token, chat.platformChatId, replyText);
+                } catch (innerError) {
+                    console.error('[telegram] Fallback text send failed:', innerError);
+                }
+            }
+        }
     } else if (attachment && attachment.storedName) {
         const localFilePath = path.resolve('uploads', attachment.storedName);
         try {

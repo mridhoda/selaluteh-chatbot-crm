@@ -39,6 +39,9 @@ import {
   Check,
   Sparkles,
   AlertTriangle,
+  History,
+  FileText,
+  RefreshCcw,
 } from 'lucide-react'
 import { useToast } from '../../../shared/components/feedback/Toast'
 
@@ -210,15 +213,32 @@ function inferCartItemsFromConversation(messages = [], products = []) {
       const productName = normalizeText(product.name)
       return productName && normalizedConversation.includes(productName)
     })
-    .map((product) => ({
-      id: product.id || product._id,
-      productId: product.id || product._id,
-      name: product.name,
-      unitPrice: asNumber(product.basePrice ?? product.base_price ?? product.price),
-      quantity: 1,
-      subtotal: asNumber(product.basePrice ?? product.base_price ?? product.price),
-      inferred: true,
-    }))
+    .map((product) => {
+      const productName = normalizeText(product.name)
+      let quantity = 1
+      
+      // Look for patterns like "3x product" or "3 product"
+      const preMatch = normalizedConversation.match(new RegExp(`(\\d+)\\s*(?:x\\s*)?${productName.replace(/[-\\/\\\\^$*+?.()|[\\]{}]/g, '\\\\$&')}`))
+      if (preMatch && parseInt(preMatch[1]) > 0) {
+        quantity = parseInt(preMatch[1])
+      } else {
+        // Look for patterns like "product 3x" or "product 3"
+        const postMatch = normalizedConversation.match(new RegExp(`${productName.replace(/[-\\/\\\\^$*+?.()|[\\]{}]/g, '\\\\$&')}\\s*(?:x\\s*)?(\\d+)`))
+        if (postMatch && parseInt(postMatch[1]) > 0) {
+          quantity = parseInt(postMatch[1])
+        }
+      }
+
+      return {
+        id: product.id || product._id,
+        productId: product.id || product._id,
+        name: product.name,
+        unitPrice: asNumber(product.basePrice ?? product.base_price ?? product.price),
+        quantity: quantity,
+        subtotal: asNumber(product.basePrice ?? product.base_price ?? product.price) * quantity,
+        inferred: true,
+      }
+    })
 }
 
 const getInitials = (name) => (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
@@ -1394,68 +1414,189 @@ function QtyInput({ value }) {
   )
 }
 
-function AiTab({ chat }) {
-  const isHuman = !!(
-    chat.mode === 'human' ||
-    chat.takenOverAt ||
-    chat.takenOverBy
-  )
+function TicketTab({ chat }) {
+  const toast = useToast()
+  const copy = (val) => {
+    if (!val) return
+    navigator.clipboard.writeText(String(val)).then(
+      () => toast.success('Copied!'),
+      () => toast.error('Copy failed')
+    )
+  }
 
-  const formatTs = (d) =>
-    d
-      ? new Date(d).toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      : null
+  // Mock data to match the UI precisely
+  const mockTicket = {
+    type: 'COMPLAINT',
+    id: '#CMP-2025-0618-0042',
+    status: 'Open',
+    priority: 'Medium',
+    category: 'Wrong / Incomplete Items',
+    outlet: 'Selalu Teh Danau Murung',
+    invoice: 'INV-TEST-001',
+    assignedTo: 'Rina Pratiwi',
+    slaLeft: '1h 24m left',
+    slaDue: 'Due: Jun 25, 06:00 AM',
+    lastUpdate: 'Jun 25, 04:35 AM',
+    summary: 'Customer received incomplete items. Ordered Teh Asli 5 pcs but items received do not match the order.',
+    progress: [
+      { status: 'Open', label: 'Complaint created', time: 'Jun 24, 03:36 PM', active: true, color: 'rose' },
+      { status: 'Investigating', label: 'CS assigned', time: 'Jun 24, 03:42 PM', active: false, color: 'blue' },
+      { status: 'Waiting Outlet', label: 'Waiting for outlet response', time: 'Jun 24, 03:55 PM', active: false, color: 'amber' },
+      { status: 'Resolved', label: 'Pending', time: '-', active: false, color: 'slate' }
+    ]
+  }
 
   return (
-    <div>
-      <SectionTitle>AI Agent</SectionTitle>
-      <Field
-        label='Assigned agent'
-        value={
-          chat.agentName ||
-          chat.assignedAgentName ||
-          chat.assignedAgent ||
-          'No agent assigned'
-        }
-      />
-      <Field
-        label='Conversation mode'
-        value={isHuman ? 'Human agent' : 'AI managed'}
-      />
+    <div className="flex flex-col h-full bg-white">
+      <div className="flex-1 overflow-y-auto p-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{mockTicket.type}</span>
+            <span className="text-sm font-bold text-slate-700">{mockTicket.id}</span>
+          </div>
+          <button onClick={() => copy(mockTicket.id)} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+            <Copy size={14} />
+          </button>
+        </div>
 
-      {isHuman && (
-        <>
-          <Divider />
-          <SectionTitle>Takeover</SectionTitle>
-          <Field
-            label='Taken over by'
-            value={chat.takenOverBy || chat.takenOverByName || 'Unknown'}
-          />
-          <Field label='Taken over at' value={formatTs(chat.takenOverAt)} />
-          <Field
-            label='Escalation reason'
-            value={chat.escalationReason || 'Not specified'}
-          />
-        </>
-      )}
+        {/* Badges */}
+        <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-600 text-[11px] font-bold">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+            {mockTicket.status}
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-600 text-[11px] font-bold">
+            <AlertCircle size={10} strokeWidth={3} />
+            {mockTicket.priority}
+          </div>
+        </div>
 
-      <Divider />
-      <SectionTitle>Conversation</SectionTitle>
-      <Field
-        label='Status'
-        value={
-          chat.status
-            ? chat.status.charAt(0).toUpperCase() + chat.status.slice(1)
-            : '—'
-        }
-      />
-      <Field label='Last updated' value={formatTs(chat.updatedAt)} />
-      <Field label='Created' value={formatTs(chat.createdAt)} />
+        {/* Details Grid */}
+        <div className="space-y-4 text-xs">
+          <div className="grid grid-cols-[120px_1fr] items-start">
+            <span className="text-slate-500 font-semibold">Category</span>
+            <span className="text-slate-800 font-semibold">{mockTicket.category}</span>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] items-start">
+            <span className="text-slate-500 font-semibold">Outlet</span>
+            <span className="text-slate-800 font-semibold">{mockTicket.outlet}</span>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] items-center">
+            <span className="text-slate-500 font-semibold">Invoice / Order</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-800 font-bold">{mockTicket.invoice}</span>
+              <button onClick={() => copy(mockTicket.invoice)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <Copy size={12} />
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] items-center">
+            <span className="text-slate-500 font-semibold">Assigned To</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-600">
+                  {mockTicket.assignedTo.split(' ').map(n=>n[0]).join('')}
+                </div>
+                <span className="text-slate-800 font-semibold">{mockTicket.assignedTo}</span>
+              </div>
+              <button className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-[var(--brand-200)] text-[var(--brand-600)] bg-[var(--brand-50)] text-[10px] font-bold hover:bg-[var(--brand-100)] transition-colors cursor-pointer">
+                <UserPlus size={10} />
+                Reassign
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] items-start pt-1">
+            <span className="text-slate-500 font-semibold">SLA Due / Response</span>
+            <div>
+              <div className="flex items-center gap-1.5 text-rose-500 font-bold">
+                <Clock size={12} />
+                {mockTicket.slaLeft}
+              </div>
+              <div className="text-[10px] text-slate-400 mt-0.5">{mockTicket.slaDue}</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] items-center pt-1">
+            <span className="text-slate-500 font-semibold">Last Update</span>
+            <span className="text-slate-800 font-semibold">{mockTicket.lastUpdate}</span>
+          </div>
+        </div>
+
+        <div className="h-px bg-slate-100 my-5"></div>
+
+        {/* Summary */}
+        <div className="mb-5">
+          <h4 className="text-[11px] font-bold text-slate-500 mb-2">Summary</h4>
+          <p className="text-[12px] text-slate-800 font-semibold leading-relaxed">
+            {mockTicket.summary}
+          </p>
+          <button className="flex items-center gap-1 text-[11px] font-bold text-[var(--brand-600)] mt-2 hover:text-[var(--brand-700)] cursor-pointer bg-transparent border-none p-0">
+            Show more <ChevronDown size={12} />
+          </button>
+        </div>
+
+        <div className="h-px bg-slate-100 my-5"></div>
+
+        {/* Progress */}
+        <div className="mb-6">
+          <h4 className="text-[11px] font-bold text-slate-800 mb-4">Progress</h4>
+          <div className="relative pl-2.5 space-y-4">
+            {/* The vertical timeline line */}
+            <div className="absolute top-2 bottom-2 left-[13px] w-0.5 bg-slate-100"></div>
+            
+            {mockTicket.progress.map((item, i) => {
+              // Map color names to tailwind classes
+              const borderColor = item.color === 'rose' ? 'border-rose-500' :
+                                  item.color === 'blue' ? 'border-blue-500' :
+                                  item.color === 'amber' ? 'border-amber-500' :
+                                  'border-slate-300';
+              const dotColor = item.color === 'rose' ? 'bg-rose-500' :
+                               item.color === 'blue' ? 'bg-blue-500' :
+                               item.color === 'amber' ? 'bg-amber-500' :
+                               'bg-slate-300';
+              return (
+                <div key={i} className="relative flex gap-4">
+                  {/* Timeline dot */}
+                  <div className={`w-2.5 h-2.5 rounded-full z-10 bg-white border-[2.5px] ${borderColor} flex items-center justify-center mt-0.5 ml-[1px]`}>
+                    {item.active && <div className={`w-1 h-1 rounded-full ${dotColor}`}></div>}
+                  </div>
+                  
+                  {/* Content */}
+                  <div className={`flex-1 ${!item.active && item.status === 'Resolved' ? 'opacity-50' : ''}`}>
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs font-bold text-slate-800">{item.status}</span>
+                      <span className="text-[10px] font-medium text-slate-500">{item.time}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">{item.label}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Action Buttons Pinned to Bottom */}
+      <div className="p-4 bg-white border-t border-slate-100 space-y-2">
+        <button className="w-full flex items-center justify-center gap-2 py-2 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors shadow-sm cursor-pointer">
+          <User size={14} /> Assign
+        </button>
+        <button className="w-full flex items-center justify-center gap-2 py-2 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors shadow-sm cursor-pointer">
+          <History size={14} /> Change Status
+        </button>
+        <button className="w-full flex items-center justify-center gap-2 py-2 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors shadow-sm cursor-pointer">
+          <FileText size={14} /> Add Note
+        </button>
+        <button className="w-full flex items-center justify-between px-4 py-2 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors shadow-sm cursor-pointer">
+          <div className="flex items-center gap-2">
+            <Shield size={14} /> View Complaint
+          </div>
+          <ExternalLink size={14} className="text-slate-400" />
+        </button>
+        <button className="w-full flex items-center justify-center gap-2 py-2 bg-rose-50 border border-rose-200 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-100 transition-colors shadow-sm mt-2 cursor-pointer">
+          <AlertTriangle size={14} /> Escalate
+        </button>
+      </div>
     </div>
   )
 }
@@ -1659,7 +1800,7 @@ export default function ChatContextPanel({
             outletProductMap={outletProductMap}
           />
         )}
-        {activeTab === 'ai' && <AiTab chat={chat} />}
+        {activeTab === 'ai' && <TicketTab chat={chat} />}
       </div>
     </div>
   )

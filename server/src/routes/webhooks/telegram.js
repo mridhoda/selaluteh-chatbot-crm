@@ -10,7 +10,7 @@ import {
   checkoutsRepository,
   cartsRepository,
 } from '../../db/repositories/index.js';
-import { generateAIReply, findAndSendFile, transcribeAudio } from '../../services/ai.service.js';
+import { generateAIReply, findAndSendFile, transcribeAudio, getAgentPromptRules } from '../../services/ai.service.js';
 import { openaiClient, geminiClient } from '../../services/aiClient.js';
 import {
   tgSend,
@@ -25,6 +25,10 @@ import { buildContext } from '../../ai/context/context-builder.js';
 import { loadRecentMessages } from '../../ai/context/recent-messages.js';
 import { downloadFile } from '../../utils/downloader.js';
 import { recordInboundMessage, recordOutboundMessage } from '../../services/chat-message.service.js';
+import {
+  buildNearestOutletReplyFromCoordinates,
+  buildNearestOutletReplyFromText,
+} from '../../services/location-intelligence/nearest-outlet-reply.service.js';
 import {
   beginWebhookEvent,
   getTelegramEventId,
@@ -194,6 +198,7 @@ router.post('/:token?', async (req, res) => {
     }
 
     let incomingAttachment = null;
+    const sharedLocation = normalized.location || normalized.venue?.location || null;
     if (Array.isArray(msgObj.photo) && msgObj.photo.length > 0) {
       const largestPhoto = msgObj.photo[msgObj.photo.length - 1];
       try {
@@ -231,6 +236,10 @@ router.post('/:token?', async (req, res) => {
       } catch (e) {
         console.error('[telegram] Failed to store incoming document:', e);
       }
+    } else if (sharedLocation) {
+      if (!text) {
+        text = '[Lokasi dibagikan]';
+      }
     } else if (msgObj.voice || msgObj.audio) {
       const audioObj = msgObj.voice || msgObj.audio;
       try {
@@ -267,7 +276,8 @@ router.post('/:token?', async (req, res) => {
     const workspaceAgents = await agentsSupabaseRepository.list({ workspaceId: platform.workspaceId });
     let agent = workspaceAgents.find((a) => a.platformId === platform.id);
     if (!agent) agent = workspaceAgents[0] || null;
-    const systemRaw = agent?.behavior || 'You are a helpful assistant.';
+    const promptRules = getAgentPromptRules(agent);
+    const systemRaw = agent?.behavior || promptRules.fallbackSystemPrompt;
     const prompt = agent?.prompt || '';
     const welcome = agent?.welcomeMessage || 'Halo! Ada yang bisa saya bantu?';
 
@@ -337,6 +347,53 @@ router.post('/:token?', async (req, res) => {
         });
         await markWebhookProcessed(webhookEvent);
         return;
+      }
+    }
+
+    if (sharedLocation && userMessage) {
+      try {
+        const nearestReply = await buildNearestOutletReplyFromCoordinates({
+          workspaceId: platform.workspaceId,
+          latitude: sharedLocation.latitude,
+          longitude: sharedLocation.longitude,
+        });
+
+        if (nearestReply) {
+          await tgSendSplit(platform.token, chatId, nearestReply);
+          await recordOutboundMessage({
+            chatId: chat.id,
+            workspaceId: platform.workspaceId,
+            from: 'ai',
+            text: nearestReply,
+          });
+          await markWebhookProcessed(webhookEvent);
+          return;
+        }
+      } catch (e) {
+        console.error('[telegram] Failed to resolve nearest outlet from shared location:', e);
+      }
+    }
+
+    if (!sharedLocation && userMessage && text) {
+      try {
+        const nearestReply = await buildNearestOutletReplyFromText({
+          workspaceId: platform.workspaceId,
+          text,
+        });
+
+        if (nearestReply) {
+          await tgSendSplit(platform.token, chatId, nearestReply);
+          await recordOutboundMessage({
+            chatId: chat.id,
+            workspaceId: platform.workspaceId,
+            from: 'ai',
+            text: nearestReply,
+          });
+          await markWebhookProcessed(webhookEvent);
+          return;
+        }
+      } catch (e) {
+        console.error('[telegram] Failed to resolve nearest outlet from text location:', e);
       }
     }
 
@@ -494,7 +551,7 @@ router.post('/:token?', async (req, res) => {
         let aiPrompt = prompt;
 
         if (!computedGreetingFlags.isFirstAssistantMessageInChat) {
-          system = systemRaw + '\n\nPENTING: Customer sudah pernah chat sebelumnya. Jangan memberi salam, halo, atau perkenalan lagi. Langsung jawab kebutuhan customer.';
+          system = `${systemRaw}\n\n${promptRules.noReintroInstruction}`;
         }
 
         reply = await generateAIReply({
@@ -643,7 +700,10 @@ router.post('/:token?', async (req, res) => {
       console.log(`[checkout-btn] replyText=${!!replyText} contactId=${contactId} cartItemAdded=${cartItemAdded}`);
       if (replyText && contactId && cartItemAdded) {
         try {
-          const cart = await cartsRepository.findActiveByContact({ workspaceId: platform.workspaceId, contactId });
+          const currentOutletId = chat.currentOutletId || contact.lastOutletId || null;
+          const cart = currentOutletId
+            ? await cartsRepository.findActiveByContact({ workspaceId: platform.workspaceId, contactId, outletId: currentOutletId })
+            : null;
           console.log(`[checkout-btn] cart=${cart ? `id=${cart.id} status=${cart.status} items=${cart.items?.length}` : 'null'}`);
           if (cart && cart.items?.length > 0 && !['converted', 'cancelled'].includes(cart.status)) {
             const {
@@ -651,32 +711,25 @@ router.post('/:token?', async (req, res) => {
               buildCallbackKey,
             } = await import('../../services/telegram-commerce.service.js');
             const { createInlineKeyboard } = await import('../../integrations/telegram/telegram-keyboards.js');
-            const idempotencyKey = `tg_checkout_${cart.id}`;
-
-            // Reuse existing PENDING checkout for this cart. If checkout was already
-            // processed (confirmed/converted/expired), create a fresh one.
-            let existingCheckout = await checkoutsRepository.findByIdempotencyKey({ workspaceId: platform.workspaceId, key: idempotencyKey });
-            if (!existingCheckout || existingCheckout.status !== 'pending') {
-              const freshKey = `tg_checkout_${cart.id}_${Date.now()}`;
-              existingCheckout = await checkoutsRepository.create({
-                workspaceId: platform.workspaceId, outletId: cart.outletId,
-                contactId, chatId: chat.id, items: cart.items,
-                subtotalAmount: cart.total, totalAmount: cart.total,
-                currency: 'IDR', idempotencyKey: freshKey,
-                status: 'pending',
-                customerSnapshot: { contactName: contact?.name || '' },
-                fulfillmentSnapshot: { method: 'pickup', outletName: cart.outletName || '' },
-              });
-            }
+            const checkout = await checkoutsRepository.create({
+              workspaceId: platform.workspaceId, outletId: cart.outletId,
+              contactId, chatId: chat.id, cartId: cart.id, items: cart.items,
+              subtotalAmount: cart.total, totalAmount: cart.total,
+              currency: 'IDR', idempotencyKey: `tg_checkout_${cart.id}_${Date.now()}`,
+              status: 'pending',
+              customerSnapshot: { contactName: contact?.name || '' },
+              fulfillmentSnapshot: { method: 'pickup', outletName: cart.outletName || '' },
+            });
 
             const ver = COMMERCE_VERSION;
-            await tgSend(platform.token, chatId, 'Silakan klik tombol di bawah untuk checkout dan dapatkan link pembayaran:', null, {
+            const checkoutPrompt = 'Silakan klik tombol di bawah untuk checkout dan dapatkan link pembayaran:';
+            await tgSend(platform.token, chatId, checkoutPrompt, null, {
               replyMarkup: createInlineKeyboard([
-                [{ text: '✅ Checkout & Dapatkan Link Bayar', callback_data: `${buildCallbackKey('checkout', 'confirm', String(existingCheckout.id), ver)}` }],
+                [{ text: '✅ Checkout & Dapatkan Link Bayar', callback_data: `${buildCallbackKey('checkout', 'confirm', String(checkout.id), ver)}` }],
                 [{ text: '🛒 Lihat Keranjang', callback_data: `${buildCallbackKey('cart', 'view', null, ver)}` }],
               ]),
             });
-            await recordOutboundMessage({ chatId: chat.id, workspaceId: platform.workspaceId, from: 'ai', text: 'Checkout button sent' });
+            await recordOutboundMessage({ chatId: chat.id, workspaceId: platform.workspaceId, from: 'ai', text: checkoutPrompt });
           }
         } catch (checkoutBtnErr) {
           console.error('[telegram] Failed to show checkout button:', checkoutBtnErr);

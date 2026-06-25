@@ -9,6 +9,7 @@ import '../modules/agents/styles/agents.css'
 import '../modules/platforms/styles/platforms.css'
 import '../modules/analytics/styles/analytics.css'
 import '../modules/contacts/styles/contacts.css'
+import '../modules/complaints/styles/complaints.css'
 
 export default function App() {
   return (

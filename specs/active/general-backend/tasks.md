@@ -591,6 +591,12 @@ Task rules:
   - Existing `getAllocatedOutletIds`, `assertOutletAccess`, `buildOutletScopedQuery` preserved.
   - All errors include `code` property for consistent error handling.
 
+  Evidence 2026-06-25:
+  - Extended `resolveWorkspaceContext(user, selectedWorkspaceId)` to support explicit multi-account workspace selection.
+  - Explicit selection is accepted only when the authenticated user has an active membership in the selected workspace; otherwise it fails with `MEMBERSHIP_REQUIRED` 403.
+  - Preserved the one-workspace MVP default by falling back to the first active membership when no workspace is selected.
+  - Updated `canManageWorkspace` and `canAccessAllOutlets` to use the effective membership role (`workspaceRole`) instead of the legacy global `users.role`, preventing a global owner role from granting owner privileges in another workspace where the membership role is lower.
+
 - [x] 3.5 Harden workspace context middleware
   - Update `workspaceContext.js`.
   - Never trust `workspace_id` body/query alone.
@@ -605,6 +611,14 @@ Task rules:
   - Sets `req.workspace = { id, role }` and `req.allowedOutletIds`.
   - Uses canonical error format via `next(err)` pattern.
   - One-workspace MVP default resolved through active membership lookup; future workspace selection can extend `resolveWorkspaceContext`.
+
+  Evidence 2026-06-25:
+  - Added selected workspace contract via `X-Workspace-Id` header, `workspaceId`, or `workspace_id` request fields.
+  - `attachWorkspaceContext` now validates the selected workspace against active membership before setting request context.
+  - `attachWorkspaceContext` now synchronizes the resolved workspace into both `req.workspace.id` and legacy `req.me.workspaceId`, so existing tenant-scoped routes that still read `req.me.workspaceId` use the validated active workspace.
+  - `attachWorkspaceContext` sets `req.me.workspaceRole` from membership role and recomputes permission matrix from that role.
+  - Added `X-Workspace-Id` to CORS allowed headers.
+  - Added `attachWorkspaceContext` to chat and Telegram integration routes that previously used only `authRequired` + `attachUser` while still reading `req.me.workspaceId`.
 
 - [x] 3.6 Add workspace APIs
   - Add/update route/service for:
@@ -760,6 +774,11 @@ Task rules:
   - `routes/outletAccess.js` already provides GET /me/outlet-access, GET /users/:userId/outlet-access, PUT /users/:userId/outlet-access.
   - `setUserOutletAccess` in `outlet.service.js` validates manager role before modifying access.
 
+  Evidence 2026-06-25:
+  - Hardened `setUserOutletAccess` to require the target user to have active membership in the current workspace before any outlet access rows are replaced.
+  - Hardened `setUserOutletAccess` to validate every requested outlet belongs to the current workspace before granting access.
+  - Cross-workspace outlet access writes now fail before `replaceUserAccess`, preventing accidental SelaluKopi/SelaluTeh access linkage through outlet grants.
+
 - [x] [!] 4.9 Add outlet security tests
   - Owner sees all outlets.
   - Outlet manager sees assigned outlet only.
@@ -775,6 +794,13 @@ Task rules:
     - Cross-workspace outlet access rejected (404/Outlet not found).
     - Unassigned outlet access for non-all-outlet role rejected (403/Forbidden outlet access).
   - Combined with `outlet-service.integration.test.js` and `outlets-repository.integration.test.js`, the security tests cover owner, manager, cross-workspace, and disabled/deleted scenarios.
+
+  Evidence 2026-06-25:
+  - Added workspace context tests proving `X-Workspace-Id` selects the active membership workspace and updates legacy `req.me.workspaceId`.
+  - Added workspace context test proving selection of a workspace without active membership returns `MEMBERSHIP_REQUIRED` 403.
+  - Added role isolation tests proving effective permissions use workspace membership role over legacy global role.
+  - Added outlet service tests proving outlet access grants reject target users without active workspace membership.
+  - Added outlet service tests proving outlet access grants reject outlets outside the active workspace and do not call `replaceUserAccess`.
 
 - [x] 4.10 Checkpoint — multi-outlet foundation
   - Workspace membership works.
@@ -2194,6 +2220,13 @@ Task rules:
   - Search/list.
   - _Requirements: R30, R37_
 
+  Evidence 2026-06-25:
+  - Added explicit selected workspace coverage in `server/test/security/workspace-isolation.security.test.js`.
+  - Tests verify `X-Workspace-Id` selects only an active membership workspace, propagates the selected workspace into legacy `req.me.workspaceId`, and rejects non-member workspace selection with `MEMBERSHIP_REQUIRED`.
+  - Tests verify membership role is the authorization source of truth over legacy global `users.role` for workspace management and all-outlet access.
+  - Validation command passed: `npm run security:test`.
+  - Validation command passed: `NODE_ENV=test node --test "test/integration/workspace/*.test.js"`; Supabase-backed workspace service test remains skipped unless `SUPABASE_TEST_URL` and `SUPABASE_TEST_SERVICE_ROLE_KEY` are configured.
+
 - [x] [!] 27.4 Outlet access test suite
   - Owner.
   - Admin.
@@ -2201,6 +2234,13 @@ Task rules:
   - Human agent.
   - Viewer.
   - _Requirements: R5, R30, R37_
+
+  Evidence 2026-06-25:
+  - Added `setUserOutletAccess` hardening tests in `server/test/integration/outlets/outlet-service.integration.test.js`.
+  - Tests verify target users must be active workspace members before outlet access can be replaced.
+  - Tests verify outlet access writes reject outlets outside the active workspace and do not call `replaceUserAccess`.
+  - Validation command passed: `npm run security:test -- test/integration/outlets/outlet-service.integration.test.js`.
+  - Full `npm test` was run after the multi-account changes. Remaining failures are existing unrelated issues: checkout integration lacks Supabase test client env, `order-service.integration.test.js` imports a missing `isValidTransition` export, and `tool-gateway.test.js` expects 13 commerce tools while runtime exposes 14.
 
 - [x] [!] 27.5 Telegram commerce integration suite
   - Start.

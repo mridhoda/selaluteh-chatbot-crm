@@ -6,6 +6,7 @@
  */
 
 import { outletsSupabaseRepository, outletManagementRepository } from '../db/repositories/index.js';
+import { membershipsSupabaseRepository } from '../db/repositories/memberships.repository.js';
 import { canManageWorkspace, getAllowedOutletIds } from './access-control.service.js';
 import { AppError } from '../utils/errors.js';
 import {
@@ -86,7 +87,7 @@ export async function updateOutlet({ user, outletId, updates }) {
     throw new AppError('FORBIDDEN', 'Insufficient permissions to update outlet', 403);
   }
 
-  const allowed = ['name', 'code', 'slug', 'city', 'region', 'address', 'postalCode', 'phone', 'email', 'timezone', 'openingHours', 'metadata', 'pickup_enabled', 'accepts_orders', 'version'];
+  const allowed = ['name', 'code', 'slug', 'city', 'region', 'address', 'postalCode', 'phone', 'email', 'timezone', 'openingHours', 'metadata', 'status', 'pickup_enabled', 'accepts_orders', 'version'];
   const safe = {};
   for (const key of allowed) {
     if (updates[key] !== undefined) safe[key] = updates[key];
@@ -110,8 +111,8 @@ export async function updateOutletStatus({ user, outletId, status }) {
     throw new AppError('FORBIDDEN', 'Insufficient permissions to change outlet status', 403);
   }
 
-  if (!['active', 'inactive', 'archived'].includes(status)) {
-    throw new AppError('VALIDATION', 'Invalid status. Must be active, inactive, or archived', 400);
+  if (!['active', 'inactive', 'paused', 'needs_attention', 'coming_soon', 'archived'].includes(status)) {
+    throw new AppError('VALIDATION', 'Invalid status. Must be active, inactive, paused, needs_attention, coming_soon, or archived', 400);
   }
 
   const outlet = await outletsSupabaseRepository.updateStatus({ workspaceId: user.workspaceId, outletId, status });
@@ -124,12 +125,24 @@ export async function setUserOutletAccess({ user, targetUserId, outlets }) {
     throw new AppError('FORBIDDEN', 'Insufficient permissions to modify outlet access', 403);
   }
 
+  const workspaceId = user.workspaceId;
+  const membership = await membershipsSupabaseRepository.findActiveMembership({ workspaceId, userId: targetUserId });
+  if (!membership) {
+    throw new AppError('MEMBERSHIP_REQUIRED', 'Target user must be an active member of this workspace', 403);
+  }
+
   const rows = Array.isArray(outlets) ? outlets.map((item) => ({
     outletId: item.outletId || item.outlet_id,
     role: item.role || 'outlet_manager',
   })) : [];
 
-  return outletsSupabaseRepository.replaceUserAccess({ workspaceId: user.workspaceId, userId: targetUserId, rows });
+  for (const row of rows) {
+    if (!row.outletId) throw new AppError('VALIDATION', 'outletId is required', 400);
+    const outlet = await outletsSupabaseRepository.findById({ workspaceId, outletId: row.outletId });
+    if (!outlet) throw new AppError('OUTLET_NOT_FOUND', 'Outlet not found in this workspace', 404);
+  }
+
+  return outletsSupabaseRepository.replaceUserAccess({ workspaceId, userId: targetUserId, rows });
 }
 
 // ── New Canonical Outlet Service Functions ─────────────────────────────────
@@ -206,4 +219,18 @@ export async function upsertServiceSettings({ user, outletId, data }) {
 export async function replaceOperatingHours({ user, outletId, hours }) {
   await outletManagementRepository.replaceOperatingHours(user.workspaceId, outletId, hours);
   return outletManagementRepository.getOperatingHours(user.workspaceId, outletId);
+}
+
+export async function deleteOutlet({ user, outletId }) {
+  if (!canManageWorkspace(user)) {
+    throw new AppError('FORBIDDEN', 'Insufficient permissions to delete outlet', 403);
+  }
+
+  const existing = await outletsSupabaseRepository.findById({ workspaceId: user.workspaceId, outletId });
+  if (!existing) {
+    throw new AppError('OUTLET_NOT_FOUND', 'Outlet not found', 404);
+  }
+
+  await outletsSupabaseRepository.delete({ workspaceId: user.workspaceId, outletId });
+  return { id: outletId };
 }

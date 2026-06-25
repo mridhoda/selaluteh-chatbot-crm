@@ -20,7 +20,7 @@ export function corsMiddleware() {
     },
     credentials: allowedOrigins !== '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'Idempotency-Key', 'X-Telegram-Bot-Api-Secret-Token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'X-Workspace-Id', 'Idempotency-Key', 'X-Telegram-Bot-Api-Secret-Token'],
     exposedHeaders: ['X-Request-Id'],
   });
 }

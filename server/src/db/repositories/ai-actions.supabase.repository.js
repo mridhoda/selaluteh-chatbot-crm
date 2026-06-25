@@ -31,7 +31,7 @@ export const aiActionsSupabaseRepository = {
 
   async markValidated(id) {
     const client = getSupabaseServiceClient();
-    const result = await client.from(TABLE).update({ status: 'confirmed', confirmed_at: new Date().toISOString() }).eq('id', id).select().maybeSingle();
+    const result = await client.from(TABLE).update({ status: 'validated', confirmed_at: new Date().toISOString() }).eq('id', id).select().maybeSingle();
     const row = extractSingle(result, 'aiActions.markValidated');
     return row ? mapRow(row) : null;
   },
@@ -77,7 +77,7 @@ export const aiActionsSupabaseRepository = {
 
   async findPendingByChat({ chatId, limit = 10 }) {
     const client = getSupabaseServiceClient();
-    const result = await client.from(TABLE).select('*').eq('chat_id', chatId).in('status', ['proposed', 'confirmed']).order('created_at', { ascending: false }).limit(limit);
+    const result = await client.from(TABLE).select('*').eq('chat_id', chatId).in('status', ['proposed', 'validated']).order('created_at', { ascending: false }).limit(limit);
     const { data } = result;
     return (data ?? []).map(mapRow);
   },

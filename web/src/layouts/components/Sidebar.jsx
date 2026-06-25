@@ -21,6 +21,7 @@ import {
   faCube,
   faChartLine,
   faWallet,
+  faUtensils,
 } from '@fortawesome/free-solid-svg-icons'
 import {
   faComment,
@@ -34,6 +35,7 @@ import api from '../../shared/api/httpClient'
 const navigationIcons = {
   dashboard: faHome,
   orders: faShoppingBag,
+  'kitchen-view': faUtensils,
   products: faCube,
   outlets: faStore,
   payments: faWallet,
@@ -52,6 +54,7 @@ const navigationIcons = {
 
 const activeNavigationKeys = new Set([
   'orders',
+  'kitchen-view',
   'products',
   'outlets',
   'payments',

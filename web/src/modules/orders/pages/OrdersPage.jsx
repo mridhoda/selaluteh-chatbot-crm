@@ -61,6 +61,12 @@ export default function Orders() {
     loadOrders()
   }, [])
 
+  useEffect(() => {
+    const onOrderCreated = () => loadOrders()
+    window.addEventListener('order:created', onOrderCreated)
+    return () => window.removeEventListener('order:created', onOrderCreated)
+  }, [])
+
   const loadOrders = async () => {
     setLoading(true)
     try {

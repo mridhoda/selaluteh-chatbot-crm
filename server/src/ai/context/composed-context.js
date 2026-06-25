@@ -3,6 +3,7 @@ import { estimateTokens, allocateTokenBudget } from './token-estimator.js';
 import { loadRecentMessages } from './recent-messages.js';
 import { loadLatestSummary } from './source-loaders.js';
 import { createMemoryService } from '../memory/memory-service.js';
+import { getAgentPromptRules } from '../../services/ai.service.js';
 
 const PLATFORM_POLICY = `## Platform Policy (Immutable)
 - You are an AI assistant for SelaluTeh.
@@ -40,11 +41,12 @@ export async function composeContext({
   });
 
   const sectionContents = [];
+  const promptRules = getAgentPromptRules(agent);
 
   sectionContents.push({
     name: 'platform_policy',
-    content: PLATFORM_POLICY,
-    tokens: estimateTokens(PLATFORM_POLICY),
+    content: promptRules.platformPolicy || PLATFORM_POLICY,
+    tokens: estimateTokens(promptRules.platformPolicy || PLATFORM_POLICY),
   });
 
   if (agent?.behavior) {
