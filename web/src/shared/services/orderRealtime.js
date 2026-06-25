@@ -1,9 +1,7 @@
+import { getApiBase } from '../api/apiBase'
+
 function getToken() {
   return localStorage.getItem('token') || sessionStorage.getItem('token') || ''
-}
-
-function getApiBase() {
-  return import.meta.env.VITE_API_BASE || 'http://localhost:5000'
 }
 
 let orderStream = null

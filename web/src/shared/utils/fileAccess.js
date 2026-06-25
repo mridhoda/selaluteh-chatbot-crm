@@ -1,5 +1,7 @@
+import { getApiBase } from '../api/apiBase'
+
 export function getApiBaseUrl(explicitBaseUrl = '') {
-  return explicitBaseUrl || import.meta.env.VITE_API_BASE || ''
+  return explicitBaseUrl || getApiBase()
 }
 
 export function isProtectedFilePath(url = '') {

@@ -1,0 +1,515 @@
+schema_version: 2
+spec_version: 1.0.0
+
+id: auto-escalate-complaints
+title: SelaluTeh Auto Escalate Complaints
+description: >-
+  Dedicated requirements-first specification for complaint auto escalation,
+  workspace default policy, outlet overrides, deterministic complaint-outlet
+  resolution, supervisor routing and fallback, supervisor assignments,
+  acknowledgements, internal responses, supervisor SLA, notifications,
+  scheduler jobs, complaint detail integration, supervisor queues, security,
+  testing, rollout, and production readiness.
+
+type: feature
+workflow: requirements-first
+
+status: active
+workflow_state: in_progress
+priority: high
+
+created_at: '2026-06-25'
+updated_at: '2026-06-25'
+
+owners:
+  product_owner: SelaluTeh product owner
+  technical_owner: project-maintainer
+  security_owner: project-maintainer
+  support_operations_owner: project-maintainer
+  outlet_operations_owner: project-maintainer
+  implementation_actor: coding-agent
+  review_required: true
+  security_review_required: true
+  operations_review_required: true
+
+tags:
+  - complaints
+  - auto-escalation
+  - supervisor-routing
+  - multi-outlet
+  - sla
+  - notifications
+  - scheduler
+  - supabase
+  - security
+  - tdd
+
+lifecycle:
+  config: docs/specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: docs/specs/active/auto-escalate-complaints
+  move_entire_spec_directory: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    dry_run_command: npm run specs:sync:dry
+    sync_command: npm run specs:sync
+    check_command: npm run specs:check
+    automatic_local_move: false
+    ci_check_only: true
+
+  completion_requirements:
+    - all-p0-tasks-completed
+    - approved-p1-deferrals-documented
+    - definition-of-done-passed
+    - complaint-duplication-prevention-passed
+    - complaint-outlet-resolution-passed
+    - supervisor-routing-and-fallback-passed
+    - one-active-escalation-invariant-passed
+    - cs-primary-handler-default-passed
+    - internal-response-isolation-passed
+    - supervisor-sla-passed
+    - workspace-outlet-isolation-passed
+    - scheduler-idempotency-passed
+    - notification-deduplication-passed
+    - security-property-concurrency-resilience-performance-e2e-tests-passed
+    - operational-runbooks-documented
+    - documentation-updated
+    - implementation-status-updated
+    - specs-check-passed
+
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+  reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md
+  definition_of_done: docs/backend/11-sprint/definition-of-done.md
+
+document_authority:
+  precedence:
+    - latest-approved-complaint-escalation-decision
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+    - current-task
+    - implementation-status-for-reality
+    - external-domain-contracts
+    - legacy-documents
+
+product:
+  name: SelaluTeh Marketplace
+  area: auto-escalate-complaints
+  stage: full-product-design-with-alpha-slice
+  architecture:
+    - canonical-complaint
+    - related-escalation-workflow
+    - workspace-default-policy
+    - outlet-overrides
+    - deterministic-outlet-resolution
+    - membership-based-supervisor-routing
+    - multi-workspace-ready
+    - multi-outlet
+    - event-driven
+    - scheduler-backed
+    - supabase-postgresql
+
+spec_relationships:
+  umbrella:
+    id: selaluteh-backend-marketplace
+    relationship: backend-architecture-and-shared-rules
+
+  depends_on:
+    - id: selaluteh-complaints-tickets
+      relationship: canonical-complaint-status-resolution-and-customer-communication
+    - id: selaluteh-cart-order-lifecycle
+      relationship: related-order-outlet-and-order-context
+    - id: selaluteh-outlet-management-operations
+      relationship: outlet-identity-operating-hours-and-supervisor-membership
+    - id: selaluteh-workspace-access-control
+      relationship: roles-permissions-and-outlet-access
+    - id: selaluteh-crm-inbox-contacts
+      relationship: customer-conversation-and-official-replies
+    - id: selaluteh-notification-attention-engine
+      relationship: supervisor-notification-and-attention-delivery
+    - id: selaluteh-audit-activity-timeline
+      relationship: immutable-administrative-activity
+    - id: selaluteh-channel-connections-sync
+      relationship: optional-customer-and-operational-channel-delivery
+
+  does_not_replace:
+    - selaluteh-complaints-tickets
+    - selaluteh-cart-order-lifecycle
+    - selaluteh-outlet-management-operations
+    - selaluteh-workspace-access-control
+    - selaluteh-notification-attention-engine
+
+scope:
+  included:
+    - workspace-default-escalation-policy
+    - outlet-policy-overrides
+    - enable-disable
+    - priority-triggers
+    - category-triggers
+    - unassigned-timeout
+    - sla-threshold
+    - repeated-customer-message-trigger
+    - manual-escalation
+    - complaint-outlet-resolution
+    - order-linked-outlet
+    - explicit-complaint-outlet
+    - primary-supervisor-resolution
+    - multiple-supervisor-strategy
+    - fallback-routing
+    - recipient-eligibility
+    - supervisor-collaborator-assignment
+    - complaint-status-after-escalation
+    - escalation-lifecycle
+    - one-active-escalation-invariant
+    - escalation-snapshots
+    - context-inclusion-policy
+    - acknowledgement
+    - internal-response
+    - proposed-resolution
+    - completion
+    - cancellation
+    - reassignment
+    - re-escalation
+    - supervisor-sla
+    - business-hours
+    - outside-hours-policy
+    - customer-notification-policy
+    - supervisor-notification
+    - notification-minimization
+    - scheduler
+    - event-driven-evaluation
+    - evaluation-explanation
+    - settings-ui
+    - outlet-override-ui
+    - complaint-detail-integration
+    - supervisor-queue
+    - timeline
+    - history
+    - search-filter-pagination
+    - authorization
+    - rls
+    - api-contracts
+    - events
+    - audit
+    - observability
+    - concurrency
+    - security
+    - migration
+    - testing
+    - operational-readiness
+
+  deferred:
+    - multi-level-escalation
+    - cross-workspace-escalation
+    - automatic-refund-approval
+    - automatic-inventory-adjustment
+    - direct-supervisor-customer-reply-by-default
+    - complex-capacity-routing
+    - advanced-workforce-management
+    - unrestricted-whatsapp-supervisor-notifications
+    - ai-selected-supervisor-without-deterministic-policy
+
+  excluded:
+    - duplicate-ticket-creation
+    - complaint-lifecycle-ownership
+    - payment-refund-execution
+    - inventory-mutation
+    - order-mutation
+    - outlet-membership-ownership
+    - generic-notification-delivery
+    - frontend-as-routing-authority
+
+fixed_decisions:
+  complaint:
+    canonical_record: true
+    duplicate_ticket_created: false
+    status_separate_from_escalation: true
+
+  policy:
+    hierarchy:
+      - WORKSPACE_DEFAULT
+      - OUTLET_OVERRIDE
+    override_modes:
+      - USE_WORKSPACE_DEFAULT
+      - CUSTOM
+      - DISABLED
+
+  outlet_resolution:
+    priority:
+      - RELATED_ORDER_OUTLET
+      - EXPLICIT_COMPLAINT_OUTLET
+      - CONVERSATION_SELECTED_OUTLET
+    text_inference_allowed: false
+
+  recipient:
+    default_strategy: PRIMARY_ONLY
+    fallback:
+      - OTHER_OUTLET_SUPERVISOR
+      - OUTLET_MANAGER
+      - WORKSPACE_SUPPORT_MANAGER
+      - ATTENTION_ALERT
+    hard_coded_supervisor_allowed: false
+
+  mvp_triggers:
+    immediate_priorities:
+      - HIGH
+      - CRITICAL
+    unassigned_after_minutes:
+      medium_low: 10
+
+  after_escalation:
+    complaint_status_mode: SET_IN_PROGRESS
+    primary_handler: KEEP_CS
+    supervisor_assignment: OUTLET_SUPERVISOR_COLLABORATOR
+    automatic_customer_notification: false
+    internal_notes_included: false
+
+  supervisor_sla:
+    acknowledgement_minutes: 15
+    first_response_minutes: 60
+
+  escalation_statuses:
+    - PENDING
+    - ACKNOWLEDGED
+    - RESPONDED
+    - COMPLETED
+    - CANCELLED
+    - FAILED_ROUTING
+    - EXPIRED
+
+requirements_registry:
+  prefix: AEC-R
+  total: 60
+
+correctness_invariants:
+  - complaint-is-never-duplicated
+  - complaint-and-escalation-status-are-separate
+  - related-order-outlet-is-preferred
+  - outlet-is-never-inferred-from-free-text
+  - supervisor-is-resolved-from-active-membership
+  - unrelated-outlet-supervisor-is-never-selected
+  - one-active-escalation-per-complaint-outlet-level
+  - auto-and-manual-race-has-one-business-effect
+  - cs-remains-primary-handler-by-default
+  - supervisor-response-is-internal-by-default
+  - escalation-completion-does-not-auto-resolve-complaint
+  - customer-sla-and-supervisor-sla-are-separate
+  - duplicate-events-and-scheduler-retries-have-one-effect
+  - cross-workspace-or-outlet-access-never-succeeds
+  - routing-failure-preserves-complaint-truth
+
+security:
+  immutable_controls:
+    - membership-based-routing
+    - workspace-outlet-isolation
+    - rls-defense-in-depth
+    - no-free-text-outlet-inference
+    - no-hard-coded-supervisor
+    - internal-notes-off-by-default
+    - minimal-external-notification
+    - server-side-authorization
+    - frontend-not-authority
+
+  release_blockers:
+    - duplicate-complaint-or-ticket-created
+    - unrelated-outlet-receives-escalation
+    - inactive-or-unauthorized-recipient-selected
+    - internal-notes-leaked
+    - auto-manual-race-creates-duplicates
+    - internal-response-sent-to-customer-automatically
+    - cross-workspace-access
+    - scheduler-retry-duplicates-escalation
+    - routing-failure-corrupts-complaint
+    - production-data-or-secrets-used-in-tests
+
+testing:
+  methodology: test-driven-development
+  production_data_prohibited: true
+  production_secrets_prohibited: true
+
+  layers:
+    unit:
+      path: server/test/unit/auto-escalate-complaints
+      required: true
+    component:
+      path: server/test/component/auto-escalate-complaints
+      required: true
+    integration:
+      path: server/test/integration/auto-escalate-complaints
+      required: true
+    security:
+      path: server/test/security/auto-escalate-complaints
+      required: true
+    property:
+      path: server/test/property/auto-escalate-complaints
+      required: true
+    concurrency:
+      path: server/test/concurrency/auto-escalate-complaints
+      required: true
+    resilience:
+      path: server/test/resilience/auto-escalate-complaints
+      required: true
+    scheduler:
+      path: server/test/scheduler/auto-escalate-complaints
+      required: true
+    notifications:
+      path: server/test/notifications/auto-escalate-complaints
+      required: true
+    performance:
+      path: server/test/performance/auto-escalate-complaints
+      required: true
+    e2e:
+      path: server/test/e2e/auto-escalate-complaints
+      required: true
+
+  required_properties:
+    - one-active-escalation
+    - correct-outlet-resolution
+    - eligible-recipient-only
+    - duplicate-event-one-effect
+    - internal-response-not-customer-visible
+    - historical-snapshot-immutability
+    - cross-workspace-outlet-never-allowed
+
+  release_gate_commands:
+    spec_check: npm run specs:check
+    unit: npm run test:auto-escalate:unit
+    component: npm run test:auto-escalate:component
+    integration: npm run test:auto-escalate:integration
+    security: npm run test:auto-escalate:security
+    property: npm run test:auto-escalate:property
+    concurrency: npm run test:auto-escalate:concurrency
+    resilience: npm run test:auto-escalate:resilience
+    scheduler: npm run test:auto-escalate:scheduler
+    notifications: npm run test:auto-escalate:notifications
+    performance: npm run test:auto-escalate:performance
+    e2e: npm run test:auto-escalate:e2e
+    all: npm run test:auto-escalate:all
+
+implementation:
+  current_phase: preflight-and-domain-audit
+  task_source: tasks.md
+  active_task_pointer: docs/backend/09-ai-context/current-task.md
+  recommended_first_task: 0-preflight-and-domain-audit
+
+  fastest_safe_alpha_order:
+    - task-section-0
+    - task-section-1
+    - task-section-2
+    - task-section-3
+    - task-section-4
+    - task-section-5
+    - task-section-6
+    - task-section-7
+    - task-section-8
+    - task-section-9
+    - task-section-10
+    - task-section-11
+    - task-section-12
+    - task-section-14
+    - task-section-15
+    - task-section-16
+    - task-section-17
+    - task-section-18
+    - task-section-20
+    - task-section-22
+    - task-section-23
+    - task-section-24
+    - task-section-25
+    - task-section-27
+    - task-section-28
+    - task-section-29
+    - task-section-30
+    - task-section-31
+    - task-section-32
+    - task-section-34
+    - task-section-35
+    - task-section-36
+    - task-section-37
+
+  may_defer_after_alpha:
+    - category-combinations
+    - repeated-message-trigger
+    - round-robin
+    - all-supervisors
+    - advanced-business-schedules
+    - email-push-whatsapp-notifications
+    - multi-level-escalation
+    - advanced-analytics
+
+  must_not_defer:
+    - workspace-policy
+    - outlet-overrides
+    - priority-and-unassigned-triggers
+    - deterministic-outlet-resolution
+    - primary-supervisor-and-fallback
+    - one-active-escalation
+    - in-app-notification
+    - supervisor-queue
+    - acknowledgement-and-internal-response
+    - supervisor-sla
+    - complaint-detail-integration
+    - authorization-and-rls
+    - scheduler-idempotency
+    - critical-security-concurrency-e2e-tests
+
+status_workflow:
+  initial_status: active
+  initial_workflow_state: in_progress
+
+  folder_statuses:
+    backlog:
+      folder: docs/specs/backlog
+      workflow_states: [draft, review, approved]
+    active:
+      folder: docs/specs/active
+      workflow_states: [in_progress, blocked, verifying]
+    completed:
+      folder: docs/specs/completed
+      workflow_states: [done, archived]
+
+  folder_move_rule: edit-status-then-run-npm-run-specs-sync
+  completed_guard: required-unchecked-tasks-must-be-zero
+
+references:
+  own_documents:
+    - docs/specs/active/auto-escalate-complaints/requirements.md
+    - docs/specs/active/auto-escalate-complaints/design.md
+    - docs/specs/active/auto-escalate-complaints/tasks.md
+
+  related:
+    - docs/specs/active/selaluteh-backend-marketplace/spec.yaml
+    - docs/specs/active/selaluteh-complaints-tickets/spec.yaml
+    - docs/specs/active/selaluteh-cart-order-lifecycle/spec.yaml
+    - docs/specs/active/selaluteh-outlet-management-operations/spec.yaml
+    - docs/specs/active/selaluteh-workspace-access-control/spec.yaml
+    - docs/specs/active/selaluteh-crm-inbox-contacts/spec.yaml
+
+metadata:
+  generated_for: auto-escalate-complaints
+  generated_at: '2026-06-25'
+  based_on:
+    - complaint-equals-canonical-ticket-decision
+    - outlet-supervisor-routing-decision
+    - auto-escalation-settings-decision
+    - cs-remains-primary-handler-decision
+    - supervisor-response-internal-by-default
+    - workspace-default-with-outlet-overrides
+
+  notes:
+    - This is a full-product spec with an explicit fastest safe alpha slice.
+    - Complaint is not duplicated; escalation is a related workflow.
+    - The related order outlet is the preferred routing source.
+    - Supervisor membership is resolved dynamically and is never hard-coded.
+    - Customer and supervisor SLA are intentionally separate.

@@ -14,4 +14,5 @@
 | active | in_progress | critical | selaluteh-outlet-management-operations | SelaluTeh Outlet Management and Operations | `specs/active/selaluteh-outlet-management-operations/spec.yaml` |
 | active | in_progress | critical | selaluteh-payments-xendit | SelaluTeh Payments — Xendit | `specs/active/selaluteh-payments-xendit/spec.yaml` |
 | active | in_progress | critical | selaluteh-product-catalog | SelaluTeh Product Catalog | `specs/active/selaluteh-product-catalog/spec.yaml` |
+| active | in_progress | high | thermal-print-specs | SelaluTeh Thermal Print | `specs/active/thermal-print-specs/spec.yaml` |
 | active | in_progress | critical | selaluteh-workspace-access-control | SelaluTeh Workspace Access Control | `specs/active/selaluteh-workspace-access-control/spec.yaml` |

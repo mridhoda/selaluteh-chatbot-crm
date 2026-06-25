@@ -54,7 +54,8 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      const r = await api.post('/auth/login', { email, password })
+      const normalizedEmail = email.trim().toLowerCase()
+      const r = await api.post('/auth/login', { email: normalizedEmail, password })
       sessionStorage.setItem('token', r.data.token)
       if (remember) localStorage.setItem('token', r.data.token)
       sessionStorage.setItem('user', JSON.stringify(r.data.user))
@@ -63,7 +64,11 @@ export default function Login() {
       })
       navigate('/app')
     } catch (e) {
-      setError(e.response?.data?.error || 'Invalid email or password')
+      if (!e.response) {
+        setError('Tidak bisa tersambung ke server API. Pastikan HP dan laptop satu Wi-Fi, lalu buka lewat IP laptop.')
+      } else {
+        setError(e.response?.data?.error || 'Invalid email or password')
+      }
     } finally {
       setLoading(false)
     }

@@ -5,6 +5,12 @@ import OrderStatusBadge from './OrderStatusBadge'
 import OrderItemsList from './OrderItemsList'
 import OrderTimeline from './OrderTimeline'
 import OrderQuickActions from './OrderQuickActions'
+import {
+  getReceiptEligibility,
+  isAndroidUserAgent,
+  openReceiptPrintWindow,
+  openRawBtPrint,
+} from '../../printing/thermalPrint'
 
 // ─── Channel icon resolver ────────────────────────────────────────────────────
 function ChannelIcon({ channel }) {
@@ -164,6 +170,31 @@ export default function OrderDetailDrawer({
     (order.channelSnapshot || '').toLowerCase() ||
     (order.source || '').toLowerCase() ||
     'whatsapp'
+  const receiptEligibility = getReceiptEligibility(order, 'CUSTOMER_RECEIPT')
+  const isAndroidPrint = isAndroidUserAgent()
+
+  const handlePreviewReceipt = () => {
+    openReceiptPrintWindow(order, {
+      documentType: 'CUSTOMER_RECEIPT',
+      autoPrint: false,
+    })
+  }
+
+  const handlePrintReceipt = () => {
+    if (!receiptEligibility.eligible) {
+      alert(receiptEligibility.safeMessage)
+      return
+    }
+
+    const printOptions = { documentType: 'CUSTOMER_RECEIPT' }
+    const result = isAndroidPrint
+      ? openRawBtPrint(order, printOptions)
+      : openReceiptPrintWindow(order, { ...printOptions, autoPrint: true })
+
+    if (result.errorCode) {
+      alert(result.safeMessage || 'Print tidak bisa dibuka. Gunakan Preview/izinkan popup untuk mencetak.')
+    }
+  }
 
   return (
     <aside className='fixed inset-y-0 right-0 z-[80] w-full md:w-[400px] h-[100dvh] bg-[var(--surface-primary)] border-l border-[var(--border-subtle)] overflow-hidden flex flex-col shrink-0 shadow-[-4px_0_15px_rgba(17,24,46,0.03)]'>
@@ -377,6 +408,72 @@ export default function OrderDetailDrawer({
             </div>
           </>
         )}
+
+        <hr
+          className='border-[var(--border-default)]'
+          style={{ margin: '8px 0' }}
+        />
+
+        {/* Receipt Printing Block */}
+        <div>
+          <div className='text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-2 mb-3'>
+            <span className='font-mono'>PR</span>
+            <span>Receipt Printing</span>
+          </div>
+          <div className='rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-secondary)] p-3 space-y-3'>
+            <div className='grid grid-cols-2 gap-2 text-[11px]'>
+              <div>
+                <div className='text-[var(--text-muted)]'>Document</div>
+                <div className='font-bold text-[var(--text-primary)]'>Customer Receipt</div>
+              </div>
+              <div>
+                <div className='text-[var(--text-muted)]'>Transport</div>
+                <div className='font-bold text-[var(--text-primary)]'>
+                  {isAndroidPrint ? 'RawBT' : 'Browser Print'}
+                </div>
+              </div>
+              <div>
+                <div className='text-[var(--text-muted)]'>Paper</div>
+                <div className='font-bold text-[var(--text-primary)]'>58 mm</div>
+              </div>
+              <div>
+                <div className='text-[var(--text-muted)]'>Evidence</div>
+                <div className='font-bold text-[var(--text-primary)]'>DISPATCHED only</div>
+              </div>
+            </div>
+            <div
+              className={`rounded-lg border px-2.5 py-2 text-[11px] font-semibold ${
+                receiptEligibility.eligible
+                  ? 'border-[var(--success-100)] bg-[var(--success-50)] text-[var(--success-600)]'
+                  : 'border-[var(--warning-200)] bg-[var(--warning-50)] text-[var(--warning-600)]'
+              }`}
+            >
+              {receiptEligibility.safeMessage}
+            </div>
+            <div className='flex gap-2'>
+              <button
+                type='button'
+                onClick={handlePreviewReceipt}
+                className='flex-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-primary)] px-3 py-2 text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--brand-50)] hover:border-[var(--brand-200)] transition-colors duration-150'
+              >
+                Preview
+              </button>
+              <button
+                type='button'
+                onClick={handlePrintReceipt}
+                disabled={!receiptEligibility.eligible}
+                className='flex-1 rounded-lg border border-[var(--brand-500)] bg-[var(--brand-500)] px-3 py-2 text-xs font-bold text-white hover:bg-[var(--brand-600)] disabled:opacity-45 disabled:cursor-not-allowed transition-colors duration-150'
+              >
+                Print Receipt
+              </button>
+            </div>
+            <div className='text-[10px] leading-relaxed text-[var(--text-muted)]'>
+              {isAndroidPrint
+                ? 'Android membuka RawBT dari user gesture. Handoff ke RawBT tidak dianggap bukti cetak fisik selesai.'
+                : 'Browser Print membuka dialog cetak. Sesuai spec, dialog terbuka tidak dianggap bukti cetak fisik selesai.'}
+            </div>
+          </div>
+        </div>
 
         <hr
           className='border-[var(--border-default)]'

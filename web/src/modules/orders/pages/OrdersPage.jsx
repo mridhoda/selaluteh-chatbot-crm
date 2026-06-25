@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../../shared/api/httpClient'
+import { getApiBase } from '../../../shared/api/apiBase'
 import { isDemoMode } from '../../../mocks/demoState'
 import * as XLSX from 'xlsx'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -935,7 +936,7 @@ export default function Orders() {
   const handleViewImage = (url) => {
     const fullUrl = url.startsWith('http')
       ? url
-      : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${url}`
+      : `${getApiBase()}${url}`
     setPreviewImageUrl(fullUrl)
   }
 

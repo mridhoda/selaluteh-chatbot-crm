@@ -1,8 +1,9 @@
 import axios from 'axios'
 import { isDemoMode, mockApi } from '../../mocks/demoState'
+import { getApiBase } from './apiBase'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || 'http://localhost:5000',
+  baseURL: getApiBase(),
 })
 
 // ambil token dari localStorage ATAU sessionStorage

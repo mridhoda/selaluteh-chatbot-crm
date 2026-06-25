@@ -20,6 +20,12 @@ import {
   ChefHat
 } from 'lucide-react'
 import api from '../../../shared/api/httpClient'
+import {
+  getReceiptEligibility,
+  isAndroidUserAgent,
+  openReceiptPrintWindow,
+  openRawBtPrint,
+} from '../../printing/thermalPrint'
 
 // Helper for WhatsApp SVG Icon (Identical to reference green logo)
 const WhatsAppIcon = ({ className = "w-5 h-5" }) => (
@@ -361,74 +367,23 @@ export default function KitchenPage() {
   // Handle printing selected order
   const handlePrint = (order) => {
     if (!order) return
-    const printWindow = window.open('', '_blank', 'width=600,height=800')
-    if (!printWindow) return
+    const eligibility = getReceiptEligibility(order, 'KITCHEN_TICKET')
+    if (!eligibility.eligible) {
+      alert(eligibility.safeMessage)
+      return
+    }
 
-    const itemsHtml = order.items.map(item => `
-      <tr>
-        <td style="padding: 6px 0;">${item.qty}x ${item.name}<br/><small style="color: #666;">${item.variant}</small></td>
-        <td style="text-align: right; padding: 6px 0;">${formatCurrency(item.price * item.qty)}</td>
-      </tr>
-    `).join('')
+    const printOptions = {
+      documentType: 'KITCHEN_TICKET',
+      footerLines: ['Kitchen copy', 'Dispatch only, bukan bukti selesai cetak fisik'],
+    }
+    const result = isAndroidUserAgent()
+      ? openRawBtPrint(order, printOptions)
+      : openReceiptPrintWindow(order, { ...printOptions, autoPrint: true })
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Print Order ${order.orderIdDisplay}</title>
-          <style>
-            body { font-family: monospace; padding: 20px; font-size: 14px; line-height: 1.4; color: #000; }
-            .header { text-align: center; margin-bottom: 20px; }
-            .divider { border-top: 1px dashed #000; margin: 10px 0; }
-            table { width: 100%; border-collapse: collapse; }
-            .total { font-weight: bold; font-size: 16px; }
-            .footer { text-align: center; margin-top: 30px; font-size: 12px; }
-          </style>
-        </head>
-        <body onload="window.print(); window.close();">
-          <div class="header">
-            <h3>SELALU TEH</h3>
-            <p>${order.outlet}</p>
-            <h2>${order.orderIdDisplay}</h2>
-            <p>${order.invoiceId}</p>
-            <p>${order.time} | ${order.fulfillment}</p>
-          </div>
-          <div class="divider"></div>
-          <table>
-            <thead>
-              <tr style="border-bottom: 1px solid #000;">
-                <th style="text-align: left; padding-bottom: 6px;">Item</th>
-                <th style="text-align: right; padding-bottom: 6px;">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
-          </table>
-          <div class="divider"></div>
-          <table>
-            <tr>
-              <td>Subtotal</td>
-              <td style="text-align: right;">${formatCurrency(order.totalAmount - order.platformFee)}</td>
-            </tr>
-            <tr>
-              <td>Platform Fee</td>
-              <td style="text-align: right;">${formatCurrency(order.platformFee)}</td>
-            </tr>
-            <tr class="total">
-              <td style="padding-top: 8px;">TOTAL</td>
-              <td style="text-align: right; padding-top: 8px;">${formatCurrency(order.totalAmount)}</td>
-            </tr>
-          </table>
-          <div class="divider"></div>
-          <p><strong>Customer:</strong> ${order.customer?.name} (${order.customer?.phone})</p>
-          ${order.note ? `<p><strong>Note:</strong> ${order.note}</p>` : ''}
-          <div class="footer">
-            <p>Terima kasih atas pesanan Anda!</p>
-          </div>
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
+    if (result.errorCode) {
+      alert(result.safeMessage || 'Print tidak bisa dibuka. Gunakan Preview/izinkan popup untuk mencetak.')
+    }
   }
 
   const handleCopy = (text) => {

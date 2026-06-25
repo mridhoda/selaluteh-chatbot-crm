@@ -1,0 +1,322 @@
+schema_version: 2
+spec_version: 1.0.0
+
+id: thermal-print-specs
+title: SelaluTeh Thermal Print
+description: >-
+  Complete requirements-first specification for thermal invoices, customer
+  receipts, test pages, canonical receipt snapshots, 58 mm and 80 mm layouts,
+  Linux and Windows Browser Print, Android RawBT, future QZ Tray or local-agent
+  direct printing, HTML and ESC/POS renderers, printer profiles, print stations,
+  jobs, attempts, completion evidence, reprints, history, security, testing,
+  rollout, and operations.
+
+type: feature
+workflow: requirements-first
+status: active
+workflow_state: in_progress
+priority: high
+
+created_at: '2026-06-24'
+updated_at: '2026-06-24'
+
+owners:
+  product_owner: SelaluTeh product owner
+  technical_owner: project-maintainer
+  security_owner: project-maintainer
+  outlet_operations_owner: project-maintainer
+  implementation_actor: coding-agent
+  review_required: true
+  security_review_required: true
+  physical_device_review_required: true
+
+tags:
+  - thermal-print
+  - receipt
+  - invoice
+  - escpos
+  - browser-print
+  - linux
+  - windows
+  - android
+  - rawbt
+  - qz-tray
+  - multi-outlet
+  - supabase
+  - tdd
+
+lifecycle:
+  config: docs/specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: docs/specs/active/thermal-print-specs
+  move_entire_spec_directory: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    dry_run_command: npm run specs:sync:dry
+    sync_command: npm run specs:sync
+    check_command: npm run specs:check
+    automatic_local_move: false
+    ci_check_only: true
+
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+  reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+
+document_authority:
+  precedence:
+    - latest-approved-thermal-printing-decision
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+    - implementation-status-for-reality
+    - external-domain-contracts
+    - legacy-documents
+
+product:
+  name: SelaluTeh Marketplace
+  area: thermal-printing
+  stage: full-product-design-with-alpha-slice
+  architecture:
+    - canonical-receipt-snapshot
+    - platform-transport-adapters
+    - desktop-linux-windows
+    - android
+    - browser-print
+    - rawbt
+    - future-local-print-bridge
+    - escpos
+    - multi-workspace-ready
+    - multi-outlet
+    - supabase-postgresql
+
+spec_relationships:
+  umbrella:
+    id: selaluteh-backend-marketplace
+    relationship: backend-architecture-and-shared-rules
+  depends_on:
+    - id: selaluteh-cart-order-lifecycle
+      relationship: immutable-order-and-item-snapshots
+    - id: selaluteh-payments-xendit
+      relationship: verified-payment-and-refund-state
+    - id: selaluteh-outlet-management-operations
+      relationship: outlet-identity-and-receipt-details
+    - id: selaluteh-workspace-access-control
+      relationship: printing-and-outlet-authorization
+    - id: selaluteh-audit-activity-timeline
+      relationship: immutable-administrative-activity
+    - id: selaluteh-media-storage
+      relationship: approved-logo-assets
+
+scope:
+  included:
+    - order-invoice
+    - customer-receipt
+    - kitchen-ticket
+    - refund-receipt
+    - test-page
+    - canonical-receipt-snapshot
+    - structured-template-model
+    - template-versioning
+    - 58mm-and-80mm
+    - encoding
+    - printer-profiles
+    - print-stations
+    - station-printer-bindings
+    - mock-transport
+    - browser-print-linux-windows
+    - rawbt-android
+    - qz-tray-local-agent-readiness
+    - web-bluetooth-experimental
+    - escpos-renderer
+    - html-renderer
+    - print-jobs
+    - print-attempts
+    - completion-evidence
+    - idempotency
+    - reprint
+    - manual-print
+    - auto-print-foundation
+    - station-health
+    - test-print
+    - setup-workflow
+    - preview
+    - orders-sidebar
+    - print-history
+    - authorization
+    - rls
+    - api-contracts
+    - events
+    - audit
+    - observability
+    - testing
+    - platform-manual-tests
+    - rollout
+
+  deferred:
+    - production-auto-print
+    - fiscal-tax-printer
+    - government-e-invoice
+    - ios-direct-printing
+    - unrestricted-silent-browser-print
+    - universal-web-bluetooth-support
+    - remote-cross-outlet-printing
+    - arbitrary-html-template-execution
+
+  excluded:
+    - order-state-ownership
+    - payment-truth
+    - inventory-mutation
+    - product-catalog-ownership
+    - bluetooth-password-storage
+    - os-driver-installation
+    - frontend-as-payment-authority
+
+fixed_decisions:
+  platforms:
+    supported: [DESKTOP_LINUX, DESKTOP_WINDOWS, ANDROID]
+  transports:
+    desktop_alpha: BROWSER_PRINT
+    android_alpha: RAWBT
+    development: MOCK
+    desktop_advanced: [QZ_TRAY, LOCAL_AGENT]
+    experimental: [WEB_BLUETOOTH_EXPERIMENTAL]
+  document:
+    default_final_proof: CUSTOMER_RECEIPT
+    default_final_trigger: ORDER_COMPLETED
+    manual_after_verified_paid_allowed: true
+    paid_receipt_requires_verified_payment: true
+    test_mode_marker_required: true
+  renderer:
+    canonical_snapshot_required: true
+    html_supported: true
+    escpos_supported: true
+    paper_widths_mm: [58, 80]
+  result_semantics:
+    dispatch_is_physical_completion: false
+    browser_print_invocation_completes_job: false
+    rawbt_handoff_completes_job: false
+    completion_evidence_required: true
+  auto_print:
+    alpha_enabled: false
+    lease_required_when_enabled: true
+
+requirements_registry:
+  prefix: TP-R
+  total: 50
+
+correctness_invariants:
+  - printing-never-mutates-order-or-payment-truth
+  - receipt-uses-immutable-order-snapshots
+  - paid-receipt-requires-verified-payment
+  - test-mode-is-visibly-marked
+  - one-idempotency-key-one-job
+  - explicit-reprint-separate-linked-job
+  - dispatch-does-not-imply-physical-completion
+  - local-transports-never-receive-backend-secrets
+  - other-outlet-cannot-print-or-view-job
+  - printer-failure-never-blocks-order-completion
+
+security:
+  release_blockers:
+    - unverified-payment-can-produce-paid-receipt
+    - other-outlet-can-print-order
+    - access-token-in-rawbt-payload
+    - arbitrary-template-code-executes
+    - accidental-duplicate-print
+    - dispatch-falsely-marked-physically-completed
+    - cross-workspace-station-or-job-access
+    - printing-failure-changes-order
+    - android-physical-path-not-validated
+
+testing:
+  methodology: test-driven-development
+  production_data_prohibited: true
+  production_secrets_prohibited: true
+  physical_device_test_required: true
+  release_gate_commands:
+    spec_check: npm run specs:check
+    unit: npm run test:thermal-print:unit
+    component: npm run test:thermal-print:component
+    integration: npm run test:thermal-print:integration
+    security: npm run test:thermal-print:security
+    property: npm run test:thermal-print:property
+    concurrency: npm run test:thermal-print:concurrency
+    resilience: npm run test:thermal-print:resilience
+    visual: npm run test:thermal-print:visual
+    binary: npm run test:thermal-print:binary
+    e2e: npm run test:thermal-print:e2e
+    all: npm run test:thermal-print:all
+
+implementation:
+  current_phase: preflight-and-hardware-audit
+  task_source: tasks.md
+  recommended_first_task: 0-preflight-and-hardware-audit
+  must_not_defer:
+    - canonical-snapshot
+    - customer-receipt
+    - test-page
+    - html-and-escpos-renderers
+    - mock
+    - browser-print-linux-windows
+    - rawbt-android
+    - profiles-stations-bindings
+    - manual-print-reprint-history
+    - honest-completion-evidence
+    - orders-sidebar
+    - authorization-rls
+    - android-physical-validation
+  may_defer_after_alpha:
+    - qz-tray
+    - custom-local-agent
+    - web-bluetooth
+    - production-auto-print
+    - kitchen-ticket
+    - refund-receipt
+    - advanced-logo-qr
+    - offline-queue
+
+status_workflow:
+  initial_status: active
+  initial_workflow_state: in_progress
+  folder_statuses:
+    backlog:
+      folder: docs/specs/backlog
+      workflow_states: [draft, review, approved]
+    active:
+      folder: docs/specs/active
+      workflow_states: [in_progress, blocked, verifying]
+    completed:
+      folder: docs/specs/completed
+      workflow_states: [done, archived]
+  folder_move_rule: edit-status-then-run-npm-run-specs-sync
+  completed_guard: required-unchecked-tasks-must-be-zero
+
+references:
+  own_documents:
+    - docs/specs/active/thermal-print-specs/requirements.md
+    - docs/specs/active/thermal-print-specs/design.md
+    - docs/specs/active/thermal-print-specs/tasks.md
+  related:
+    - docs/specs/active/selaluteh-backend-marketplace/spec.yaml
+    - docs/specs/active/selaluteh-cart-order-lifecycle/spec.yaml
+    - docs/specs/active/selaluteh-payments-xendit/spec.yaml
+    - docs/specs/active/selaluteh-outlet-management-operations/spec.yaml
+    - docs/specs/active/selaluteh-workspace-access-control/spec.yaml
+
+metadata:
+  generated_for: thermal-print-specs
+  generated_at: '2026-06-24'
+  notes:
+    - Browser Print is the alpha desktop path.
+    - RawBT is the alpha Android path.
+    - Web Bluetooth remains experimental.
+    - Dispatch and physical completion are separate.
+    - Printing failure never blocks order completion.

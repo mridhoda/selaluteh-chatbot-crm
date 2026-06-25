@@ -5,7 +5,25 @@ import { env } from './env.js';
 function isOriginAllowed(origin, allowedOrigins) {
   if (!origin) return true;
   if (allowedOrigins === '*') return !env.isProduction;
+  if (!env.isProduction && isLocalDevelopmentOrigin(origin)) return true;
   return allowedOrigins.includes(origin);
+}
+
+function isLocalDevelopmentOrigin(origin) {
+  try {
+    const { hostname } = new URL(origin);
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname.endsWith('.local') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)
+    );
+  } catch (_) {
+    return false;
+  }
 }
 
 export function corsMiddleware() {
