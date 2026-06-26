@@ -43,6 +43,7 @@ import SettingsPage from '../../settings/pages/SettingsPage'
 import ChatCenterPage from '../../chats/pages/ChatCenterPage'
 import ReportsPage from '../../reports/pages/ReportsPage'
 import Contacts from '../../contacts/pages/ContactsPage'
+import AccessControlPage from '../../access-control/pages/AccessControlPage'
 import {
   Chart as ChartJS,
   ArcElement,
@@ -1183,6 +1184,9 @@ function Profile() {
 function Settings() {
   return <SettingsPage />
 }
+function AccessControl({ user }) {
+  return <AccessControlPage currentUser={user} />
+}
 function Billing() {
   const [data, setData] = useState(null)
   useEffect(() => {
@@ -1250,6 +1254,7 @@ export default function Dashboard() {
             <Route path='humans' element={<Humans />} />
             <Route path='human-agents' element={<Humans />} />
             <Route path='reports' element={<ReportsPage />} />
+            <Route path='access-control' element={<AccessControl user={user} />} />
             <Route path='settings' element={<Settings />} />
             <Route path='billing' element={<Billing />} />
             <Route path='profile' element={<Profile />} />

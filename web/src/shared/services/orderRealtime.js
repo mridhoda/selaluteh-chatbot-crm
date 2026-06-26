@@ -30,6 +30,31 @@ export function startOrderRealtimeStream() {
     window.dispatchEvent(new CustomEvent('order:created', { detail: data }))
   })
 
+  orderStream.addEventListener('order.paid', (event) => {
+    const data = JSON.parse(event.data || '{}')
+    showOrderNotification(data)
+    window.dispatchEvent(new CustomEvent('order:paid', { detail: data }))
+    window.dispatchEvent(new CustomEvent('order:updated', { detail: data }))
+  })
+
+  orderStream.addEventListener('order.updated', (event) => {
+    const data = JSON.parse(event.data || '{}')
+    window.dispatchEvent(new CustomEvent('order:updated', { detail: data }))
+  })
+
+  orderStream.addEventListener('payment.paid', (event) => {
+    const data = JSON.parse(event.data || '{}')
+    window.dispatchEvent(new CustomEvent('payment:paid', { detail: data }))
+    window.dispatchEvent(new CustomEvent('payment:updated', { detail: data }))
+    window.dispatchEvent(new CustomEvent('order:updated', { detail: data }))
+  })
+
+  orderStream.addEventListener('payment.updated', (event) => {
+    const data = JSON.parse(event.data || '{}')
+    window.dispatchEvent(new CustomEvent('payment:updated', { detail: data }))
+    window.dispatchEvent(new CustomEvent('order:updated', { detail: data }))
+  })
+
   orderStream.onerror = () => {
     console.warn('Order realtime stream disconnected; browser will retry automatically')
   }

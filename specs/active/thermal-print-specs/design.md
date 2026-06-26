@@ -25,7 +25,7 @@ graph TB
     J[Print Job Service]
     ST[Print Station]
     B[Browser Print]
-    R[RawBT]
+    C[Cleanter]
     Q[QZ / Local Agent]
     M[Mock]
     DB[Supabase]
@@ -51,7 +51,7 @@ graph TB
 
 ```text
 Desktop Linux/Windows alpha = Browser Print
-Android alpha               = RawBT
+Android alpha               = Cleanter
 Development                 = Mock + Preview
 Desktop direct later        = QZ Tray / Local Agent
 Web Bluetooth               = experimental only
@@ -146,10 +146,9 @@ interface PrinterTransport {
   type:
     | "MOCK"
     | "BROWSER_PRINT"
-    | "RAWBT"
+    | "CLEANTER"
     | "QZ_TRAY"
     | "LOCAL_AGENT"
-    | "WEB_BLUETOOTH_EXPERIMENTAL";
 
   isSupported(): Promise<boolean>;
   getCapabilities(): Promise<TransportCapabilities>;
@@ -336,7 +335,7 @@ Honest semantics:
 
 ```text
 window.print() invoked → DISPATCHED
-RawBT opened           → DISPATCHED
+Cleanter HTTP 2xx      → DISPATCHED
 user confirms paper    → COMPLETED / USER_CONFIRMED
 bridge acknowledges    → COMPLETED / TRANSPORT_ACK
 ```
@@ -368,14 +367,15 @@ Baseline CSS:
 }
 ```
 
-## 8. Android RawBT
+## 8. Android Cleanter
 
 ```text
 snapshot
 → ESC/POS renderer
 → bytes/base64
-→ rawbt: deep link
-→ RawBT
+→ POST http://localhost:9100/print
+→ Cleanter local HTTP bridge
+→ Bluetooth Classic thermal printer
 → paired Inforce printer
 ```
 
@@ -491,7 +491,11 @@ STATION_NOT_REGISTERED
 STATION_OFFLINE
 TRANSPORT_UNSUPPORTED
 BRIDGE_UNAVAILABLE
-RAWBT_UNAVAILABLE
+CLEANTER_UNAVAILABLE
+CLEANTER_CORS_BLOCKED
+CLEANTER_LOCAL_NETWORK_PERMISSION_DENIED
+CLEANTER_TIMEOUT
+CLEANTER_PRINT_REJECTED
 WEB_BLUETOOTH_UNSUPPORTED
 PAYLOAD_TOO_LARGE
 PAPER_WIDTH_UNSUPPORTED
@@ -516,7 +520,7 @@ fake paid receipt
 cross-outlet print
 → authorization + RLS
 
-RawBT/deep-link leakage
+Cleanter local payload leakage
 → receipt output only, no token
 
 arbitrary template execution
@@ -561,7 +565,7 @@ ESC/POS init, alignment, bold, rows, feed, cut, encoding
 Manual:
 Linux Chrome
 Windows Chrome/Edge
-Android Chrome + RawBT + Inforce
+Android Chrome + Cleanter + Inforce
 ```
 
 ## 16. Rollout
@@ -574,7 +578,7 @@ templates
 HTML/ESC-POS
 Mock
 Browser Print
-RawBT
+Cleanter
 manual jobs
 reprint
 test page
@@ -608,7 +612,7 @@ advanced health
 ```text
 Linux Browser Print validated
 Windows Browser Print validated
-Android RawBT + Inforce physically validated
+Android Cleanter + Inforce physically validated
 Mock validated
 immutable snapshot and verified payment rules proven
 honest completion evidence proven

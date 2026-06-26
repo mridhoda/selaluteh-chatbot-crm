@@ -12,9 +12,12 @@ import {
   getWorkspaceDetail,
   updateWorkspace,
 } from '../services/workspace.service.js';
+import { authRequired, attachUser } from '../middleware/auth.js';
 import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
 
 const router = Router();
+
+router.use(authRequired, attachUser);
 
 /**
  * GET /workspaces/current

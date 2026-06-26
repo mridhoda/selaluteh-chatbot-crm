@@ -3,15 +3,25 @@ import assert from 'node:assert/strict'
 
 import {
   buildReceiptSnapshot,
-  buildRawBtUrl,
   getReceiptEligibility,
   isAndroidUserAgent,
   maskPhone,
   openReceiptPrintWindow,
-  openRawBtPrint,
+  printWithBestAvailableTransport,
   renderReceiptEscPosText,
   renderReceiptHtml,
 } from '../src/modules/printing/thermalPrint.js'
+import { buildCleanterPayload } from '../src/modules/printing/cleanterCommands.js'
+import {
+  CleanterError,
+  postCleanterPrintJob,
+} from '../src/modules/printing/cleanterClient.js'
+import { CleanterTransport } from '../src/modules/printing/cleanterTransport.js'
+import {
+  ANDROID_PRIMARY_TRANSPORT,
+  PrinterTransportType,
+  resolvePrinterTransport,
+} from '../src/modules/printing/transportResolver.js'
 
 const paidOrder = {
   _id: 'order-1',
@@ -97,9 +107,10 @@ describe('thermal print alpha helpers', () => {
     }
   })
 
-  it('detects Android user agents for RawBT transport selection', () => {
+  it('detects Android user agents for Cleanter transport selection', () => {
     assert.equal(isAndroidUserAgent('Mozilla/5.0 (Linux; Android 14; Pixel)'), true)
     assert.equal(isAndroidUserAgent('Mozilla/5.0 (X11; Linux x86_64)'), false)
+    assert.equal(ANDROID_PRIMARY_TRANSPORT, PrinterTransportType.CLEANTER)
   })
 
   it('renders bounded ESC/POS text payload without raw HTML tags', () => {
@@ -111,38 +122,169 @@ describe('thermal print alpha helpers', () => {
     assert.doesNotMatch(payload, /<script>/)
   })
 
-  it('builds RawBT deep links without auth tokens', () => {
-    const { primaryUrl, intentUrl, sizeBytes } = buildRawBtUrl('hello receipt')
+  it('builds deterministic Cleanter JSON payload with documented commands only', () => {
+    const snapshot = buildReceiptSnapshot(paidOrder, { documentType: 'CUSTOMER_RECEIPT' })
+    const first = buildCleanterPayload(snapshot, { charactersPerLine: 32, supportsCut: false })
+    const second = buildCleanterPayload(snapshot, { charactersPerLine: 32, supportsCut: false })
 
-    assert.match(primaryUrl, /^rawbt:base64,/)
-    assert.match(intentUrl, /^intent:base64,/) 
-    assert.equal(primaryUrl.includes('token='), false)
-    assert.equal(intentUrl.includes('Authorization'), false)
-    assert.equal(sizeBytes, 13)
+    assert.deepEqual(first, second)
+    assert.equal(Array.isArray(first.commands), true)
+    assert.deepEqual([...new Set(first.commands.map((command) => command.type))].sort(), ['feed', 'text'])
+    assert.equal(JSON.stringify(first).includes('token='), false)
+    assert.equal(JSON.stringify(first).includes('Authorization'), false)
+    assert.equal(JSON.stringify(first).includes('081234567890'), false)
+    assert.match(first.commands[0].value, /SELALUTEH/)
   })
 
-  it('marks RawBT handoff as dispatched but not completed on Android', () => {
-    const locationRef = { href: '' }
-    const result = openRawBtPrint(paidOrder, {
-      documentType: 'CUSTOMER_RECEIPT',
-      userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel)',
-      locationRef,
+  it('adds cut command only when profile supports cut', () => {
+    const payload = buildCleanterPayload(buildReceiptSnapshot(paidOrder), {
+      charactersPerLine: 32,
+      supportsCut: true,
     })
+
+    assert.equal(payload.commands.at(-1).type, 'cut')
+  })
+
+  it('posts Cleanter print jobs without browser credentials', async () => {
+    const calls = []
+    const response = await postCleanterPrintJob(
+      {
+        baseUrl: 'http://localhost:9100',
+        printPath: '/print',
+        timeoutMs: 1000,
+        maxPayloadBytes: 256000,
+      },
+      { commands: [{ type: 'text', value: 'Hello' }] },
+      {
+        fetchImpl: async (url, init) => {
+          calls.push({ url, init })
+          return new Response('{"accepted":true}', { status: 200 })
+        },
+        setTimeoutImpl: () => 1,
+        clearTimeoutImpl: () => {},
+      }
+    )
+
+    assert.equal(response.ok, true)
+    assert.equal(response.status, 200)
+    assert.equal(calls[0].url, 'http://localhost:9100/print')
+    assert.equal(calls[0].init.credentials, 'omit')
+    assert.equal(calls[0].init.cache, 'no-store')
+    assert.equal(calls[0].init.headers['Content-Type'], 'application/json')
+  })
+
+  it('rejects oversized Cleanter payload before fetch', async () => {
+    await assert.rejects(
+      postCleanterPrintJob(
+        {
+          baseUrl: 'http://localhost:9100',
+          printPath: '/print',
+          timeoutMs: 1000,
+          maxPayloadBytes: 10,
+        },
+        { commands: [{ type: 'text', value: 'payload too large' }] },
+        { fetchImpl: async () => new Response('', { status: 200 }) }
+      ),
+      (error) => error instanceof CleanterError && error.code === 'CLEANTER_PAYLOAD_TOO_LARGE'
+    )
+  })
+
+  it('maps Cleanter timeout and ambiguous browser fetch failures', async () => {
+    await assert.rejects(
+      postCleanterPrintJob(
+        {
+          baseUrl: 'http://localhost:9100',
+          printPath: '/print',
+          timeoutMs: 1000,
+          maxPayloadBytes: 256000,
+        },
+        { commands: [{ type: 'text', value: 'Hello' }] },
+        {
+          fetchImpl: async () => {
+            throw new DOMException('The operation was aborted.', 'AbortError')
+          },
+        }
+      ),
+      (error) => error instanceof CleanterError && error.code === 'CLEANTER_TIMEOUT'
+    )
+
+    await assert.rejects(
+      postCleanterPrintJob(
+        {
+          baseUrl: 'http://localhost:9100',
+          printPath: '/print',
+          timeoutMs: 1000,
+          maxPayloadBytes: 256000,
+        },
+        { commands: [{ type: 'text', value: 'Hello' }] },
+        {
+          fetchImpl: async () => {
+            throw new TypeError('Failed to fetch')
+          },
+        }
+      ),
+      (error) => (
+        error instanceof CleanterError &&
+        error.code === 'CLEANTER_UNAVAILABLE' &&
+        error.message.includes('Local Network')
+      )
+    )
+  })
+
+  it('marks Cleanter HTTP success as dispatched but not physically completed', async () => {
+    const transport = new CleanterTransport(
+      {
+        enabled: true,
+        baseUrl: 'http://localhost:9100',
+        printPath: '/print',
+        timeoutMs: 1000,
+        maxPayloadBytes: 256000,
+        supportsCut: false,
+        supportsQr: false,
+        supportsBarcode: false,
+        supportsImage: false,
+      },
+      {
+        print: async () => ({ ok: true, status: 200, body: { accepted: true } }),
+      },
+      { userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel)' }
+    )
+
+    const result = await transport.print({ snapshot: buildReceiptSnapshot(paidOrder), profile: { charactersPerLine: 32 } })
 
     assert.equal(result.dispatched, true)
     assert.equal(result.completed, false)
-    assert.equal(result.transport, 'RAWBT')
-    assert.equal(result.evidence, 'NONE')
-    assert.match(locationRef.href, /^intent:base64,/)
+    assert.equal(result.transport, 'CLEANTER')
+    assert.equal(result.evidence, 'TRANSPORT_ACK')
   })
 
-  it('rejects RawBT transport outside Android', () => {
-    const result = openRawBtPrint(paidOrder, {
+  it('resolves Cleanter for Android and Browser Print for Linux', () => {
+    const androidTransport = resolvePrinterTransport({
+      platform: 'ANDROID',
+      transportType: PrinterTransportType.CLEANTER,
+      userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel)',
+    })
+    const linuxTransport = resolvePrinterTransport({
+      platform: 'DESKTOP_LINUX',
+      transportType: PrinterTransportType.BROWSER_PRINT,
       userAgent: 'Mozilla/5.0 (X11; Linux x86_64)',
-      locationRef: { href: '' },
     })
 
-    assert.equal(result.dispatched, false)
-    assert.equal(result.errorCode, 'TRANSPORT_UNSUPPORTED')
+    assert.equal(androidTransport.type, PrinterTransportType.CLEANTER)
+    assert.equal(linuxTransport.type, PrinterTransportType.BROWSER_PRINT)
+  })
+
+  it('uses Cleanter as best available Android transport', async () => {
+    const result = await printWithBestAvailableTransport(paidOrder, {
+      documentType: 'CUSTOMER_RECEIPT',
+      userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel)',
+      cleanterClient: {
+        print: async () => ({ ok: true, status: 200, body: { accepted: true } }),
+      },
+    })
+
+    assert.equal(result.transport, PrinterTransportType.CLEANTER)
+    assert.equal(result.dispatched, true)
+    assert.equal(result.completed, false)
   })
 })

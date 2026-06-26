@@ -73,6 +73,37 @@ const RECONCILIATION_STATUS = {
   },
 }
 
+const mapPaymentRow = (p, idx = 0) => {
+  const outletName = p.outlet_name || p.outletId || p.outlet_id || p.outlet || 'Samarinda'
+  const channelVal = p.channel || p.payment_channel || p.provider || 'xendit'
+  const methodVal = p.method || p.payment_method || p.paymentMethod || 'Virtual Account'
+  const providerVal = p.provider || 'xendit'
+  const statusVal = p.payment_status || p.paymentStatus || p.status || 'pending'
+  return {
+    id: p.id || p._id || `pay-${idx}`,
+    _id: p.id || p._id || `pay-${idx}`,
+    orderId: p.order_id || p.orderId || '-',
+    outlet: outletName,
+    outletInitial: (outletName || 'S').charAt(0).toUpperCase(),
+    provider: providerVal,
+    channel: channelVal,
+    method: methodVal,
+    paymentMethod: methodVal,
+    amount: p.amount || p.total_amount || 0,
+    status: statusVal,
+    paymentStatus: statusVal,
+    reconciliationStatus: p.reconciliation_status || p.reconciliationStatus || 'pending',
+    createdAt: p.created_at || p.createdAt || new Date().toISOString(),
+    providerTransactionId: p.provider_transaction_id || p.providerTransactionId || p.reference || '-',
+    paymentLink: p.payment_link || p.paymentLink || p.payment_url || p.paymentUrl || null,
+    customer: {
+      name: p.customer_name_snapshot || p.customerSnapshot?.name || p.customer?.name || 'Unknown User',
+      phone: p.customer_phone_snapshot || p.customerSnapshot?.phone || p.customer?.phone || '-',
+    },
+    events: p.events || [],
+  }
+}
+
 const summaryCards = [
   {
     label: 'Gross Collected',
@@ -1025,6 +1056,27 @@ export default function PaymentsPage() {
     loadPayments()
   }, [])
 
+  useEffect(() => {
+    const onPaymentRealtime = (event) => {
+      const payment = event.detail?.payment
+      if (payment) {
+        const mappedPayment = mapPaymentRow(payment)
+        setPayments((prev) => {
+          const exists = prev.some((item) => item.id === mappedPayment.id)
+          if (exists) return prev.map((item) => item.id === mappedPayment.id ? { ...item, ...mappedPayment } : item)
+          return [mappedPayment, ...prev]
+        })
+      }
+      loadPayments()
+    }
+    window.addEventListener('payment:paid', onPaymentRealtime)
+    window.addEventListener('payment:updated', onPaymentRealtime)
+    return () => {
+      window.removeEventListener('payment:paid', onPaymentRealtime)
+      window.removeEventListener('payment:updated', onPaymentRealtime)
+    }
+  }, [])
+
   const loadPayments = async () => {
     setLoading(true)
     try {
@@ -1038,36 +1090,7 @@ export default function PaymentsPage() {
             ? res.data.data
             : []
 
-        const mappedPayments = rawPayments.map((p, idx) => {
-          const outletName = p.outlet_name || p.outlet_id || p.outlet || 'Samarinda'
-          const channelVal = p.channel || p.payment_channel || p.provider || 'xendit'
-          const methodVal = p.method || p.payment_method || p.paymentMethod || 'Virtual Account'
-          const providerVal = p.provider || 'xendit'
-          const statusVal = p.payment_status || p.status || 'Pending'
-          return {
-            id: p.id || p._id || `pay-${idx}`,
-            _id: p.id || p._id || `pay-${idx}`,
-            orderId: p.order_id || p.orderId || '-',
-            outlet: outletName,
-            outletInitial: (outletName || 'S').charAt(0).toUpperCase(),
-            provider: providerVal,
-            channel: channelVal,
-            method: methodVal,
-            paymentMethod: methodVal,
-            amount: p.amount || p.total_amount || 0,
-            status: statusVal,
-            paymentStatus: statusVal,
-            reconciliationStatus: p.reconciliation_status || 'Reconciled',
-            createdAt: p.created_at || new Date().toISOString(),
-            providerTransactionId: p.provider_transaction_id || p.providerTransactionId || p.reference || '-',
-            paymentLink: p.payment_link || p.paymentLink || null,
-            customer: {
-              name: p.customer_name_snapshot || p.customer?.name || 'Unknown User',
-              phone: p.customer_phone_snapshot || p.customer?.phone || '-',
-            },
-            events: p.events || [],
-          }
-        })
+        const mappedPayments = rawPayments.map((p, idx) => mapPaymentRow(p, idx))
         setPayments(mappedPayments)
       }
     } catch (err) {

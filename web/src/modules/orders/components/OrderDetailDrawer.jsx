@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faChevronRight } from '@fortawesome/free-solid-svg-icons'
 import OrderStatusBadge from './OrderStatusBadge'
@@ -9,7 +9,7 @@ import {
   getReceiptEligibility,
   isAndroidUserAgent,
   openReceiptPrintWindow,
-  openRawBtPrint,
+  printWithBestAvailableTransport,
 } from '../../printing/thermalPrint'
 
 // ─── Channel icon resolver ────────────────────────────────────────────────────
@@ -85,6 +85,8 @@ export default function OrderDetailDrawer({
   onResendPayment,
   onHide,
 }) {
+  const [printing, setPrinting] = useState(false)
+
   useEffect(() => {
     if (!order) return undefined
 
@@ -180,19 +182,25 @@ export default function OrderDetailDrawer({
     })
   }
 
-  const handlePrintReceipt = () => {
+  const handlePrintReceipt = async () => {
     if (!receiptEligibility.eligible) {
       alert(receiptEligibility.safeMessage)
       return
     }
+    if (printing) return
 
-    const printOptions = { documentType: 'CUSTOMER_RECEIPT' }
-    const result = isAndroidPrint
-      ? openRawBtPrint(order, printOptions)
-      : openReceiptPrintWindow(order, { ...printOptions, autoPrint: true })
+    setPrinting(true)
+    try {
+      const printOptions = { documentType: 'CUSTOMER_RECEIPT' }
+      const result = await printWithBestAvailableTransport(order, printOptions)
 
-    if (result.errorCode) {
-      alert(result.safeMessage || 'Print tidak bisa dibuka. Gunakan Preview/izinkan popup untuk mencetak.')
+      if (result.errorCode) {
+        alert(result.safeMessage || 'Print tidak bisa dibuka. Gunakan Preview/izinkan popup untuk mencetak.')
+      } else if (result.transport === 'CLEANTER') {
+        alert('Print job dikirim ke Cleanter. Konfirmasi manual diperlukan untuk menandai struk benar-benar tercetak.')
+      }
+    } finally {
+      setPrinting(false)
     }
   }
 
@@ -429,7 +437,7 @@ export default function OrderDetailDrawer({
               <div>
                 <div className='text-[var(--text-muted)]'>Transport</div>
                 <div className='font-bold text-[var(--text-primary)]'>
-                  {isAndroidPrint ? 'RawBT' : 'Browser Print'}
+                  {isAndroidPrint ? 'Cleanter Android' : 'Browser Print'}
                 </div>
               </div>
               <div>
@@ -461,15 +469,15 @@ export default function OrderDetailDrawer({
               <button
                 type='button'
                 onClick={handlePrintReceipt}
-                disabled={!receiptEligibility.eligible}
+                disabled={!receiptEligibility.eligible || printing}
                 className='flex-1 rounded-lg border border-[var(--brand-500)] bg-[var(--brand-500)] px-3 py-2 text-xs font-bold text-white hover:bg-[var(--brand-600)] disabled:opacity-45 disabled:cursor-not-allowed transition-colors duration-150'
               >
-                Print Receipt
+                {printing ? 'Dispatching...' : 'Print Receipt'}
               </button>
             </div>
             <div className='text-[10px] leading-relaxed text-[var(--text-muted)]'>
               {isAndroidPrint
-                ? 'Android membuka RawBT dari user gesture. Handoff ke RawBT tidak dianggap bukti cetak fisik selesai.'
+                ? 'Android mengirim JSON receipt ke Cleanter. HTTP ACK hanya berarti DISPATCHED, bukan bukti cetak fisik selesai.'
                 : 'Browser Print membuka dialog cetak. Sesuai spec, dialog terbuka tidak dianggap bukti cetak fisik selesai.'}
             </div>
           </div>

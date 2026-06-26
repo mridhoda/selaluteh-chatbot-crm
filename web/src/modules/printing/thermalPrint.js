@@ -1,6 +1,12 @@
+import { getCleanterConfigFromEnv } from './cleanterTransport.js'
+import {
+  ANDROID_PRIMARY_TRANSPORT,
+  PrinterTransportType,
+  resolvePrinterTransport,
+} from './transportResolver.js'
+
 const DEFAULT_PAPER_WIDTH_MM = 58
 const DEFAULT_CHARACTERS_PER_LINE = 32
-const MAX_RAWBT_PAYLOAD_BYTES = 24 * 1024
 
 const PAID_STATUSES = new Set(['paid', 'lunas', 'settled'])
 const KITCHEN_PRINTABLE_STATUSES = new Set([
@@ -415,82 +421,6 @@ export function renderReceiptEscPosText(snapshot, options = {}) {
   return lines.join('\n')
 }
 
-export function encodeRawBtPayload(payload = '') {
-  const bytes = new TextEncoder().encode(payload)
-  if (typeof btoa === 'function') {
-    let binary = ''
-    for (const byte of bytes) binary += String.fromCharCode(byte)
-    return { base64: btoa(binary), sizeBytes: bytes.length }
-  }
-
-  return { base64: Buffer.from(bytes).toString('base64'), sizeBytes: bytes.length }
-}
-
-export function buildRawBtUrl(payload = '') {
-  const { base64, sizeBytes } = encodeRawBtPayload(payload)
-  return {
-    sizeBytes,
-    primaryUrl: `rawbt:base64,${base64}`,
-    intentUrl: `intent:base64,${base64}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end`,
-  }
-}
-
-export function openRawBtPrint(order, options = {}) {
-  const userAgent = options.userAgent ?? globalThis.navigator?.userAgent ?? ''
-  const snapshot = buildReceiptSnapshot(order, options)
-
-  if (!isAndroidUserAgent(userAgent)) {
-    return {
-      dispatched: false,
-      completed: false,
-      evidence: 'NONE',
-      transport: 'RAWBT',
-      snapshot,
-      errorCode: 'TRANSPORT_UNSUPPORTED',
-      safeMessage: 'RawBT hanya tersedia untuk Android. Gunakan Browser Print di desktop.',
-    }
-  }
-
-  const payload = renderReceiptEscPosText(snapshot, options)
-  const rawBt = buildRawBtUrl(payload)
-  if (rawBt.sizeBytes > (options.maxPayloadBytes || MAX_RAWBT_PAYLOAD_BYTES)) {
-    return {
-      dispatched: false,
-      completed: false,
-      evidence: 'NONE',
-      transport: 'RAWBT',
-      snapshot,
-      payloadSizeBytes: rawBt.sizeBytes,
-      errorCode: 'PAYLOAD_TOO_LARGE',
-      safeMessage: 'Payload struk terlalu besar untuk dikirim ke RawBT.',
-    }
-  }
-
-  const target = options.useIntent === false ? rawBt.primaryUrl : rawBt.intentUrl
-  const locationRef = options.locationRef || globalThis.window?.location
-  if (!locationRef) {
-    return {
-      dispatched: false,
-      completed: false,
-      evidence: 'NONE',
-      transport: 'RAWBT',
-      snapshot,
-      errorCode: 'RAWBT_UNAVAILABLE',
-      safeMessage: 'Tidak bisa membuka RawBT dari environment ini.',
-    }
-  }
-
-  locationRef.href = target
-  return {
-    dispatched: true,
-    completed: false,
-    evidence: 'NONE',
-    transport: 'RAWBT',
-    snapshot,
-    payloadSizeBytes: rawBt.sizeBytes,
-  }
-}
-
 export function openReceiptPrintWindow(order, options = {}) {
   const snapshot = buildReceiptSnapshot(order, options)
   const html = renderReceiptHtml(snapshot, { autoPrint: Boolean(options.autoPrint) })
@@ -510,3 +440,32 @@ export function openReceiptPrintWindow(order, options = {}) {
     snapshot,
   }
 }
+
+export async function printWithBestAvailableTransport(order, options = {}) {
+  const userAgent = options.userAgent ?? globalThis.navigator?.userAgent ?? ''
+  const snapshot = buildReceiptSnapshot(order, options)
+  if (isAndroidUserAgent(userAgent)) {
+    const transport = resolvePrinterTransport({
+      platform: 'ANDROID',
+      transportType: ANDROID_PRIMARY_TRANSPORT,
+      userAgent,
+      cleanterClient: options.cleanterClient,
+      cleanterConfig: {
+        ...getCleanterConfigFromEnv(import.meta.env),
+        ...options.cleanterConfig,
+      },
+    })
+    return transport.print({
+      snapshot,
+      profile: {
+        paperWidthMm: options.paperWidthMm || DEFAULT_PAPER_WIDTH_MM,
+        charactersPerLine: options.charactersPerLine || DEFAULT_CHARACTERS_PER_LINE,
+        supportsCut: options.supportsCut,
+      },
+    })
+  }
+
+  return openReceiptPrintWindow(order, { ...options, autoPrint: options.autoPrint !== false })
+}
+
+export { PrinterTransportType }

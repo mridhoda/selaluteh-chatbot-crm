@@ -21,9 +21,9 @@ RED → GREEN → REFACTOR → VERIFY
 # 0. Preflight and Hardware Audit
 - [x] Confirm `thermal-print-specs`.
 - [x] Confirm Linux, Windows, Android.
-- [x] Confirm Browser Print and RawBT alpha paths.
+- [x] Confirm Browser Print and Cleanter alpha paths.
 - [ ] Record exact Inforce model, width, encoding, ESC/POS, cutter/logo/QR.
-- [ ] Record Android pairing/RawBT result.
+- [ ] Record Android pairing/Cleanter result.
 - [ ] Document desktop physical-print limitations.
 
 # 1. Shared Types and Permissions
@@ -105,7 +105,7 @@ RED → GREEN → REFACTOR → VERIFY
 - [x] User confirmation and Save PDF fallback.
 - [x] Cancel/unavailable cases.
 
-# 12. Android RawBT
+# 12. Android Cleanter
 - [x] Detect support.
 - [x] Safe bytes/base64/deep link.
 - [x] No token.
@@ -141,7 +141,7 @@ RED → GREEN → REFACTOR → VERIFY
 
 # 16. Completion Evidence
 - [ ] NONE, USER_CONFIRMED, TRANSPORT_ACK, DEVICE_STATUS, ADMIN_OVERRIDE.
-- [x] Browser/RawBT no auto-complete.
+- [x] Browser/Cleanter no auto-complete.
 - [x] Honest UI wording.
 - [ ] Override reason and audit.
 
@@ -178,7 +178,7 @@ RED → GREEN → REFACTOR → VERIFY
 # 21. Setup UI
 - [ ] Linux Browser Print and optional bridge.
 - [ ] Windows Browser Print/system printer and optional bridge.
-- [ ] Android RawBT install/pair/select/register/bind/test.
+- [ ] Android Cleanter install/pair/select/start/bind/test.
 - [ ] Width/encoding verification.
 - [ ] Troubleshooting.
 
@@ -215,7 +215,7 @@ RED → GREEN → REFACTOR → VERIFY
 - [ ] Other-outlet print.
 - [ ] Client-supplied price.
 - [x] Arbitrary template code.
-- [x] Token in RawBT payload.
+- [x] Token in local print payload.
 - [ ] Untrusted bridge.
 - [ ] Unauthorized reprint/override.
 - [ ] Unscoped list/count.
@@ -233,7 +233,7 @@ RED → GREEN → REFACTOR → VERIFY
 - [ ] Orders/Payments/template unavailable.
 - [ ] Station offline.
 - [x] Browser dialog cancelled.
-- [x] RawBT missing.
+- [x] Cleanter unavailable.
 - [ ] Bridge unavailable.
 - [ ] Render/payload/DB/outbox failures.
 - [ ] Retry recovery.
@@ -266,11 +266,11 @@ RED → GREEN → REFACTOR → VERIFY
 
 # 32. Manual Android + Inforce
 - [ ] Physical Android device and Chrome.
-- [ ] Install RawBT.
+- [ ] Install Cleanter.
 - [ ] Pair/select Inforce.
 - [ ] Register station and bind 58 mm profile.
 - [ ] Test page and customer receipt.
-- [ ] Long-text, disconnect/reconnect, missing RawBT, retry/reprint.
+- [ ] Long-text, disconnect/reconnect, missing Cleanter, retry/reprint.
 - [ ] Record model and result.
 
 # 33. Performance
@@ -284,7 +284,7 @@ RED → GREEN → REFACTOR → VERIFY
 - [ ] Migrations/RLS.
 - [ ] Default templates/profiles.
 - [x] Sidebar and preview.
-- [x] Enable Mock, Browser Print, RawBT.
+- [x] Enable Mock, Browser Print, Cleanter.
 - [ ] Physical Inforce validation.
 - [ ] QZ/local agent and auto-print disabled until validated.
 - [ ] Rollback and honest implementation status.
@@ -294,7 +294,7 @@ RED → GREEN → REFACTOR → VERIFY
 - [x] Preview and create job.
 - [ ] Linux Browser Print.
 - [ ] Windows Browser Print.
-- [ ] Android RawBT physical print.
+- [ ] Android Cleanter physical print.
 - [ ] Evidence/history/reprint.
 - [ ] Test marker, unpaid denial, other-outlet denial.
 - [ ] Double-click suppression and printer-failure isolation.
@@ -354,7 +354,7 @@ npm run test:thermal-print:all
 all P0 complete
 approved deferrals documented
 Linux/Windows Browser Print validated
-Android RawBT + Inforce validated
+Android Cleanter + Inforce validated
 Mock validated
 verified payment and snapshot authority proven
 honest evidence and reprint/idempotency proven

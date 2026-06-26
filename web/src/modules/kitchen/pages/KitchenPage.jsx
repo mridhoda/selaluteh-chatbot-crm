@@ -24,7 +24,7 @@ import {
   getReceiptEligibility,
   isAndroidUserAgent,
   openReceiptPrintWindow,
-  openRawBtPrint,
+  printWithBestAvailableTransport,
 } from '../../printing/thermalPrint'
 
 // Helper for WhatsApp SVG Icon (Identical to reference green logo)
@@ -57,6 +57,11 @@ const formatAgoText = (seconds) => {
   return `${Math.floor(hours / 24)} day${Math.floor(hours / 24) > 1 ? 's' : ''} ago`
 }
 
+const isPaidStatus = (status) => {
+  const normalized = String(status || '').trim().toLowerCase()
+  return normalized === 'paid' || normalized === 'lunas'
+}
+
 export default function KitchenPage() {
   const [orders, setOrders] = useState([])
   const [outlets, setOutlets] = useState([])
@@ -66,6 +71,7 @@ export default function KitchenPage() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [completedExpanded, setCompletedExpanded] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [printingOrderId, setPrintingOrderId] = useState(null)
   
   // Reference for the dashboard container to toggle fullscreen
   const boardRef = useRef(null)
@@ -129,7 +135,12 @@ export default function KitchenPage() {
       const rawOrders = ordersRes?.data?.data || ordersRes?.data || []
 
       // Normalize server orders to match kitchen layout shape
-      const parsedOrders = rawOrders.map(order => {
+      const parsedOrders = rawOrders.filter(order => {
+        const entries = Object.entries(order.formData || {})
+        const payStatusEntry = entries.find(([key]) => key.toLowerCase().includes('payment') || key.toLowerCase().includes('bayar'))
+        const paymentStatus = order.paymentStatus || (payStatusEntry ? payStatusEntry[1] : '')
+        return isPaidStatus(paymentStatus)
+      }).map(order => {
         const entries = Object.entries(order.formData || {})
         const outletEntry = entries.find(([key]) => key.toLowerCase().includes('outlet'))
         const outletName = order.outlet?.name || order.outlet || (outletEntry ? outletEntry[1] : 'SelaluTeh Danau Murung')
@@ -201,7 +212,7 @@ export default function KitchenPage() {
           agoText: 'Just now',
           timerSeconds: elapsed > 0 ? elapsed : 60,
           fulfillment: 'Pickup',
-          paymentStatus: paymentStatus.toLowerCase().includes('paid') || paymentStatus.toLowerCase().includes('lunas') ? 'Paid' : 'Unpaid',
+          paymentStatus: isPaidStatus(paymentStatus) ? 'Paid' : 'Unpaid',
           items,
           customer: {
             name: order.customerNameSnapshot || order.contactId?.name || 'Customer',
@@ -242,17 +253,21 @@ export default function KitchenPage() {
 
     const onOrderCreated = () => loadInitialData()
     window.addEventListener('order:created', onOrderCreated)
+    window.addEventListener('order:paid', onOrderCreated)
+    window.addEventListener('order:updated', onOrderCreated)
 
     return () => {
       clearInterval(pollInterval)
       window.removeEventListener('order:created', onOrderCreated)
+      window.removeEventListener('order:paid', onOrderCreated)
+      window.removeEventListener('order:updated', onOrderCreated)
     }
   }, [])
 
   // Check if new orders arrived to trigger chime
   const prevNewOrdersCountRef = useRef(0)
   useEffect(() => {
-    const newCount = orders.filter(o => o.status === 'new').length
+    const newCount = orders.filter(o => o.status === 'new' && o.paymentStatus === 'Paid').length
     if (newCount > prevNewOrdersCountRef.current && prevNewOrdersCountRef.current > 0) {
       playChime()
     }
@@ -365,8 +380,9 @@ export default function KitchenPage() {
   }, [orders, selectedOrderId])
 
   // Handle printing selected order
-  const handlePrint = (order) => {
+  const handlePrint = async (order) => {
     if (!order) return
+    if (printingOrderId) return
     const eligibility = getReceiptEligibility(order, 'KITCHEN_TICKET')
     if (!eligibility.eligible) {
       alert(eligibility.safeMessage)
@@ -377,12 +393,17 @@ export default function KitchenPage() {
       documentType: 'KITCHEN_TICKET',
       footerLines: ['Kitchen copy', 'Dispatch only, bukan bukti selesai cetak fisik'],
     }
-    const result = isAndroidUserAgent()
-      ? openRawBtPrint(order, printOptions)
-      : openReceiptPrintWindow(order, { ...printOptions, autoPrint: true })
+    setPrintingOrderId(order._id)
+    try {
+      const result = await printWithBestAvailableTransport(order, printOptions)
 
-    if (result.errorCode) {
-      alert(result.safeMessage || 'Print tidak bisa dibuka. Gunakan Preview/izinkan popup untuk mencetak.')
+      if (result.errorCode) {
+        alert(result.safeMessage || 'Print tidak bisa dibuka. Gunakan Preview/izinkan popup untuk mencetak.')
+      } else if (result.transport === 'CLEANTER') {
+        alert('Kitchen ticket dikirim ke Cleanter. HTTP ACK hanya berarti DISPATCHED.')
+      }
+    } finally {
+      setPrintingOrderId(null)
     }
   }
 
@@ -461,12 +482,12 @@ export default function KitchenPage() {
 
           {/* Print Selected Order Button */}
           <button 
-            disabled={!selectedOrderId}
+            disabled={!selectedOrderId || Boolean(printingOrderId)}
             onClick={() => handlePrint(selectedOrder)}
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#FF4B72] hover:bg-[#E63C62] active:bg-[#C92C4E] text-white rounded-lg text-xs font-bold shadow-sm disabled:opacity-50 transition-all"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print Selected Order</span>
+            <span>{printingOrderId === selectedOrder?._id ? 'Dispatching...' : 'Print Selected Order'}</span>
           </button>
         </div>
       </div>
@@ -771,11 +792,12 @@ export default function KitchenPage() {
                         <span>Mark Picked Up</span>
                       </button>
                       <button 
+                        disabled={Boolean(printingOrderId)}
                         onClick={(e) => {
                           e.stopPropagation();
                           handlePrint(order);
                         }}
-                        className="px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-600 rounded-lg text-xs font-bold transition-all shadow-sm"
+                        className="px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-600 rounded-lg text-xs font-bold transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Print Receipt"
                       >
                         <Printer className="w-3.5 h-3.5" />
@@ -989,11 +1011,12 @@ export default function KitchenPage() {
             {/* Bottom Actions Print/Close */}
             <div className="p-4 border-t border-gray-100 flex gap-2 shrink-0 bg-white">
               <button 
+                disabled={Boolean(printingOrderId)}
                 onClick={() => handlePrint(selectedOrder)}
-                className="flex-1 py-2.5 border border-[#8B5CF6] hover:bg-purple-50 text-[#8B5CF6] rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 border border-[#8B5CF6] hover:bg-purple-50 text-[#8B5CF6] rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Printer className="w-4 h-4" />
-                Print Invoice / Receipt
+                {printingOrderId === selectedOrder?._id ? 'Dispatching...' : 'Print Invoice / Receipt'}
               </button>
               <button 
                 onClick={() => setSelectedOrderId(null)}

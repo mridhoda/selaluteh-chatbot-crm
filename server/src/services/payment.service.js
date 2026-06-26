@@ -2,7 +2,7 @@ import { env } from '../config/env.js';
 import { AppError } from '../utils/errors.js';
 import { ordersRepository, paymentsRepository } from '../db/repositories/index.js';
 import { assertOutletAccess, buildOutletScopedQuery } from './access-control.service.js';
-import { sendOrderStatusMessage } from './order.service.js';
+import { notifyOrderUpdatedRealtime, notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage } from './order.service.js';
 
 const TERMINAL_PAID_STATUSES = new Set(['paid', 'refunded', 'partially_refunded']);
 const ACTIVE_SESSION_STATUSES = new Set(['pending', 'created']);
@@ -73,7 +73,9 @@ export async function createPayment({ user, workspaceId, outletId, orderId, cust
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
   });
 
-  await ordersRepository.updateOne({ workspaceId, orderId, updates: { payment_status: 'pending' } });
+  const updatedOrder = await ordersRepository.updateOne({ workspaceId, orderId, updates: { payment_status: 'pending' } });
+  notifyPaymentUpdatedRealtime({ workspaceId, outletId: payment.outletId, payment, order: updatedOrder });
+  notifyOrderUpdatedRealtime({ workspaceId, outletId: updatedOrder?.outletId || payment.outletId, order: updatedOrder });
 
   return payment;
 }
@@ -175,7 +177,9 @@ export async function createXenditPaymentSessionForOrder({ user, workspaceId, or
     },
   });
 
-  await ordersRepository.updateOne({ workspaceId, orderId, updates: { payment_status: 'pending' } });
+  const updatedOrder = await ordersRepository.updateOne({ workspaceId, orderId, updates: { payment_status: 'pending' } });
+  notifyPaymentUpdatedRealtime({ workspaceId, outletId: payment.outletId, payment, order: updatedOrder });
+  notifyOrderUpdatedRealtime({ workspaceId, outletId: updatedOrder?.outletId || payment.outletId, order: updatedOrder });
   return toPaymentSessionResponse(payment);
 }
 
@@ -208,7 +212,19 @@ export async function reconcileProviderSession({ payment, providerSession }) {
     reconciliation_status: providerSession.status === 'paid' ? 'matched' : 'pending',
   };
   if (providerSession.status === 'paid') updates.paid_at = new Date().toISOString();
-  return paymentsRepository.transitionStatus({ paymentId: payment.id, fromStatuses: allowedFrom, newStatus: providerSession.status, updates });
+  const updatedPayment = await paymentsRepository.transitionStatus({ paymentId: payment.id, fromStatuses: allowedFrom, newStatus: providerSession.status, updates });
+  if (updatedPayment) {
+    const updatedOrder = providerSession.status === 'paid'
+      ? await ordersRepository.updateOne({
+          workspaceId: payment.workspaceId,
+          orderId: payment.orderId,
+          updates: { payment_status: 'paid', paid_at: new Date().toISOString(), status: 'accepted' },
+        })
+      : null;
+    notifyPaymentUpdatedRealtime({ workspaceId: payment.workspaceId, outletId: updatedPayment.outletId, payment: updatedPayment, order: updatedOrder });
+    if (updatedOrder) notifyPaidOrderRealtime({ workspaceId: payment.workspaceId, outletId: updatedOrder.outletId, order: updatedOrder });
+  }
+  return updatedPayment;
 }
 
 export function buildPaymentInstruction(payment) {
@@ -292,7 +308,8 @@ export async function syncPaymentWithProvider({ workspaceId, paymentId }) {
   if (result.status !== payment.status && result.status === 'paid') {
     await processPaidPayment({ payment, providerEvent: result });
   } else if (result.status === 'paid' && payment.reconciliationStatus !== 'matched') {
-    await paymentsRepository.updatePayment(payment.id, { reconciliation_status: 'matched' });
+    const updatedPayment = await paymentsRepository.updatePayment(payment.id, { reconciliation_status: 'matched' });
+    notifyPaymentUpdatedRealtime({ workspaceId, outletId: updatedPayment?.outletId || payment.outletId, payment: updatedPayment || payment });
   }
 
   return paymentsRepository.findById({ workspaceId, paymentId });
@@ -329,6 +346,8 @@ async function processPaidPayment({ payment, providerEvent }) {
     orderId: payment.orderId,
     updates: { payment_status: 'paid', paid_at: new Date().toISOString(), status: 'accepted' },
   });
+  notifyPaymentUpdatedRealtime({ workspaceId: payment.workspaceId, outletId: updated.outletId, payment: updated, order: updatedOrder });
+  notifyPaidOrderRealtime({ workspaceId: payment.workspaceId, outletId: updatedOrder?.outletId || updated.outletId, order: updatedOrder });
   await notifyPaidOnce({ order: updatedOrder, paymentId: payment.id });
 }
 

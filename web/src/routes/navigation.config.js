@@ -36,6 +36,7 @@ export const navigationGroups = [
   {
     label: 'SETTINGS',
     items: [
+      { label: 'Access Control', path: '/app/access-control', key: 'access-control' },
       { label: 'Settings', path: '/app/settings', key: 'settings' },
       { label: 'Profile', path: '/app/profile', key: 'profile' },
     ],

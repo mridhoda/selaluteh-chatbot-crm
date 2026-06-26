@@ -9,6 +9,7 @@
  *   listWorkspaceMembers({ workspaceId, status?, limit?, skip? }) → MembershipRecord[]
  *   createMembership({ workspaceId, userId, role, status? }) → MembershipRecord
  *   updateRole({ userId, workspaceId, role }) → MembershipRecord | null
+ *   updateAccessPolicy({ userId, workspaceId, accessPolicy }) → MembershipRecord | null
  *   disableMembership({ userId, workspaceId }) → MembershipRecord | null
  *   countWorkspaceOwners(workspaceId) → number
  *
@@ -89,7 +90,7 @@ export const membershipsSupabaseRepository = {
     const client = getSupabaseServiceClient();
     let query = client
       .from(TABLE)
-      .select('*')
+      .select('*, users:user_id(name, email)')
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false })
       .range(skip, skip + limit - 1);
@@ -141,6 +142,26 @@ export const membershipsSupabaseRepository = {
       .select()
       .maybeSingle();
     const row = extractSingle(result, 'memberships.updateRole');
+    return row ? mapRow(row) : null;
+  },
+
+  /**
+   * Update custom RBAC access policy for a membership.
+   *
+   * @param {{ userId: string, workspaceId: string, accessPolicy: object }} param
+   * @returns {Promise<MembershipRecord|null>}
+   */
+  async updateAccessPolicy({ userId, workspaceId, accessPolicy }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .update({ access_policy: accessPolicy || {} })
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId)
+      .select()
+      .maybeSingle();
+    const row = extractSingle(result, 'memberships.updateAccessPolicy');
     return row ? mapRow(row) : null;
   },
 

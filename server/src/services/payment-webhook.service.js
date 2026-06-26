@@ -1,5 +1,5 @@
 import { paymentEventsRepository, paymentsRepository, ordersRepository } from '../db/repositories/index.js';
-import { sendOrderStatusMessage } from './order.service.js';
+import { notifyOrderUpdatedRealtime, notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage } from './order.service.js';
 import { AppError } from '../utils/errors.js';
 import { redactSecrets } from '../utils/redaction.js';
 
@@ -62,11 +62,13 @@ export async function processPaymentWebhook({ workspaceId, provider, rawBody, he
   } });
 
   const updatedOrder = await ordersRepository.updateOne({ workspaceId, orderId: payment.orderId, updates: { payment_status: 'paid', status: 'accepted' } });
+  notifyPaymentUpdatedRealtime({ workspaceId, outletId: updatedPayment.outletId, payment: updatedPayment, order: updatedOrder });
 
   await paymentsRepository.updatePayment(payment.id, { reconciliation_status: 'matched' });
   await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: 'paid' });
 
   if (updatedOrder) {
+    notifyPaidOrderRealtime({ workspaceId, outletId: updatedOrder.outletId, order: updatedOrder });
     try {
       const outletName = updatedOrder.outletNameSnapshot || '';
       await sendOrderStatusMessage({
@@ -196,6 +198,7 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
       orderId: targetPayment.orderId,
       updates: { payment_status: 'paid', paid_at: new Date().toISOString(), status: 'accepted' },
     });
+    notifyPaymentUpdatedRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
     // Only add a settlement event if this is a fresh processing (not a retry of a stuck event)
     if (!existingEvent) {
       try {
@@ -208,9 +211,12 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
       }
     }
     const outletName = updatedOrder?.outletNameSnapshot || '';
+    notifyPaidOrderRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedOrder?.outletId, order: updatedOrder });
     await notifyPaidOnce({ order: updatedOrder, paymentId: targetPayment.id, outletName });
   } else if (nextStatus === 'expired') {
-    await ordersRepository.updateOne({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId, updates: { payment_status: 'expired' } });
+    const updatedOrder = await ordersRepository.updateOne({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId, updates: { payment_status: 'expired' } });
+    notifyPaymentUpdatedRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
+    notifyOrderUpdatedRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedOrder?.outletId || targetPayment.outletId, order: updatedOrder });
   }
 
   return { processed: true, event: { eventType: event.eventType, status: nextStatus } };

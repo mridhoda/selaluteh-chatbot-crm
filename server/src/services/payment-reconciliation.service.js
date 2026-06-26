@@ -1,5 +1,5 @@
 import { paymentsSupabaseRepository as paymentsRepository, ordersSupabaseRepository as ordersRepository } from '../db/repositories/index.js';
-import { sendOrderStatusMessage } from './order.service.js';
+import { notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage } from './order.service.js';
 import { AppError } from '../utils/errors.js';
 
 export function determineReconciliationStatus({ payment, order, providerStatus }) {
@@ -37,6 +37,7 @@ export async function reconcilePayment({ workspaceId, paymentId, providerStatus 
   }
 
   const updated = await paymentsRepository.updatePayment(paymentId, updates);
+  notifyPaymentUpdatedRealtime({ workspaceId, outletId: updated?.outletId || payment.outletId, payment: updated || payment, order });
   await reconcilePaymentAudit({ workspaceId, paymentId, oldStatus: payment.reconciliationStatus, newStatus: recStatus, providerStatus, order });
   return updated;
 }
@@ -55,7 +56,8 @@ export async function batchReconcileByStatus({ workspaceId, status, newStatus })
       updates.net_amount = payment.net_amount;
     }
 
-    await paymentsRepository.updatePayment(payment.id, updates);
+    const updatedPayment = await paymentsRepository.updatePayment(payment.id, updates);
+    notifyPaymentUpdatedRealtime({ workspaceId, outletId: updatedPayment?.outletId || payment.outletId, payment: updatedPayment || payment, order });
     await reconcilePaymentAudit({ workspaceId, paymentId: payment.id, oldStatus: payment.reconciliationStatus, newStatus: recStatus, providerStatus: status, order });
     results.push({ paymentId: payment.id, oldStatus: payment.reconciliationStatus, newStatus: recStatus });
   }
@@ -123,6 +125,8 @@ async function processPaidPaymentFromReconciliation({ payment, providerEvent }) 
   });
 
   if (updatedOrder) {
+    notifyPaymentUpdatedRealtime({ workspaceId: payment.workspaceId, outletId: updated?.outletId || updatedOrder.outletId, payment: updated, order: updatedOrder });
+    notifyPaidOrderRealtime({ workspaceId: payment.workspaceId, outletId: updatedOrder.outletId, order: updatedOrder });
     try {
       await sendOrderStatusMessage({
         order: updatedOrder,

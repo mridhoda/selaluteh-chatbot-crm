@@ -6,7 +6,7 @@ title: SelaluTeh Thermal Print
 description: >-
   Complete requirements-first specification for thermal invoices, customer
   receipts, test pages, canonical receipt snapshots, 58 mm and 80 mm layouts,
-  Linux and Windows Browser Print, Android RawBT, future QZ Tray or local-agent
+  Linux and Windows Browser Print, Android Cleanter, future QZ Tray or local-agent
   direct printing, HTML and ESC/POS renderers, printer profiles, print stations,
   jobs, attempts, completion evidence, reprints, history, security, testing,
   rollout, and operations.
@@ -39,7 +39,7 @@ tags:
   - linux
   - windows
   - android
-  - rawbt
+  - cleanter
   - qz-tray
   - multi-outlet
   - supabase
@@ -90,7 +90,7 @@ product:
     - desktop-linux-windows
     - android
     - browser-print
-    - rawbt
+    - cleanter
     - future-local-print-bridge
     - escpos
     - multi-workspace-ready
@@ -132,7 +132,7 @@ scope:
     - station-printer-bindings
     - mock-transport
     - browser-print-linux-windows
-    - rawbt-android
+    - cleanter-android
     - qz-tray-local-agent-readiness
     - web-bluetooth-experimental
     - escpos-renderer
@@ -184,10 +184,10 @@ fixed_decisions:
     supported: [DESKTOP_LINUX, DESKTOP_WINDOWS, ANDROID]
   transports:
     desktop_alpha: BROWSER_PRINT
-    android_alpha: RAWBT
+    android_alpha: CLEANTER
     development: MOCK
     desktop_advanced: [QZ_TRAY, LOCAL_AGENT]
-    experimental: [WEB_BLUETOOTH_EXPERIMENTAL]
+    experimental: []
   document:
     default_final_proof: CUSTOMER_RECEIPT
     default_final_trigger: ORDER_COMPLETED
@@ -202,7 +202,7 @@ fixed_decisions:
   result_semantics:
     dispatch_is_physical_completion: false
     browser_print_invocation_completes_job: false
-    rawbt_handoff_completes_job: false
+    cleanter_transport_ack_completes_job: false
     completion_evidence_required: true
   auto_print:
     alpha_enabled: false
@@ -228,7 +228,7 @@ security:
   release_blockers:
     - unverified-payment-can-produce-paid-receipt
     - other-outlet-can-print-order
-    - access-token-in-rawbt-payload
+    - access-token-in-local-print-payload
     - arbitrary-template-code-executes
     - accidental-duplicate-print
     - dispatch-falsely-marked-physically-completed
@@ -266,7 +266,7 @@ implementation:
     - html-and-escpos-renderers
     - mock
     - browser-print-linux-windows
-    - rawbt-android
+    - cleanter-android
     - profiles-stations-bindings
     - manual-print-reprint-history
     - honest-completion-evidence
@@ -316,7 +316,8 @@ metadata:
   generated_at: '2026-06-24'
   notes:
     - Browser Print is the alpha desktop path.
-    - RawBT is the alpha Android path.
+    - Cleanter is the alpha Android path via POST http://localhost:9100/print.
+    - RawBT is legacy-disabled and removed from active Android UI/source transport registration.
     - Web Bluetooth remains experimental.
     - Dispatch and physical completion are separate.
     - Printing failure never blocks order completion.

@@ -30,7 +30,7 @@ Order + verified Payment
 → HTML / ESC-POS Renderer
 → Printer Transport Adapter
    ├── Browser Print — Linux/Windows
-   ├── RawBT — Android
+   ├── Cleanter — Android
    ├── QZ Tray / Local Agent — desktop advanced
    ├── Mock — development
    └── Web Bluetooth — experimental
@@ -54,7 +54,7 @@ Order + verified Payment
 
 ```text
 Linux / Windows alpha : Browser Print
-Android alpha         : RawBT
+Android alpha         : Cleanter
 Development           : Mock + Preview
 Desktop advanced      : QZ Tray / Local Agent
 Web Bluetooth         : Experimental only
@@ -86,7 +86,7 @@ Web Bluetooth         : Experimental only
 | TP-R20 | Transport types | P0 |
 | TP-R21 | Desktop browser printing | P0 |
 | TP-R22 | Desktop direct bridge | P1 |
-| TP-R23 | Android RawBT | P0 |
+| TP-R23 | Android Cleanter | P0 |
 | TP-R24 | Experimental Web Bluetooth | P2 |
 | TP-R25 | ESC/POS renderer | P0 |
 | TP-R26 | HTML renderer | P0 |
@@ -137,7 +137,7 @@ Web Bluetooth         : Experimental only
 ### Acceptance Criteria
 
 1. Supported platforms are DESKTOP_LINUX, DESKTOP_WINDOWS, and ANDROID.
-2. Desktop alpha uses Browser Print; Android alpha uses RawBT.
+2. Desktop alpha uses Browser Print; Android alpha uses Cleanter.
 3. Desktop direct printing through QZ Tray or a local print agent is an advanced path.
 4. Web Bluetooth remains experimental and disabled by default.
 
@@ -334,10 +334,10 @@ Web Bluetooth         : Experimental only
 
 ### Acceptance Criteria
 
-1. Supported types are MOCK, BROWSER_PRINT, RAWBT, QZ_TRAY, LOCAL_AGENT, and WEB_BLUETOOTH_EXPERIMENTAL.
+1. Supported active types are MOCK, BROWSER_PRINT, CLEANTER, QZ_TRAY, and LOCAL_AGENT.
 2. MOCK is limited to development/approved test mode.
 3. BROWSER_PRINT supports Linux and Windows.
-4. RAWBT supports Android.
+4. CLEANTER supports Android via the local HTTP bridge.
 
 ## TP-R21: Desktop browser printing
 
@@ -361,16 +361,17 @@ Web Bluetooth         : Experimental only
 3. Bridge trust/signing is required before production.
 4. If unavailable, an allowed configuration may fall back to Browser Print.
 
-## TP-R23: Android RawBT
+## TP-R23: Android Cleanter
 
 **Priority:** P0
 
 ### Acceptance Criteria
 
-1. Android supports a RawBT-style deep link or approved print service.
+1. Android supports Cleanter local HTTP bridge dispatch to `POST http://localhost:9100/print`.
 2. The call originates from a user gesture.
 3. Payload contains receipt output only and no auth tokens.
-4. Payload size is bounded and RawBT absence shows setup guidance plus Preview.
+4. Payload size is bounded and Cleanter unavailable/CORS/local-network failures show setup guidance plus Preview.
+5. HTTP 2xx from Cleanter means DISPATCHED with TRANSPORT_ACK, not physical completion.
 
 ## TP-R24: Experimental Web Bluetooth
 
@@ -447,7 +448,7 @@ Web Bluetooth         : Experimental only
 1. Dispatch and physical confirmation are separate.
 2. Evidence types are NONE, USER_CONFIRMED, TRANSPORT_ACK, DEVICE_STATUS, and ADMIN_OVERRIDE.
 3. Browser Print invocation alone remains DISPATCHED.
-4. RawBT handoff alone remains DISPATCHED unless confirmation/callback exists.
+4. Cleanter transport acknowledgment alone remains DISPATCHED unless user confirmation/callback exists.
 
 ## TP-R31: Print attempts
 
@@ -556,7 +557,7 @@ Web Bluetooth         : Experimental only
 
 1. UI includes platform-specific setup for Linux, Windows, and Android.
 2. Desktop covers Browser Print and optional direct bridge.
-3. Android covers RawBT install, Bluetooth pairing, selection, registration, binding, and test.
+3. Android covers Cleanter install/start, Bluetooth pairing, printer selection, registration, binding, and test.
 4. Setup validates width and encoding without storing passwords.
 
 ## TP-R41: Preview
@@ -598,7 +599,7 @@ Web Bluetooth         : Experimental only
 
 ### Acceptance Criteria
 
-1. Errors include PRINT_NOT_ELIGIBLE, PAYMENT_NOT_PAID, PRINTER_NOT_CONFIGURED, STATION_OFFLINE, TRANSPORT_UNSUPPORTED, BRIDGE_UNAVAILABLE, RAWBT_UNAVAILABLE, PAYLOAD_TOO_LARGE, PAPER_WIDTH_UNSUPPORTED, ENCODING_UNSUPPORTED, PRINT_TIMEOUT, PRINT_DISPATCH_FAILED, PRINT_ALREADY_CLAIMED, VERSION_CONFLICT, and IDEMPOTENCY_CONFLICT.
+1. Errors include PRINT_NOT_ELIGIBLE, PAYMENT_NOT_PAID, PRINTER_NOT_CONFIGURED, STATION_OFFLINE, TRANSPORT_UNSUPPORTED, BRIDGE_UNAVAILABLE, CLEANTER_UNAVAILABLE, CLEANTER_CORS_BLOCKED, CLEANTER_LOCAL_NETWORK_PERMISSION_DENIED, CLEANTER_TIMEOUT, CLEANTER_PRINT_REJECTED, PAYLOAD_TOO_LARGE, PAPER_WIDTH_UNSUPPORTED, ENCODING_UNSUPPORTED, PRINT_TIMEOUT, PRINT_DISPATCH_FAILED, PRINT_ALREADY_CLAIMED, VERSION_CONFLICT, and IDEMPOTENCY_CONFLICT.
 2. Errors do not leak other tenants or outlets.
 3. Raw OS/bridge errors are sanitized.
 4. Errors map to actionable UI states.
@@ -665,8 +666,8 @@ Web Bluetooth         : Experimental only
 ### Acceptance Criteria
 
 1. TDD includes unit, component, integration, security, property, concurrency, resilience, visual, binary, platform, and E2E tests.
-2. Linux and Windows Browser Print and Android physical RawBT/Inforce testing are required.
-3. Phase 1 delivers snapshots, preview, Browser Print, RawBT, Mock, manual jobs, test page, reprint, history, and sidebar.
+2. Linux and Windows Browser Print and Android physical Cleanter/Inforce testing are required.
+3. Phase 1 delivers snapshots, preview, Browser Print, Cleanter, Mock, manual jobs, test page, reprint, history, and sidebar.
 4. Printing failure never blocks order completion, and all release gates plus runbooks are required.
 
 
@@ -681,7 +682,7 @@ HTML preview
 ESC/POS renderer
 Mock transport
 Browser Print for Linux/Windows
-RawBT for Android
+Cleanter for Android
 printer profile
 print station and local binding
 manual print
@@ -697,7 +698,7 @@ manual platform tests
 # Definition of Done
 
 1. Linux and Windows support Preview and Browser Print.
-2. Android physically prints through RawBT to the target Inforce printer.
+2. Android physically prints through Cleanter to the target Inforce printer.
 3. Mock supports development without hardware.
 4. Receipt uses immutable order snapshots and verified payment state.
 5. Dispatch is not falsely reported as physical completion.

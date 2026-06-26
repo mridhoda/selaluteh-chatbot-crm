@@ -22,6 +22,7 @@ import {
   faChartLine,
   faWallet,
   faUtensils,
+  faUserShield,
 } from '@fortawesome/free-solid-svg-icons'
 import {
   faComment,
@@ -48,6 +49,7 @@ const navigationIcons = {
   complaints: faExclamationCircle,
   reports: faFileAlt,
   billing: faCreditCard,
+  'access-control': faUserShield,
   settings: faCog,
   profile: faUser,
 }
@@ -61,6 +63,7 @@ const activeNavigationKeys = new Set([
   'chat',
   'platforms',
   'agents',
+  'access-control',
 ])
 
 export default function Sidebar() {

@@ -117,6 +117,10 @@ export async function createOrderFromAI({ chat, agent, orderData, paymentProofUr
 }
 
 function notifyOrderCreated({ workspaceId, outletId, order }) {
+  notifyOrderUpdatedRealtime({ workspaceId, outletId, order });
+
+  if (!isOrderPaid(order)) return;
+
   broadcastToWorkspace({
     workspaceId,
     event: 'order.created',
@@ -125,6 +129,59 @@ function notifyOrderCreated({ workspaceId, outletId, order }) {
   sendOrderCreatedPush({ workspaceId, outletId, order }).catch((err) => {
     console.error('[OrderPushNotification] Failed to send order.created push:', err.message);
   });
+}
+
+export function notifyPaidOrderRealtime({ workspaceId, outletId, order }) {
+  if (!isOrderPaid(order)) return { sent: 0, skipped: true, reason: 'payment_not_paid' };
+
+  notifyOrderUpdatedRealtime({ workspaceId, outletId, order });
+
+  return broadcastToWorkspace({
+    workspaceId,
+    event: 'order.paid',
+    data: {
+      ...buildOrderCreatedEvent({ workspaceId, outletId, order }),
+      type: 'order.paid',
+      title: 'Pesanan sudah dibayar',
+    },
+  });
+}
+
+export function notifyPaymentUpdatedRealtime({ workspaceId, outletId, payment, order = null }) {
+  return broadcastToWorkspace({
+    workspaceId,
+    event: payment?.status === 'paid' ? 'payment.paid' : 'payment.updated',
+    data: {
+      type: payment?.status === 'paid' ? 'payment.paid' : 'payment.updated',
+      workspaceId,
+      outletId: outletId || payment?.outletId || order?.outletId || null,
+      paymentId: payment?.id,
+      orderId: payment?.orderId || order?.id,
+      payment,
+      order,
+      updatedAt: new Date().toISOString(),
+    },
+  });
+}
+
+export function notifyOrderUpdatedRealtime({ workspaceId, outletId, order }) {
+  return broadcastToWorkspace({
+    workspaceId,
+    event: 'order.updated',
+    data: {
+      type: 'order.updated',
+      workspaceId,
+      outletId,
+      orderId: order?.id,
+      orderNumber: order?.orderNumber,
+      order,
+      updatedAt: new Date().toISOString(),
+    },
+  });
+}
+
+function isOrderPaid(order = {}) {
+  return String(order.paymentStatus || order.payment_status || '').trim().toLowerCase() === 'paid';
 }
 
 function buildOrderCreatedEvent({ workspaceId, outletId, order }) {
@@ -162,6 +219,8 @@ export async function approveOrder({ workspaceId, orderId, outletId, userId }) {
     metadata: { outletId, fromStatus: OrderStatus.AWAITING_OUTLET_APPROVAL, toStatus: OrderStatus.APPROVED },
   });
 
+  notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated });
+
   return updated;
 }
 
@@ -184,6 +243,8 @@ export async function rejectOrder({ workspaceId, orderId, outletId, userId, reas
     actorUserId: userId,
     metadata: { outletId, reason, fromStatus: OrderStatus.AWAITING_OUTLET_APPROVAL, toStatus: OrderStatus.REJECTED },
   });
+
+  notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated });
 
   return updated;
 }
@@ -212,6 +273,7 @@ async function transitionOrderFulfillment({ workspaceId, orderId, outletId, user
     orderId, workspaceId, eventType, actorType: ActorType.HUMAN_AGENT, actorUserId: userId,
     metadata: { outletId, fromStatus: expected, toStatus: next },
   });
+  notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated });
   return updated;
 }
 
@@ -268,9 +330,11 @@ export async function transitionOrderStatus({ workspaceId, orderId, newStatus, a
   const updated = await ordersRepository.atomicStatusUpdate({ workspaceId, orderId, expectedStatus: order.status, newStatus });
   if (!updated) throw new AppError('CONFLICT', 'Order status changed concurrently', 409);
 
+  notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated });
+
   // Send notification after persisted transition
   const message = STATUS_MESSAGES[newStatus];
-  if (message) {
+  if (message && isOrderPaid(updated)) {
     try {
       await sendOrderStatusMessage({ order: updated, messageText: message, from: 'ai' });
     } catch (msgErr) {

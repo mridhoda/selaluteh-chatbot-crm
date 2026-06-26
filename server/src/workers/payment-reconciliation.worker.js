@@ -1,7 +1,7 @@
 import { getSupabaseServiceClient } from '../db/supabase.js';
 import { detectMissingWebhooks } from '../services/payment-reconciliation.service.js';
 import { ordersRepository } from '../db/repositories/index.js';
-import { sendOrderStatusMessage } from '../services/order.service.js';
+import { notifyOrderUpdatedRealtime, notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage } from '../services/order.service.js';
 
 const CHECK_INTERVAL_MS = 60_000;
 // Only check payments that have been pending for at least this long (avoid checking brand-new ones)
@@ -93,8 +93,10 @@ export async function reconcilePendingPayments(workspaceId) {
 
         // Send notification if order updated
         if (updatedOrder) {
+          const order = await ordersRepository.workspaceFindById({ workspaceId, orderId: updatedOrder.id });
+          notifyPaymentUpdatedRealtime({ workspaceId, outletId: updated.outlet_id, payment: { ...updated, id: updated.id, status: updated.status, orderId: updated.order_id, outletId: updated.outlet_id }, order });
+          if (order) notifyPaidOrderRealtime({ workspaceId, outletId: order.outletId, order });
           try {
-            const order = await ordersRepository.workspaceFindById({ workspaceId, orderId: updatedOrder.id });
             if (order) {
               const outletLine = order.outletNameSnapshot
                 ? `\n\nSilakan ambil di outlet **${order.outletNameSnapshot}** setelah pesanan siap.`
@@ -111,15 +113,24 @@ export async function reconcilePendingPayments(workspaceId) {
         }
       } else if (providerResult.status === 'expired') {
         // Payment expired on Xendit side — sync expiry
-        await client
+        const { data: updatedPayment } = await client
           .from('payments')
           .update({ status: 'expired', reconciliation_status: 'pending' })
           .eq('id', row.id)
-          .eq('status', 'pending');
-        await client
+          .eq('status', 'pending')
+          .select()
+          .maybeSingle();
+        const { data: updatedOrder } = await client
           .from('orders')
           .update({ payment_status: 'expired' })
-          .eq('id', row.order_id);
+          .eq('id', row.order_id)
+          .select()
+          .maybeSingle();
+        if (updatedPayment || updatedOrder) {
+          const order = updatedOrder ? await ordersRepository.workspaceFindById({ workspaceId, orderId: updatedOrder.id }) : null;
+          notifyPaymentUpdatedRealtime({ workspaceId, outletId: row.outlet_id, payment: { ...(updatedPayment || row), id: row.id, status: updatedPayment?.status || 'expired', orderId: row.order_id, outletId: row.outlet_id }, order });
+          if (order) notifyOrderUpdatedRealtime({ workspaceId, outletId: order.outletId, order });
+        }
       }
     } catch (err) {
       console.error(`[ReconWorker] reconcilePending payment ${row.id}: ${err.message}`);

@@ -1,4 +1,4 @@
-import { getApiBase } from '../api/apiBase'
+import { getApiBase } from '../api/apiBase.js'
 
 export function getApiBaseUrl(explicitBaseUrl = '') {
   return explicitBaseUrl || getApiBase()

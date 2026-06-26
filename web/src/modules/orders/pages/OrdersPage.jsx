@@ -17,6 +17,34 @@ import OrdersToolbar from '../components/OrdersToolbar'
 import OrdersTable from '../components/OrdersTable'
 import OrderDetailDrawer from '../components/OrderDetailDrawer'
 
+const isPaidStatus = (status) => {
+  const normalized = String(status || '').trim().toLowerCase()
+  return normalized === 'paid' || normalized === 'lunas'
+}
+
+const normalizeRealtimeOrder = (order) => {
+  if (!order) return null
+  const id = order._id || order.id
+  if (!id) return null
+  return {
+    ...order,
+    _id: id,
+    id,
+    paymentStatus: order.paymentStatus || order.payment_status,
+    createdAt: order.createdAt || order.created_at,
+    updatedAt: order.updatedAt || order.updated_at,
+    totalAmount: order.totalAmount ?? order.total_amount,
+    paidAt: order.paidAt || order.paid_at,
+    orderNumber: order.orderNumber || order.order_number,
+    customerNameSnapshot: order.customerNameSnapshot || order.customer_name_snapshot,
+    customerPhoneSnapshot: order.customerPhoneSnapshot || order.customer_phone_snapshot,
+    channelSnapshot: order.channelSnapshot || order.channel_snapshot,
+    paymentMethod: order.paymentMethod || order.payment_method,
+    paymentProofUrl: order.paymentProofUrl || order.payment_proof_url,
+    formData: order.formData || order.form_data,
+  }
+}
+
 export default function Orders() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -63,9 +91,52 @@ export default function Orders() {
   }, [])
 
   useEffect(() => {
-    const onOrderCreated = () => loadOrders()
-    window.addEventListener('order:created', onOrderCreated)
-    return () => window.removeEventListener('order:created', onOrderCreated)
+    const onOrderRealtime = (event) => {
+      const realtimeOrder = normalizeRealtimeOrder(event.detail?.order)
+      if (realtimeOrder) {
+        setOrders((prev) => {
+          const exists = prev.some((order) => (order._id || order.id) === realtimeOrder.id)
+          if (exists) {
+            return prev.map((order) => {
+              const orderId = order._id || order.id
+              return orderId === realtimeOrder.id ? { ...order, ...realtimeOrder } : order
+            })
+          }
+          return [realtimeOrder, ...prev]
+        })
+      }
+      loadOrders()
+    }
+    const onPaymentRealtime = (event) => {
+      const payment = event.detail?.payment
+      const realtimeOrder = normalizeRealtimeOrder(event.detail?.order)
+      if (realtimeOrder) {
+        setOrders((prev) => prev.map((order) => {
+          const orderId = order._id || order.id
+          return orderId === realtimeOrder.id ? { ...order, ...realtimeOrder } : order
+        }))
+      } else if (payment?.orderId || payment?.order_id) {
+        const orderId = payment.orderId || payment.order_id
+        const nextPaymentStatus = payment.status || payment.paymentStatus || payment.payment_status
+        setOrders((prev) => prev.map((order) => {
+          const currentId = order._id || order.id
+          return currentId === orderId ? { ...order, paymentStatus: nextPaymentStatus } : order
+        }))
+      }
+      loadOrders()
+    }
+    window.addEventListener('order:created', onOrderRealtime)
+    window.addEventListener('order:paid', onOrderRealtime)
+    window.addEventListener('order:updated', onOrderRealtime)
+    window.addEventListener('payment:paid', onPaymentRealtime)
+    window.addEventListener('payment:updated', onPaymentRealtime)
+    return () => {
+      window.removeEventListener('order:created', onOrderRealtime)
+      window.removeEventListener('order:paid', onOrderRealtime)
+      window.removeEventListener('order:updated', onOrderRealtime)
+      window.removeEventListener('payment:paid', onPaymentRealtime)
+      window.removeEventListener('payment:updated', onPaymentRealtime)
+    }
   }, [])
 
   const loadOrders = async () => {
@@ -416,10 +487,7 @@ export default function Orders() {
         : order.paymentProofUrl
           ? 'Paid'
           : 'Unpaid'
-      if (
-        paymentStatusFromFormData.toLowerCase().includes('paid') ||
-        paymentStatusFromFormData.toLowerCase().includes('lunas')
-      ) {
+      if (isPaidStatus(paymentStatusFromFormData)) {
         paymentStatusFromFormData = 'Paid'
       } else {
         paymentStatusFromFormData = 'Unpaid'
@@ -507,10 +575,7 @@ export default function Orders() {
 
       // --- Resolve payment status: prefer server paymentStatus field, then formData fallback ---
       let paymentStatusResolved = order.paymentStatus
-        ? order.paymentStatus.toLowerCase().includes('paid') ||
-          order.paymentStatus.toLowerCase().includes('lunas')
-          ? 'Paid'
-          : 'Unpaid'
+        ? isPaidStatus(order.paymentStatus) ? 'Paid' : 'Unpaid'
         : paymentStatusFromFormData
 
       // --- Resolve items: prefer order.items from order_items table, then formData fallback ---

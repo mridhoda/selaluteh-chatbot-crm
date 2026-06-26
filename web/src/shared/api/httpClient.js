@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { isDemoMode, mockApi } from '../../mocks/demoState'
-import { getApiBase } from './apiBase'
+import { getApiBase } from './apiBase.js'
 
 const api = axios.create({
   baseURL: getApiBase(),
@@ -20,7 +20,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && typeof window !== 'undefined') {
+    if (error.response?.status === 401 && !error.config?.skipAuthRedirect && typeof window !== 'undefined') {
       const hadToken = !!getToken()
       localStorage.removeItem('token')
       sessionStorage.removeItem('token')
@@ -36,6 +36,7 @@ api.interceptors.response.use(
 if (typeof window !== 'undefined') {
   const realGet = api.get.bind(api)
   const realPost = api.post.bind(api)
+  const realPatch = api.patch.bind(api)
   const realPut = api.put.bind(api)
   const realDelete = api.delete.bind(api)
 
@@ -45,6 +46,10 @@ if (typeof window !== 'undefined') {
     isDemoMode()
       ? mockApi('post', url, data, config)
       : realPost(url, data, config)
+  api.patch = (url, data, config) =>
+    isDemoMode()
+      ? mockApi('patch', url, data, config)
+      : realPatch(url, data, config)
   api.put = (url, data, config) =>
     isDemoMode()
       ? mockApi('put', url, data, config)

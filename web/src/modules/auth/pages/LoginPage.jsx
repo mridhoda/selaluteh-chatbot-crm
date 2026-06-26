@@ -31,10 +31,10 @@ const AuthNavbar = () => (
 )
 
 export default function Login() {
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(() => localStorage.getItem('rememberedEmail') || '')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [remember, setRemember] = useState(true)
+  const [remember, setRemember] = useState(() => Boolean(localStorage.getItem('rememberedEmail')) || true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
@@ -57,7 +57,12 @@ export default function Login() {
       const normalizedEmail = email.trim().toLowerCase()
       const r = await api.post('/auth/login', { email: normalizedEmail, password })
       sessionStorage.setItem('token', r.data.token)
-      if (remember) localStorage.setItem('token', r.data.token)
+      localStorage.removeItem('token')
+      if (remember) {
+        localStorage.setItem('rememberedEmail', normalizedEmail)
+      } else {
+        localStorage.removeItem('rememberedEmail')
+      }
       sessionStorage.setItem('user', JSON.stringify(r.data.user))
       registerOrderPushNotifications().catch((err) => {
         console.warn('Order push notification registration failed:', err?.message || err)

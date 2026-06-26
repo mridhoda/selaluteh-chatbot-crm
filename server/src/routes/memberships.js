@@ -11,8 +11,11 @@ import { Router } from 'express';
 import { membershipsSupabaseRepository } from '../db/repositories/memberships.repository.js';
 import { assertRolePermission } from '../services/access-control.service.js';
 import { AppError } from '../utils/errors.js';
+import { authRequired, attachUser } from '../middleware/auth.js';
 
 const router = Router({ mergeParams: true });
+
+router.use(authRequired, attachUser);
 
 /**
  * GET /api/workspaces/:workspaceId/members
@@ -79,6 +82,34 @@ router.patch('/:userId', async (req, res, next) => {
     const { role } = req.body;
     if (!role) throw new AppError('VALIDATION', 'role is required', 400);
     const membership = await membershipsSupabaseRepository.updateRole({ userId, workspaceId, role });
+    if (!membership) throw new AppError('NOT_FOUND', 'Membership not found', 404);
+    res.json({ data: membership });
+  } catch (err) { next(err); }
+});
+
+/**
+ * PUT /api/workspaces/:workspaceId/members/:userId/access-policy
+ *
+ * Update a member's custom module permission matrix.
+ * Requires: owner or admin role.
+ */
+router.put('/:userId/access-policy', async (req, res, next) => {
+  try {
+    if (!req.me) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } });
+    const { workspaceId, userId } = req.params;
+    await assertRolePermission({
+      userId: req.me.id,
+      workspaceId,
+      requiredRoles: ['owner', 'admin'],
+    });
+
+    const permissions = Array.isArray(req.body?.permissions) ? req.body.permissions : [];
+    const accessPolicy = {
+      permissions,
+      updatedBy: req.me.id,
+      updatedAt: new Date().toISOString(),
+    };
+    const membership = await membershipsSupabaseRepository.updateAccessPolicy({ userId, workspaceId, accessPolicy });
     if (!membership) throw new AppError('NOT_FOUND', 'Membership not found', 404);
     res.json({ data: membership });
   } catch (err) { next(err); }
