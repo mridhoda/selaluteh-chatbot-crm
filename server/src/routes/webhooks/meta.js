@@ -328,6 +328,15 @@ async function handleWhatsapp(data) {
         continue;
       }
 
+      if (platform && !platform.webhookConfigured) {
+        await platformsSupabaseRepository.update({
+          workspaceId: platform.workspaceId,
+          platformId: platform.id,
+          updates: { webhookConfigured: true },
+        });
+        platform.webhookConfigured = true;
+      }
+
       const workspaceAgents = await agentsSupabaseRepository.list({ workspaceId: platform.workspaceId });
       let agent = workspaceAgents.find((a) => a.platformId === platform.id);
       if (!agent) agent = workspaceAgents[0] || null;
@@ -491,7 +500,7 @@ async function handleWhatsapp(data) {
         if (userMessage && (!isNewChat || userMessage.text?.toLowerCase() !== '/start')) {
           let reply;
           try {
-            const history = await messagesSupabaseRepository.listByChatId(chat.id, { limit: 10 });
+            const history = await messagesSupabaseRepository.listByChatId(chat.id, { limit: 20 });
             const effectiveSystem = computedGreetingFlags.isFirstAssistantMessageInChat
               ? system
               : `${system}\n\n${promptRules.noReintroInstruction}`;
@@ -632,6 +641,15 @@ async function handleInstagram(data) {
       if (!platform) {
         console.warn(`[meta] instagram platform not found for accountId: ${platformAccountId}`);
         continue;
+      }
+
+      if (platform && !platform.webhookConfigured) {
+        await platformsSupabaseRepository.update({
+          workspaceId: platform.workspaceId,
+          platformId: platform.id,
+          updates: { webhookConfigured: true },
+        });
+        platform.webhookConfigured = true;
       }
 
       const webhookResult = await beginWebhookEvent({

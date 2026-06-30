@@ -138,6 +138,24 @@ async function saveTelegramFileLocally({
 }
 
 router.post('/:token?', async (req, res) => {
+  const tokenParam = req.params.token;
+  if (!tokenParam) {
+    return res.status(410).json({
+      error: {
+        code: 'LEGACY_TELEGRAM_WEBHOOK_DISABLED',
+        message: 'Telegram webhook requires a channel connection identity.',
+      },
+    });
+  }
+  if (!env.telegramLegacyTokenWebhookEnabled) {
+    return res.status(410).json({
+      error: {
+        code: 'LEGACY_TELEGRAM_TOKEN_WEBHOOK_DISABLED',
+        message: 'Telegram token webhook is disabled. Use /webhooks/telegram/v1/:connectionPublicId.',
+      },
+    });
+  }
+
   res.sendStatus(200);
   let webhookEvent = null;
 
@@ -159,17 +177,21 @@ router.post('/:token?', async (req, res) => {
     const chatId = msgObj?.chat?.id;
     if (!chatId) return;
 
-    const tokenParam = req.params.token;
     let platform;
 
-    if (tokenParam) {
-      platform = await platformsSupabaseRepository.findByToken({ type: 'telegram', token: tokenParam });
-      if (!platform) {
-        console.warn(`[telegram] no platform found for token: ${tokenParam}`);
-        return;
-      }
-    } else {
-      platform = await platformsSupabaseRepository.findLatestByType({ type: 'telegram' });
+    platform = await platformsSupabaseRepository.findByToken({ type: 'telegram', token: tokenParam });
+    if (!platform) {
+      console.warn('[telegram] no platform found for token webhook');
+      return;
+    }
+
+    if (platform && !platform.webhookConfigured) {
+      await platformsSupabaseRepository.update({
+        workspaceId: platform.workspaceId,
+        platformId: platform.id,
+        updates: { webhookConfigured: true },
+      });
+      platform.webhookConfigured = true;
     }
 
     if (!verifyTelegramSecret(secretHeader, env.telegramWebhookSecret)) {

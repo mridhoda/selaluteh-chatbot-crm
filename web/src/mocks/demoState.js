@@ -149,6 +149,36 @@ const seedState = {
       role: 'super',
     },
   ],
+  outlets: [
+    {
+      id: 'outlet-samarinda-central',
+      name: 'Samarinda Central',
+      city: 'Samarinda',
+      region: 'Kalimantan Timur',
+      status: 'active',
+    },
+    {
+      id: 'outlet-tenggarong-riverside',
+      name: 'Tenggarong Riverside',
+      city: 'Tenggarong',
+      region: 'Kalimantan Timur',
+      status: 'active',
+    },
+    {
+      id: 'outlet-bontang-plaza',
+      name: 'Bontang Plaza',
+      city: 'Bontang',
+      region: 'Kalimantan Timur',
+      status: 'active',
+    },
+    {
+      id: 'outlet-balikpapan-harbor',
+      name: 'Balikpapan Harbor',
+      city: 'Balikpapan',
+      region: 'Kalimantan Timur',
+      status: 'active',
+    },
+  ],
   orders: [
     {
       _id: 'order-12',
@@ -643,6 +673,8 @@ export async function mockApi(method, url, payload, config = {}) {
   }
 
   if (path === '/users' && method === 'get') return response(clone(state.users))
+
+  if (path === '/outlets' && method === 'get') return response({ data: clone(state.outlets || []) })
 
   if (path === '/users/human' && method === 'post') {
     const next = {

@@ -36,6 +36,7 @@ const TABLE = 'user_workspace_memberships';
  * @property {string} userId
  * @property {string} role
  * @property {string} status
+ * @property {string[]|null} notificationChannels — e.g. ['telegram','whatsapp']. null = all channels.
  * @property {string} createdAt
  * @property {string} updatedAt
  */
@@ -205,4 +206,48 @@ export const membershipsSupabaseRepository = {
     if (result.error) return 0;
     return result.count ?? 0;
   },
+
+  /**
+   * Update notification_channels preference for a user's membership.
+   *
+   * Called by the supervisor themselves via PATCH /api/memberships/me/notification-channels.
+   * Pass null to reset to "all channels" (workspace default).
+   *
+   * Valid channel values: 'telegram' | 'whatsapp' | 'web_push'
+   *
+   * @param {{ userId: string, workspaceId: string, channels: string[]|null }} param
+   * @returns {Promise<MembershipRecord|null>}
+   */
+  async updateNotificationChannels({ userId, workspaceId, channels }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .update({ notification_channels: channels ?? null })
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId)
+      .select()
+      .maybeSingle();
+    const row = extractSingle(result, 'memberships.updateNotificationChannels');
+    return row ? mapRow(row) : null;
+  },
+
+  /**
+   * Get notification_channels for a specific membership ID.
+   * Used by escalation-notification.service.js.
+   *
+   * @param {{ membershipId: string }} param
+   * @returns {Promise<string[]|null>} Array of channel names, or null (= all channels).
+   */
+  async getNotificationChannels({ membershipId }) {
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .select('notification_channels')
+      .eq('id', membershipId)
+      .maybeSingle();
+    if (result.error || !result.data) return null;
+    return result.data.notification_channels ?? null;
+  },
 };
+

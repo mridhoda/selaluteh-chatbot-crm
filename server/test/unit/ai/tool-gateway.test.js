@@ -92,8 +92,8 @@ describe('resultRedactor', () => {
 });
 
 describe('domainTools', () => {
-  it('exports 13 commerce tools', () => {
-    assert.equal(commerceToolDefinitions.length, 13);
+  it('exports 14 commerce tools', () => {
+    assert.equal(commerceToolDefinitions.length, 14);
   });
 
   it('FORBIDDEN_TOOLS includes mark_payment_paid', () => {

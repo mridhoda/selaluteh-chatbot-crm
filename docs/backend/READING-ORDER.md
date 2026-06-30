@@ -593,6 +593,7 @@ cross-workspace/outlet access ditolak
 
 ```text
 docs/backend/02-flows/webhook-message-flow.md
+docs/backend/telegram-multi-tenant-webhook-architecture.md
 docs/backend/03-business-rules/webhook-rules.md
 docs/backend/05-api-spec/platforms-api.md
 docs/backend/05-api-spec/integrations-api.md
@@ -611,6 +612,8 @@ verify before mutation
 duplicate event tidak duplicate side effect
 provider event ID idempotent
 secret/signature tidak bocor
+Telegram webhook wajib resolve dari exact channel connection (`/webhooks/telegram/v1/:connectionPublicId`) dan per-connection `secret_token`
+legacy latest-platform fallback tidak boleh dipakai untuk tenant resolution
 ```
 
 ## 9.3 Contacts, Chats, Messages, Human Takeover
@@ -777,6 +780,7 @@ inventory outlet tidak bercampur
 ```text
 docs/backend/02-flows/telegram-commerce-flow.md
 docs/backend/02-flows/outlet-selection-flow.md
+docs/backend/telegram-multi-tenant-webhook-architecture.md
 docs/backend/03-business-rules/telegram-commerce-rules.md
 docs/backend/05-api-spec/telegram-commerce-api.md
 docs/backend/06-data/telegram-commerce-flow.md
@@ -889,6 +893,7 @@ server/src/routes/location-admin.js — Admin API routes (resolve, confirm, refr
 server/src/routes/location-internal.js — Internal nearest-outlet API
 server/src/ai/tools/domain-tools.js — `find_nearest_outlet` AI tool
 supabase/migrations/010_outlet_locations.sql — DB migration (2 tables, 6 indexes)
+server/src/db/migrations/032_backfill_outlet_locations_from_metadata.sql — backfill outlet metadata coordinates/maps into canonical `outlet_locations`
 specs/active/selaluteh-location-intelligence/ — active spec folder
 ```
 
@@ -901,6 +906,8 @@ PostGIS tidak tersedia — Haversine fallback sebagai default
 temporary location flow state disimpan di flow-repository (in-memory, 30 menit TTL)
 exact customer coordinates tidak disimpan sebagai durable memory
 outlet location hanya bisa diverifikasi melalui admin preview → confirm workflow
+valid outlet metadata coordinates/maps may be promoted into canonical `outlet_locations` via migration/backfill (`provider='metadata'`, `location_source='outlet_metadata'`)
+runtime nearest-outlet lookup must prefer `outlet_locations`; `outlets.metadata` is compatibility fallback only
 SSRF guard di semua Maps URL resolution — hanya host tertentu diizinkan
 find_nearest_outlet tool read-only, memerlukan Scope Security gate
 cross-workspace outlet access ditolak di semua layer

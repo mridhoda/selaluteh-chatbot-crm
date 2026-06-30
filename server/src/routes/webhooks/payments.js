@@ -1,8 +1,24 @@
 import express from 'express';
-import { processPaymentWebhook, processXenditPaymentSessionWebhook } from '../../services/payment-webhook.service.js';
+import { processDokuCheckoutWebhook, processPaymentWebhook, processXenditPaymentSessionWebhook } from '../../services/payment-webhook.service.js';
 import { assertWebhookPayloadSafe } from '../../security/webhook-security.js';
 
 const router = express.Router();
+
+async function handleDokuWebhook(req, res, next) {
+  try {
+    if (req.path === '/' && !String(req.baseUrl || '').endsWith('/doku')) return next('route');
+    assertWebhookPayloadSafe(req.body);
+    const result = await processDokuCheckoutWebhook({
+      rawBody: req.rawBody || req.body,
+      headers: req.headers,
+      requestTarget: '/webhook/doku',
+    });
+    res.json(result);
+  } catch (err) { next(err); }
+}
+
+router.post('/', handleDokuWebhook);
+router.post('/doku', handleDokuWebhook);
 
 router.post('/xendit', async (req, res, next) => {
   try {

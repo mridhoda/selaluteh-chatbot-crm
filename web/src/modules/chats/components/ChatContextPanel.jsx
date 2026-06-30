@@ -479,6 +479,11 @@ function CommerceTab({
   liveCartOutletId = null,
   liveOrders = [],
   outletProductMap = {},
+  liveCartId = null,
+  setLiveCartId,
+  setLiveCartItems,
+  setLiveCartOutletId,
+  setLiveOrders,
 }) {
   const ctx = chat.commerceContext || {}
   const [selectedOutletId, setSelectedOutletId] = useState(null)
@@ -490,7 +495,183 @@ function CommerceTab({
   const [isViewCartModalOpen, setIsViewCartModalOpen] = useState(false)
   const [ordersFilter, setOrdersFilter] = useState('all')
   const [isClearingCart, setIsClearingCart] = useState(false)
+  const [isCreatingPaymentLink, setIsCreatingPaymentLink] = useState(false)
   const toast = useToast()
+
+  const getChatContactId = () => {
+    const rawContactId = chat.contactId
+    return typeof rawContactId === 'object' ? rawContactId?.id : rawContactId
+  }
+
+  const getChatId = () => chat.id || chat._id
+
+  const getCustomerSnapshot = () => {
+    const contact = typeof chat.contactId === 'object' ? chat.contactId : chat.contact || chat.contacts || {}
+    return {
+      name: contact.name || chat.customerName || chat.name || '',
+      phone: contact.phone || chat.customerPhone || chat.phone || '',
+      handle: contact.handle || chat.handle || '',
+    }
+  }
+
+  const handleAddToCart = async ({ productId, quantity, variant, notes, discount }) => {
+    try {
+      const contactId = getChatContactId()
+      const chatId = getChatId()
+      const platformType = chat.platform || 'telegram'
+
+      let currentCartId = liveCartId
+      if (!currentCartId) {
+        if (!selectedOutletId) {
+          toast.error('Pilih outlet terlebih dahulu')
+          return
+        }
+        const cartRes = await api.post('/carts', {
+          outletId: selectedOutletId,
+          contactId,
+          chatId,
+          platformType
+        })
+        const newCart = cartRes?.data?.data || cartRes?.data
+        if (newCart && newCart.id) {
+          currentCartId = newCart.id
+          setLiveCartId(newCart.id)
+          setLiveCartItems(newCart.items || [])
+          setLiveCartOutletId(newCart.outletId)
+        } else {
+          toast.error('Gagal membuat keranjang')
+          return
+        }
+      }
+
+      const res = await api.post(`/carts/${currentCartId}/items`, {
+        productId,
+        quantity,
+        variant,
+        modifiers: notes ? [notes] : []
+      })
+      const updatedCart = res?.data?.data || res?.data
+      if (updatedCart) {
+        setLiveCartItems(updatedCart.items || [])
+        toast.success('Produk berhasil ditambahkan ke keranjang')
+        window.dispatchEvent(new Event('cart-cleared'))
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error(err.response?.data?.message || 'Gagal menambahkan produk ke keranjang')
+    }
+  }
+
+  const handleUpdateCartQty = async (productId, quantity) => {
+    try {
+      if (!liveCartId) return
+      const res = await api.patch(`/carts/${liveCartId}/items/${productId}`, { quantity })
+      const updatedCart = res?.data?.data || res?.data
+      if (updatedCart) {
+        setLiveCartItems(updatedCart.items || [])
+        window.dispatchEvent(new Event('cart-cleared'))
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal memperbarui jumlah produk')
+    }
+  }
+
+  const handleRemoveFromCart = async (productId) => {
+    try {
+      if (!liveCartId) return
+      const res = await api.delete(`/carts/${liveCartId}/items/${productId}`)
+      const updatedCart = res?.data?.data || res?.data
+      if (updatedCart) {
+        setLiveCartItems(updatedCart.items || [])
+        toast.success('Produk berhasil dihapus')
+        window.dispatchEvent(new Event('cart-cleared'))
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal menghapus produk')
+    }
+  }
+
+  const handleAddProductFromBrowse = async (product, qty) => {
+    await handleAddToCart({
+      productId: product.id || product._id,
+      quantity: qty,
+      variant: 'Regular (16oz)',
+    })
+  }
+
+  const handleCreateAndSendPaymentLink = async () => {
+    if (isCreatingPaymentLink) return
+    const contactId = getChatContactId()
+    const chatId = getChatId()
+
+    if (!selectedOutletId) {
+      toast.error('Pilih outlet terlebih dahulu')
+      return
+    }
+
+    if (!contactId || !chatId) {
+      toast.error('Data chat/contact belum lengkap untuk membuat link pembayaran')
+      return
+    }
+
+    if (!liveCartItems || liveCartItems.length === 0) {
+      toast.error('Keranjang masih kosong')
+      return
+    }
+
+    setIsCreatingPaymentLink(true)
+    try {
+      const idempotencyKey = `human_checkout_${liveCartId || chatId}_${Date.now()}`
+      const checkoutRes = await api.post('/checkouts', {
+        outletId: selectedOutletId,
+        contactId,
+        chatId,
+        idempotencyKey,
+        customerSnapshot: getCustomerSnapshot(),
+        fulfillmentSnapshot: {
+          method: 'pickup',
+          outletName: selectedOutlet?.name || '',
+        },
+      })
+      const checkout = checkoutRes?.data?.data || checkoutRes?.data
+
+      const confirmRes = await api.post(`/checkouts/${checkout.id}/confirm`)
+      const confirmedCheckout = confirmRes?.data?.data || confirmRes?.data
+
+      const orderRes = await api.post('/orders', { checkoutId: confirmedCheckout.id || checkout.id })
+      const order = orderRes?.data?.data || orderRes?.data
+
+      const paymentRes = await api.post(`/orders/${order.id}/payments/session`, {
+        customer: getCustomerSnapshot(),
+        idempotencyKey: `human_payment_${order.id}`,
+      })
+      const payment = paymentRes?.data?.data || paymentRes?.data
+      const paymentUrl = payment.paymentUrl || payment.paymentLink || payment.paymentLinkUrl
+
+      if (!paymentUrl) {
+        throw new Error('Payment link tidak tersedia dari provider')
+      }
+
+      const total = payment.amount || order.totalAmount || order.totals?.total || cartSummary.total
+      const orderNumber = order.orderNumber || order.order_number || order.id
+      const message = `Link pembayaran untuk pesanan ${orderNumber}:\n${paymentUrl}\n\nTotal: ${formatRupiah(total)}\nSilakan selesaikan pembayaran melalui link di atas.`
+
+      await api.post(`/chats/${chatId}/send`, { text: message })
+
+      setLiveOrders((current) => [order, ...(current || [])])
+      setLiveCartItems([])
+      setLiveCartId(null)
+      window.dispatchEvent(new Event('cart-cleared'))
+      toast.success('Payment link berhasil dibuat dan dikirim')
+    } catch (err) {
+      console.error('[CommerceTab] Failed to create/send payment link:', err)
+      toast.error(err.response?.data?.message || err.message || 'Gagal membuat payment link')
+    } finally {
+      setIsCreatingPaymentLink(false)
+    }
+  }
 
   const displayOutlets = useLiveOrFallback(liveOutlets, FALLBACK_OUTLETS)
   const displayProducts = useLiveOrFallback(liveProducts, FALLBACK_PRODUCTS)
@@ -522,6 +703,7 @@ function CommerceTab({
   // Normalize orders from API to a consistent shape for display
   const normalizeOrder = (order) => {
     const id = order.id || order._id || order.orderNumber || order.order_number || order.orderIdDisplay
+    const orderNumber = order.orderNumber || order.order_number || order.order_number_snapshot || id || '—'
     const status = order.status || 'Draft'
     const paymentStatus = order.paymentStatus || order.payment || order.payment_status || 'Pending'
     const amount = order.amount || order.total || order.totalAmount || order.totals?.total || order.grandTotal || 0
@@ -540,7 +722,7 @@ function CommerceTab({
     const contactIdentifier = order.contactId && typeof order.contactId === 'object'
       ? order.contactId.id
       : (typeof order.contactId === 'string' ? order.contactId : null)
-    return { id, status, paymentStatus, amount, channel, date, time, customerName, customerPhone, contactIdentifier, _raw: order }
+    return { id, orderNumber, status, paymentStatus, amount, channel, date, time, customerName, customerPhone, contactIdentifier, _raw: order }
   }
 
   const rawDisplayOrders = useLiveOrFallback(liveOrders, FALLBACK_ORDERS)
@@ -548,7 +730,7 @@ function CommerceTab({
 
   // Only show products available at selected outlet
   const availableProductIds = outletProductMap[selectedOutletId] || []
-  const availableProducts = displayOutlets.length > 0
+  const availableProducts = displayOutlets.length > 0 && availableProductIds.length > 0
     ? displayProducts.filter((p) => availableProductIds.includes(p.id || p._id))
     : displayProducts
 
@@ -792,8 +974,12 @@ function CommerceTab({
       <div>
         <OrderStepHeader num='6' title='Actions' />
         <div className='flex flex-col gap-2.5 mt-1.5'>
-          <button className='bg-gradient-to-r from-[var(--brand-500)] to-[var(--ai-500)] w-full py-3 text-white text-sm font-bold rounded-xl shadow-lg hover:opacity-95 transition-all cursor-pointer border-none'>
-            Create & Send Payment Link
+          <button
+            disabled={isCreatingPaymentLink || !cartSummary.itemCount}
+            onClick={handleCreateAndSendPaymentLink}
+            className='bg-gradient-to-r from-[var(--brand-500)] to-[var(--ai-500)] w-full py-3 text-white text-sm font-bold rounded-xl shadow-lg hover:opacity-95 transition-all cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed'
+          >
+            {isCreatingPaymentLink ? 'Creating Payment Link...' : 'Create & Send Payment Link'}
           </button>
           <button className='w-full py-2.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm hover:bg-slate-50 transition-colors cursor-pointer'>
             <Bookmark size={14} className='text-slate-400 shrink-0' />
@@ -825,7 +1011,7 @@ function CommerceTab({
                   <div className='flex items-center gap-2 min-w-0'>
                     <div className='w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0' />
                     <span className='text-[10px] font-mono text-slate-500 group-hover:text-[var(--brand-600)] transition-colors truncate'>
-                      {order.id || 'ORDER'}
+                      {order.orderNumber || order.id || 'ORDER'}
                     </span>
                   </div>
                   <span className='text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200'>
@@ -858,7 +1044,11 @@ function CommerceTab({
         />
       )}
       {isQuickAddModalOpen && (
-        <QuickAddModal onClose={() => setIsQuickAddModalOpen(false)} />
+        <QuickAddModal
+          products={availableProducts}
+          onClose={() => setIsQuickAddModalOpen(false)}
+          onAdd={handleAddToCart}
+        />
       )}
       {isBrowseModalOpen && (
         <BrowseProductsModal
@@ -871,10 +1061,16 @@ function CommerceTab({
           cartItems={displayCart}
           outletName={selectedOutlet?.name || 'Outlet'}
           outletStatus={selectedOutlet?.operational_status || selectedOutlet?.status || 'Active'}
+          onAddProduct={handleAddProductFromBrowse}
         />
       )}
       {isViewCartModalOpen && (
-        <ViewCartModal onClose={() => setIsViewCartModalOpen(false)} cartItems={displayCart} />
+        <ViewCartModal
+          onClose={() => setIsViewCartModalOpen(false)}
+          cartItems={displayCart}
+          onUpdateQty={handleUpdateCartQty}
+          onRemove={handleRemoveFromCart}
+        />
       )}
     </div>
   )
@@ -1085,7 +1281,7 @@ function ConversationOrdersModal({
               return (
                 <tr key={order.id || Math.random()}>
                   <td>
-                    <strong style={{ fontFamily: 'monospace', fontSize: 11 }}>{order.id || '—'}</strong>
+                    <strong style={{ fontFamily: 'monospace', fontSize: 11 }}>{order.orderNumber || order.id || '—'}</strong>
                   </td>
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -1166,7 +1362,107 @@ function ConversationOrdersModal({
   )
 }
 
-function QuickAddModal({ onClose }) {
+function QtyInput({ value, onChange }) {
+  const numValue = Number(value) || 1
+  return (
+    <div className='chat-prism-qty-input'>
+      <button onClick={() => onChange && onChange(Math.max(1, numValue - 1))}>-</button>
+      <input readOnly value={value} />
+      <button onClick={() => onChange && onChange(numValue + 1)}>+</button>
+    </div>
+  )
+}
+
+function ProductCard({ product, onAdd }) {
+  const [qty, setQty] = useState(1)
+  const price = product.basePrice ?? product.base_price ?? product.price ?? 0
+  return (
+    <div className='chat-prism-product-card'>
+      <div className='chat-prism-product-thumb'>
+        <Coffee size={30} />
+      </div>
+      <div>
+        <strong>{product.name}</strong>
+        {product.badge ? (
+          <span>
+            <Sparkles size={9} /> {product.badge}
+          </span>
+        ) : (
+          <i />
+        )}
+        <b>{formatRupiah(price)}</b>
+        <small className={product.stock === 'Low stock' ? 'low' : ''}>
+          {product.stock}
+        </small>
+      </div>
+      <div>
+        <QtyInput value={String(qty)} onChange={setQty} />
+        <button onClick={() => onAdd?.(product, qty)}>Add</button>
+      </div>
+    </div>
+  )
+}
+
+function QuickAddModal({ products = [], onClose, onAdd }) {
+  const toast = useToast()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedProductId, setSelectedProductId] = useState('')
+  const [selectedVariant, setSelectedVariant] = useState('Regular (16oz)')
+  const [quantity, setQuantity] = useState(1)
+  const [discount, setDiscount] = useState('0')
+  const [notes, setNotes] = useState('')
+
+  // Custom item inputs
+  const [customName, setCustomName] = useState('')
+  const [customQty, setCustomQty] = useState(1)
+  const [customPrice, setCustomPrice] = useState('')
+
+  // Filter products by search query
+  const filteredProducts = products.filter((p) =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  // Popular products: match mock names or take the first few products
+  const popularNames = ['Teh Tarik', 'Lemon Tea', 'Milk Tea', 'Vanilla']
+  const popularProducts = products.filter((p) =>
+    popularNames.some((name) => p.name.toLowerCase().includes(name.toLowerCase()))
+  ).slice(0, 4)
+  const displayPopular = popularProducts.length > 0 ? popularProducts : products.slice(0, 4)
+
+  // Determine unit price of the selected product
+  const selectedProduct = products.find((p) => String(p.id || p._id) === String(selectedProductId))
+  const unitPrice = selectedProduct
+    ? (selectedProduct.outletAvailability?.priceOverride ?? selectedProduct.basePrice ?? selectedProduct.price ?? 0)
+    : 0
+
+  // Set default product when products list is loaded
+  useEffect(() => {
+    if (products.length > 0 && !selectedProductId) {
+      setSelectedProductId(products[0].id || products[0]._id)
+    }
+  }, [products, selectedProductId])
+
+  const handleAddClick = () => {
+    if (customName.trim()) {
+      toast.info('Custom item tidak didukung oleh POS backend. Silakan pilih produk dari menu.')
+      return
+    }
+
+    if (!selectedProductId) {
+      toast.error('Pilih produk terlebih dahulu')
+      return
+    }
+
+    onAdd({
+      productId: selectedProductId,
+      quantity,
+      variant: selectedVariant,
+      notes: notes.trim(),
+      discount: Number(discount) || 0
+    })
+    onClose()
+  }
+
   return (
     <CommerceModal title='Quick Add Item' onClose={onClose} size='lg'>
       <div className='chat-prism-quick-add-grid'>
@@ -1174,68 +1470,122 @@ function QuickAddModal({ onClose }) {
           <h3>Search & Add</h3>
           <div className='chat-prism-modal-search'>
             <Search size={14} />
-            <input placeholder='Search product...' />
+            <input
+              placeholder='Search product...'
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
           <h3>Recent / Popular</h3>
-          {[
-            'Thai Tea (Original)',
-            'Lemon Tea',
-            'Milk Tea',
-            'Brown Sugar Milk',
-          ].map((item) => (
-            <button key={item}>
-              <Coffee size={14} /> {item}
+          {displayPopular.length > 0 ? displayPopular.map((item) => (
+            <button
+              key={item.id || item._id}
+              onClick={() => {
+                setSelectedProductId(item.id || item._id)
+                setSelectedVariant('Regular (16oz)')
+              }}
+              style={{
+                borderColor: String(selectedProductId) === String(item.id || item._id) ? 'var(--brand-500)' : '',
+                background: String(selectedProductId) === String(item.id || item._id) ? 'var(--brand-50)' : '',
+                color: String(selectedProductId) === String(item.id || item._id) ? 'var(--brand-700)' : '',
+              }}
+            >
+              <Coffee size={14} /> {item.name}
             </button>
-          ))}
+          )) : (
+            <p className='text-xs text-[var(--text-muted)] leading-relaxed'>
+              Belum ada produk tersedia untuk outlet ini.
+            </p>
+          )}
         </aside>
         <main>
           <h3>Item Details</h3>
           <CommerceField label='Product'>
-            <select>
-              <option>Thai Tea (Original)</option>
-              <option>Lemon Tea</option>
+            <select
+              value={selectedProductId}
+              onChange={(e) => {
+                setSelectedProductId(e.target.value)
+                setSelectedVariant('Regular (16oz)')
+              }}
+            >
+              <option value=''>Select product...</option>
+              {filteredProducts.map((item) => (
+                <option key={item.id || item._id} value={item.id || item._id}>
+                  {item.name}
+                </option>
+              ))}
             </select>
           </CommerceField>
           <CommerceField label='Variant'>
-            <select>
-              <option>Regular (16oz)</option>
-              <option>Large (22oz)</option>
+            <select
+              value={selectedVariant}
+              onChange={(e) => setSelectedVariant(e.target.value)}
+            >
+              <option value='Regular (16oz)'>Regular (16oz)</option>
+              <option value='Large (22oz)'>Large (22oz)</option>
+              <option value='Standard'>Standard</option>
             </select>
           </CommerceField>
           <div className='chat-prism-modal-two-col'>
             <CommerceField label='Quantity'>
-              <QtyInput value='1' />
+              <QtyInput value={String(quantity)} onChange={setQuantity} />
             </CommerceField>
             <CommerceField label='Unit Price'>
-              <input readOnly value='Rp 25.000' />
+              <input readOnly value={formatRupiah(unitPrice)} />
             </CommerceField>
           </div>
           <div className='chat-prism-modal-two-col'>
             <CommerceField label='Discount'>
-              <input placeholder='0' />
+              <input
+                placeholder='0'
+                value={discount}
+                onChange={(e) => setDiscount(e.target.value)}
+              />
             </CommerceField>
             <CommerceField label='Notes'>
-              <input placeholder='Tambahkan catatan...' />
+              <input
+                placeholder='Tambahkan catatan...'
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
             </CommerceField>
           </div>
         </main>
       </div>
       <div className='chat-prism-custom-item-row'>
         <h3>Or add a custom item</h3>
-        <input placeholder='Item name' />
-        <QtyInput value='1' />
-        <input placeholder='Rp 0' />
+        <input
+          placeholder='Item name'
+          value={customName}
+          onChange={(e) => setCustomName(e.target.value)}
+        />
+        <QtyInput value={String(customQty)} onChange={setCustomQty} />
+        <input
+          placeholder='Rp 0'
+          value={customPrice}
+          onChange={(e) => setCustomPrice(e.target.value)}
+        />
       </div>
       <div className='chat-prism-modal-actions'>
         <button onClick={onClose}>Cancel</button>
-        <button className='primary'>Add to Order</button>
+        <button className='primary' onClick={handleAddClick}>Add to Order</button>
       </div>
     </CommerceModal>
   )
 }
 
-function BrowseProductsModal({ onClose, onViewCart, products = [], cartItems = [], outletName = 'Outlet', outletStatus = 'Active' }) {
+function BrowseProductsModal({ onClose, onViewCart, products = [], cartItems = [], outletName = 'Outlet', outletStatus = 'Active', onAddProduct }) {
   const summary = buildCartSummary(cartItems)
+  const [search, setSearch] = useState('')
+  const [selectedCat, setSelectedCat] = useState('All')
+  
+  const filtered = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase())
+    if (selectedCat === 'All') return matchesSearch
+    const cat = p.category || p.metadata?.category || ''
+    return matchesSearch && cat.toLowerCase() === selectedCat.toLowerCase()
+  })
+
   return (
     <CommerceModal title='Browse products' onClose={onClose} size='lg'>
       <div className='chat-prism-browse-head'>
@@ -1246,15 +1596,23 @@ function BrowseProductsModal({ onClose, onViewCart, products = [], cartItems = [
       </div>
       <div className='chat-prism-product-toolbar'>
         <div>
-          {['All', 'Tea', 'Coffee', 'Snacks', 'Toppings'].map((cat, idx) => (
-            <button key={cat} className={idx === 0 ? 'active' : ''}>
+          {['All', 'Minuman', 'Tea', 'Coffee', 'Snacks', 'Toppings'].map((cat) => (
+            <button
+              key={cat}
+              className={selectedCat === cat ? 'active' : ''}
+              onClick={() => setSelectedCat(cat)}
+            >
               {cat}
             </button>
           ))}
         </div>
         <div className='chat-prism-modal-search'>
           <Search size={14} />
-          <input placeholder='Search product...' />
+          <input
+            placeholder='Search product...'
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
       </div>
       <div className='chat-prism-product-note'>
@@ -1262,8 +1620,12 @@ function BrowseProductsModal({ onClose, onViewCart, products = [], cartItems = [
         may be out of stock.
       </div>
       <div className='chat-prism-product-grid'>
-        {products.length > 0 ? products.map((product) => (
-          <ProductCard key={product.id || product._id} product={product} />
+        {filtered.length > 0 ? filtered.map((product) => (
+          <ProductCard
+            key={product.id || product._id}
+            product={product}
+            onAdd={onAddProduct}
+          />
         )) : <p style={{padding: 20, color: 'var(--text-muted)'}}>No products available at this outlet</p>}
       </div>
       <div className='chat-prism-sticky-cart'>
@@ -1276,14 +1638,14 @@ function BrowseProductsModal({ onClose, onViewCart, products = [], cartItems = [
         </div>
         <div>
           <button onClick={onViewCart}>View cart</button>
-          <button className='primary'>Add to order</button>
+          <button className='primary' onClick={onClose}>Add to order</button>
         </div>
       </div>
     </CommerceModal>
   )
 }
 
-function ViewCartModal({ onClose, cartItems = [] }) {
+function ViewCartModal({ onClose, cartItems = [], onUpdateQty, onRemove }) {
   const summary = buildCartSummary(cartItems)
   return (
     <CommerceModal
@@ -1294,22 +1656,25 @@ function ViewCartModal({ onClose, cartItems = [] }) {
     >
       <div className='chat-prism-cart-items'>
         {cartItems.length > 0 ? cartItems.slice(0, 10).map((item) => (
-          <div key={item.id || item.product_id} className='chat-prism-cart-card'>
+          <div key={item.id || item.productId} className='chat-prism-cart-card'>
             <div className='chat-prism-product-thumb'>
               <ShoppingBag size={22} />
             </div>
             <div>
               <div className='chat-prism-cart-card-head'>
                 <strong>{item.name || item.productNameSnapshot || 'Product'}</strong>
-                <button>
+                <button onClick={() => onRemove?.(item.productId)}>
                   <Trash2 size={15} />
                 </button>
               </div>
               <small>{item.variant || item.variantNameSnapshot || (item.inferred ? 'Dari percakapan' : '')}</small>
               <b>{formatRupiah(getItemUnitPrice(item))}</b>
               <div className='chat-prism-cart-card-foot'>
-                <QtyInput value={String(getItemQty(item))} />
-                <button>
+                <QtyInput
+                  value={String(getItemQty(item))}
+                  onChange={(newQty) => onUpdateQty?.(item.productId, newQty)}
+                />
+                <button title="Edit item details">
                   <Edit2 size={14} />
                 </button>
                 <strong>{formatRupiah(getItemSubtotal(item))}</strong>
@@ -1333,38 +1698,9 @@ function ViewCartModal({ onClose, cartItems = [] }) {
       </div>
       <div className='chat-prism-modal-actions'>
         <button onClick={onClose}>Continue Editing</button>
-        <button className='primary'>Proceed to Order</button>
+        <button className='primary' onClick={onClose}>Proceed to Order</button>
       </div>
     </CommerceModal>
-  )
-}
-
-function ProductCard({ product }) {
-  const price = product.basePrice ?? product.base_price ?? product.price ?? 0
-  return (
-    <div className='chat-prism-product-card'>
-      <div className='chat-prism-product-thumb'>
-        <Coffee size={30} />
-      </div>
-      <div>
-        <strong>{product.name}</strong>
-        {product.badge ? (
-          <span>
-            <Sparkles size={9} /> {product.badge}
-          </span>
-        ) : (
-          <i />
-        )}
-        <b>{formatRupiah(price)}</b>
-        <small className={product.stock === 'Low stock' ? 'low' : ''}>
-          {product.stock}
-        </small>
-      </div>
-      <div>
-        <QtyInput value='1' />
-        <button>Add</button>
-      </div>
-    </div>
   )
 }
 
@@ -1404,15 +1740,6 @@ function CommerceField({ children, label }) {
   )
 }
 
-function QtyInput({ value }) {
-  return (
-    <div className='chat-prism-qty-input'>
-      <button>-</button>
-      <input readOnly value={value} />
-      <button>+</button>
-    </div>
-  )
-}
 
 function TicketTab({ chat }) {
   const toast = useToast()
@@ -1615,6 +1942,7 @@ export default function ChatContextPanel({
   const [liveOutlets, setLiveOutlets] = useState([])
   const [liveProducts, setLiveProducts] = useState([])
   const [liveCartItems, setLiveCartItems] = useState([])
+  const [liveCartId, setLiveCartId] = useState(null)
   // Initialize outlet from chat.currentOutletId so sidebar shows correct outlet immediately
   const [liveCartOutletId, setLiveCartOutletId] = useState(
     chat?.currentOutletId || chat?.current_outlet_id || null
@@ -1672,7 +2000,9 @@ export default function ChatContextPanel({
               if (!map[oid]) map[oid] = []
               map[oid].push(p.id || p._id)
             }
-          } catch {}
+          } catch {
+            // Availability is optional; the modal falls back to all loaded products.
+          }
         }
         setOutletProductMap(map)
       } catch (e) {
@@ -1729,18 +2059,23 @@ export default function ChatContextPanel({
         const httpStatus = cRes?.status
         const cart = cRes?.data?.data || cRes?.data || null
 
-        if (cart && (cart.outletId || cart.outlet_id)) {
+        if (cart && (cart.outletId || cart.outlet_id || cart.id)) {
+          setLiveCartId(cart.id || null)
           setLiveCartItems(cart.items || [])
           setLiveCartOutletId(cart.outletId || cart.outlet_id)
         } else if (httpStatus === 404 || !cart) {
+          setLiveCartId(null)
           setLiveCartItems([])
           try {
             const chatRes = await api.get(`/chats/${chatId}`).catch(() => null)
             const updatedChat = chatRes?.data?.data || chatRes?.data || null
             const latestOutletId = updatedChat?.currentOutletId || updatedChat?.current_outlet_id
             if (latestOutletId) setLiveCartOutletId(latestOutletId)
-          } catch {}
+          } catch {
+            // Keep current outlet selection if chat refresh fails.
+          }
         } else {
+          setLiveCartId(cart.id || null)
           setLiveCartItems(cart.items || [])
         }
       } catch {
@@ -1798,6 +2133,11 @@ export default function ChatContextPanel({
             liveCartOutletId={liveCartOutletId}
             liveOrders={liveOrders}
             outletProductMap={outletProductMap}
+            liveCartId={liveCartId}
+            setLiveCartId={setLiveCartId}
+            setLiveCartItems={setLiveCartItems}
+            setLiveCartOutletId={setLiveCartOutletId}
+            setLiveOrders={setLiveOrders}
           />
         )}
         {activeTab === 'ai' && <TicketTab chat={chat} />}

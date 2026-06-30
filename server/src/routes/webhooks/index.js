@@ -14,5 +14,6 @@ router.use('/meta', metaRouter);
 router.use('/test-meta', metaTestRouter);
 router.use('/payments', paymentRouter);
 router.use('/xendit', paymentRouter);
+router.use('/doku', paymentRouter);
 
 export default router;

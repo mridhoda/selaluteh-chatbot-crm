@@ -7,6 +7,7 @@ const PROVIDERS = [
   { value: '', label: 'None — Payments disabled' },
   { value: 'midtrans', label: 'Midtrans' },
   { value: 'xendit', label: 'Xendit' },
+  { value: 'doku', label: 'DOKU Checkout' },
 ]
 
 const PAYMENT_METHODS = [
@@ -46,6 +47,13 @@ export default function PaymentProviderSettingsForm({
   testResult,
 }) {
   const payment = settings?.payment || {}
+  const {
+    provider: savedProvider,
+    environment: savedEnvironment,
+    merchantId: savedMerchantId,
+    publicKey: savedPublicKey,
+    paymentMethods: savedPaymentMethods,
+  } = payment
   const webhookBase =
     settings?.publicBaseUrl ||
     (typeof window !== 'undefined' ? window.location.origin : '')
@@ -57,6 +65,8 @@ export default function PaymentProviderSettingsForm({
     publicKey: '',
     serverKey: null,
     webhookSecret: null,
+    dokuClientId: null,
+    dokuSecretKey: null,
     paymentMethods: ['qris', 'bank_transfer', 'ewallet'],
   })
   const [dirty, setDirty] = useState(false)
@@ -67,13 +77,15 @@ export default function PaymentProviderSettingsForm({
   useEffect(() => {
     if (settings?.payment) {
       setForm({
-        provider: payment.provider || '',
-        environment: payment.environment || 'sandbox',
-        merchantId: payment.merchantId || '',
-        publicKey: payment.publicKey || '',
+        provider: savedProvider || '',
+        environment: savedEnvironment || 'sandbox',
+        merchantId: savedMerchantId || '',
+        publicKey: savedPublicKey || '',
         serverKey: null,
         webhookSecret: null,
-        paymentMethods: payment.paymentMethods || [
+        dokuClientId: null,
+        dokuSecretKey: null,
+        paymentMethods: savedPaymentMethods || [
           'qris',
           'bank_transfer',
           'ewallet',
@@ -81,7 +93,7 @@ export default function PaymentProviderSettingsForm({
       })
       setDirty(false)
     }
-  }, [settings])
+  }, [settings?.payment, savedProvider, savedEnvironment, savedMerchantId, savedPublicKey, savedPaymentMethods])
 
   const set = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -116,6 +128,8 @@ export default function PaymentProviderSettingsForm({
     }
     if (form.serverKey !== null) payload.serverKey = form.serverKey
     if (form.webhookSecret !== null) payload.webhookSecret = form.webhookSecret
+    if (form.dokuClientId !== null) payload.dokuClientId = form.dokuClientId
+    if (form.dokuSecretKey !== null) payload.dokuSecretKey = form.dokuSecretKey
     return payload
   }
 
@@ -129,7 +143,7 @@ export default function PaymentProviderSettingsForm({
 
   const handleTest = () => onTest(buildPayload())
 
-  const webhookUrl = `${webhookBase}/webhook/payment`
+  const webhookUrl = payment.webhookUrl || `${webhookBase}/webhook/xendit/payment-sessions`
 
   const handleCopyWebhook = () => {
     navigator.clipboard?.writeText(webhookUrl)
@@ -188,6 +202,25 @@ export default function PaymentProviderSettingsForm({
           Configure your payment gateway for checkout and order management.
         </p>
 
+        <div
+          style={{
+            marginBottom: 20,
+            padding: 12,
+            borderRadius: 8,
+            border: `1px solid ${payment.runtimeConfigured ? 'var(--success-100)' : 'var(--warning-200)'}`,
+            background: payment.runtimeConfigured ? 'var(--success-50)' : 'var(--warning-50)',
+            color: payment.runtimeConfigured ? 'var(--success-700)' : 'var(--warning-600)',
+            fontSize: 12,
+            lineHeight: 1.5,
+          }}
+        >
+          Runtime gateway: <strong>{payment.runtimeProvider || 'manual'}</strong>{' '}
+          ({payment.runtimeEnvironment || 'test'}) —{' '}
+          {payment.runtimeConfigured
+            ? 'configured from backend environment and used by payment link creation.'
+            : 'not configured in backend runtime environment.'}
+        </div>
+
         <div style={SECTION_HDR}>Provider</div>
         <div style={FIELD}>
           <label style={LABEL}>Payment Provider</label>
@@ -244,19 +277,25 @@ export default function PaymentProviderSettingsForm({
               <label style={LABEL}>
                 {form.provider === 'midtrans'
                   ? 'Merchant ID'
-                  : 'Account Identifier'}
+                  : form.provider === 'doku'
+                    ? 'Merchant / Account Label'
+                    : 'Account Identifier'}
               </label>
               <input
                 className='input'
                 value={form.merchantId}
                 onChange={(e) => set('merchantId', e.target.value)}
                 placeholder={
-                  form.provider === 'midtrans' ? 'G12345678' : 'your-account-id'
+                  form.provider === 'midtrans'
+                    ? 'G12345678'
+                    : form.provider === 'doku'
+                      ? 'DOKU merchant label'
+                      : 'your-account-id'
                 }
                 style={{ width: '100%' }}
               />
             </div>
-            <div style={FIELD}>
+            {form.provider !== 'doku' && <div style={FIELD}>
               <label style={LABEL}>
                 {form.provider === 'midtrans'
                   ? 'Client Key (Public)'
@@ -273,33 +312,58 @@ export default function PaymentProviderSettingsForm({
                 }
                 style={{ width: '100%' }}
               />
-            </div>
-            <SecretField
-              label={
-                form.provider === 'midtrans'
-                  ? 'Server Key (Secret)'
-                  : 'Secret Key'
-              }
-              name='serverKey'
-              hasExistingValue={!!payment.serverKeyConfigured}
-              value={form.serverKey}
-              onChange={(val) => set('serverKey', val)}
-              placeholder={
-                form.provider === 'midtrans'
-                  ? 'SB-Mid-server-…'
-                  : 'xnd_production_…'
-              }
-              helperText='Write-only. Your previous key is securely stored.'
-            />
-            <SecretField
-              label='Webhook Secret'
-              name='webhookSecret'
-              hasExistingValue={!!payment.webhookSecretConfigured}
-              value={form.webhookSecret}
-              onChange={(val) => set('webhookSecret', val)}
-              placeholder='Webhook validation secret'
-              helperText='Used to verify incoming webhook signatures from the provider.'
-            />
+            </div>}
+            {form.provider === 'doku' ? (
+              <>
+                <SecretField
+                  label='DOKU Client ID'
+                  name='dokuClientId'
+                  hasExistingValue={!!payment.dokuClientIdConfigured}
+                  value={form.dokuClientId}
+                  onChange={(val) => set('dokuClientId', val)}
+                  placeholder='MCH-... or BRN-...'
+                  helperText='Write-only. Required for DOKU Checkout request headers.'
+                />
+                <SecretField
+                  label='DOKU Secret Key'
+                  name='dokuSecretKey'
+                  hasExistingValue={!!payment.dokuSecretKeyConfigured}
+                  value={form.dokuSecretKey}
+                  onChange={(val) => set('dokuSecretKey', val)}
+                  placeholder='DOKU secret key'
+                  helperText='Write-only. Used to sign DOKU Checkout requests and verify notifications.'
+                />
+              </>
+            ) : (
+              <>
+                <SecretField
+                  label={
+                    form.provider === 'midtrans'
+                      ? 'Server Key (Secret)'
+                      : 'Secret Key'
+                  }
+                  name='serverKey'
+                  hasExistingValue={!!payment.serverKeyConfigured}
+                  value={form.serverKey}
+                  onChange={(val) => set('serverKey', val)}
+                  placeholder={
+                    form.provider === 'midtrans'
+                      ? 'SB-Mid-server-…'
+                      : 'xnd_production_…'
+                  }
+                  helperText='Write-only. Your previous key is securely stored.'
+                />
+                <SecretField
+                  label='Webhook Secret'
+                  name='webhookSecret'
+                  hasExistingValue={!!payment.webhookSecretConfigured}
+                  value={form.webhookSecret}
+                  onChange={(val) => set('webhookSecret', val)}
+                  placeholder='Webhook validation secret'
+                  helperText='Used to verify incoming webhook signatures from the provider.'
+                />
+              </>
+            )}
 
             <div style={SECTION_HDR}>Webhook URL</div>
             <div style={FIELD}>

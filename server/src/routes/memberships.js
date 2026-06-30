@@ -142,4 +142,46 @@ router.delete('/:userId', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+/**
+ * PATCH /api/workspaces/:workspaceId/members/me/notification-channels
+ *
+ * Self-service: update own notification channel preferences.
+ * Any authenticated member can update their own setting — no admin needed.
+ *
+ * Body: { channels: ["telegram", "whatsapp"] }
+ *   - Pass null or [] to receive on all channels (workspace default).
+ *   - Valid values: "telegram" | "whatsapp" | "web_push"
+ */
+router.patch('/me/notification-channels', async (req, res, next) => {
+  try {
+    if (!req.me) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } });
+    const { workspaceId } = req.params;
+
+    const VALID_CHANNELS = ['telegram', 'whatsapp', 'web_push'];
+    let channels = req.body?.channels;
+
+    // null / undefined / empty array = reset to all-channels
+    if (channels == null || (Array.isArray(channels) && channels.length === 0)) {
+      channels = null;
+    } else {
+      if (!Array.isArray(channels)) {
+        throw new AppError('VALIDATION', 'channels must be an array', 400);
+      }
+      const invalid = channels.filter(c => !VALID_CHANNELS.includes(c));
+      if (invalid.length > 0) {
+        throw new AppError('VALIDATION', `Invalid channels: ${invalid.join(', ')}. Valid: ${VALID_CHANNELS.join(', ')}`, 400);
+      }
+    }
+
+    const membership = await membershipsSupabaseRepository.updateNotificationChannels({
+      userId: req.me.id,
+      workspaceId,
+      channels,
+    });
+    if (!membership) throw new AppError('NOT_FOUND', 'Membership not found', 404);
+
+    res.json({ data: membership });
+  } catch (err) { next(err); }
+});
+
 export default router;

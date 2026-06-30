@@ -17,6 +17,8 @@ import ContactPanel from '../../contacts/components/ContactPanel'
 import FilterPopup from '../../../shared/components/ui/FilterPopup'
 import Platforms from '../../platforms/pages/PlatformsPage'
 import Complaints from '../../complaints/pages/ComplaintsPage'
+import EscalationInboxPage from '../../complaints/pages/EscalationInboxPage'
+import EscalationSettingsPage from '../../complaints/pages/EscalationSettingsPage'
 import Orders from '../../orders/pages/OrdersPage'
 import AgentSales from '../../agents/components/AgentSales'
 import AgentDetail from '../../agents/components/AgentDetail'
@@ -44,6 +46,7 @@ import ChatCenterPage from '../../chats/pages/ChatCenterPage'
 import ReportsPage from '../../reports/pages/ReportsPage'
 import Contacts from '../../contacts/pages/ContactsPage'
 import AccessControlPage from '../../access-control/pages/AccessControlPage'
+import { getSessionUser, hasPermission, isOwner, permissionsToResourceMap } from '../../../shared/auth/permissions'
 import {
   Chart as ChartJS,
   ArcElement,
@@ -710,11 +713,14 @@ function Agents() {
                   onChange={(e) => setPlatformId(e.target.value)}
                 >
                   <option value=''>Pilih Platform (opsional)</option>
-                  {platforms.map((p) => (
-                    <option key={p._id} value={p._id}>
+                  {platforms.map((p) => {
+                    const id = p.id || p._id
+                    return (
+                    <option key={id} value={id}>
                       {p.label} ({p.type})
                     </option>
-                  ))}
+                    )
+                  })}
                 </select>
               </div>
               <textarea
@@ -1138,44 +1144,187 @@ function Profile() {
   const [name, setName] = useState(user?.name || '')
   const [email, setEmail] = useState(user?.email || '')
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [saveErr, setSaveErr] = useState(null)
+
+  // Notification channel preferences
+  const workspaceId = user?.workspaceId || user?.workspace_id || null
+  const [channels, setChannels] = useState(null) // null = all (default)
+  const [channelLoading, setChannelLoading] = useState(true)
+  const [channelSaving, setChannelSaving] = useState(false)
+  const [channelSaved, setChannelSaved] = useState(false)
+  const [channelErr, setChannelErr] = useState(null)
+
+  const CHANNEL_OPTIONS = [
+    { key: 'telegram', label: 'Telegram', desc: 'Notifikasi via pesan Telegram langsung.', color: '#0088cc', emoji: '✈️' },
+    { key: 'whatsapp', label: 'WhatsApp', desc: 'Notifikasi via WhatsApp ke nomor terdaftar.', color: '#25d366', emoji: '💬' },
+  ]
+
+  useEffect(() => {
+    if (!workspaceId) { setChannelLoading(false); return }
+    api.get(`/workspaces/${workspaceId}/members`)
+      .then(res => {
+        const me = (res.data?.data || []).find(m => m.userId === user?.id || m.user_id === user?.id)
+        if (me) setChannels(me.notificationChannels ?? me.notification_channels ?? null)
+      })
+      .catch(() => {})
+      .finally(() => setChannelLoading(false))
+  }, [workspaceId, user?.id])
+
+  const isEnabled = (key) => channels === null || channels.includes(key)
+
+  const toggleChannel = (key) => {
+    setChannelSaved(false)
+    setChannelErr(null)
+    setChannels(prev => {
+      const current = prev ?? CHANNEL_OPTIONS.map(c => c.key)
+      const next = current.includes(key) ? current.filter(k => k !== key) : [...current, key]
+      return next.length === 0 || next.length === CHANNEL_OPTIONS.length ? null : next
+    })
+  }
 
   const save = async () => {
-    setSaving(true)
+    setSaving(true); setSaved(false); setSaveErr(null)
     try {
       await api.put('/users/profile', { name, email })
-      alert('Profile updated successfully!')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to update profile')
-    } finally {
-      setSaving(false)
-    }
+      setSaveErr(err.response?.data?.error || 'Gagal menyimpan profil')
+    } finally { setSaving(false) }
+  }
+
+  const saveChannels = async () => {
+    if (!workspaceId) return
+    setChannelSaving(true); setChannelSaved(false); setChannelErr(null)
+    try {
+      await api.patch(`/workspaces/${workspaceId}/members/me/notification-channels`, { channels })
+      setChannelSaved(true)
+      setTimeout(() => setChannelSaved(false), 3000)
+    } catch (err) {
+      setChannelErr(err.response?.data?.error?.message || 'Gagal menyimpan preferensi')
+    } finally { setChannelSaving(false) }
   }
 
   return (
-    <div className='card' style={{ maxWidth: 600, margin: '0 auto' }}>
-      <h2>Profile</h2>
-      <div className='col' style={{ gap: 16 }}>
-        <div>
-          <div className='muted'>Name</div>
-          <input
-            className='input'
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+    <div style={{ padding: '28px 32px', maxWidth: 640, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+
+      {/* ── User card ─────────────────────────────────────────────── */}
+      <div style={{
+        background: 'white', borderRadius: 16, border: '1px solid #e2e8f0',
+        padding: '22px 24px', marginBottom: 20, boxShadow: '0 1px 4px #00000008'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 24 }}>
+          <div style={{
+            width: 60, height: 60, borderRadius: '50%',
+            background: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+            color: 'white', fontSize: 24, fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 12px #7c3aed30', flexShrink: 0,
+          }}>
+            {name?.[0]?.toUpperCase() || '?'}
+          </div>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>{name || 'Pengguna'}</div>
+            <div style={{ fontSize: 13, color: '#64748b' }}>{email}</div>
+            {user?.role && (
+              <span style={{
+                display: 'inline-block', marginTop: 6, fontSize: 11, fontWeight: 700,
+                padding: '3px 10px', borderRadius: 20, background: '#ede9fe', color: '#7c3aed',
+                textTransform: 'capitalize'
+              }}>{String(user.role).replace(/_/g, ' ')}</span>
+            )}
+          </div>
         </div>
-        <div>
-          <div className='muted'>Email</div>
-          <input
-            className='input'
-            type='email'
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 6 }}>Nama</label>
+            <input className='input' value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 6 }}>Email</label>
+            <input className='input' type='email' value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
+          </div>
+          {saveErr && <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#dc2626', fontSize: 13 }}>⚠️ {saveErr}</div>}
+          {saved && <div style={{ padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, color: '#15803d', fontSize: 13 }}>✅ Profil berhasil disimpan.</div>}
+          <button className='btn' onClick={save} disabled={saving} style={{ alignSelf: 'flex-start' }}>
+            {saving ? 'Menyimpan…' : 'Simpan Perubahan'}
+          </button>
         </div>
-        <button className='btn' onClick={save} disabled={saving}>
-          {saving ? 'Saving...' : 'Save Changes'}
-        </button>
       </div>
+
+      {/* ── Notification preferences ───────────────────────────────── */}
+      {workspaceId && (
+        <div style={{
+          background: 'white', borderRadius: 16, border: '1px solid #e2e8f0',
+          padding: '22px 24px', boxShadow: '0 1px 4px #00000008'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <div style={{
+              width: 38, height: 38, borderRadius: 10,
+              background: 'linear-gradient(135deg,#f97316,#ef4444)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white', fontSize: 15, boxShadow: '0 3px 8px #ef444430', flexShrink: 0,
+            }}>🔔</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 2 }}>Preferensi Notifikasi Eskalasi</div>
+              <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.45 }}>Pilih channel untuk notifikasi ketika keluhan dieskalasikan ke kamu.</div>
+            </div>
+          </div>
+
+          {channelLoading ? (
+            <div style={{ height: 80, borderRadius: 12, background: 'linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)', backgroundSize: '200% 100%' }} />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+              {CHANNEL_OPTIONS.map(ch => {
+                const on = isEnabled(ch.key)
+                return (
+                  <label key={ch.key} onClick={() => toggleChannel(ch.key)} style={{
+                    display: 'flex', alignItems: 'center', gap: 14,
+                    padding: '13px 16px', borderRadius: 12, cursor: 'pointer',
+                    border: `2px solid ${on ? ch.color : '#e2e8f0'}`,
+                    background: on ? `${ch.color}0d` : 'white',
+                    transition: 'all 0.15s ease',
+                  }}>
+                    <span style={{ fontSize: 24 }}>{ch.emoji}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', marginBottom: 2 }}>{ch.label}</div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>{ch.desc}</div>
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+                      background: on ? `${ch.color}20` : '#f1f5f9',
+                      color: on ? ch.color : '#94a3b8',
+                    }}>{on ? 'Aktif' : 'Nonaktif'}</span>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <span style={{ fontSize: 12, color: '#94a3b8' }}>Web Push selalu aktif — dikontrol izin browser.</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {channelErr && <span style={{ fontSize: 12, color: '#dc2626' }}>⚠️ {channelErr}</span>}
+              {channelSaved && <span style={{ fontSize: 12, color: '#15803d' }}>✅ Tersimpan</span>}
+              <button
+                onClick={saveChannels}
+                disabled={channelSaving}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '9px 18px', background: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+                  color: 'white', border: 'none', borderRadius: 9,
+                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  boxShadow: '0 2px 8px #7c3aed30', opacity: channelSaving ? 0.55 : 1,
+                }}
+              >
+                {channelSaving ? 'Menyimpan…' : '💾 Simpan Preferensi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1186,6 +1335,12 @@ function Settings() {
 }
 function AccessControl({ user }) {
   return <AccessControlPage currentUser={user} />
+}
+
+function ProtectedPage({ user, resource, action = 'read', ownerOnly = false, children }) {
+  if (ownerOnly && !isOwner(user)) return <Navigate to='/app' replace />
+  if (resource && !hasPermission(resource, action, user)) return <Navigate to='/app' replace />
+  return children
 }
 function Billing() {
   const [data, setData] = useState(null)
@@ -1209,6 +1364,7 @@ function Billing() {
 export default function Dashboard() {
   const { user } = useAuth()
   const [plan, setPlan] = useState(null)
+  const [accessUser, setAccessUser] = useState(() => user || getSessionUser())
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -1219,6 +1375,26 @@ export default function Dashboard() {
       .then((r) => setPlan(r.data))
       .catch((error) => console.error('Error fetching billing info:', error))
   }, [user, navigate])
+
+  useEffect(() => {
+    api
+      .get('/api/workspaces/current/access', { skipAuthRedirect: true })
+      .then((res) => {
+        const data = res.data?.data || {}
+        const current = user || getSessionUser() || {}
+        const hasCustomPermissions = Array.isArray(data.permissions) && data.permissions.length > 0
+        setAccessUser({
+          ...current,
+          workspaceRole: data.role || current.workspaceRole || current.role,
+          workspaceId: data.workspaceId || current.workspaceId,
+          allowedOutletIds: data.allowedOutletIds || [],
+          accessPolicy: hasCustomPermissions
+            ? { permissions: data.permissions, permissionsByResource: permissionsToResourceMap(data.permissions) }
+            : null,
+        })
+      })
+      .catch(() => setAccessUser(user || getSessionUser()))
+  }, [user])
 
   const isProductsPage =
     location.pathname.replace(/\/+$/, '') === '/app/products'
@@ -1235,28 +1411,30 @@ export default function Dashboard() {
         >
           <Routes>
             <Route index element={<Inbox />} />
-            <Route path='chats' element={<ChatCenterPage />} />
-            <Route path='analytics' element={<AnalyticsPage />} />
-            <Route path='contacts' element={<Contacts />} />
-            <Route path='complaints' element={<Complaints />} />
-            <Route path='orders' element={<Orders />} />
-            <Route path='kitchen' element={<KitchenPage />} />
-            <Route path='products' element={<ProductsPage />} />
-            <Route path='outlets' element={<OutletsPage />} />
-            <Route path='payments' element={<PaymentsPage />} />
-            <Route path='platforms' element={<Platforms />} />
-            <Route path='agents' element={<Agents />} />
+            <Route path='chats' element={<ProtectedPage user={accessUser} resource='chats'><ChatCenterPage /></ProtectedPage>} />
+            <Route path='analytics' element={<ProtectedPage user={accessUser} resource='analytics'><AnalyticsPage /></ProtectedPage>} />
+            <Route path='contacts' element={<ProtectedPage user={accessUser} resource='contacts'><Contacts /></ProtectedPage>} />
+            <Route path='complaints' element={<ProtectedPage user={accessUser} resource='complaints'><Complaints /></ProtectedPage>} />
+            <Route path='escalation-inbox' element={<ProtectedPage user={accessUser} resource='complaints'><EscalationInboxPage /></ProtectedPage>} />
+            <Route path='escalation-settings' element={<ProtectedPage user={accessUser} resource='complaints'><EscalationSettingsPage /></ProtectedPage>} />
+            <Route path='orders' element={<ProtectedPage user={accessUser} resource='orders'><Orders /></ProtectedPage>} />
+            <Route path='kitchen' element={<ProtectedPage user={accessUser} resource='orders' action='manage_status'><KitchenPage /></ProtectedPage>} />
+            <Route path='products' element={<ProtectedPage user={accessUser} resource='products'><ProductsPage /></ProtectedPage>} />
+            <Route path='outlets' element={<ProtectedPage user={accessUser} resource='outlets'><OutletsPage /></ProtectedPage>} />
+            <Route path='payments' element={<ProtectedPage user={accessUser} resource='payments'><PaymentsPage /></ProtectedPage>} />
+            <Route path='platforms' element={<ProtectedPage user={accessUser} resource='platforms'><Platforms /></ProtectedPage>} />
+            <Route path='agents' element={<ProtectedPage user={accessUser} resource='ai' action='configure'><Agents /></ProtectedPage>} />
             <Route
               path='agents/:id'
               element={<Navigate to='general' replace />}
             />
-            <Route path='agents/:id/:tab' element={<AgentDetail />} />
-            <Route path='humans' element={<Humans />} />
-            <Route path='human-agents' element={<Humans />} />
-            <Route path='reports' element={<ReportsPage />} />
-            <Route path='access-control' element={<AccessControl user={user} />} />
-            <Route path='settings' element={<Settings />} />
-            <Route path='billing' element={<Billing />} />
+            <Route path='agents/:id/:tab' element={<ProtectedPage user={accessUser} resource='ai' action='configure'><AgentDetail /></ProtectedPage>} />
+            <Route path='humans' element={<ProtectedPage user={accessUser} ownerOnly><Humans /></ProtectedPage>} />
+            <Route path='human-agents' element={<ProtectedPage user={accessUser} ownerOnly><Humans /></ProtectedPage>} />
+            <Route path='reports' element={<ProtectedPage user={accessUser} resource='reports'><ReportsPage /></ProtectedPage>} />
+            <Route path='access-control' element={<ProtectedPage user={accessUser} ownerOnly><AccessControl user={accessUser} /></ProtectedPage>} />
+            <Route path='settings' element={<ProtectedPage user={accessUser} resource='settings'><Settings /></ProtectedPage>} />
+            <Route path='billing' element={<ProtectedPage user={accessUser} resource='billing'><Billing /></ProtectedPage>} />
             <Route path='profile' element={<Profile />} />
           </Routes>
         </div>

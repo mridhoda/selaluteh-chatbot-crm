@@ -16,6 +16,15 @@ import { getRoleScope, normalizeRole, hasPermission, listPermissions } from '../
 const ALL_OUTLET_WORKSPACE_ROLES = new Set(['owner', 'super', 'admin']);
 const WRITE_WORKSPACE_ROLES = new Set(['owner', 'super', 'admin']);
 const WORKSPACE_WIDE_ROLES = new Set(['owner', 'super', 'admin']);
+const ACTION_ALIASES = {
+  orders: {
+    manage_status: ['manage_status', 'update_status'],
+  },
+};
+
+function getActionAliases(resource, action) {
+  return ACTION_ALIASES[resource]?.[action] || [action];
+}
 
 /**
  * Resolve the active workspace context for a user.
@@ -43,6 +52,7 @@ export async function resolveWorkspaceContext(user, selectedWorkspaceId = null) 
       workspaceId: selected.workspaceId,
       role: selected.role,
       membershipId: selected.id,
+      accessPolicy: selected.accessPolicy || {},
     };
   }
 
@@ -52,6 +62,7 @@ export async function resolveWorkspaceContext(user, selectedWorkspaceId = null) 
     workspaceId: active.workspaceId,
     role: active.role,
     membershipId: active.id,
+    accessPolicy: active.accessPolicy || {},
   };
 }
 
@@ -94,7 +105,28 @@ export function getEffectiveWorkspaceRole(user) {
 }
 
 export function getPermissionMatrixForUser(user) {
-  return listPermissions(getEffectiveWorkspaceRole(user));
+  const role = getEffectiveWorkspaceRole(user);
+  const permissions = user?.accessPolicy?.permissions;
+  if (Array.isArray(permissions)) {
+    return permissions.reduce((acc, permission) => {
+      const [resource, action] = String(permission).split('.');
+      if (!resource || !action) return acc;
+      acc[resource] = acc[resource] || [];
+      if (!acc[resource].includes(action)) acc[resource].push(action);
+      return acc;
+    }, {});
+  }
+  return listPermissions(role);
+}
+
+export function hasEffectivePermission(user, resource, action) {
+  const role = getEffectiveWorkspaceRole(user);
+  const permissions = user?.accessPolicy?.permissions;
+  const actions = getActionAliases(resource, action);
+  if (Array.isArray(permissions)) {
+    return actions.some((allowedAction) => permissions.includes(`${resource}.${allowedAction}`));
+  }
+  return actions.some((allowedAction) => hasPermission(role, resource, allowedAction));
 }
 
 

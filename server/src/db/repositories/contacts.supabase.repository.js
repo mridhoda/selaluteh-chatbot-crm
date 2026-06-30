@@ -141,6 +141,63 @@ export const contactsSupabaseRepository = {
   },
 
   /**
+   * Upsert a contact identity scoped to an exact channel connection.
+   * Used by multi-tenant Telegram routing where the same Telegram user can
+   * talk to multiple bots and must remain isolated per connection.
+   */
+  async upsertByChannelIdentity({ workspaceId, channelConnectionId, providerUserId, platformId = null, data = {} }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const base = {
+      workspace_id: workspaceId,
+      channel_connection_id: channelConnectionId,
+      platform_id: platformId,
+      external_id: providerUserId,
+      name: data.name || '',
+      handle: data.handle || null,
+      phone: data.phone || null,
+      tags: data.tags || [],
+      metadata: data.metadata || {},
+    };
+
+    if (platformId) {
+      const existingResult = await client
+        .from(TABLE)
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .eq('platform_id', platformId)
+        .eq('external_id', providerUserId)
+        .maybeSingle();
+      const existing = extractSingle(existingResult, 'contacts.upsertByChannelIdentity.findLegacy');
+      if (existing) {
+        const updateResult = await client
+          .from(TABLE)
+          .update({
+            channel_connection_id: channelConnectionId,
+            name: base.name,
+            handle: base.handle,
+            phone: base.phone,
+            tags: base.tags,
+            metadata: { ...(existing.metadata || {}), ...(base.metadata || {}) },
+          })
+          .eq('id', existing.id)
+          .select()
+          .single();
+        const updated = extractSingle(updateResult, 'contacts.upsertByChannelIdentity.updateLegacy');
+        return mapContactRow(updated);
+      }
+    }
+
+    const result = await client
+      .from(TABLE)
+      .upsert(base, { onConflict: 'channel_connection_id,external_id', ignoreDuplicates: false })
+      .select()
+      .single();
+    const row = extractSingle(result, 'contacts.upsertByChannelIdentity');
+    return mapContactRow(row);
+  },
+
+  /**
    * Set the last outlet for a contact (for routing context).
    */
   async setLastOutlet(contactId, outletId) {

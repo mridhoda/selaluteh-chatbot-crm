@@ -14,6 +14,7 @@ import { acquireTakeover, releaseTakeover } from '../services/human-takeover.ser
 import { chatsSupabaseRepository, messagesSupabaseRepository } from '../db/repositories/index.js';
 import { decrypt } from '../utils/encryption.js';
 import { tgSend, tgSendDocument, tgSendPhoto, waSend, waSendDocument, waSendImage, waSendSticker } from '../services/sender.js';
+import { telegramOutboundService } from '../services/telegram/telegram-outbound.service.js';
 
 const router = express.Router();
 const auth = [authRequired, attachUser, attachWorkspaceContext];
@@ -168,6 +169,25 @@ router.post('/:chatId/send', auth, async (req, res) => {
     // Send to client platform (Telegram, WhatsApp, etc.)
     const platform = chat.platforms;
     const contact = chat.contacts;
+
+    if (chat.channelConnectionId && platform?.type === 'telegram' && finalMessageText && !finalAttachment) {
+      try {
+        const outbound = await telegramOutboundService.sendTelegramConversationMessage({
+          workspaceId,
+          chatId,
+          text: finalMessageText,
+          senderType: 'human',
+          userId: req.me.id,
+          replyToMessageId: replyTo || null,
+        });
+        if (outbound?.providerMessageId) {
+          await messagesSupabaseRepository.updatePlatformMessageId(msg.id, outbound.providerMessageId);
+        }
+      } catch (e) {
+        console.error('[CHATS] Failed to send message through Telegram channel connection:', e);
+      }
+      return res.json(msg);
+    }
 
     if (platform && contact) {
       let decryptedToken = '';

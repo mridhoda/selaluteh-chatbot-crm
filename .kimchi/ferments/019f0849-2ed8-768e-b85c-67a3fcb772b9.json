@@ -1,0 +1,17 @@
+{
+  "id": "019f0849-2ed8-768e-b85c-67a3fcb772b9",
+  "name": "/",
+  "description": "/",
+  "status": "draft",
+  "worktree": {
+    "path": "/home/itcorefoodinesia/Documents/Projects/foodinesia/selaluteh-chatbot-crm",
+    "branch": "ai-agent-backend",
+    "commit": "5bc594d975d3b6da9d7232f1286b5ffb443e97b1"
+  },
+  "scoping": {},
+  "phases": [],
+  "decisions": [],
+  "memories": [],
+  "createdAt": "2026-06-27T08:54:01.688Z",
+  "updatedAt": "2026-06-27T08:54:01.688Z"
+}

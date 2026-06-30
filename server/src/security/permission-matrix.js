@@ -63,7 +63,7 @@ export const PERMISSION_MATRIX = Object.freeze({
     permissions: {
       products: ['read'],
       outlets: ['read'],
-      orders: ['read'],
+      orders: ['read', 'manage_status'],
       payments: ['read'],
       settings: ['read'],
       platforms: ['read'],

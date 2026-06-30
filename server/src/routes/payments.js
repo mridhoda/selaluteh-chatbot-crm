@@ -3,11 +3,12 @@ import { authRequired, attachUser } from '../middleware/auth.js';
 import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
 import { authorizePermission } from '../middleware/authorization.js';
 import { providerSyncRateLimit } from '../middleware/rate-limit.js';
-import { createPayment, createXenditPaymentSessionForOrder, getPaymentDetailForUser, listPaymentsForUser, refreshPaymentSession, syncPaymentWithProvider } from '../services/payment.service.js';
+import { createPayment, createPaymentSessionForOrder, createXenditPaymentSessionForOrder, getPaymentDetailForUser, listPaymentsForUser, refreshPaymentSession, syncPaymentWithProvider } from '../services/payment.service.js';
 import { detectMissingWebhooks, reconcileMissingWebhook, reconcilePayment, batchReconcileByStatus, getNeedsAttentionPayments } from '../services/payment-reconciliation.service.js';
 import { AppError } from '../utils/errors.js';
 import { paymentEventsRepository } from '../db/repositories/index.js';
 import { env } from '../config/env.js';
+import { getPaymentRuntimeConfig } from '../services/settings.service.js';
 
 const router = express.Router();
 
@@ -43,14 +44,27 @@ router.all('/return/:kind', (req, res) => {
 
 router.use(authRequired, attachUser, attachWorkspaceContext);
 
-router.get('/gateway/config', authorizePermission('payments', 'read'), async (req, res) => {
-  res.json({
-    data: {
-      provider: 'xendit',
-      environment: 'test',
-      configured: env.paymentProvider === 'xendit' && Boolean(env.xenditSecretApiKey),
-    },
-  });
+router.get('/gateway/config', authorizePermission('payments', 'read'), async (req, res, next) => {
+  try {
+    const runtime = await getPaymentRuntimeConfig({ workspaceId: req.me.workspaceId });
+    const provider = runtime.provider === 'manual' ? env.paymentProvider : runtime.provider;
+    const environment = runtime.provider === 'xendit' ? (env.xenditMode || 'test') : runtime.environment;
+    const configured = provider === 'xendit'
+      ? env.paymentProvider === 'xendit' && Boolean(env.xenditSecretApiKey)
+      : provider === 'doku'
+        ? runtime.configured
+        : false;
+    const webhookPath = provider === 'doku' ? '/webhook/doku' : '/webhook/xendit/payment-sessions';
+    res.json({
+      data: {
+        provider,
+        environment,
+        configured,
+        publicBaseUrl: env.publicBaseUrl || '',
+        webhookUrl: env.publicBaseUrl ? `${env.publicBaseUrl}${webhookPath}` : webhookPath,
+      },
+    });
+  } catch (err) { next(err); }
 });
 
 router.post('/orders/:orderId/xendit/session', authorizePermission('payments', 'write'), async (req, res, next) => {
@@ -59,6 +73,20 @@ router.post('/orders/:orderId/xendit/session', authorizePermission('payments', '
       user: req.me,
       workspaceId: req.me.workspaceId,
       orderId: req.params.orderId,
+      customer: req.body?.customer || {},
+      idempotencyKey: req.get('Idempotency-Key') || req.body?.idempotencyKey,
+    });
+    res.status(201).json({ data: payment });
+  } catch (err) { next(err); }
+});
+
+router.post('/orders/:orderId/session', authorizePermission('payments', 'write'), async (req, res, next) => {
+  try {
+    const payment = await createPaymentSessionForOrder({
+      user: req.me,
+      workspaceId: req.me.workspaceId,
+      orderId: req.params.orderId,
+      provider: req.body?.provider,
       customer: req.body?.customer || {},
       idempotencyKey: req.get('Idempotency-Key') || req.body?.idempotencyKey,
     });

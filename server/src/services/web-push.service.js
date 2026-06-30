@@ -93,7 +93,7 @@ export async function sendOrderCreatedPush({ workspaceId, outletId, order }) {
       .select('user_id')
       .eq('workspace_id', workspaceId)
       .eq('status', 'active')
-      .in('role', ['owner', 'admin']);
+      .in('role', ['owner', 'super', 'admin']);
     if (memberError) throw new AppError('PUSH_MEMBER_LOOKUP_FAILED', 'Failed to resolve workspace push recipients', 500, { detail: memberError.message }, memberError);
 
     const recipientIds = [...new Set([...(accessRows || []), ...(workspaceWideRows || [])].map((row) => row.user_id).filter(Boolean))];

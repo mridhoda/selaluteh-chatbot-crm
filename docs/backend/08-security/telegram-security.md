@@ -15,23 +15,38 @@ Usernames and display names can change and are not secure identifiers.
 
 ## Webhook URL
 
-Recommended:
+Current canonical route:
 
 ```txt
-/webhook/telegram/:tokenOrSecret
+/webhooks/telegram/v1/:connectionPublicId
 ```
 
-or use Telegram secret token header if supported by your integration approach.
+Each request must include Telegram's `X-Telegram-Bot-Api-Secret-Token` header. The token is verified against the per-connection webhook secret hash stored on `channel_connections`.
+
+Do not put bot tokens in webhook URLs.
+
+Legacy tokenless routes such as `/webhook/telegram` must not perform tenant resolution by latest platform, first enabled platform, browser workspace, or any global fallback.
+
+Tenant resolution order:
+
+```txt
+connection_public_id from URL
+→ channel_connections row
+→ per-connection webhook secret verification
+→ workspace_id from channel_connections
+```
 
 ## Message Idempotency
 
 Deduplicate by:
 
 ```txt
-platform_id + update_id
+connection_id + update_id
 or
-chat_id + platform_message_id
+channel_connection_id + provider_message_id
 ```
+
+Legacy `platform_id + update_id` is acceptable only for legacy processing paths. New Telegram v1 processing uses exact channel connection scope.
 
 ## Telegram Callback Query
 

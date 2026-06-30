@@ -113,6 +113,7 @@ export default function PlatformDetailDrawer({
   onDelete,
   onSetWebhook,
   onTest,
+  onAssignAgent,
 }) {
   const toast = useToast()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -215,7 +216,7 @@ export default function PlatformDetailDrawer({
           <Section title='Account Details'>
             <DataRow label='Platform type' value={platform.type || '—'} />
             <DataRow label='Display label' value={platform.label || '—'} />
-            <DataRow label='Account / Bot ID'>
+            <DataRow label={isTelegram ? 'Bot ID' : platform.type === 'whatsapp' ? 'Phone Number ID' : 'Page ID'}>
               <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>
                 {maskId(accountId)}
               </span>
@@ -223,13 +224,13 @@ export default function PlatformDetailDrawer({
                 <button
                   className='btn ghost'
                   style={{ padding: '1px 5px' }}
-                  onClick={() => copyText(String(accountId), 'Account ID')}
+                  onClick={() => copyText(String(accountId), isTelegram ? 'Bot ID' : platform.type === 'whatsapp' ? 'Phone Number ID' : 'Page ID')}
                 >
                   <Copy size={11} />
                 </button>
               )}
             </DataRow>
-            <DataRow label='Bot token'>
+            <DataRow label={isTelegram ? 'Bot Token' : 'Access Token'}>
               <span
                 style={{
                   fontSize: 13,
@@ -274,11 +275,11 @@ export default function PlatformDetailDrawer({
               >
                 {agent ? agent.name : 'No agent assigned'}
               </span>
-              {onEdit && (
+              {onAssignAgent && (
                 <button
                   className='btn ghost'
                   style={{ fontSize: 12, padding: '3px 8px' }}
-                  onClick={() => onEdit(platform)}
+                  onClick={() => onAssignAgent(platform)}
                 >
                   {agent ? 'Change' : 'Assign'}
                 </button>
@@ -355,7 +356,13 @@ export default function PlatformDetailDrawer({
                     lineHeight: 1.4,
                   }}
                 >
-                  ⚠️ Ganti <strong>localhost:5000</strong> dengan URL Cloudflare
+                  ⚠️ Ganti <strong>{(() => {
+                    try {
+                      return new URL(webhookUrl).host
+                    } catch {
+                      return 'localhost:5000'
+                    }
+                  })()}</strong> dengan URL Cloudflare
                   Tunnel (misal:{' '}
                   <code>
                     https://frequent-managing-dietary-mud.trycloudflare.com/webhook/

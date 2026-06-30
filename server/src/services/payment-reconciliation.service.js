@@ -141,6 +141,7 @@ async function processPaidPaymentFromReconciliation({ payment, providerEvent }) 
 
 async function loadPaymentAdapter(provider) {
   if (provider === 'xendit') return import('../integrations/payments/xendit-client.js');
+  if (provider === 'doku') return import('../integrations/payments/doku-client.js');
   throw new AppError('UNKNOWN_PROVIDER', `Unknown payment provider: ${provider}`, 400);
 }
 

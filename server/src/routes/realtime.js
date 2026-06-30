@@ -23,7 +23,12 @@ router.get('/orders', tokenFromQuery, authRequired, attachUser, attachWorkspaceC
   });
   res.flushHeaders?.();
 
-  addRealtimeClient({ workspaceId: req.me.workspaceId, userId: req.me.id, res });
+  addRealtimeClient({
+    workspaceId: req.me.workspaceId,
+    userId: req.me.id,
+    allowedOutletIds: req.allowedOutletIds || [],
+    res,
+  });
   sendRealtimeEvent(res, 'ready', {
     workspaceId: req.me.workspaceId,
     userId: req.me.id,

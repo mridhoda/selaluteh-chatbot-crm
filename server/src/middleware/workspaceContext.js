@@ -19,6 +19,7 @@ export async function attachWorkspaceContext(req, res, next) {
 
     req.me.workspaceId = ctx.workspaceId;
     req.me.workspaceRole = ctx.role;
+    req.me.accessPolicy = ctx.accessPolicy || {};
     req.workspace = { id: ctx.workspaceId, role: ctx.role, permissions: getPermissionMatrixForUser(req.me) };
     req.allowedOutletIds = await getAllowedOutletIds(req.me);
     next();

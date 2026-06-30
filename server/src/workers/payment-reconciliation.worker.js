@@ -141,6 +141,7 @@ export async function reconcilePendingPayments(workspaceId) {
 
 async function loadPaymentAdapter(provider) {
   if (provider === 'xendit') return import('../integrations/payments/xendit-client.js');
+  if (provider === 'doku') return import('../integrations/payments/doku-client.js');
   throw new Error(`Unknown provider: ${provider}`);
 }
 

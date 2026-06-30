@@ -92,7 +92,7 @@ const modulePermissions = [
     permissions: [
       ['orders.read', 'Read orders', 'Melihat daftar pesanan, transaksi, dan memantau status pesanan masuk.'],
       ['orders.approve', 'Approve orders', 'Menerima dan menyetujui pesanan baru yang dikirimkan pelanggan.'],
-      ['orders.update_status', 'Update status', 'Mengubah status alur kerja pesanan (misalnya: sedang dimasak, siap diantar).'],
+      ['orders.manage_status', 'Update status', 'Mengubah status alur kerja pesanan (misalnya: sedang dimasak, siap diantar).'],
       ['orders.cancel', 'Cancel orders', 'Membatalkan pesanan pelanggan karena kendala tertentu.'],
     ],
   },
@@ -144,7 +144,7 @@ const rolePermissions = {
     'outlets.update',
     'orders.read',
     'orders.approve',
-    'orders.update_status',
+    'orders.manage_status',
     'orders.cancel',
     'products.read',
     'products.manage',
@@ -157,7 +157,7 @@ const rolePermissions = {
   outlet_staff: [
     'outlets.read',
     'orders.read',
-    'orders.update_status',
+    'orders.manage_status',
     'products.read',
     'inventory.read',
     'chats.read',
@@ -577,7 +577,9 @@ export default function AccessControlPage({ currentUser }) {
                     onClick={() => handleRoleChange(role.key)}
                     className={`ac-role-card ${active ? 'ac-role-card-active' : ''}`}
                     style={{
-                      borderColor: active ? role.tone : undefined,
+                      borderRightColor: active ? role.tone : undefined,
+                      borderBottomColor: active ? role.tone : undefined,
+                      borderLeftColor: active ? role.tone : undefined,
                       boxShadow: active ? `0 12px 28px ${role.tone}1A` : undefined,
                       borderTop: `4px solid ${role.tone}`,
                     }}

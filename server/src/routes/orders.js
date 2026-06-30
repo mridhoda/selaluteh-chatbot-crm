@@ -10,7 +10,7 @@ import {
 } from '../services/order.service.js';
 import { checkoutsRepository } from '../db/repositories/index.js';
 import { AppError } from '../utils/errors.js';
-import { createXenditPaymentSessionForOrder } from '../services/payment.service.js';
+import { createPaymentSessionForOrder, createXenditPaymentSessionForOrder } from '../services/payment.service.js';
 
 const router = express.Router();
 
@@ -18,10 +18,12 @@ router.use(authRequired, attachUser, attachWorkspaceContext);
 
 router.get('/', authorizePermission('orders', 'read'), requireScopedOutletSelection((req) => req.query.outletId || req.query.outlet_id, 'outletId is required for outlet-scoped order access'), async (req, res, next) => {
   try {
-    const { status, outlet_id, outletId, paymentStatus, search, page, limit, sort } = req.query;
+    const { status, outlet_id, outletId, paymentStatus, search, page, limit, sort, chat_id, chatId, contact_id, contactId } = req.query;
     const oid = outletId || outlet_id;
+    const cid = chatId || chat_id;
+    const contId = contactId || contact_id;
     const result = await listWorkspaceOrdersForUser({
-      user: req.me, outletId: oid, status, paymentStatus, search, page, limit, sort,
+      user: req.me, outletId: oid, status, paymentStatus, search, page, limit, sort, chatId: cid, contactId: contId,
     });
     res.json(result);
   } catch (err) { next(err); }
@@ -40,6 +42,20 @@ router.post('/:id/payments/xendit/session', authorizePermission('orders', 'write
       user: req.me,
       workspaceId: req.me.workspaceId,
       orderId: req.params.id,
+      customer: req.body?.customer || {},
+      idempotencyKey: req.get('Idempotency-Key') || req.body?.idempotencyKey,
+    });
+    res.status(201).json({ data: payment });
+  } catch (err) { next(err); }
+});
+
+router.post('/:id/payments/session', authorizePermission('orders', 'write'), async (req, res, next) => {
+  try {
+    const payment = await createPaymentSessionForOrder({
+      user: req.me,
+      workspaceId: req.me.workspaceId,
+      orderId: req.params.id,
+      provider: req.body?.provider,
       customer: req.body?.customer || {},
       idempotencyKey: req.get('Idempotency-Key') || req.body?.idempotencyKey,
     });

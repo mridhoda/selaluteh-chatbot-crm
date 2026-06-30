@@ -24,13 +24,6 @@ import {
 } from '../../../mocks/demoState'
 
 const filterOptions = {
-  outlet: [
-    { value: 'all', label: 'All Outlets' },
-    { value: 'Samarinda', label: 'Samarinda' },
-    { value: 'Tenggarong', label: 'Tenggarong' },
-    { value: 'Bontang', label: 'Bontang' },
-    { value: 'Balikpapan', label: 'Balikpapan' },
-  ],
   date: [
     { value: 'today', label: 'Today' },
     { value: 'yesterday', label: 'Yesterday' },
@@ -115,6 +108,7 @@ function OrdersFilterSelect({
 export default function OrdersToolbar({
   filters = {},
   setFilters,
+  outletOptions = [{ value: 'all', label: 'All Outlets' }],
   onRefresh,
   onExport,
   lastUpdated = 'Just now',
@@ -123,6 +117,10 @@ export default function OrdersToolbar({
   onShowOrderDetail,
 }) {
   const isDemoActive = isDemoMode()
+  const selectedOutletLabel = outletOptions.find((option) => option.value === filters.outlet)?.label || filters.outlet
+  const defaultOutletValue = outletOptions.some((option) => option.value === 'all')
+    ? 'all'
+    : outletOptions[0]?.value || 'all'
 
   const handleToggleDemo = () => {
     if (isDemoActive) {
@@ -145,7 +143,7 @@ export default function OrdersToolbar({
 
   const clearAllFilters = () => {
     setFilters({
-      outlet: 'all',
+      outlet: defaultOutletValue,
       date: 'all',
       channel: 'all',
       paymentStatus: 'all',
@@ -155,7 +153,7 @@ export default function OrdersToolbar({
   }
 
   const hasActiveFilters =
-    filters.outlet !== 'all' ||
+    filters.outlet !== defaultOutletValue ||
     filters.date !== 'all' ||
     filters.channel !== 'all' ||
     filters.paymentStatus !== 'all' ||
@@ -233,7 +231,7 @@ export default function OrdersToolbar({
           label='Outlet'
           icon={faStore}
           value={filters.outlet}
-          options={filterOptions.outlet}
+          options={outletOptions}
           onChange={(e) => handleFilterChange('outlet', e.target.value)}
           className='flex-1 min-w-[120px]'
         />
@@ -290,7 +288,7 @@ export default function OrdersToolbar({
         <div className='flex items-center gap-1.5 flex-wrap min-w-0'>
           <span>Showing:</span>
           <span className='text-[var(--text-primary)] font-bold'>
-            {filters.outlet === 'all' ? 'All Outlets' : filters.outlet}
+            {filters.outlet !== 'all' ? selectedOutletLabel : 'All Outlets'}
           </span>
           <span className='text-[var(--brand-400)]'>·</span>
           <span>Date:</span>

@@ -31,6 +31,20 @@ router.get('/current', attachWorkspaceContext, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get('/current/access', attachWorkspaceContext, async (req, res, next) => {
+  try {
+    res.json({
+      data: {
+        workspaceId: req.workspace.id,
+        role: req.workspace.role,
+        permissions: req.me.accessPolicy?.permissions || [],
+        permissionMatrix: req.workspace.permissions || {},
+        allowedOutletIds: req.allowedOutletIds || [],
+      },
+    });
+  } catch (err) { next(err); }
+});
+
 /**
  * GET /workspaces
  *

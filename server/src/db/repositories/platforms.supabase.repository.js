@@ -90,8 +90,19 @@ function mapWithCredentials(row) {
 }
 
 export const platformsSupabaseRepository = {
+  async listWithCredentialsByType({ type }) {
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .select('*')
+      .eq('type', type)
+      .order('created_at', { ascending: false });
+    const rows = extractData(result, 'platforms.listWithCredentialsByType') ?? [];
+    return rows.map(mapWithCredentials);
+  },
+
   /**
-   * List all platforms for a workspace (sanitized — no raw credentials).
+    * List all platforms for a workspace (sanitized — no raw credentials).
    */
   async list({ workspaceId }) {
     requireWorkspaceId(workspaceId);
@@ -101,8 +112,30 @@ export const platformsSupabaseRepository = {
       .select('*')
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false });
-    const rows = extractData(result, 'platforms.list');
-    return (rows ?? []).map(mapAndSanitize);
+    const rows = extractData(result, 'platforms.list') ?? [];
+
+    // Fetch channel connections to sync webhook health
+    const connResult = await client
+      .from('channel_connections')
+      .select('id, webhook_status')
+      .eq('workspace_id', workspaceId);
+    const connections = extractData(connResult, 'platforms.list.connections') ?? [];
+
+    return rows.map((row) => {
+      const sanitized = mapAndSanitize(row);
+      const connId = sanitized.metadata?.channelConnectionId;
+      if (connId) {
+        const conn = connections.find((c) => c.id === connId);
+        if (conn && conn.webhook_status === 'VERIFIED') {
+          sanitized.webhookConfigured = true;
+          // Self-heal/sync in background
+          if (!row.webhook_configured) {
+            client.from(TABLE).update({ webhook_configured: true }).eq('id', row.id).then(() => {});
+          }
+        }
+      }
+      return sanitized;
+    });
   },
 
   /**
@@ -118,7 +151,25 @@ export const platformsSupabaseRepository = {
       .eq('id', platformId)
       .maybeSingle();
     const row = extractSingle(result, 'platforms.findById');
-    return row ? mapAndSanitize(row) : null;
+    if (!row) return null;
+
+    const sanitized = mapAndSanitize(row);
+    const connId = sanitized.metadata?.channelConnectionId;
+    if (connId) {
+      const connResult = await client
+        .from('channel_connections')
+        .select('webhook_status')
+        .eq('id', connId)
+        .maybeSingle();
+      const conn = extractSingle(connResult, 'platforms.findById.connection');
+      if (conn && conn.webhook_status === 'VERIFIED') {
+        sanitized.webhookConfigured = true;
+        if (!row.webhook_configured) {
+          client.from(TABLE).update({ webhook_configured: true }).eq('id', row.id).then(() => {});
+        }
+      }
+    }
+    return sanitized;
   },
 
   /**
@@ -135,7 +186,39 @@ export const platformsSupabaseRepository = {
       .eq('id', platformId)
       .maybeSingle();
     const row = extractSingle(result, 'platforms.findByIdWithCredentials');
-    return row ? mapWithCredentials(row) : null;
+    if (!row) return null;
+
+    const decrypted = mapWithCredentials(row);
+    const connId = decrypted.metadata?.channelConnectionId;
+    if (connId) {
+      const connResult = await client
+        .from('channel_connections')
+        .select('webhook_status')
+        .eq('id', connId)
+        .maybeSingle();
+      const conn = extractSingle(connResult, 'platforms.findByIdWithCredentials.connection');
+      if (conn && conn.webhook_status === 'VERIFIED') {
+        decrypted.webhookConfigured = true;
+        if (!row.webhook_configured) {
+          client.from(TABLE).update({ webhook_configured: true }).eq('id', row.id).then(() => {});
+        }
+      }
+    }
+    return decrypted;
+  },
+
+  async findByChannelConnectionId({ workspaceId, channelConnectionId }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .eq('metadata->>channelConnectionId', channelConnectionId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const rows = extractData(result, 'platforms.findByChannelConnectionId') ?? [];
+    return rows[0] ? mapAndSanitize(rows[0]) : null;
   },
 
   /**

@@ -101,6 +101,36 @@ describe('nearest-outlet-reply.service', () => {
     assert.match(reply, /Share lokasi Google Maps:/);
   });
 
+  it('falls back to outlet metadata when geocoder cannot resolve exact outlet address', async () => {
+    mock.method(outletLocationsRepository, 'listVerifiedEligible', async () => ([
+      {
+        outletId: 'selkop-tenggarong',
+        displayName: 'SELKOP Tenggarong',
+        formattedAddress: 'Jl. K.H. Ahmad Muksin, Timbau, Tenggarong',
+        latitude: -0.4290537805,
+        longitude: 116.9944307,
+        status: 'VERIFIED',
+        googleMapsUri: 'https://maps.app.goo.gl/NoPBo7ezXJDe3FUd6',
+      },
+    ]));
+
+    const fakeProvider = {
+      async geocodeText() {
+        return { status: 'NOT_FOUND', candidates: [] };
+      },
+      async searchPlaces() { throw new Error('searchPlaces should not be called'); },
+    };
+
+    const reply = await buildNearestOutletReplyFromText({
+      workspaceId: 'workspace-kopi',
+      text: 'jalan ahmad muksin tenggarong',
+      provider: fakeProvider,
+    });
+
+    assert.match(reply, /SELKOP Tenggarong/);
+    assert.match(reply, /https:\/\/maps\.app\.goo\.gl\/NoPBo7ezXJDe3FUd6/);
+  });
+
   it('strips conversational prefix from customer address before resolving nearest outlet', async () => {
     mock.method(outletLocationsRepository, 'listVerifiedEligible', async () => ([
       {

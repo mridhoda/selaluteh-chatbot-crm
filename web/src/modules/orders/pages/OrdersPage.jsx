@@ -16,6 +16,7 @@ import OrdersStatusTabs from '../components/OrdersStatusTabs'
 import OrdersToolbar from '../components/OrdersToolbar'
 import OrdersTable from '../components/OrdersTable'
 import OrderDetailDrawer from '../components/OrderDetailDrawer'
+import { getOrderQueryParams, getSessionUser } from '../../../shared/auth/permissions'
 
 const isPaidStatus = (status) => {
   const normalized = String(status || '').trim().toLowerCase()
@@ -52,6 +53,7 @@ export default function Orders() {
 
   // Primary API Data States
   const [orders, setOrders] = useState([])
+  const [outletOptions, setOutletOptions] = useState([{ value: 'all', label: 'All Outlets' }])
   const [loading, setLoading] = useState(true)
   const [agents, setAgents] = useState({})
   const [lastUpdated, setLastUpdated] = useState('')
@@ -87,6 +89,7 @@ export default function Orders() {
 
   // Fetch orders on mount or manual refresh
   useEffect(() => {
+    loadOutletOptions()
     loadOrders()
   }, [])
 
@@ -142,7 +145,7 @@ export default function Orders() {
   const loadOrders = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/orders')
+      const res = await api.get('/orders', { params: getOrderQueryParams(getSessionUser()) })
       const rawOrders = Array.isArray(res.data)
         ? res.data
         : res.data && Array.isArray(res.data.data)
@@ -182,6 +185,41 @@ export default function Orders() {
       console.error('Failed to load orders:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadOutletOptions = async () => {
+    try {
+      const res = await api.get('/outlets', { params: { limit: 200 } })
+      const rawOutlets = Array.isArray(res.data)
+        ? res.data
+        : res.data && Array.isArray(res.data.data)
+          ? res.data.data
+          : []
+
+      const options = rawOutlets
+        .map((outlet) => {
+          const value = String(outlet.id || outlet._id || outlet.outletId || '')
+          const label = outlet.name || outlet.outletName || outlet.label || outlet.city || value
+          return value && label ? { value, label } : null
+        })
+        .filter(Boolean)
+
+      const nextOptions = options.length > 1
+        ? [{ value: 'all', label: 'All Outlets' }, ...options]
+        : options
+
+      setOutletOptions(nextOptions)
+
+      if (nextOptions.length > 0) {
+        setFilters((prev) => {
+          const hasCurrentOutlet = nextOptions.some((option) => option.value === prev.outlet)
+          if (hasCurrentOutlet) return prev
+          return { ...prev, outlet: nextOptions[0].value }
+        })
+      }
+    } catch (err) {
+      console.error('Failed to load outlet filter options:', err)
     }
   }
 
@@ -634,6 +672,7 @@ export default function Orders() {
 
       return {
         _id: order._id,
+        outletId: order.outletId || order.outlet_id || null,
         orderIdDisplay,
         status: order.status,
         contactId: {
@@ -719,8 +758,16 @@ export default function Orders() {
       // 1. Outlet Filter
       if (filters.outlet !== 'all') {
         const outletQuery = filters.outlet.toLowerCase()
+        const outletLabel = (outletOptions.find((option) => option.value === filters.outlet)?.label || '').toLowerCase()
         const orderOutlet = (o.outlet || '').toLowerCase()
-        if (!orderOutlet.includes(outletQuery) && !outletQuery.includes(orderOutlet)) {
+        const orderOutletId = String(o.outletId || '').toLowerCase()
+        if (
+          orderOutletId !== outletQuery &&
+          !orderOutlet.includes(outletQuery) &&
+          !outletQuery.includes(orderOutlet) &&
+          !orderOutlet.includes(outletLabel) &&
+          !outletLabel.includes(orderOutlet)
+        ) {
           return false
         }
       }
@@ -772,7 +819,7 @@ export default function Orders() {
 
       return true
     })
-  }, [masterOrdersList, filters, activeTab])
+  }, [masterOrdersList, filters, activeTab, outletOptions])
 
   // Handle current page resets on filter modifications
   useEffect(() => {
@@ -1015,6 +1062,7 @@ export default function Orders() {
         <OrdersToolbar
           filters={filters}
           setFilters={setFilters}
+          outletOptions={outletOptions}
           onRefresh={loadOrders}
           onExport={handleExportToExcel}
           lastUpdated={lastUpdated}

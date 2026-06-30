@@ -97,6 +97,13 @@ router.post('/telegram/:id/setWebhook', authRequired, attachUser, attachWorkspac
       });
     }
 
+    // Update webhookConfigured in platforms table
+    await platformsSupabaseRepository.update({
+      workspaceId: req.me.workspaceId,
+      platformId: id,
+      updates: { webhookConfigured: true },
+    });
+
     res.json({ ok: true, webhookUrl });
   } catch (error) {
     console.error('[telegram] setWebhook error:', error);

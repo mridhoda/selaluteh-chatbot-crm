@@ -58,6 +58,11 @@ export { paymentsSupabaseRepository as paymentEventsRepository } from './payment
 export { webhookEventsSupabaseRepository } from './webhook-events.supabase.repository.js';
 export { webhookEventsSupabaseRepository as webhookEventsRepository } from './webhook-events.supabase.repository.js';
 
+// ─── Telegram Channel Connections ────────────────────────────────────────────
+export { channelConnectionsRepository } from './channel-connections.supabase.repository.js';
+export { outletChannelAssignmentsRepository } from './outlet-channel-assignments.supabase.repository.js';
+export { telegramWebhookEventsRepository } from './telegram-webhook-events.supabase.repository.js';
+
 // ─── 24.17 — AI Actions ──────────────────────────────────────────────────────
 export { aiActionsSupabaseRepository } from './ai-actions.supabase.repository.js';
 export { aiActionsSupabaseRepository as aiActionsRepository } from './ai-actions.supabase.repository.js';

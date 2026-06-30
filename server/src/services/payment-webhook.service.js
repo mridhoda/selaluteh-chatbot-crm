@@ -2,6 +2,7 @@ import { paymentEventsRepository, paymentsRepository, ordersRepository } from '.
 import { notifyOrderUpdatedRealtime, notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage } from './order.service.js';
 import { AppError } from '../utils/errors.js';
 import { redactSecrets } from '../utils/redaction.js';
+import { getPaymentRuntimeConfig } from './settings.service.js';
 
 export async function processPaymentWebhook({ workspaceId, provider, rawBody, headers }) {
   const adapter = await loadAdapter(provider);
@@ -82,6 +83,69 @@ export async function processPaymentWebhook({ workspaceId, provider, rawBody, he
   }
 
   return { processed: true, event };
+}
+
+export async function processDokuCheckoutWebhook({ rawBody, headers, requestTarget = '/webhook/doku' }) {
+  const parsed = safeJson(rawBody);
+  const merchantReference = parsed?.order?.invoice_number;
+  if (!merchantReference) throw new AppError('DOKU_WEBHOOK_INVALID', 'Missing DOKU invoice number', 400);
+
+  const targetPayment = await paymentsRepository.findByMerchantReferenceGlobal(merchantReference);
+  if (!targetPayment) return { processed: false, reason: 'no_payment_found' };
+
+  const runtime = await getPaymentRuntimeConfig({ workspaceId: targetPayment.workspaceId });
+  const adapter = await loadAdapter('doku');
+  const { valid, event, reason } = await adapter.verifyWebhook(rawBody, headers, runtime.doku, requestTarget);
+  if (!valid || !event) throw new AppError('DOKU_WEBHOOK_UNAUTHORIZED', reason || 'Invalid DOKU webhook signature', 401);
+
+  const eventKey = event.providerEventId || `${event.merchantReference}:${event.eventType}:${event.paidAt || ''}`;
+  const existingEvent = await paymentEventsRepository.findByProviderEventId('doku', eventKey);
+  if (existingEvent && existingEvent.processingStatus === 'processed') {
+    return { processed: false, reason: 'duplicate', existingEventId: existingEvent.id };
+  }
+
+  const registered = existingEvent || await paymentEventsRepository.create({
+    workspaceId: targetPayment.workspaceId,
+    provider: 'doku',
+    providerEventId: eventKey,
+    eventType: event.eventType,
+    status: event.status,
+    amount: event.amount,
+    currency: event.currency,
+    paymentMethod: event.paymentMethod,
+    raw: safePaymentSessionPayload(event.raw),
+    processingStatus: 'received',
+  });
+  await paymentEventsRepository.updateReferences({ eventId: registered.id, paymentId: targetPayment.id, orderId: targetPayment.orderId });
+
+  if (Number(targetPayment.amount) !== Number(event.amount)) {
+    await paymentsRepository.updatePayment(targetPayment.id, { reconciliation_status: 'amount_mismatch' });
+    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'amount_mismatch' });
+    return { processed: false, reason: 'amount_mismatch' };
+  }
+
+  if (event.status !== 'paid') {
+    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: event.status });
+    return { processed: true, event: { eventType: event.eventType, status: event.status } };
+  }
+
+  const updatedPayment = await paymentsRepository.transitionStatus({
+    paymentId: targetPayment.id,
+    fromStatuses: ['pending', 'expired'],
+    newStatus: 'paid',
+    updates: { reconciliation_status: 'matched', paid_at: new Date().toISOString() },
+  });
+
+  await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: 'paid' });
+  const updatedOrder = await ordersRepository.updateOne({
+    workspaceId: targetPayment.workspaceId,
+    orderId: targetPayment.orderId,
+    updates: { payment_status: 'paid', paid_at: new Date().toISOString(), status: 'accepted' },
+  });
+  notifyPaymentUpdatedRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
+  notifyPaidOrderRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedOrder?.outletId, order: updatedOrder });
+  await notifyPaidOnce({ order: updatedOrder, paymentId: targetPayment.id, outletName: updatedOrder?.outletNameSnapshot || '' });
+  return { processed: true, event: { eventType: event.eventType, status: 'paid' } };
 }
 
 export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
@@ -224,11 +288,19 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
 
 async function loadAdapter(provider) {
   if (provider === 'xendit') return import('../integrations/payments/xendit-client.js');
+  if (provider === 'doku') return import('../integrations/payments/doku-client.js');
   throw new Error(`Unknown payment provider: ${provider}`);
 }
 
 function safePaymentSessionPayload(payload = {}) {
   return redactSecrets(payload);
+}
+
+function safeJson(rawBody) {
+  if (!rawBody) return {};
+  if (Buffer.isBuffer(rawBody)) return JSON.parse(rawBody.toString('utf8'));
+  if (typeof rawBody === 'string') return JSON.parse(rawBody);
+  return rawBody;
 }
 
 async function notifyPaidOnce({ order, paymentId, outletName }) {

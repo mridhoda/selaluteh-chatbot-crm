@@ -169,9 +169,44 @@ function isOutletListQuestion(text = '') {
   return asksOutlet && asksList;
 }
 
+/**
+ * Detect if the user's message is about a COMPLAINT / problem with a PAST order.
+ * This must be checked BEFORE any order-start intent to avoid misrouting.
+ */
+export function isComplaintContext(text = '') {
+  const lower = String(text || '').toLowerCase();
+  if (!lower.trim()) return false;
+
+  // Explicit complaint keywords
+  if (/\b(keluhan|komplain|kecewa|marah|kesal|protes|lapor|laporan|klaim|refund|ganti|retur|retur|complain)\b/.test(lower)) return true;
+
+  // Past-purchase + problem signals ("yang aku beli ... beda", "produk yang saya terima salah")
+  if (/\b(sudah|udah|tadi|kemarin|tadi|baru saja|barusan|sudah saya|udah aku)\b/.test(lower) &&
+      /\b(beli|pesan|pesen|terima|dapat|order)\b/.test(lower)) return true;
+
+  // "ini masalah dengan pesanan", "ada masalah", "ada kendala"
+  if (/\b(masalah|kendala|problem|issue|kesalahan|error|salah)\b.{0,30}\b(pesanan|order|beli|produk|barang|minuman)\b/.test(lower)) return true;
+  if (/\b(pesanan|order|barang|produk|minuman)\b.{0,30}\b(masalah|kendala|salah|beda|beda|berbeda|tidak sesuai|gak sesuai|nggak sesuai|keliru|rusak|kurang)\b/.test(lower)) return true;
+
+  // "yang sebelumnya", "pesanan lama", "order lama"
+  if (/\b(sebelumnya|sebelum ini|kemarin|yang lalu|lama|terdahulu)\b/.test(lower) &&
+      /\b(pesanan|order|beli|pesan|produk)\b/.test(lower)) return true;
+
+  // "produk yang aku beli beda" — past-action + mismatch
+  if (/\b(yang\s+(aku|saya|sy|gue|gw)\s+(beli|pesan|terima|dapat))\b.{0,30}\b(beda|salah|berbeda|tidak sesuai|gak sesuai|nggak sesuai|keliru|berbeda|lain)\b/.test(lower)) return true;
+
+  // "sama yg aku pesan beda", "beda produknya"
+  if (/\b(beda|berbeda|tidak sesuai|gak sesuai|nggak sesuai)\b.{0,20}\b(produk|barang|pesanan|order|minuman)\b/.test(lower)) return true;
+  if (/\b(produk|barang|pesanan|order|minuman)\b.{0,20}\b(beda|berbeda|salah|tidak sesuai|gak sesuai)\b/.test(lower)) return true;
+
+  return false;
+}
+
 export function isOrderStartIntent(text = '') {
   const lower = String(text || '').toLowerCase();
   if (!lower.trim()) return false;
+  // Complaint context takes priority over order intent
+  if (isComplaintContext(lower)) return false;
   if (/\b(status|cek|lihat|lacak|batalkan|cancel|komplain|keluhan)\b.*\b(pesanan|order)\b/.test(lower)) return false;
   return /\b(mau|ingin|pengen|pingin|boleh|bisa|aku|saya|sy|aq|kak|ka)?\s*(pesan|pesen|order|beli|checkout)\b/.test(lower)
     || /\b(pesan|pesen|order|beli)\s+(?:dong|minuman|teh|menu|produk|\d+)/.test(lower);
@@ -228,7 +263,8 @@ export function formatOutletList(outlets = [], { cityFilter = null } = {}) {
 
   const lines = filtered.map((outlet, index) => {
     const location = outlet.city ? ` (${outlet.city})` : '';
-    return `${index + 1}. ${outlet.name}${location}`;
+    const maps = outlet.metadata?.googleMapsLink || outlet.metadata?.googleMapsUrl || outlet.googleMapsUrl || '';
+    return `${index + 1}. ${outlet.name}${location}${maps ? ` — ${maps}` : ''}`;
   });
 
   const scope = normalizedCityFilter ? ` di ${cityFilter}` : ' yang terdaftar saat ini';
@@ -251,7 +287,12 @@ async function loadOfficialOutletContext({ workspaceId, promptRules = DEFAULT_AG
   try {
     const outlets = await outletsSupabaseRepository.list({ workspaceId, page: 1, limit: 100 });
     const available = (outlets || []).filter((outlet) => outlet.status !== 'archived');
-    const lines = available.map((outlet) => `- ${outlet.name}${outlet.city ? ` (${outlet.city})` : ''}`).join('\n');
+    const lines = available.map((outlet) => {
+      const maps = outlet.metadata?.googleMapsLink || outlet.metadata?.googleMapsUrl || outlet.googleMapsUrl || '';
+      const address = outlet.address ? ` — ${outlet.address}` : '';
+      const mapsText = maps ? ` — Google Maps: ${maps}` : '';
+      return `- ${outlet.name}${outlet.city ? ` (${outlet.city})` : ''}${address}${mapsText}`;
+    }).join('\n');
     return `\n\nOfficial Outlets from Outlets Page:\n${lines || '- No outlets are currently registered.'}\n\n${promptRules.outletRules}`;
   } catch (error) {
     console.error('[AI] Failed to load official outlet context:', error.message);
@@ -264,7 +305,61 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
   const promptRules = getAgentPromptRules(agent);
   const selectedOutletId = chat?.currentOutletId || chat?.current_outlet_id || null;
 
-  if (shouldAskLocationForOrder(currentMessageText, { currentOutletId: selectedOutletId })) {
+  // ── Detect active complaint session from history ─────────────────────────
+  // Scan recent messages for complaint signals to inject explicit session context
+  function detectComplaintSessionFromHistory(msgs = []) {
+    if (!msgs || msgs.length === 0) return null;
+    const recentMsgs = msgs.slice(-20); // look at up to 20 most recent
+
+    // Check user messages for complaint signals
+    const userComplaintMsgs = recentMsgs.filter((m) => {
+      const isUser = m.senderType === 'customer' || m.direction === 'inbound';
+      const text = m.content || m.text || '';
+      return isUser && isComplaintContext(text);
+    });
+    if (userComplaintMsgs.length === 0) return null;
+
+    // Also look for bot messages that acknowledged a complaint
+    const botAcknowledgedComplaint = recentMsgs.some((m) => {
+      const isBot = m.senderType === 'assistant' || m.senderType === 'ai' || m.direction === 'outbound';
+      const text = (m.content || m.text || '').toLowerCase();
+      return isBot && (
+        text.includes('catat') || text.includes('teruskan') || text.includes('keluhan') ||
+        text.includes('komplain') || text.includes('complaint') || text.includes('tim outlet') ||
+        text.includes('nomor pesanan') || text.includes('outlet tempat')
+      );
+    });
+
+    // Build a hint about what details have already been collected
+    const collectedDetails = [];
+    for (const m of recentMsgs) {
+      const isUser = m.senderType === 'customer' || m.direction === 'inbound';
+      const text = m.content || m.text || '';
+      if (!isUser || !text) continue;
+      const orderNumMatch = text.match(/\b(SLTH|INV|ORD|ORDER)[\-_]?[0-9A-Z]{4,}/i);
+      if (orderNumMatch) collectedDetails.push(`Nomor pesanan: ${orderNumMatch[0]}`);
+      const outletMatch = text.match(/\bdi\s+([\w\s]+?)(?:\s*[,.]|$)/i);
+      if (outletMatch && outletMatch[1]?.length > 3) collectedDetails.push(`Outlet: ${outletMatch[1].trim()}`);
+    }
+
+    const detailSummary = collectedDetails.length > 0
+      ? `\nDetail yang sudah dikumpulkan: ${collectedDetails.join('; ')}`
+      : '';
+
+    if (botAcknowledgedComplaint) {
+      return `\n\n[SYSTEM NOTE — COMPLAINT SESSION ACTIVE]
+Percakapan ini SEDANG DALAM MODE COMPLAINT. Bot sudah mengakui adanya keluhan sebelumnya.${detailSummary}
+JANGAN jawab dengan salam baru atau "ada yang bisa dibantu". Lanjutkan proses pengumpulan detail complaint atau konfirmasi jika sudah lengkap.`;
+    }
+    return `\n\n[SYSTEM NOTE — COMPLAINT DETECTED IN HISTORY]
+User sudah menyampaikan keluhan sebelumnya dalam percakapan ini.${detailSummary}
+Perlakukan percakapan ini sebagai COMPLAINT SESSION — bukan percakapan baru.`;
+  }
+
+  const complaintSessionHint = detectComplaintSessionFromHistory(history);
+
+  // Complaint context must be checked FIRST — never redirect a complaining user into an order flow
+  if (!isComplaintContext(currentMessageText) && !complaintSessionHint && shouldAskLocationForOrder(currentMessageText, { currentOutletId: selectedOutletId })) {
     return buildAskCurrentLocationForOrderReplyForAgent(agent);
   }
 
@@ -364,10 +459,10 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
       console.log('[AI] Auto-filing acknowledged complaint:', complaintData);
 
       const aiActionResult = await executeAIAction({
-        workspaceId: chat.workspaceId || agent.workspaceId,
-        chatId: chat.id,
-        chatMessageId: message.id || null,
-        agentId: agent.id,
+        workspaceId: chat?.workspaceId || agent?.workspaceId,
+        chatId: chat?.id,
+        chatMessageId: message?.id || null,
+        agentId: agent?.id || null,
         actionType: 'create_legacy_complaint',
         input: { complaintData, source: 'ai_acknowledged_complaint_fallback' },
         executor: () => createComplaintFromAI({ chat, agent, complaintData }),
@@ -454,7 +549,13 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
 
           if (toolName === 'get_outlets') {
             const outlets = await outletsSupabaseRepository.list({ workspaceId });
-            return JSON.stringify((outlets || []).map(o => ({ id: o.id, name: o.name, city: o.city })));
+            return JSON.stringify((outlets || []).map(o => ({
+              id: o.id,
+              name: o.name,
+              city: o.city,
+              address: o.address || '',
+              googleMapsUrl: o.metadata?.googleMapsLink || o.metadata?.googleMapsUrl || o.googleMapsUrl || '',
+            })));
           }
 
           if (toolName === 'search_products') {
@@ -515,8 +616,23 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
       };
 
       try {
+        const openaiComplaintInstruction = `
+
+## COMPLAINT HANDLING (HIGHEST PRIORITY — READ CAREFULLY)
+If the user reports a problem, wrong item, missing order, or anything negative about a past purchase, treat it as a COMPLAINT — NOT as a test message, not as a new order.
+
+DO NOT treat order numbers like "SLTH-2026XXXXXX" or formatted codes as fake or test data. They are REAL customer order references.
+
+A complaint session is in progress if the user mentioned a problem with a past purchase earlier in this conversation and is now providing outlet name, order number, or follow-up details.
+
+When the user has provided: (1) the issue/problem description, AND (2) their outlet or order number, you MUST:
+1. Output FILE_COMPLAINT_JSON: followed by a valid JSON: { "text": "<issue summary>", "contactName": "<if known>", "contactPhone": "<if known>" }
+2. On the NEXT LINE (after the JSON), write a sincere confirmation in Indonesian that says the complaint has been recorded and will be forwarded to the responsible team. Always include a phrase like "akan kami teruskan ke penanggung jawab kami". Also apologize sincerely.
+
+NEVER respond to complaint details (outlet name, order number, location info) with a generic "ada yang bisa dibantu" — the user is completing a complaint, not starting a new conversation.`;
+
         const openaiMessages = [
-          { role: 'system', content: sanitizePromptText((system || promptRules.fallbackSystemPrompt) + contactName + fileInstruction + productMenuContext + officialOutletContext + commerceInstructions) },
+          { role: 'system', content: sanitizePromptText((system || promptRules.fallbackSystemPrompt) + contactName + fileInstruction + productMenuContext + officialOutletContext + commerceInstructions + openaiComplaintInstruction + (complaintSessionHint || '')) },
         ];
 
         for (const msg of history) {
@@ -593,7 +709,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
         const model = geminiClient.getGenerativeModel({ model: env.geminiModel });
 
         // --- Sales Form Logic ---
-        if (agent.salesForms && agent.salesForms.length > 0) {
+        if (agent?.salesForms && agent.salesForms.length > 0) {
           const outletList = agent.outlets && agent.outlets.length > 0 ? agent.outlets.join(', ') : '';
           const salesInstructions = agent.salesForms
             .filter(f => f.isActive)
@@ -619,11 +735,11 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
                   3. **Use Bullet Points**: When listing options (like available outlets, menu items, or variants), **ALWAYS** use a bulleted list (one item per line) for clarity.
                   4. **Context**: Do not ask for fields that are clearly not applicable or have been answered.
                   5. **Promos**: Only mention promos if they are *highly relevant* to what the user is buying right now. Do not spam generic promos.
-                  ${agent.payment?.enabled ? `
+                  ${agent?.payment?.enabled ? `
                   6. **Payment & Confirmation**: 
                      - Once you have the order details (Item, Qty, fields, Name, Outlet), **SUMMARIZE** the order briefly.
                      ${f.products && f.products.length > 0 ? `- **CALCULATE TOTAL**: Use the OFFICIAL PRICE LIST to calculate the total price. Show the calculation (e.g., "2 x Rp 15.000 = Rp 30.000").` : ''}
-                     - Then, requests payment by saying: "Mohon lakukan pembayaran ke:\n\n${agent.payment.bankInfo || ''}\n\n${agent.payment.qrisUrl ? `[QRIS Image Available]` : ''}\n\nSilahkan kirim bukti pembayaran (screenshot/foto) jika sudah."
+                     - Then, requests payment by saying: "Mohon lakukan pembayaran ke:\n\n${agent.payment?.bankInfo || ''}\n\n${agent.payment?.qrisUrl ? `[QRIS Image Available]` : ''}\n\nSilahkan kirim bukti pembayaran (screenshot/foto) jika sudah."
                      - **WAIT** for the user to confirm payment.
                      - **STRICT VERIFICATION REQUIRED**:
                        - If the user sends an **IMAGE**: You **MUST** analyze the image content visually.
@@ -634,7 +750,7 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
                          - **IF INVALID/FAKE**: Reply "Maaf, bukti pembayaran tidak valid. Nominal atau nomor tujuan tidak sesuai. Mohon kirim bukti yang benar." and DO NOT finalize.
                        - If the user just sends TEXT (e.g. "sudah"): You MUST ask for the photo proof ("Mohon lampirkan screenshot/foto bukti transfer"). Do NOT finalize without image proof.
                   ` : ''}
-                  7. **Completion**: ${agent.payment?.enabled ? 'ONLY after payment proof is received/confirmed,' : 'When ALL required info (Fields + Name + Outlet) is gathered,'} reply with "FILE_ORDER_JSON:" followed by valid JSON with "formName", "formData" (captured fields including Outlet), "contactName", "contactPhone".
+                  7. **Completion**: ${agent?.payment?.enabled ? 'ONLY after payment proof is received/confirmed,' : 'When ALL required info (Fields + Name + Outlet) is gathered,'} reply with "FILE_ORDER_JSON:" followed by valid JSON with "formName", "formData" (captured fields including Outlet), "contactName", "contactPhone".
                   8. **Final Response**: AFTER the JSON, strictly reply with: "Pesanan Anda sedang kami proses. Mohon tunggu konfirmasi selanjutnya." (Do NOT say "Accepted" or "Received" yet).
               `;
             }).join('\n');
@@ -644,9 +760,38 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
           }
         }
 
-        const complaintInstruction = (agent.complaintFields && agent.complaintFields.length > 0)
-          ? `\n        4. If the user is making a COMPLAINT, you must collect the following information: ${agent.complaintFields.join(', ')}. Ask for them one by one if not provided. When ALL information is gathered, reply with "FILE_COMPLAINT_JSON:" followed by JSON with "text" (summary) and "formData" (object with captured fields: {${agent.complaintFields.map(f => `"${f}": "..."`).join(', ')}}). After the JSON, add a polite confirmation message to the user on a new line.`
-          : `\n        4. If the user is making a COMPLAINT and has provided necessary details (issue, name, contact info), you MUST reply with "FILE_COMPLAINT_JSON:" followed by a valid JSON object with fields: "text" (the complaint issue), "contactName" (user's name), "contactPhone" (user's phone/email). Example: FILE_COMPLAINT_JSON: {"text": "Drink was bad", "contactName": "John", "contactPhone": "08123"} After the JSON, add a polite confirmation message to the user on a new line.`;
+        const complaintInstruction = (agent?.complaintFields && agent.complaintFields.length > 0)
+          ? `\n
+## COMPLAINT HANDLING (HIGHEST PRIORITY — READ CAREFULLY)
+If the user reports a problem, wrong item, missing order, or anything negative about a past purchase, treat it as a COMPLAINT — NOT as a test, not as a new order.
+
+DO NOT treat order numbers like "SLTH-2026XXXXXX" or similar codes as fake or test data. They are real customer order numbers.
+
+Collect the following details one by one if not yet provided:
+${agent.complaintFields.join('\n')}
+
+Once ALL required details are gathered, you MUST:
+1. Output FILE_COMPLAINT_JSON: followed by a valid JSON: { "text": "<issue summary>", "formData": {${agent.complaintFields.map(f => `"${f}": "..."`).join(', ')}} }
+2. On the NEXT LINE (after the JSON), write a confirmation message in Indonesian that EXPLICITLY says the complaint has been recorded and will be forwarded to the responsible team. Example: "Terima kasih, keluhan kamu sudah kami catat dan akan segera kami teruskan ke tim yang bertanggung jawab. Kami mohon maaf atas ketidaknyamanannya dan akan berusaha menyelesaikan ini secepatnya 🙏"
+
+NEVER respond to complaint follow-up messages with a generic greeting or "ada yang bisa dibantu" — the user is in the middle of a complaint flow.
+`
+          : `\n
+## COMPLAINT HANDLING (HIGHEST PRIORITY — READ CAREFULLY)
+If the user reports a problem, wrong item, missing order, or anything negative about a past purchase, treat it as a COMPLAINT — NOT as a test, not as a new order.
+
+DO NOT treat order numbers like "SLTH-2026XXXXXX" or formatted codes as fake or test data. They are REAL customer order references.
+
+A complaint session is in progress if:
+- The user mentioned a problem with a past purchase earlier in the conversation
+- The user is now providing outlet name, order number, or follow-up complaint details
+
+When the user has provided: (1) the issue/problem description, AND (2) their outlet or order number, you MUST:
+1. Output FILE_COMPLAINT_JSON: followed by a valid JSON: { "text": "<issue summary>", "contactName": "<if known>", "contactPhone": "<if known>" }
+2. On the NEXT LINE (after the JSON), write a confirmation message in Indonesian that says the complaint has been recorded and WILL BE FORWARDED to the responsible team. ALWAYS include this phrase: "akan kami teruskan ke penanggung jawab kami" or similar. Also apologize sincerely.
+
+NEVER respond to complaint details (outlet name, order number, "sudah pulang" etc.) with a generic greeting or "ada yang bisa Tea bantu" — the user is completing a complaint, not starting a new conversation.
+`;
 
         const escalationInstruction = `
         IMPORTANT: You are a smart assistant.
@@ -656,10 +801,10 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
         5. Do not add any other text if you decide to escalate.
         `;
 
-        let systemInstruction = sanitizePromptText((system || promptRules.fallbackSystemPrompt) + contactName + fileInstruction + productMenuContext + officialOutletContext + escalationInstruction);
+        let systemInstruction = sanitizePromptText((system || promptRules.fallbackSystemPrompt) + contactName + fileInstruction + productMenuContext + officialOutletContext + escalationInstruction + (complaintSessionHint || ''));
 
         // --- Tools Injection ---
-        if (agent.tools && agent.tools.includes('time')) {
+        if (agent?.tools && agent.tools.includes('time')) {
           const now = new Date();
           // WITA = UTC+8 untuk Kalimantan Timur
           const witaTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
@@ -799,10 +944,10 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
               }
 
               const aiActionResult = await executeAIAction({
-                workspaceId: chat.workspaceId || agent.workspaceId,
-                chatId: chat.id,
-                chatMessageId: message.id || null,
-                agentId: agent.id,
+                workspaceId: chat?.workspaceId || agent?.workspaceId,
+                chatId: chat?.id,
+                chatMessageId: message?.id || null,
+                agentId: agent?.id || null,
                 actionType: 'create_legacy_order',
                 input: { orderData, paymentProofUrl },
                 executor: () => createOrderFromAI({ chat, agent, orderData, paymentProofUrl }),
@@ -856,10 +1001,10 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
               console.log('[AI] Filing Complaint:', complaintData);
 
               const aiActionResult = await executeAIAction({
-                workspaceId: chat.workspaceId || agent.workspaceId,
-                chatId: chat.id,
-                chatMessageId: message.id || null,
-                agentId: agent.id,
+                workspaceId: chat?.workspaceId || agent?.workspaceId,
+                chatId: chat?.id,
+                chatMessageId: message?.id || null,
+                agentId: agent?.id || null,
                 actionType: 'create_legacy_complaint',
                 input: { complaintData },
                 executor: () => createComplaintFromAI({ chat, agent, complaintData }),
@@ -870,15 +1015,15 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
               complaintFiled = true;
 
               // Notification Logic
-              if (agent.complaintNotification?.enabled && agent.complaintNotification?.platformId && agent.complaintNotification?.destination) {
+              if (agent?.complaintNotification?.enabled && agent.complaintNotification?.platformId && agent.complaintNotification?.destination) {
                 try {
                   const notifPlatformId = agent.complaintNotification.platformId;
                   const notificationPlatform = await platformsSupabaseRepository.findByIdWithCredentials({
-                    workspaceId: chat.workspaceId || agent.workspaceId,
+                    workspaceId: chat?.workspaceId || agent?.workspaceId,
                     platformId: notifPlatformId,
                   });
                   if (notificationPlatform) {
-                    const notifText = `⚠️ *New Complaint Received*\n\n*Agent:* ${agent.name}\n*Platform:* ${chat.platformType || ''}\n*Issue:* ${complaintData.text || '-'}\n*Contact:* ${complaintData.contactName || contact?.name || '-'}\n*Phone/ID:* ${complaintData.contactPhone || contact?.phone || '-'}\n\n*Details:* \n${JSON.stringify(complaintData.formData || {}, null, 2)}`;
+                    const notifText = `⚠️ *New Complaint Received*\n\n*Agent:* ${agent?.name || 'System'}\n*Platform:* ${chat?.platformType || ''}\n*Issue:* ${complaintData.text || '-'}\n*Contact:* ${complaintData.contactName || contact?.name || '-'}\n*Phone/ID:* ${complaintData.contactPhone || contact?.phone || '-'}\n\n*Details:* \n${JSON.stringify(complaintData.formData || {}, null, 2)}`;
 
                     console.log(`[AI] Sending complaint notification to ${notificationPlatform.type} (${agent.complaintNotification.destination})`);
 
@@ -893,33 +1038,25 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
                 }
               }
 
-              // Remove the JSON command from the reply shown to user, keep the rest
-              // We construct the exact string we want to remove: "FILE_COMPLAINT_JSON:" + any whitespace + jsonString
-              // However, since we split by FILE_COMPLAINT_JSON:, we can just remove everything involving it.
-              // The safest way is to remove "FILE_COMPLAINT_JSON:" and the jsonString.
+              // ── Strip the FILE_COMPLAINT_JSON command from the reply shown to user ──
+              // Multi-step: exact match first, then nested-brace regex, then nuclear
+              reply = reply
+                .replace(new RegExp(`FILE_COMPLAINT_JSON:\\s*${jsonString.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), '')
+                .replace(/FILE_COMPLAINT_JSON:\s*\{(?:[^{}]|\{[^{}]*\})*\}/g, '')
+                .replace(/FILE_COMPLAINT_JSON:/g, '')
+                .trim();
 
-              // Let's rely on the fact that we know exactly what `jsonString` is.
-              // But there might be characters between FILE_COMPLAINT_JSON: and the start of jsonString (like space or newline)
-
-              const fullCommandRegex = new RegExp(`FILE_COMPLAINT_JSON:\\s*${jsonString.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
-              reply = reply.replace(fullCommandRegex, '').trim();
-
-              // Fallback if regex fails (e.g. slight mismatch in whitespace), just remove the known parts manually
-              if (reply.includes('FILE_COMPLAINT_JSON:')) {
-                reply = reply.replace('FILE_COMPLAINT_JSON:', '').replace(jsonString, '').trim();
-              }
-
-              // Ensure we have a reply text. If AI returned only JSON, add a default confirmation.
               if (!reply) {
-                reply = "Terima kasih, laporan keluhan Anda telah kami catat dan akan segera kami tindak lanjuti.";
+                reply = 'Terima kasih, laporan keluhan Anda telah kami catat dan akan segera kami tindak lanjuti.';
               }
 
             }
           } catch (err) {
             console.error('[AI] Failed to parse complaint JSON:', err);
-            // Parsing failed, try to hide the command anyway using robust regex for "balanced braces" is hard in regex.
-            // Best effort: hide the line containing FILE_COMPLAINT_JSON
-            reply = reply.replace(/FILE_COMPLAINT_JSON:.*(\n|$)/, '').trim();
+            reply = reply
+              .replace(/FILE_COMPLAINT_JSON:\s*\{(?:[^{}]|\{[^{}]*\})*\}/g, '')
+              .replace(/FILE_COMPLAINT_JSON:/g, '')
+              .trim();
           }
         }
 
@@ -969,7 +1106,7 @@ export async function findAndSendFile({ agent, message, openaiClient, geminiClie
   if (!messageText) return null;
 
   try {
-    if (agent.database && agent.database.length > 0) {
+    if (agent?.database && agent.database.length > 0) {
       if (agent.prompt) {
         const instructions = agent.prompt.split(/jika/i).slice(1);
 
@@ -996,7 +1133,7 @@ export async function findAndSendFile({ agent, message, openaiClient, geminiClie
             }
 
             if (answer.toLowerCase().includes('yes')) {
-              const file = agent.database.find(f => f.id.includes(fileId));
+              const file = agent?.database.find(f => f.id.includes(fileId));
               if (file) {
                 console.log('File found for user message based on prompt:', file.originalName);
       const serverUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:5000';
@@ -1015,7 +1152,7 @@ export async function findAndSendFile({ agent, message, openaiClient, geminiClie
       }
 
       const lowerMsg = messageText.toLowerCase();
-      const simpleMatch = agent.database.find(file => {
+      const simpleMatch = agent?.database.find(file => {
         const name = (file.originalName || '').toLowerCase();
         const base = name.replace(/\.[^.]+$/, '');
         return (

@@ -11,6 +11,7 @@ import {
   outletsSupabaseRepository,
 } from '../db/repositories/index.js';
 import { AppError } from '../utils/errors.js';
+import { evaluateComplaintForEscalation } from './auto-escalate-complaints/escalation-evaluator.service.js';
 
 function normalizeLookup(value = '') {
   return String(value || '')
@@ -90,10 +91,17 @@ export async function createComplaintFromAI({ chat, agent, complaintData }) {
     throw err;
   }
 
+  // validateAndResolveComplaintLinks uses resolvedOrder/resolvedOutlet in scope
+  const { resolvedOrder, resolvedOutlet } = await validateAndResolveComplaintLinks({
+    workspaceId,
+    complaintData,
+    chat,
+  });
+
   const platformId = chat?.platformId || chat?.platforms?.id || resolvedOrder?.platformId || null;
   const channel = chat?.platform || chat?.platforms?.type || resolvedOrder?.source || null;
 
-  return complaintsSupabaseRepository.create({
+  const complaint = await complaintsSupabaseRepository.create({
     workspaceId,
     outletId: resolvedOutlet?.id || resolvedOrder?.outletId || chat.currentOutletId || null,
     chatId: chat.id || null,
@@ -117,4 +125,21 @@ export async function createComplaintFromAI({ chat, agent, complaintData }) {
     },
     status: 'open',
   });
+
+  // Auto-escalation evaluation — fire-and-forget.
+  // Runs asynchronously; a failure here never surfaces to the customer.
+  if (complaint?.id) {
+    evaluateComplaintForEscalation({
+      workspaceId,
+      complaintId: complaint.id,
+    }).then(({ result }) => {
+      if (result && result !== 'NOT_MATCHED' && result !== 'DISABLED') {
+        console.log(`[complaint] Auto-escalation: ${result} for complaint ${complaint.id}`);
+      }
+    }).catch(err => {
+      console.error('[complaint] Auto-escalation evaluation error:', err?.message);
+    });
+  }
+
+  return complaint;
 }

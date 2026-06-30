@@ -10,6 +10,7 @@ import { authRequired, attachUser } from '../middleware/auth.js';
 import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
 import { buildOutletScopedQuery } from '../services/access-control.service.js';
 import { complaintsSupabaseRepository } from '../db/repositories/index.js';
+import { evaluateComplaintForEscalation } from '../services/auto-escalate-complaints/escalation-evaluator.service.js';
 
 const router = express.Router();
 
@@ -79,10 +80,18 @@ router.get('/:id', async (req, res) => {
 // POST create complaint
 router.post('/', async (req, res) => {
   try {
+    const workspaceId = req.me.workspaceId;
     const complaint = await complaintsSupabaseRepository.create({
       ...normalizeComplaintBody(req.body),
-      workspaceId: req.me.workspaceId,
+      workspaceId,
     });
+
+    // Auto-escalation evaluation — fire-and-forget
+    if (complaint?.id) {
+      evaluateComplaintForEscalation({ workspaceId, complaintId: complaint.id })
+        .catch(err => console.error('[complaints] Auto-escalation on create error:', err?.message));
+    }
+
     res.json(complaint);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -106,9 +115,12 @@ router.delete('/:id', async (req, res) => {
 async function updateComplaint(req, res) {
   try {
     const body = normalizeComplaintBody(req.body);
+    const workspaceId = req.me.workspaceId;
+    const complaintId = req.params.id;
+
     const complaint = await complaintsSupabaseRepository.update({
-      workspaceId: req.me.workspaceId,
-      complaintId: req.params.id,
+      workspaceId,
+      complaintId,
       updates: {
         status: body.status,
         priority: body.priority,
@@ -119,6 +131,24 @@ async function updateComplaint(req, res) {
       },
     });
     if (!complaint) return res.status(404).json({ error: 'Complaint not found' });
+
+    // Auto-escalation re-evaluation when priority is escalated to HIGH or CRITICAL.
+    // Fire-and-forget — never blocks the HTTP response.
+    const HIGH_PRIORITIES = ['high', 'critical', 'HIGH', 'CRITICAL'];
+    if (body.priority && HIGH_PRIORITIES.includes(body.priority)) {
+      evaluateComplaintForEscalation({
+        workspaceId,
+        complaintId,
+        triggerHint: 'AUTO_PRIORITY',
+      }).then(({ result }) => {
+        if (result && result !== 'NOT_MATCHED' && result !== 'DISABLED' && result !== 'DUPLICATE_ACTIVE_ESCALATION') {
+          console.log(`[complaints] Auto-escalation on priority change: ${result} for ${complaintId}`);
+        }
+      }).catch(err => {
+        console.error('[complaints] Auto-escalation on priority change error:', err?.message);
+      });
+    }
+
     res.json(complaint);
   } catch (err) {
     res.status(500).json({ error: err.message });

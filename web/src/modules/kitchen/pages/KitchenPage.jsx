@@ -20,6 +20,7 @@ import {
   ChefHat
 } from 'lucide-react'
 import api from '../../../shared/api/httpClient'
+import { getOrderQueryParams, getSessionUser } from '../../../shared/auth/permissions'
 import {
   getReceiptEligibility,
   isAndroidUserAgent,
@@ -131,7 +132,7 @@ export default function KitchenPage() {
       setOutlets(formattedOutlets)
 
       // 2. Fetch server orders
-      const ordersRes = await api.get('/orders').catch(() => null)
+      const ordersRes = await api.get('/orders', { params: getOrderQueryParams(getSessionUser()) }).catch(() => null)
       const rawOrders = ordersRes?.data?.data || ordersRes?.data || []
 
       // Normalize server orders to match kitchen layout shape

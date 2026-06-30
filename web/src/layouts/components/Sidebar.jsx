@@ -23,6 +23,8 @@ import {
   faWallet,
   faUtensils,
   faUserShield,
+  faBell,
+  faSlidersH,
 } from '@fortawesome/free-solid-svg-icons'
 import {
   faComment,
@@ -32,6 +34,7 @@ import {
 } from '@fortawesome/free-regular-svg-icons'
 import { navigationGroups } from '../../routes/navigation.config'
 import api from '../../shared/api/httpClient'
+import { canAccessNavItem, getOrderQueryParams, getSessionUser, normalizeRole, permissionsToResourceMap } from '../../shared/auth/permissions'
 
 const navigationIcons = {
   dashboard: faHome,
@@ -47,6 +50,8 @@ const navigationIcons = {
   agents: faRobot,
   'human-agents': faUserTie,
   complaints: faExclamationCircle,
+  'escalation-inbox': faBell,
+  'escalation-settings': faSlidersH,
   reports: faFileAlt,
   billing: faCreditCard,
   'access-control': faUserShield,
@@ -67,6 +72,8 @@ const activeNavigationKeys = new Set([
 ])
 
 export default function Sidebar() {
+  const [accessUser, setAccessUser] = useState(() => getSessionUser())
+  const role = normalizeRole(accessUser?.workspaceRole || accessUser?.role)
   const [isExpanded, setIsExpanded] = useState(() => {
     try {
       return localStorage.getItem('sidebarExpanded') === '1'
@@ -85,10 +92,63 @@ export default function Sidebar() {
 
   const [ordersCount, setOrdersCount] = useState(128)
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
+  const [workspaces, setWorkspaces] = useState([])
+  const [currentWorkspace, setCurrentWorkspace] = useState(null)
+
+  const handleSwitchWorkspace = (workspace) => {
+    const current = getSessionUser() || {}
+    const nextUser = {
+      ...current,
+      workspaceId: workspace.id,
+      workspaceRole: workspace.role || 'member',
+    }
+    sessionStorage.setItem('user', JSON.stringify(nextUser))
+    window.location.reload()
+  }
 
   useEffect(() => {
+    // 1. Fetch current workspace details (contains the name)
     api
-      .get('/orders')
+      .get('/workspaces/current', { skipAuthRedirect: true })
+      .then((res) => {
+        setCurrentWorkspace(res.data?.data || null)
+      })
+      .catch((err) => console.warn('Failed to load current workspace', err))
+
+    // 2. Fetch list of all workspaces user belongs to
+    api
+      .get('/workspaces', { skipAuthRedirect: true })
+      .then((res) => {
+        setWorkspaces(res.data?.data || [])
+      })
+      .catch((err) => console.warn('Failed to load workspaces list', err))
+
+    // 3. Fetch current workspace permissions & role
+    api
+      .get('/api/workspaces/current/access', { skipAuthRedirect: true })
+      .then((res) => {
+        const data = res.data?.data || {}
+        const current = getSessionUser() || {}
+        const hasCustomPermissions = Array.isArray(data.permissions) && data.permissions.length > 0
+        const nextUser = {
+          ...current,
+          workspaceRole: data.role || current.workspaceRole || current.role,
+          workspaceId: data.workspaceId || current.workspaceId,
+          allowedOutletIds: data.allowedOutletIds || [],
+          accessPolicy: hasCustomPermissions
+            ? { permissions: data.permissions, permissionsByResource: permissionsToResourceMap(data.permissions) }
+            : null,
+        }
+        setAccessUser(nextUser)
+        sessionStorage.setItem('user', JSON.stringify(nextUser))
+      })
+      .catch(() => setAccessUser(getSessionUser()))
+  }, [])
+
+  useEffect(() => {
+    const user = accessUser || getSessionUser()
+    api
+      .get('/orders', { params: getOrderQueryParams(user) })
       .then((res) => {
         const rawOrders = Array.isArray(res.data)
           ? res.data
@@ -101,7 +161,7 @@ export default function Sidebar() {
         // Fallback to default count in case of API failure or offline mode
         console.warn('Could not fetch active order count, using fallback:', err)
       })
-  }, [])
+  }, [accessUser])
 
   useEffect(() => {
     try {
@@ -180,8 +240,8 @@ export default function Sidebar() {
               <FontAwesomeIcon icon={faLeaf} />
             </div>
             <div className='sidebar-logo-text'>
-              <span className='logo-title'>Selalu Teh</span>
-              <span className='logo-subtitle'>Marketplace</span>
+              <span className='logo-title'>{currentWorkspace?.name || 'Selalu Teh'}</span>
+              <span className='logo-subtitle'>CRM Chatbot</span>
             </div>
           </div>
         </div>
@@ -198,13 +258,16 @@ export default function Sidebar() {
 
       {/* Navigation section */}
       <div className='sidebar-nav-container'>
-        {navigationGroups.map((group) => (
+        {navigationGroups.map((group) => {
+          const visibleItems = group.items.filter((item) => canAccessNavItem(item, accessUser))
+          if (visibleItems.length === 0) return null
+          return (
           <div key={group.label} className='sidebar-group'>
             {isSidebarOpen && (
               <div className='sidebar-category-header'>{group.label}</div>
             )}
             <div className='sidebar-items-list'>
-              {group.items.map(({ key, label, path }) => {
+              {visibleItems.map(({ key, label, path }) => {
                 const icon = navigationIcons[key]
                 const isOrders = key === 'orders'
                 const isInactive = !activeNavigationKeys.has(key)
@@ -237,7 +300,7 @@ export default function Sidebar() {
               })}
             </div>
           </div>
-        ))}
+        )})}
       </div>
 
       {/* Footer / Workspace card section */}
@@ -263,8 +326,8 @@ export default function Sidebar() {
                 <FontAwesomeIcon icon={faBuilding} />
               </div>
               <div className='workspace-info'>
-                <div className='workspace-name'>Selalu Teh</div>
-                <div className='workspace-role'>Owner</div>
+                <div className='workspace-name'>{currentWorkspace?.name || 'Selalu Teh'}</div>
+                <div className='workspace-role'>{role === 'human_agent' ? 'Agent' : role.replace('_', ' ')}</div>
               </div>
               <FontAwesomeIcon
                 icon={faChevronDown}
@@ -274,23 +337,24 @@ export default function Sidebar() {
 
             {workspaceOpen && (
               <div className='sidebar-workspace-dropdown'>
-                <div className='dropdown-item active'>
-                  <div className='workspace-dot'></div>
-                  <div className='dropdown-workspace-details'>
-                    <div className='dropdown-workspace-name'>Selalu Teh</div>
-                    <div className='dropdown-workspace-role'>Owner</div>
-                  </div>
-                </div>
-                <div
-                  className='dropdown-item'
-                  onClick={() => alert('Switching workspace...')}
-                >
-                  <div className='workspace-dot inactive'></div>
-                  <div className='dropdown-workspace-details'>
-                    <div className='dropdown-workspace-name'>Kalis Coffee</div>
-                    <div className='dropdown-workspace-role'>Member</div>
-                  </div>
-                </div>
+                {workspaces.map((ws) => {
+                  const isActive = ws.id === currentWorkspace?.id
+                  return (
+                    <div
+                      key={ws.id}
+                      className={`dropdown-item ${isActive ? 'active' : ''}`}
+                      onClick={() => !isActive && handleSwitchWorkspace(ws)}
+                    >
+                      <div className={`workspace-dot ${isActive ? '' : 'inactive'}`}></div>
+                      <div className='dropdown-workspace-details'>
+                        <div className='dropdown-workspace-name'>{ws.name}</div>
+                        <div className='dropdown-workspace-role'>
+                          {ws.role ? ws.role.replace('_', ' ') : 'Member'}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
 

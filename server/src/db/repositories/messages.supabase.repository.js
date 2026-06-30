@@ -84,6 +84,7 @@ export const messagesSupabaseRepository = {
     const insert = {
       workspace_id: data.workspaceId,
       chat_id: data.chatId,
+      channel_connection_id: data.channelConnectionId || null,
       platform_id: platformId,
       contact_id: contactId,
       sender_type: senderType,
@@ -93,6 +94,8 @@ export const messagesSupabaseRepository = {
       content: data.content || data.text || null,
       attachment_file_id: data.attachmentFileId || null,
       platform_message_id: data.platformMessageId || null,
+      provider_message_id: data.providerMessageId || data.platformMessageId || null,
+      provider_update_id: data.providerUpdateId || null,
       raw_payload: rawPayload || {},
     };
     const result = await client.from(TABLE).insert(insert).select('*, users:user_id(id, name)').single();
@@ -111,6 +114,22 @@ export const messagesSupabaseRepository = {
     const existing = await this.findByPlatformId(workspaceId, platformMessageId);
     if (existing) return existing;
     return this.create({ ...data, workspaceId, platformMessageId });
+  },
+
+  async createWithConnection(data) {
+    return this.create(data);
+  },
+
+  async findByConnectionProviderMessage({ channelConnectionId, providerMessageId }) {
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .select('*, users:user_id(id, name)')
+      .eq('channel_connection_id', channelConnectionId)
+      .eq('provider_message_id', providerMessageId)
+      .maybeSingle();
+    const row = extractSingle(result, 'messages.findByConnectionProviderMessage');
+    return row ? mapMessageRow(row) : null;
   },
 
   /**

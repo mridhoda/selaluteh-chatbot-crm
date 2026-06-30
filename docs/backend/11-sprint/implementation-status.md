@@ -51,6 +51,13 @@
 | AI Agent dynamic OpenAI Compatible provider overrides | Implemented |
 | Supabase mapping & key fixes (`_id` -> `id` in UI) | Implemented |
 | Contacts list paging array crash fix | Implemented |
+| Telegram multi-tenant v1 webhooks | Implemented + live verified |
+| Telegram SelaluTeh + SelaluKopi parallel isolation | Implemented + live verified |
+| Telegram legacy tokenless fallback disabled | Implemented |
+| Telegram v1 attachment/callback/location/checkout support | Implemented |
+| Canonical outlet location backfill from outlet metadata | Implemented + applied |
+| SelaluKopi Google Maps nearest-outlet reply | Fixed + verified |
+| AI Agents platform id/key frontend fix | Implemented |
 
 ## Baseline — 2026-06-17 Task 0.1
 
@@ -260,6 +267,17 @@ Test outcome: 113 tests, 44 suites, 96 pass, 0 fail, 17 skipped (after removing 
 | 29 — Docs & CI | location-flow.md, location-data-model.md, location-admin-api.md, location-security.md, location-test-plan.md, location-intelligence-rules.md, READING-ORDER.md update | 513 |
 | **Final Total** | **41 source files + 52 test/helper/docs files** | **513 pass, 0 fail** |
 
+### Location Intelligence — Metadata Backfill & SelaluKopi Maps Fix — 2026-06-27
+
+| Item | Status | Evidence |
+|---|---|---|
+| Canonical `outlet_locations` metadata backfill | ✅ Applied | Migration `032_backfill_outlet_locations_from_metadata.sql` applied via Supabase MCP |
+| SelaluKopi outlet location rows | ✅ Verified | `SELKOP Samarinda` and `SELKOP Tenggarong` now have `VERIFIED` outlet location rows |
+| Google Maps links | ✅ Verified | `google_maps_uri` populated from `outlets.metadata.googleMapsLink` |
+| Text fallback for exact outlet address | ✅ Implemented | `nearest-outlet-reply.service.js` falls back to canonical outlet address/name match when geocoder returns `NOT_FOUND` |
+| AI outlet context includes Maps links | ✅ Implemented | `ai.service.js` includes outlet address + Google Maps URL in official outlet context and `get_outlets` tool output |
+| Targeted tests | ✅ Passed | `nearest-outlet-reply-service.test.js` + `outlet-location-record.test.js`: 14 pass, 0 fail |
+
 ## Location Intelligence — Infrastructure
 
 | Item | Status | Notes |
@@ -271,6 +289,28 @@ Test outcome: 113 tests, 44 suites, 96 pass, 0 fail, 17 skipped (after removing 
 | `find_nearest_outlet` AI tool | Registered | In domain-tools.js |
 | `googleMapsApiKey` env config | Added | Fallback only (default = Nominatim) |
 | Default provider | Nominatim | Gratis, tanpa API key |
+
+Additional canonicalization note:
+
+- New or existing outlets created from the Outlets UI may initially store coordinates and Maps links in `outlets.metadata`. Migration `032_backfill_outlet_locations_from_metadata.sql` promotes valid metadata coordinates/maps links into canonical `outlet_locations` rows using `provider='metadata'`, `location_source='outlet_metadata'`, and `status='VERIFIED'`.
+- Location lookup should prefer `outlet_locations`; metadata fallback remains a compatibility layer, not the long-term source of truth.
+
+## Telegram Multi-Tenant V1 Webhooks — 2026-06-27
+
+| Item | Status | Evidence |
+|---|---|---|
+| Canonical channel connection schema | ✅ Applied | Migration `030_channel_connections_telegram.sql` creates `channel_connections`, `outlet_channel_assignments`, `telegram_webhook_events` and nullable connection columns on contacts/chats/messages |
+| Upsert constraints | ✅ Applied | Migration `031_channel_connection_upsert_constraints.sql` supports PostgREST upsert arbiters for connection-scoped contacts/chats |
+| Exact webhook route | ✅ Implemented | `POST /webhooks/telegram/v1/:connectionPublicId` validates public id + per-connection Telegram secret token |
+| Legacy unsafe fallback | ✅ Disabled | Tokenless `/webhook/telegram` returns disabled/410; no global latest Telegram platform fallback |
+| Worker processing | ✅ Implemented | `telegram-webhook-events.worker.js` claims events and processes by exact connection/workspace |
+| Outbound isolation | ✅ Implemented | `telegram-outbound.service.js` sends through `chat.channel_connection_id` only |
+| Webhook manager | ✅ Updated | Reconciles active `channel_connections` with v1 URL + `secret_token` |
+| Live SelaluTeh bot | ✅ Verified | `selkoporder_bot`, public id `tgc_-TSDUlGLRQbDV6H1`, `CONNECTED/VERIFIED` |
+| Live SelaluKopi bot | ✅ Verified | `Selkoporders_bot`, public id `tgc_GALPZnnV4XJuwFJj`, `CONNECTED/VERIFIED` |
+| Cross-workspace isolation | ✅ Verified | Same Telegram `chat.id` persists as separate chats/messages under SelaluTeh and SelaluKopi channel connections |
+| Live E2E | ✅ Verified | SelaluKopi `/start` and `Kmu siapa` processed into `SelaluKopi Demo` with outbound AI reply |
+| Regression tests | ✅ Passed | Telegram/webhook/security regression: 42 pass, 0 fail |
 
 ## General Backend — Sections 16–23 — 2026-06-23
 
@@ -343,3 +383,56 @@ Test outcome: 113 tests, 44 suites, 96 pass, 0 fail, 17 skipped (after removing 
 |---|---|
 | Outlet service integration tests | 8 pass, 0 fail (`node --test`) |
 | Web client compilation | Vite build compiled successfully |
+
+## Workspace Access Control (Member Details Fix) — 2026-06-26
+
+| Module | Status | Key Files |
+|---|---|---|
+| Member name and email fix | ✅ Implemented | `memberships.repository.js` (joins users table on user_id), `AccessControlPage.jsx` (reads nested name/email properties) |
+
+| Test Suite | Result |
+|---|---|
+| Workspace membership integration tests | 2 pass, 0 fail (`node --test`) |
+| Web client compilation | Vite build compiled successfully |
+
+## Cart & Order Lifecycle (Conversation Orders Fix) — 2026-06-26
+
+| Module | Status | Key Files |
+|---|---|---|
+| Conversation Orders Fix | ✅ Implemented | `orders.supabase.repository.js` (filters by chatId/contactId), `order.service.js` (passes params), `routes/orders.js` (extracts query params), `ChatContextPanel.jsx` (displays orderNumber instead of UUID id) |
+
+| Test Suite | Result |
+|---|---|
+| Order types unit tests | 15 pass, 0 fail (`node --test`) |
+| Web client compilation | Vite build compiled successfully |
+
+## Test Suite Stabilisation and Spec Alignment — 2026-06-26
+
+| Module | Status | Key Files |
+|---|---|---|
+| Domain Tool-Gateway count | ✅ Stabilised | `tool-gateway.test.js` updated to match actual 14 commerce tool definitions |
+| Order Service Lifecycle Transitions | ✅ Stabilised | `order-service.integration.test.js` updated to use `isValidOrderTransition` and `OrderStatus` |
+| Checkout Flow Seeding and Columns | ✅ Stabilised | `checkout-flow.test.js` fixed to use valid platform/contact/chat constraints and cart/cart_items schema |
+| Spec Folder Alignment | ✅ Aligned | Moved `auto-escalate-complaints` spec to `specs/active/` to match active lifecycle state |
+
+| Test Suite | Result |
+|---|---|
+| Full server tests | 1239 pass, 0 fail (`npm test`) |
+| Spec synchronization | 13 specs validated successfully (`npm run specs:check`) |
+
+## Connected Platforms Redesign and Webhook Synchronization — 2026-06-27
+
+| Module | Status | Key Files |
+|---|---|---|
+| Workspace Header Synchronization | ✅ Implemented | `httpClient.js` (request interceptor attaches workspace ID), `Sidebar.jsx` (loads and reloads active workspace options) |
+| Dedicated AI Agent Assignment Modal | ✅ Implemented | `PlatformsPage.jsx` (creates selection modal and updates DB), `PlatformDetailDrawer.jsx` (triggers modal callback) |
+| Dynamic Meta vs Telegram Field Labels | ✅ Implemented | `PlatformDetailDrawer.jsx` (renders customized Page/Phone number ID & Token labels) |
+| Webhook Health Database Auto-Sync | ✅ Implemented | `platforms.supabase.repository.js` (joins channel_connections and updates/self-heals status in background), `integrations.js` (updates status on setWebhook success), `meta.js` and `telegram.js` (updates status on first message event) |
+| Minimalist UI Redesign | ✅ Implemented | `PlatformsPage.jsx` (restyled summary cards, outline buttons, card shadows, purple active agent badges) |
+
+| Test Suite | Result |
+|---|---|
+| Full server tests | 1269 pass, 0 fail (`npm test`) |
+| Web client compilation | Vite build compiled successfully |
+| Spec synchronization | 13 specs validated successfully (`npm run specs:check`) |
+

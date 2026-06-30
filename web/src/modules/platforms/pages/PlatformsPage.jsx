@@ -8,12 +8,17 @@ import {
   Settings,
   TestTube,
   RotateCcw,
+  Layers,
+  Activity,
+  AlertTriangle,
+  MessageCircle,
 } from 'lucide-react'
 import PageHeader from '../../../shared/components/ui/PageHeader'
 import EmptyState from '../../../shared/components/ui/EmptyState'
 import ConfirmDialog from '../../../shared/components/ui/ConfirmDialog'
 import { useToast } from '../../../shared/components/feedback/Toast'
 import BrandIcon from '../../../shared/components/brand/BrandIcon'
+import api from '../../../shared/api/httpClient'
 import { platformsApi } from '../api/platformsApi'
 import PlatformStatusBadge from '../components/PlatformStatusBadge'
 import WebhookHealthBadge from '../components/WebhookHealthBadge'
@@ -49,7 +54,7 @@ function getConnectionStatus(platform) {
 }
 
 function getWebhookHealth(platform) {
-  return platform.webhookConfigured ? 'healthy' : 'unconfigured'
+  return platform.webhookConfigured ? 'healthy' : 'not_configured'
 }
 
 function getAccountId(platform) {
@@ -106,24 +111,64 @@ function getApiErrorMessage(e, fallback = 'Request failed') {
 
 // ─── sub-components ────────────────────────────────────────────────────────
 
-function SummaryCard({ label, value, color }) {
+function SummaryCard({ label, value, color, icon: Icon }) {
   return (
     <div
       className='card'
-      style={{ padding: '16px 20px', flex: 1, minWidth: 0 }}
+      style={{
+        padding: '20px 24px',
+        flex: 1,
+        minWidth: 0,
+        background: 'var(--surface-primary)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 16,
+        boxShadow: '0 4px 20px -2px rgba(17, 24, 46, 0.02), 0 2px 6px -1px rgba(17, 24, 46, 0.02)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-2px)'
+        e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(17, 24, 46, 0.04), 0 8px 16px -6px rgba(17, 24, 46, 0.04)'
+        e.currentTarget.style.borderColor = color || 'var(--border-strong)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.boxShadow = '0 4px 20px -2px rgba(17, 24, 46, 0.02), 0 2px 6px -1px rgba(17, 24, 46, 0.02)'
+        e.currentTarget.style.borderColor = 'var(--border-subtle)'
+      }}
     >
-      <div
-        style={{
-          fontSize: 28,
-          fontWeight: 700,
-          color: color || 'var(--text-primary)',
-          lineHeight: 1.1,
-          marginBottom: 4,
-        }}
-      >
-        {value}
+      <div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 6 }}>
+          {label}
+        </div>
+        <div
+          style={{
+            fontSize: 28,
+            fontWeight: 700,
+            color: color || 'var(--text-primary)',
+            lineHeight: 1,
+          }}
+        >
+          {value}
+        </div>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{label}</div>
+      {Icon && (
+        <div
+          style={{
+            padding: 10,
+            borderRadius: 12,
+            background: color ? `${color}15` : 'var(--surface-secondary)',
+            color: color || 'var(--text-secondary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon size={18} />
+        </div>
+      )}
     </div>
   )
 }
@@ -351,6 +396,9 @@ export default function PlatformsPage() {
   // confirm delete
   const [confirmDelete, setConfirmDelete] = useState(null)
 
+  // agent assign modal
+  const [agentAssignPlatform, setAgentAssignPlatform] = useState(null)
+
   // ── data fetching ────────────────────────────────────────────────────────
 
   const fetchPlatforms = useCallback(async () => {
@@ -373,11 +421,9 @@ export default function PlatformsPage() {
   const fetchAgents = useCallback(async () => {
     try {
       // agents endpoint is optional — fail silently
-      const res = await fetch('/api/agents', { credentials: 'include' })
-      if (res.ok) {
-        const d = await res.json()
-        setAgents(Array.isArray(d) ? d : d.data || [])
-      }
+      const res = await api.get('/agents', { skipAuthRedirect: true })
+      const d = res.data
+      setAgents(Array.isArray(d) ? d : d.data || [])
     } catch {
       // no-op
     }
@@ -533,22 +579,24 @@ export default function PlatformsPage() {
       {/* Summary cards */}
       {!isLoading && platforms.length > 0 && (
         <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
-          <SummaryCard label='Connected Channels' value={platforms.length} />
+          <SummaryCard label='Connected Channels' value={platforms.length} icon={Layers} />
           <SummaryCard
             label='Active'
             value={connectedCount}
             color='var(--success-600)'
+            icon={Activity}
           />
           <SummaryCard
             label='Needs Attention'
             value={needsAttentionCount}
             color={
               needsAttentionCount > 0
-                ? 'var(--warning-600)'
+                ? 'var(--warning-500)'
                 : 'var(--text-primary)'
             }
+            icon={AlertTriangle}
           />
-          <SummaryCard label='Messages Today' value='—' />
+          <SummaryCard label='Messages Today' value='—' icon={MessageCircle} />
         </div>
       )}
 
@@ -627,7 +675,17 @@ export default function PlatformsPage() {
           }
         />
       ) : (
-        <div className='card' style={{ overflow: 'hidden', padding: 0 }}>
+        <div
+          className='card'
+          style={{
+            overflow: 'hidden',
+            padding: 0,
+            borderRadius: 16,
+            border: '1px solid var(--border-subtle)',
+            boxShadow: '0 4px 20px -2px rgba(17, 24, 46, 0.02), 0 2px 6px -1px rgba(17, 24, 46, 0.02)',
+            background: 'var(--surface-primary)',
+          }}
+        >
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr
@@ -647,12 +705,12 @@ export default function PlatformsPage() {
                   <th
                     key={col}
                     style={{
-                      padding: '10px 16px',
+                      padding: '14px 20px',
                       textAlign: 'left',
                       fontSize: 11,
                       fontWeight: 600,
                       textTransform: 'uppercase',
-                      letterSpacing: '0.06em',
+                      letterSpacing: '0.08em',
                       color: 'var(--text-muted)',
                       whiteSpace: 'nowrap',
                     }}
@@ -695,7 +753,7 @@ export default function PlatformsPage() {
                         borderBottom: isLast
                           ? 'none'
                           : '1px solid var(--border-subtle)',
-                        transition: 'background 0.1s',
+                        transition: 'background 0.15s ease',
                         cursor: 'default',
                       }}
                       onMouseEnter={(e) => {
@@ -707,21 +765,30 @@ export default function PlatformsPage() {
                       }}
                     >
                       {/* Platform */}
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '16px 20px' }}>
                         <div
                           style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 10,
+                            gap: 12,
                           }}
                         >
                           <div
                             className={`chat-prism-avatar-wrap ${platform.type || 'custom'}`}
-                            style={{ width: 28, height: 28, marginTop: 0 }}
+                            style={{
+                              width: 32,
+                              height: 32,
+                              marginTop: 0,
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              boxShadow: '0 2px 8px -2px rgba(0,0,0,0.1)',
+                            }}
                           >
                             <BrandIcon
                               type={platform.type}
-                              size={14}
+                              size={16}
                               color='#ffffff'
                             />
                           </div>
@@ -731,6 +798,7 @@ export default function PlatformsPage() {
                                 fontSize: 13,
                                 fontWeight: 600,
                                 color: 'var(--text-primary)',
+                                marginBottom: 2,
                               }}
                             >
                               {platform.label || platform.type}
@@ -748,24 +816,37 @@ export default function PlatformsPage() {
                         </div>
                       </td>
                       {/* Connection Status */}
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '16px 20px' }}>
                         <PlatformStatusBadge status={status} />
                       </td>
                       {/* AI Agent */}
-                      <td style={{ padding: '12px 16px' }}>
-                        <span
-                          style={{
-                            fontSize: 13,
-                            color: agent
-                              ? 'var(--text-primary)'
-                              : 'var(--text-muted)',
-                          }}
-                        >
-                          {agent ? agent.name : 'No agent'}
-                        </span>
+                      <td style={{ padding: '16px 20px' }}>
+                        {agent ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '4px 10px',
+                              borderRadius: 8,
+                              background: 'var(--ai-50)',
+                              color: 'var(--ai-600)',
+                              fontSize: 12,
+                              fontWeight: 550,
+                              border: '1px solid var(--ai-100)',
+                            }}
+                          >
+                            <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--ai-500)' }}></span>
+                            {agent.name}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                            No agent assigned
+                          </span>
+                        )}
                       </td>
                       {/* Last Activity */}
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '16px 20px' }}>
                         <span
                           style={{
                             fontSize: 13,
@@ -780,41 +861,65 @@ export default function PlatformsPage() {
                         </span>
                       </td>
                       {/* Webhook Health */}
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '16px 20px' }}>
                         <WebhookHealthBadge health={webhookHealth} />
                       </td>
                       {/* Actions */}
-                      <td style={{ padding: '12px 16px' }}>
-                        <div style={{ display: 'flex', gap: 2 }}>
+                      <td style={{ padding: '16px 20px' }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
                           <button
                             className='btn ghost'
-                            style={{ padding: '4px 8px' }}
+                            style={{
+                              padding: '6px',
+                              borderRadius: 8,
+                              border: '1px solid var(--border-subtle)',
+                              background: 'var(--surface-primary)',
+                              boxShadow: '0 1px 2px rgba(17, 24, 46, 0.02)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
                             title='View details'
                             onClick={() => {
                               setDrawerPlatform(platform)
                               setDrawerOpen(true)
                             }}
                           >
-                            <Eye size={14} />
-                          </button>
-                          <button
-                            className='btn ghost'
-                            style={{ padding: '4px 8px' }}
-                            title='Edit'
-                            onClick={() => openEdit(platform)}
-                          >
-                            <Settings size={14} />
+                            <Eye size={14} style={{ color: 'var(--text-secondary)' }} />
                           </button>
                           <button
                             className='btn ghost'
                             style={{
-                              padding: '4px 8px',
-                              color: 'var(--danger-600)',
+                              padding: '6px',
+                              borderRadius: 8,
+                              border: '1px solid var(--border-subtle)',
+                              background: 'var(--surface-primary)',
+                              boxShadow: '0 1px 2px rgba(17, 24, 46, 0.02)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            title='Edit'
+                            onClick={() => openEdit(platform)}
+                          >
+                            <Settings size={14} style={{ color: 'var(--text-secondary)' }} />
+                          </button>
+                          <button
+                            className='btn ghost'
+                            style={{
+                              padding: '6px',
+                              borderRadius: 8,
+                              border: '1px solid var(--border-subtle)',
+                              background: 'var(--surface-primary)',
+                              boxShadow: '0 1px 2px rgba(17, 24, 46, 0.02)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
                             }}
                             title='Delete'
                             onClick={() => setConfirmDelete(platform)}
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={14} style={{ color: 'var(--danger-500)' }} />
                           </button>
                         </div>
                       </td>
@@ -956,7 +1061,146 @@ export default function PlatformsPage() {
         onDelete={handleDelete}
         onSetWebhook={handleSetWebhook}
         onTest={handleTest}
+        onAssignAgent={(p) => setAgentAssignPlatform(p)}
       />
+
+      {/* ── Assign Agent Modal ───────────────────────────────────────────── */}
+      {agentAssignPlatform && (
+        <div
+          className='modal'
+          style={{ zIndex: 1010 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setAgentAssignPlatform(null)
+          }}
+        >
+          <div className='modal-card' style={{ maxWidth: 440, width: '100%' }}>
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '18px 24px',
+                borderBottom: '1px solid var(--border-subtle)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>
+                Assign AI Agent
+              </h3>
+              <button
+                className='btn ghost'
+                style={{ padding: '2px 8px', fontSize: 18, lineHeight: 1 }}
+                onClick={() => setAgentAssignPlatform(null)}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: 24 }}>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+                Choose which AI agent should handle messages for <strong>{agentAssignPlatform.label}</strong>:
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+                {/* Option: No Agent */}
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '12px 16px',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    background: !agentAssignPlatform.agentId ? 'var(--surface-hover)' : 'transparent',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <input
+                    type='radio'
+                    name='selectedAgent'
+                    checked={!agentAssignPlatform.agentId}
+                    onChange={() => setAgentAssignPlatform(prev => ({ ...prev, agentId: null }))}
+                  />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>No Agent</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Disable AI chatbot responses on this platform</div>
+                  </div>
+                </label>
+
+                {/* Option: Agents List */}
+                {agents.map((ag) => {
+                  const isSelected = agentAssignPlatform.agentId === (ag._id || ag.id)
+                  return (
+                    <label
+                      key={ag._id || ag.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '12px 16px',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        background: isSelected ? 'var(--surface-hover)' : 'transparent',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <input
+                        type='radio'
+                        name='selectedAgent'
+                        checked={isSelected}
+                        onChange={() => setAgentAssignPlatform(prev => ({ ...prev, agentId: (ag._id || ag.id) }))}
+                      />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{ag.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{ag.welcome_message || 'AI assistant'}</div>
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button
+                  type='button'
+                  className='btn ghost'
+                  onClick={() => setAgentAssignPlatform(null)}
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type='button'
+                  className='btn'
+                  disabled={saving}
+                  onClick={async () => {
+                    setSaving(true)
+                    try {
+                      const pid = agentAssignPlatform._id || agentAssignPlatform.id
+                      await platformsApi.update(pid, { agentId: agentAssignPlatform.agentId })
+                      toast.success('AI Agent assignment updated successfully')
+                      await fetchPlatforms()
+                      setAgentAssignPlatform(null)
+                      if (drawerPlatform && (drawerPlatform._id || drawerPlatform.id) === pid) {
+                        setDrawerPlatform(prev => ({ ...prev, agentId: agentAssignPlatform.agentId }))
+                      }
+                    } catch (err) {
+                      toast.error(getApiErrorMessage(err, 'Failed to assign agent'))
+                    } finally {
+                      setSaving(false)
+                    }
+                  }}
+                >
+                  {saving ? 'Saving...' : 'Save Assignment'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Confirm Delete ───────────────────────────────────────────────── */}
       <ConfirmDialog

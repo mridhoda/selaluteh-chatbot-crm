@@ -1,10 +1,12 @@
-import { platformsSupabaseRepository } from '../db/repositories/index.js';
+import { channelConnectionsRepository } from '../db/repositories/index.js';
+import { decrypt } from '../utils/encryption.js';
+import { buildTelegramWebhookUrl } from '../services/telegram/telegram-connection-id.service.js';
 
 let healthCheckHandle = null;
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 export function createTelegramWebhookManager({ repository, publicBaseUrl } = {}) {
-  const repo = repository || platformsSupabaseRepository;
+  const repo = repository || channelConnectionsRepository;
 
   function isValidPublicWebhookBaseUrl(baseUrl = '') {
     try {
@@ -14,13 +16,37 @@ export function createTelegramWebhookManager({ repository, publicBaseUrl } = {})
     }
   }
 
-  async function setWebhookForPlatform(platform) {
+  function getToken(connection) {
+    try {
+      return decrypt(connection?.credentialCiphertext || '');
+    } catch {
+      return '';
+    }
+  }
+
+  function getWebhookSecret(connection) {
+    try {
+      return decrypt(connection?.webhookSecretCiphertext || '');
+    } catch {
+      return '';
+    }
+  }
+
+  function expectedWebhookUrl(connection) {
+    const baseUrl = (publicBaseUrl || process.env.PUBLIC_BASE_URL || '').replace(/\/+$/, '');
+    return buildTelegramWebhookUrl({ publicBaseUrl: baseUrl, connectionPublicId: connection.publicId });
+  }
+
+  async function setWebhookForConnection(connection) {
     const baseUrl = (publicBaseUrl || process.env.PUBLIC_BASE_URL || '').replace(/\/+$/, '');
     if (!isValidPublicWebhookBaseUrl(baseUrl)) return { ok: false, error: 'no_valid_https_base_url' };
-    if (!platform?.token) return { ok: false, error: 'no_token' };
+    const token = getToken(connection);
+    if (!token) return { ok: false, error: 'no_token' };
+    const webhookSecret = getWebhookSecret(connection);
+    if (!webhookSecret) return { ok: false, error: 'no_webhook_secret' };
 
-    const webhookUrl = baseUrl + '/webhook/telegram';
-    const res = await fetch('https://api.telegram.org/bot' + platform.token + '/setWebhook', {
+    const webhookUrl = expectedWebhookUrl(connection);
+    const res = await fetch('https://api.telegram.org/bot' + token + '/setWebhook', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -28,23 +54,25 @@ export function createTelegramWebhookManager({ repository, publicBaseUrl } = {})
         max_connections: 40,
         drop_pending_updates: false,
         allowed_updates: ['message', 'callback_query'],
+        secret_token: webhookSecret,
       }),
       signal: AbortSignal.timeout(10000),
     });
     const data = await res.json();
-    return { ok: data.ok, webhookUrl, result: data };
+    return { ok: data.ok, webhookUrl, result: data, error: data.description };
   }
 
-  async function checkWebhookForPlatform(platform) {
-    if (!platform?.token) return { ok: false, error: 'no_token' };
-    const res = await fetch('https://api.telegram.org/bot' + platform.token + '/getWebhookInfo', {
+  async function checkWebhookForConnection(connection) {
+    const token = getToken(connection);
+    if (!token) return { ok: false, error: 'no_token' };
+    const res = await fetch('https://api.telegram.org/bot' + token + '/getWebhookInfo', {
       signal: AbortSignal.timeout(10000),
     });
     const data = await res.json();
     if (!data.ok) return { ok: false, error: data.description };
 
     const info = data.result;
-    const expectedUrl = ((publicBaseUrl || process.env.PUBLIC_BASE_URL || '').replace(/\/+$/, '') + '/webhook/telegram');
+    const expectedUrl = expectedWebhookUrl(connection);
 
     return {
       ok: true,
@@ -59,21 +87,34 @@ export function createTelegramWebhookManager({ repository, publicBaseUrl } = {})
 
   async function ensureAllTelegramWebhooks() {
     const baseUrl = publicBaseUrl || process.env.PUBLIC_BASE_URL || '';
-    if (!isValidPublicWebhookBaseUrl(baseUrl)) {
-      return;
-    }
+    if (!isValidPublicWebhookBaseUrl(baseUrl)) return;
 
     try {
-      const platform = await repo.findLatestByType({ type: 'telegram' });
-      if (!platform) return;
+      const connections = await repo.listActiveByProvider({ provider: 'TELEGRAM' });
+      if (!connections?.length) return;
 
-      const check = await checkWebhookForPlatform(platform);
-      if (!check.ok || !check.urlMatch || check.lastErrorMessage) {
-        const result = await setWebhookForPlatform(platform);
+      for (const connection of connections) {
+        const check = await checkWebhookForConnection(connection);
+        if (check.ok && check.urlMatch && !check.lastErrorMessage) continue;
+
+        const result = await setWebhookForConnection(connection);
         if (result.ok) {
-          console.log('[webhook-manager] Webhook renewed for ' + platform.id?.slice(0, 8) + ' → ' + result.webhookUrl);
+          await repo.markConnected?.({
+            workspaceId: connection.workspaceId,
+            connectionId: connection.id,
+            webhookUrl: result.webhookUrl,
+            allowedUpdates: ['message', 'callback_query'],
+          });
+          console.log('[webhook-manager] Webhook renewed for connection ' + connection.id?.slice(0, 8) + ' -> ' + result.webhookUrl);
         } else {
-          console.error('[webhook-manager] Failed to set webhook: ' + result.error);
+          const marker = connection.lastWebhookVerifiedAt ? repo.markDegraded : repo.markError;
+          await marker?.({
+            workspaceId: connection.workspaceId,
+            connectionId: connection.id,
+            errorCode: result.error || 'TELEGRAM_SET_WEBHOOK_FAILED',
+            errorMessage: result.error || 'Failed to set webhook',
+          });
+          console.error('[webhook-manager] Failed to set webhook for connection ' + connection.id?.slice(0, 8) + ': ' + result.error);
         }
       }
     } catch (err) {
@@ -97,5 +138,5 @@ export function createTelegramWebhookManager({ repository, publicBaseUrl } = {})
     }
   }
 
-  return { setWebhookForPlatform, checkWebhookForPlatform, ensureAllTelegramWebhooks, start, stop };
+  return { setWebhookForConnection, checkWebhookForConnection, ensureAllTelegramWebhooks, start, stop };
 }

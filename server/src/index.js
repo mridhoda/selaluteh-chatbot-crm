@@ -20,12 +20,14 @@ import platformRoutes from './routes/platforms.js';
 import agentRoutes from './routes/agents.js';
 import chatRoutes from './routes/chats.js';
 import webhookRoutes from './routes/webhooks/index.js';
+import telegramV1WebhookRoutes from './routes/webhooks/telegram-v1.js';
 import analyticsRoutes from './routes/analytics.js';
 import billingRoutes from './routes/billing.js';
 import profileRoutes from './routes/profile.js';
 import contactRoutes from './routes/contacts.js';
 import integrationsRoutes from './routes/integrations.js';
 import complaintRoutes from './routes/complaints.js';
+import complaintEscalationRoutes from './routes/complaint-escalation.routes.js';
 import orderRoutes from './routes/orders.js';
 import outletRoutes from './routes/outlets.js';
 import productRoutes from './routes/products.js';
@@ -42,12 +44,15 @@ import inventoryRoutes from './routes/inventory.js';
 import notificationSettingsRoutes from './routes/notification-settings.js';
 import pushRoutes from './routes/push.js';
 import realtimeRoutes from './routes/realtime.js';
+import channelConnectionRoutes from './routes/channel-connections.js';
 import createLocationAdminRouter from './routes/location-admin.js';
 import createLocationInternalRouter from './routes/location-internal.js';
 import { start as startFollowups } from './services/followups.service.js';
 import { start as startCartExpiry } from './workers/cart-expiry.worker.js';
 import { start as startPaymentReconciliation } from './workers/payment-reconciliation.worker.js';
 import { createTelegramWebhookManager } from './workers/webhook-manager.worker.js';
+import { startEscalationScheduler } from './workers/escalation-scheduler.worker.js';
+import { start as startTelegramWebhookEvents } from './workers/telegram-webhook-events.worker.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -65,7 +70,12 @@ app.use((req, res, next) => {
 
 app.use(requestId);
 app.use(corsMiddleware());
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({
+  limit: '2mb',
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  },
+}));
 app.use(httpLogger());
 app.get('/public-files/:storedName', async (req, res, next) => {
   try {
@@ -129,6 +139,7 @@ app.use('/agents', agentRoutes);
 app.use('/chats', chatRoutes);
 app.use('/webhook', webhookRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/webhooks/telegram/v1', telegramV1WebhookRoutes);
 app.use('/analytics', analyticsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/billing', billingRoutes);
@@ -151,12 +162,19 @@ app.use('/payments', paymentRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/realtime', realtimeRoutes);
+app.use('/api/channel-connections', channelConnectionRoutes);
 app.use('/api', outletAccessRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/workspaces', workspaceSettingsRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api', notificationSettingsRoutes);
+
+// Complaint escalation routes (auto-escalate-complaints spec)
+app.use('/api/complaint-escalation', complaintEscalationRoutes);
+
+// Complaint-scoped escalation sub-routes (manual escalation + history)
+app.use('/api', complaintEscalationRoutes);
 
 // Location Intelligence routes
 app.use('/api/outlets/:outletId/location', createLocationAdminRouter());
@@ -173,6 +191,8 @@ async function bootstrap() {
   startFollowups();
   startCartExpiry();
   startPaymentReconciliation();
+  startEscalationScheduler();
+  startTelegramWebhookEvents({ intervalMs: 1000 });
   const webhookManager = createTelegramWebhookManager();
   webhookManager.start();
 

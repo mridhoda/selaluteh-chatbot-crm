@@ -35,6 +35,35 @@
 
 **Indexes**: `(workspace_id, status)`, `(next_verification_at)` partial where `VERIFIED`
 
+### Metadata Backfill Source
+
+Canonical location lookup uses `outlet_locations`. For outlets created from the normal Outlets UI before admin location verification exists, valid metadata fields may be promoted into this table by migration/backfill:
+
+```text
+outlets.metadata.latitude
+outlets.metadata.longitude
+outlets.metadata.googleMapsLink
+outlets.metadata.googleMapsUrl
+```
+
+Backfilled rows use:
+
+```text
+provider = metadata
+location_source = outlet_metadata
+status = VERIFIED
+confidence = high
+resolver_version = metadata-backfill-1.0.0
+```
+
+Migration:
+
+```text
+server/src/db/migrations/032_backfill_outlet_locations_from_metadata.sql
+```
+
+Runtime should prefer `outlet_locations`. Direct `outlets.metadata` reads are compatibility fallback only.
+
 ## `outlet_location_history` Table
 
 | Column | Type | Notes |

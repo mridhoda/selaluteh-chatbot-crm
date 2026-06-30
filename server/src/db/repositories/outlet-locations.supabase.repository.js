@@ -55,7 +55,44 @@ export const outletLocationsRepository = {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
     const result = await client.from(TABLE).select('*').eq('workspace_id', workspaceId).eq('status', 'VERIFIED');
-    return mapRows(extractData(result, 'outletLocations.listVerifiedEligible') || []);
+    const verified = mapRows(extractData(result, 'outletLocations.listVerifiedEligible') || []);
+    const outletIdsWithLocation = new Set(verified.map((row) => String(row.outletId)));
+
+    const fallbackResult = await client
+      .from('outlets')
+      .select('id, workspace_id, name, address, city, region, metadata')
+      .eq('workspace_id', workspaceId)
+      .eq('status', 'active')
+      .is('archived_at', null);
+    const fallbackRows = extractData(fallbackResult, 'outletLocations.listVerifiedEligible.fallbackOutlets') || [];
+    const fallback = fallbackRows
+      .filter((outlet) => !outletIdsWithLocation.has(String(outlet.id)))
+      .map((outlet) => {
+        const metadata = outlet.metadata || {};
+        const latitude = Number(metadata.latitude);
+        const longitude = Number(metadata.longitude);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+        return {
+          workspaceId: outlet.workspace_id,
+          outletId: outlet.id,
+          provider: 'metadata',
+          sourceUrl: metadata.googleMapsLink || metadata.googleMapsUrl || null,
+          googleMapsUri: metadata.googleMapsLink || metadata.googleMapsUrl || null,
+          displayName: outlet.name,
+          formattedAddress: outlet.address || '',
+          city: outlet.city || '',
+          province: outlet.region || '',
+          countryCode: 'ID',
+          latitude,
+          longitude,
+          locationSource: 'outlet_metadata',
+          status: 'VERIFIED',
+          confidence: 'metadata',
+        };
+      })
+      .filter(Boolean);
+
+    return [...verified, ...fallback];
   },
 
   async listDueVerification(limit = 50) {

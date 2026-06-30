@@ -14,6 +14,21 @@ function getToken() {
 api.interceptors.request.use((config) => {
   const token = getToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
+
+  // Automatically attach active workspace ID to backend requests
+  try {
+    const userStr = sessionStorage.getItem('user') || localStorage.getItem('user')
+    if (userStr) {
+      const user = JSON.parse(userStr)
+      const workspaceId = user?.workspaceId || user?.workspace_id || user?.currentWorkspaceId || user?.workspace?.id
+      if (workspaceId) {
+        config.headers['x-workspace-id'] = workspaceId
+      }
+    }
+  } catch (e) {
+    // ignore parsing errors
+  }
+
   return config
 })
 

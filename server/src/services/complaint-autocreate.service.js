@@ -90,6 +90,16 @@ function summarizeIssue(issue = '') {
 export function shouldAutoCreateComplaintFromReply({ reply = '', userText = '' } = {}) {
   if (!reply || reply.includes('FILE_COMPLAINT_JSON:')) return false;
 
+  // Exclude meta-questions about whether a complaint was sent/received
+  // e.g. "complain ku udh dikirim ngga?" — this is asking about a complaint, NOT filing one
+  const userLower = String(userText || '').toLowerCase();
+  const isMetaComplaintQuestion = (
+    /\b(komplain|complain|keluhan|laporan)\b.{0,20}\b(sudah|udah|udh|udh|udah|sudah|dikirim|diterima|masuk|masuk|gimana|ngga|nggak|apa|belum|sudahkah|sudahkah|sudah kah)\b/i.test(userLower) ||
+    /\b(sudah|udah|udh)\b.{0,20}\b(komplain|complain|keluhan|laporan)\b.{0,20}\b(dikirim|diterima|masuk|terkirim)\b/i.test(userLower) ||
+    /\b(komplain|complain|keluhan)\b.{0,10}\b(ku|aku|saya|gue|gw)\b.{0,20}\b(udh|sudah|dikirim|masuk|sampe|sampai|terkirim)\b/i.test(userLower)
+  );
+  if (isMetaComplaintQuestion) return false;
+
   const combined = `${reply}\n${userText}`;
   const acknowledgedComplaint = (
     COMPLAINT_WORD_RE.test(combined) &&

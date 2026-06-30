@@ -36,6 +36,9 @@ function mapChatRow(row) {
     mapped.platform = row.platforms.type || '';
     mapped.outletName = row.platforms.label || '';
   }
+  if (row.channel_connections) {
+    mapped.channelConnections = mapRow(row.channel_connections);
+  }
   if (row.outlets) {
     mapped.outlets = mapRow(row.outlets);
     mapped.outletName = row.outlets.name || mapped.outletName || '';
@@ -100,7 +103,7 @@ export const chatsSupabaseRepository = {
     const client = getSupabaseServiceClient();
     const result = await client
       .from(TABLE)
-      .select('*, contacts(*), platforms(*), outlets(id, name), taken_over_by:users!taken_over_by_user_id(id, name)')
+      .select('*, contacts(*), platforms(*), channel_connections(*), outlets(id, name), taken_over_by:users!taken_over_by_user_id(id, name)')
       .eq('id', chatId)
       .maybeSingle();
     const row = extractSingle(result, 'chats.findByIdWithPlatformAndContact');
@@ -145,6 +148,46 @@ export const chatsSupabaseRepository = {
       .single();
     const row = extractSingle(result, 'chats.upsertByPlatformContact');
     return mapChatRow(row);
+  },
+
+  /**
+   * Upsert a chat/conversation scoped to a channel connection and provider
+   * conversation id. This is the canonical Telegram multi-tenant key.
+   */
+  async upsertByChannelConversation({ workspaceId, channelConnectionId, providerConversationId, contactId, platformId = null, data = {} }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const cleanData = { ...data };
+    delete cleanData.agent_id;
+    delete cleanData.agentId;
+    const base = {
+      workspace_id: workspaceId,
+      channel_connection_id: channelConnectionId,
+      provider_conversation_id: providerConversationId,
+      platform_id: platformId,
+      contact_id: contactId,
+      ...cleanData,
+    };
+    const result = await client
+      .from(TABLE)
+      .upsert(base, { onConflict: 'channel_connection_id,provider_conversation_id', ignoreDuplicates: false })
+      .select('*, contacts(*), platforms(id, type, label), channel_connections(*), outlets(id, name), taken_over_by:users!taken_over_by_user_id(id, name)')
+      .single();
+    const row = extractSingle(result, 'chats.upsertByChannelConversation');
+    return mapChatRow(row);
+  },
+
+  async findByIdWithConnectionAndContact({ workspaceId, chatId }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .select('*, contacts(*), platforms(id, type, label), channel_connections(*), outlets(id, name), taken_over_by:users!taken_over_by_user_id(id, name)')
+      .eq('workspace_id', workspaceId)
+      .eq('id', chatId)
+      .maybeSingle();
+    const row = extractSingle(result, 'chats.findByIdWithConnectionAndContact');
+    return row ? mapChatRow(row) : null;
   },
 
   /**

@@ -351,7 +351,7 @@ export async function workspaceListOrders({ workspaceId, outletId, status, payme
   return { data, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
 }
 
-export async function listWorkspaceOrdersForUser({ user, outletId, status, paymentStatus, search, page, limit }) {
+export async function listWorkspaceOrdersForUser({ user, outletId, status, paymentStatus, search, page, limit, chatId, contactId }) {
   const scope = await buildOrderTenantQuery(user, outletId);
   const data = await ordersRepository.workspaceListScoped({
     workspaceId: scope.workspaceId,
@@ -362,6 +362,8 @@ export async function listWorkspaceOrdersForUser({ user, outletId, status, payme
     search,
     page,
     limit,
+    chatId,
+    contactId,
   });
   const total = await ordersRepository.workspaceCountScoped({
     workspaceId: scope.workspaceId,
@@ -370,6 +372,8 @@ export async function listWorkspaceOrdersForUser({ user, outletId, status, payme
     status,
     paymentStatus,
     search,
+    chatId,
+    contactId,
   });
   return { data, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
 }

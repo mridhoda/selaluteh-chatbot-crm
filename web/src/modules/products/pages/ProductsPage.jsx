@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import ImportModal from '../components/ImportModal'
 import * as XLSX from 'xlsx'
 import api from '../../../shared/api/httpClient'
+import { getOrderQueryParams, getSessionUser } from '../../../shared/auth/permissions'
 import { isDemoMode } from '../../../mocks/demoState'
 import {
   ArrowDown,
@@ -2465,7 +2466,7 @@ export default function ProductsPage() {
     }
 
     try {
-      const res = await api.get('/orders')
+      const res = await api.get('/orders', { params: getOrderQueryParams(getSessionUser()) })
       const rawOrders = Array.isArray(res.data)
         ? res.data
         : res.data && Array.isArray(res.data.data)
@@ -6008,4 +6009,3 @@ export default function ProductsPage() {
     </div>
   )
 }
-

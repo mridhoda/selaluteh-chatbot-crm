@@ -137,7 +137,7 @@ export const ordersSupabaseRepository = {
     return (extractData(result, 'orders.workspaceList') ?? []).map(mapOrder);
   },
 
-  async workspaceListScoped({ workspaceId, outletId, outletIds, status, paymentStatus, search, page = 1, limit = 50 }) {
+  async workspaceListScoped({ workspaceId, outletId, outletIds, status, paymentStatus, search, page = 1, limit = 50, chatId, contactId }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
     let q = client.from(TABLE).select('*, contacts(id, name, phone, handle, external_id), outlets(id, name, code, city, status), order_items(*)').eq('workspace_id', workspaceId).order('created_at', { ascending: false });
@@ -145,6 +145,8 @@ export const ordersSupabaseRepository = {
     else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
     if (status) q = q.eq('status', status);
     if (paymentStatus) q = q.eq('payment_status', paymentStatus);
+    if (chatId) q = q.eq('chat_id', chatId);
+    if (contactId) q = q.eq('contact_id', contactId);
     if (search) q = q.or(`order_number.ilike.%${search}%,customer_name_snapshot.ilike.%${search}%`);
     q = applyPagination(q, { page, limit });
     const result = await q;
@@ -163,7 +165,7 @@ export const ordersSupabaseRepository = {
     return result.count ?? 0;
   },
 
-  async workspaceCountScoped({ workspaceId, outletId, outletIds, status, paymentStatus, search }) {
+  async workspaceCountScoped({ workspaceId, outletId, outletIds, status, paymentStatus, search, chatId, contactId }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
     let q = client.from(TABLE).select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId);
@@ -171,6 +173,8 @@ export const ordersSupabaseRepository = {
     else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
     if (status) q = q.eq('status', status);
     if (paymentStatus) q = q.eq('payment_status', paymentStatus);
+    if (chatId) q = q.eq('chat_id', chatId);
+    if (contactId) q = q.eq('contact_id', contactId);
     if (search) q = q.or(`order_number.ilike.%${search}%,customer_name_snapshot.ilike.%${search}%`);
     const result = await q;
     return result.count ?? 0;

@@ -49,7 +49,18 @@ Provider return multiple candidates
 
 Provider return no candidates
   → status: NOT_FOUND
-  → clarification: "Lokasi tidak ditemukan. Coba tambahkan detail lain"
+  → fallback match against canonical outlet_locations name/address/city
+  → if outlet address/name matches customer text, return that outlet and google_maps_uri
+  → else clarification: "Lokasi tidak ditemukan. Coba tambahkan detail lain"
+```
+
+Example:
+
+```text
+Customer: "jalan ahmad muksin tenggarong"
+  → provider may return NOT_FOUND
+  → fallback matches canonical outlet location: SELKOP Tenggarong
+  → returns Google Maps link from outlet_locations.google_maps_uri
 ```
 
 ## 5. Unsupported City
@@ -111,6 +122,17 @@ Admin: refresh
   → fetch provider details
   → compare to canonical
   → dry-run output (no mutation)
+```
+
+## 8A. Metadata Backfill → Canonical Outlet Location
+
+```text
+Outlet created/edited in Outlets UI
+  → coordinates/maps link stored in outlets.metadata
+  → migration 032_backfill_outlet_locations_from_metadata
+  → upsert outlet_locations(workspace_id, outlet_id)
+  → status VERIFIED, provider metadata, google_maps_uri populated
+  → nearest-outlet runtime reads outlet_locations
 ```
 
 ## 9. Verification (Scheduled)

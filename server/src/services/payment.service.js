@@ -3,6 +3,7 @@ import { AppError } from '../utils/errors.js';
 import { ordersRepository, paymentsRepository } from '../db/repositories/index.js';
 import { assertOutletAccess, buildOutletScopedQuery } from './access-control.service.js';
 import { notifyOrderUpdatedRealtime, notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage } from './order.service.js';
+import { getPaymentRuntimeConfig } from './settings.service.js';
 
 const TERMINAL_PAID_STATUSES = new Set(['paid', 'refunded', 'partially_refunded']);
 const ACTIVE_SESSION_STATUSES = new Set(['pending', 'created']);
@@ -183,6 +184,102 @@ export async function createXenditPaymentSessionForOrder({ user, workspaceId, or
   return toPaymentSessionResponse(payment);
 }
 
+export async function createPaymentSessionForOrder({ user, workspaceId, orderId, customer = {}, idempotencyKey, provider }) {
+  const runtimeConfig = await getPaymentRuntimeConfig({ workspaceId });
+  const activeProvider = provider || runtimeConfig.provider || env.paymentProvider;
+  if (activeProvider === 'xendit') {
+    return createXenditPaymentSessionForOrder({ user, workspaceId, orderId, customer, idempotencyKey });
+  }
+  if (activeProvider !== 'doku') {
+    throw new AppError('PAYMENT_PROVIDER_NOT_ENABLED', `Payment provider ${activeProvider || 'manual'} does not support payment links`, 400);
+  }
+  if (!runtimeConfig.configured) {
+    throw new AppError('DOKU_NOT_CONFIGURED', 'DOKU credentials are not configured in Settings', 409);
+  }
+
+  const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
+  if (!order) throw new AppError('NOT_FOUND', 'Order not found', 404);
+  if (user) await assertOutletAccess(user, order.outletId);
+
+  if (order.paymentStatus === 'paid' || order.payment_status === 'paid') {
+    throw new AppError('PAYMENT_ALREADY_PAID', 'Order is already paid', 409);
+  }
+
+  if (idempotencyKey) {
+    const existingByKey = await paymentsRepository.findByIdempotencyKey({ workspaceId, orderId, idempotencyKey });
+    if (existingByKey) return toPaymentSessionResponse(existingByKey);
+  }
+
+  const reusable = await paymentsRepository.findReusableAttempt({ workspaceId, orderId });
+  if (reusable) {
+    if (TERMINAL_PAID_STATUSES.has(reusable.status)) {
+      throw new AppError('PAYMENT_ALREADY_PAID', 'Payment is already paid', 409);
+    }
+    if (ACTIVE_SESSION_STATUSES.has(reusable.status) && reusable.paymentUrl) return toPaymentSessionResponse(reusable);
+  }
+
+  const existingAttempts = await paymentsRepository.count({ workspaceId, orderId });
+  const attemptNumber = existingAttempts + 1;
+  const referenceId = buildPaymentReference({ order, attemptNumber, provider: 'doku' });
+  const paymentAmount = order.totals?.total || order.totalAmount || 0;
+  if (paymentAmount <= 0) {
+    throw new AppError('INVALID_AMOUNT', 'Amount must be greater than zero for DOKU', 400);
+  }
+
+  const adapter = await loadPaymentAdapter('doku');
+  const providerSession = await adapter.createPaymentSession({
+    referenceId,
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    amount: paymentAmount,
+    currency: order.totals?.currency || order.currency || 'IDR',
+    customer: buildCustomerSnapshot(order, customer),
+    items: order.items || [],
+    successReturnUrl: buildReturnUrl('success'),
+    cancelReturnUrl: buildReturnUrl('cancel'),
+    notificationUrl: buildDokuWebhookUrl(),
+    idempotencyKey,
+    metadata: {
+      workspace_id: workspaceId,
+      outlet_id: order.outletId,
+      order_id: order.id,
+      attempt: String(attemptNumber),
+    },
+  }, runtimeConfig.doku);
+
+  const payment = await paymentsRepository.create({
+    workspaceId,
+    outletId: order.outletId,
+    orderId,
+    contactId: resolveEntityId(order.contactId),
+    attemptNumber,
+    provider: 'doku',
+    providerTransactionId: providerSession.providerTransactionId || providerSession.providerSessionId,
+    providerSessionId: providerSession.providerSessionId,
+    providerRef: providerSession.providerSessionId,
+    merchantReference: referenceId,
+    status: providerSession.status || 'pending',
+    amount: providerSession.amount || paymentAmount,
+    currency: providerSession.currency || order.totals?.currency || order.currency || 'IDR',
+    paymentUrl: providerSession.paymentUrl,
+    paymentMethod: 'LINK_PAYMENT',
+    customerSnapshot: buildCustomerSnapshot(order, customer),
+    expiresAt: providerSession.expiresAt || null,
+    metadata: {
+      idempotency_key: idempotencyKey || null,
+      environment: runtimeConfig.environment,
+      provider_session_id: providerSession.providerSessionId,
+      provider_transaction_id: providerSession.providerTransactionId,
+      raw_provider_response: providerSession.rawProviderResponse,
+    },
+  });
+
+  const updatedOrder = await ordersRepository.updateOne({ workspaceId, orderId, updates: { payment_status: 'pending' } });
+  notifyPaymentUpdatedRealtime({ workspaceId, outletId: payment.outletId, payment, order: updatedOrder });
+  notifyOrderUpdatedRealtime({ workspaceId, outletId: updatedOrder?.outletId || payment.outletId, order: updatedOrder });
+  return toPaymentSessionResponse(payment);
+}
+
 export async function refreshPaymentSession({ user, workspaceId, paymentId }) {
   const payment = await getPaymentDetail({ workspaceId, paymentId });
   await assertOutletAccess(user, payment.outletId);
@@ -267,6 +364,38 @@ export async function listPayments({ workspaceId, orderId, status, page, limit, 
   return { data, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
 }
 
+async function enrichPaymentForList({ workspaceId, payment }) {
+  if (!payment) return payment;
+
+  const [order, events] = await Promise.all([
+    payment.orderId ? ordersRepository.workspaceFindById({ workspaceId, orderId: payment.orderId }) : null,
+    paymentsRepository.listEvents({ paymentId: payment.id }),
+  ]);
+
+  const latestSettledEvent = [...(events || [])].reverse().find((event) => (
+    event.feeAmount != null || event.netAmount != null || event.paymentMethod
+  ));
+  const customerSnapshot = payment.customerSnapshot || order?.customerSnapshot || {};
+  const contact = typeof order?.contactId === 'object' ? order.contactId : null;
+  const outlet = order?.outlet || null;
+  const amount = Number(payment.amount ?? order?.totalAmount ?? order?.totals?.total ?? 0);
+  const providerFee = latestSettledEvent?.feeAmount ?? payment.providerFee ?? 0;
+
+  return {
+    ...payment,
+    orderNumber: order?.orderNumber || null,
+    outletName: outlet?.name || order?.outletNameSnapshot || order?.fulfillmentSnapshot?.outletName || null,
+    outletCode: outlet?.code || null,
+    customerName: customerSnapshot.name || customerSnapshot.contactName || order?.customerNameSnapshot || contact?.name || null,
+    customerPhone: customerSnapshot.phone || order?.customerPhoneSnapshot || contact?.phone || null,
+    paymentMethod: payment.paymentMethod || latestSettledEvent?.paymentMethod || order?.paymentMethod || payment.method || null,
+    grossAmount: amount,
+    providerFee,
+    netAmount: latestSettledEvent?.netAmount ?? Math.max(amount - Number(providerFee || 0), 0),
+    events,
+  };
+}
+
 export async function listPaymentsForUser({ user, orderId, status, page, limit, sort }) {
   const scope = await buildOutletScopedQuery(user);
   const data = await paymentsRepository.list({
@@ -279,6 +408,10 @@ export async function listPaymentsForUser({ user, orderId, status, page, limit, 
     limit,
     sort,
   });
+  const enrichedData = await Promise.all(data.map((payment) => enrichPaymentForList({
+    workspaceId: scope.workspaceId,
+    payment,
+  })));
   const total = await paymentsRepository.count({
     workspaceId: scope.workspaceId,
     orderId,
@@ -286,7 +419,7 @@ export async function listPaymentsForUser({ user, orderId, status, page, limit, 
     outletId: scope.outletId,
     outletIds: scope.outletIds,
   });
-  return { data, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
+  return { data: enrichedData, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
 }
 
 export async function getPaymentDetailForUser({ user, paymentId }) {
@@ -385,14 +518,28 @@ function buildXenditReference({ order, attemptNumber }) {
   return `SLT_${outletCode}_${orderNumber}_PAY${String(attemptNumber).padStart(2, '0')}`.slice(0, 64);
 }
 
+function buildPaymentReference({ order, attemptNumber, provider }) {
+  if (provider === 'xendit') return buildXenditReference({ order, attemptNumber });
+  const orderNumber = String(order.orderNumber || order.id).replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(-24);
+  return `SLT${orderNumber}PAY${String(attemptNumber).padStart(2, '0')}`.slice(0, 64);
+}
+
 function buildReturnUrl(kind) {
   const base = env.publicBaseUrl || env.corsOrigin?.split(',')?.[0] || 'http://localhost:5000';
   return `${base.replace(/\/$/, '')}/payments/return/${kind}`;
 }
 
+function buildDokuWebhookUrl() {
+  const base = env.publicBaseUrl || env.corsOrigin?.split(',')?.[0] || 'http://localhost:5000';
+  return `${base.replace(/\/$/, '')}/webhook/doku`;
+}
+
 async function loadPaymentAdapter(provider) {
   if (provider === 'xendit') {
     return import('../integrations/payments/xendit-client.js');
+  }
+  if (provider === 'doku') {
+    return import('../integrations/payments/doku-client.js');
   }
   throw new Error(`Unknown or disabled payment provider: ${provider}`);
 }

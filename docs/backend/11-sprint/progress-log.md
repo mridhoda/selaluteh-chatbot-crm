@@ -939,3 +939,299 @@ Completed all sections of `selaluteh-location-intelligence` spec: core domain co
 
 ### Next
 - Continue implementing remaining tasks under active specs.
+
+---
+
+## 2026-06-26 — Member List Name and Email Display Fix
+
+### Completed
+- Fixed Member List displaying "Unnamed user" and email "-" by updating backend repository `listWorkspaceMembers` in `memberships.repository.js` to join the `users` table on the `user_id` foreign key.
+- Handled nested users schema mapping in `AccessControlPage.jsx` correctly to resolve `member.users?.name` and `member.users?.email`.
+
+### Changed Files
+- `server/src/db/repositories/memberships.repository.js`
+- `docs/backend/11-sprint/progress-log.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `specs/active/selaluteh-workspace-access-control/spec.yaml`
+- `docs/backend/09-ai-context/current-task.md`
+
+### Tests
+- `npm run test` (subset: `test/integration/workspace/workspace-membership.integration.test.js` passes)
+- `npm run build` from `web/` (successful compile)
+
+### Next
+- Continue implementing remaining tasks under active specs.
+
+---
+
+## 2026-06-26 — Conversation Orders Filter and Order ID Display Fix
+
+### Completed
+- Fixed Conversation Orders modal showing all workspace orders by filtering the GET `/orders` endpoint by `chat_id` / `chatId` and `contact_id` / `contactId`. Updated `listWorkspaceOrdersForUser` service function, and `workspaceListScoped` & `workspaceCountScoped` repository query methods to filter by these query parameters.
+- Replaced the order primary key UUID display in the Conversation Orders table and right sidebar order history list with the human-friendly sequential `orderNumber` (e.g. `ORD-...`) while preserving the underlying UUID `id` for actions.
+
+### Changed Files
+- `server/src/db/repositories/orders.supabase.repository.js`
+- `server/src/services/order.service.js`
+- `server/src/routes/orders.js`
+- `web/src/modules/chats/components/ChatContextPanel.jsx`
+- `docs/backend/11-sprint/progress-log.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `specs/active/selaluteh-cart-order-lifecycle/spec.yaml`
+- `docs/backend/09-ai-context/current-task.md`
+
+### Tests
+- `npm run test` (subset: `test/unit/orders/order-types.test.js` passes)
+- `npm run build` from `web/` (successful compile)
+
+
+## 2026-06-26 — Auto-Escalate Complaints (Core Alpha Slice)
+
+### Completed
+- **Schema (Task 2)**: `026_auto_escalate_complaints.sql` — 6 tables: `complaint_escalation_policies`, `outlet_complaint_escalation_overrides`, `complaint_escalations`, `complaint_escalation_responses`, `complaint_escalation_assignments`, `complaint_escalation_scheduled_jobs`. Partial unique index for one-active-escalation-per-complaint-outlet-level. Full RLS.
+- **Constants (Task 1)**: All shared enums (statuses, trigger types, error codes, permissions, events) in `constants.js`.
+- **Policy Repository (Tasks 3–4)**: Workspace default policy upsert + optimistic-concurrency update. Outlet override upsert/delete.
+- **Escalation Repository (Tasks 9, 17, 18)**: `escalation.repository.js` — idempotent escalation create, findActive, listForSupervisor, updateStatus with version check. Response (append-only) and assignment repos included.
+- **Scheduler Repository (Task 12)**: `escalation-scheduler.repository.js` — idempotent enqueue, claim-next-due, mark complete/skip/fail, stuck-job recovery.
+- **Effective Policy Resolver (Task 5)**: DISABLED > CUSTOM > WORKSPACE_DEFAULT merge. Policy validator with trigger+SLA rules.
+- **Outlet Resolver (Task 6)**: Deterministic 3-source chain (order → complaint field → conversation context). Text inference prohibited.
+- **Trigger Matcher (Task 7)**: Pure logic. ANY/ALL. Priority, unassigned-timeout, SLA-threshold, manual triggers.
+- **Supervisor Resolver (Task 8)**: Fallback chain (primary → other outlet supervisor → manager → workspace support → ATTENTION_ALERT). No hard-coded recipients.
+- **Escalation Creation Service (Task 9)**: Full orchestrator. Chains all above. Idempotency key. Acknowledge/cancel/complete with OCC.
+- **Evaluator (Task 11)**: `escalation-evaluator.service.js` — loads complaint, stale-event guard, delegates to creation service.
+- **Scheduler Worker (Task 12)**: `workers/escalation-scheduler.worker.js` — 1-min poll, 10 jobs/workspace/cycle, crash recovery via stuck-job reset.
+- **Response Service (Tasks 18–19)**: Internal supervisor responses. Never auto-sent to customer. Advances ACKNOWLEDGED → RESPONDED.
+- **Audit Service (Task 28)**: Fail-safe wrapper around existing audit.service.js. Strips sensitive fields.
+- **API Routes (Task 27)**: `complaint-escalation.routes.js` — settings CRUD, outlet overrides, manual escalation, supervisor ops, diagnostic preview.
+- **index.js**: Routes and worker registered.
+- **Unit Tests (Task 31)**: `trigger-matcher.test.js` (10 tests) + `effective-policy.test.js` (6 tests).
+
+### Changed Files
+- `server/src/db/migrations/026_auto_escalate_complaints.sql` (new)
+- `server/src/services/auto-escalate-complaints/constants.js` (new)
+- `server/src/services/auto-escalate-complaints/escalation-policy.repository.js` (new)
+- `server/src/services/auto-escalate-complaints/escalation.repository.js` (new)
+- `server/src/services/auto-escalate-complaints/escalation-scheduler.repository.js` (new)
+- `server/src/services/auto-escalate-complaints/effective-policy.service.js` (new)
+- `server/src/services/auto-escalate-complaints/outlet-resolver.service.js` (new)
+- `server/src/services/auto-escalate-complaints/trigger-matcher.service.js` (new)
+- `server/src/services/auto-escalate-complaints/supervisor-resolver.service.js` (new)
+- `server/src/services/auto-escalate-complaints/escalation-creation.service.js` (new)
+- `server/src/services/auto-escalate-complaints/escalation-evaluator.service.js` (new)
+- `server/src/services/auto-escalate-complaints/escalation-response.service.js` (new)
+- `server/src/services/auto-escalate-complaints/escalation-audit.service.js` (new)
+- `server/src/workers/escalation-scheduler.worker.js` (new)
+- `server/src/routes/complaint-escalation.routes.js` (new)
+- `server/src/index.js` (imports + route registration + worker start)
+- `server/test/unit/auto-escalate-complaints/trigger-matcher.test.js` (new)
+- `server/test/unit/auto-escalate-complaints/effective-policy.test.js` (new)
+- `docs/backend/09-ai-context/current-task.md` (updated)
+- `docs/backend/11-sprint/implementation-status.md` (updated)
+
+### Tests
+- `node --test server/test/unit/auto-escalate-complaints/trigger-matcher.test.js` (10 tests)
+- `node --test server/test/unit/auto-escalate-complaints/effective-policy.test.js` (6 tests)
+- **REQUIRED before use**: run migration `026_auto_escalate_complaints.sql` in Supabase SQL editor
+
+### Blockers / Risks
+- Migration must be run in Supabase before any escalation API call.
+- `user_outlet_access` table shape assumed — verify FK column name matches existing schema.
+- `outlets.primary_supervisor_user_id` and `outlets.manager_user_id` columns assumed — may need migration extension.
+- Scheduler worker is in-process (MVP); a crash before marking complete may replay the job (idempotent, safe).
+
+### Next
+- **Task 10**: Hook auto-evaluation into complaint creation and status-change events.
+- **Task 13**: Supervisor SLA warning/breach job scheduling.
+- **Task 14**: Push/Telegram notification when escalation is created.
+- **Task 15**: Apply `after_escalation.complaintStatus` policy to complaint on escalation created.
+- **Task 20**: Re-escalation when current escalation expires/fails.
+- **Tasks 21–26**: Frontend supervisor inbox + settings pages.
+- **Task 29**: Full integration tests with Supabase test project.
+
+## 2026-06-26 — Schema Alignment &amp; Supabase Validation
+
+### Completed
+- Migrations **026, 027, 028** berhasil dijalankan di Supabase project `marketplace-chatbot-Project` (hxeljduldgynligjioff).
+- Schema `user_outlet_access.membership_id` (NOT NULL, FK ke `user_workspace_memberships`) terverifikasi backfill sukses (0 missing).
+- Schema `outlets.primary_supervisor_user_id` (nullable FK ke `users`) ditambahkan via migration 027.
+- Schema `outlets.manager_user_id` terverifikasi sudah ada sebelumnya.
+- Trigger `set_user_outlet_access_membership_id` di-hardening dengan `search_path=public` via migration 028.
+- `supervisor-resolver.service.js` diperbarui memakai kolom aktual: `user_outlet_access.membership_id`, `outlets.primary_supervisor_user_id`, `outlets.manager_user_id`.
+- Syntax check 14/14 file baru: **semua OK**.
+- Unit tests: **21/21 pass**.
+
+### Changed Files
+- `server/src/db/migrations/027_align_escalation_membership_schema.sql` (added locally)
+- `server/src/db/migrations/028_set_membership_trigger_search_path.sql` (added locally)
+- `server/src/services/auto-escalate-complaints/supervisor-resolver.service.js` (schema-aligned rewrite)
+
+### Tests
+- `node --test` escalation unit tests: **21 pass, 0 fail**
+- `node --check` 14 new files: **all OK**
+
+### Next
+- Hook auto-evaluation into complaint creation (Task 10)
+- Notification integration (Task 14)
+- Frontend supervisor inbox (Tasks 21–26)
+- Integration tests against Supabase test project (Task 29)
+
+## 2026-06-26 — Auto-Escalate Complaints (Notification + Frontend)
+
+### Completed
+- **Task 13/14 — Notification Service**: `escalation-notification.service.js` — Web Push + Telegram ke supervisor setelah eskalasi dibuat. Fail-safe (error di-log, tidak pernah throw). Resolusi Telegram chat_id via `contacts.telegram_chat_id` + fallback via email/phone lookup.
+- **Task 13 — Notification Hook**: `escalation-creation.service.js` sekarang memanggil `notifyEscalationSupervisor()` secara fire-and-forget setelah eskalasi berhasil dibuat dan supervisor teridentifikasi.
+- **Task 10 — Auto-Eval Hook (complaint created)**: `complaint.service.js` — `createComplaintFromAI` kini memanggil `evaluateComplaintForEscalation()` secara async setelah complaint dibuat.
+- **Task 10 — Auto-Eval Hook (complaint updated)**: `routes/complaints.js` — `updateComplaint` kini memanggil evaluasi jika `priority` diubah ke HIGH/CRITICAL.
+- **Task 10 — Auto-Eval Hook (manual create)**: `routes/complaints.js` — `POST /complaints` (dashboard) kini juga memanggil evaluasi setelah create.
+- **Task 21 — Escalation Inbox Page**: `EscalationInboxPage.jsx` — supervisor queue, status/priority badges, acknowledge/complete/cancel, internal note panel, 30s auto-refresh, skeleton loading, empty state.
+- **Task 22 — Escalation Settings Page**: `EscalationSettingsPage.jsx` — enable toggle, trigger rules (priorities, unassigned-timeout, SLA), supervisor SLA windows, recipient strategy, live validation, success/error feedback.
+- **Task 23 — CSS**: `escalation.css` — premium card grid, badge system, skeleton shimmer, toggle, strategy cards, fully responsive.
+- **Task 24 — API client**: `escalationApi.js` — full API client (settings, overrides, CRUD, responses, manual escalation, diagnostic preview).
+- **Task 25 — Routes**: registered in `DashboardPage.jsx` (`/app/escalation-inbox`, `/app/escalation-settings`).
+- **Task 26 — Navigation**: registered in `navigation.config.js` + `Sidebar.jsx` (icons: faBell, faSlidersH).
+- **Build**: `npm run build` sukses — 1719 modules, 0 errors.
+- **Unit tests**: 21/21 pass.
+- **Syntax checks**: 14/14 server files OK.
+
+### Changed Files (Frontend)
+- `web/src/modules/complaints/api/escalationApi.js` (new)
+- `web/src/modules/complaints/pages/EscalationInboxPage.jsx` (new)
+- `web/src/modules/complaints/pages/EscalationSettingsPage.jsx` (new)
+- `web/src/modules/complaints/styles/escalation.css` (new)
+- `web/src/modules/dashboard/pages/DashboardPage.jsx` (imports + routes)
+- `web/src/routes/navigation.config.js` (2 new nav items)
+- `web/src/layouts/components/Sidebar.jsx` (icon map update)
+
+### Changed Files (Backend)
+- `server/src/services/auto-escalate-complaints/escalation-notification.service.js` (new)
+- `server/src/services/auto-escalate-complaints/escalation-creation.service.js` (notification hook)
+- `server/src/services/complaint.service.js` (auto-eval hook + bug fix: validateAndResolveComplaintLinks was not called)
+- `server/src/routes/complaints.js` (auto-eval on create + priority change)
+
+### Alur Lengkap yang Sudah Jalan
+1. **Customer mengirim keluhan** via Telegram/WA/Web
+2. **AI mendeteksi keluhan** (`shouldAutoCreateComplaintFromReply`) → `createComplaintFromAI()` → complaint tersimpan
+3. **Auto-evaluasi berjalan** (`evaluateComplaintForEscalation`) — cek policy → match trigger → cari supervisor
+4. **Eskalasi dibuat** (idempotent) → supervisor ditugaskan
+5. **Supervisor dinotifikasi** — Web Push (browser) + Telegram DM
+6. **Supervisor membuka `/app/escalation-inbox`** → acknowledge, tulis catatan, selesaikan
+7. **Dashboard settings** di `/app/escalation-settings` untuk konfigurasi kebijakan workspace
+
+### Tests
+- `node --test` 21/21 escalation unit tests pass
+- `npm run build` Vite build sukses (1719 modules)
+
+### Next
+- Task 15: Apply `after_escalation.complaintStatus` policy ke complaint setelah eskalasi dibuat
+- Task 20: Re-escalation flow
+- Task 29: Integration tests
+- Task 30: Aksesibilitas + loading states
+
+## 2026-06-26 — Test Suite Stabilisation and Spec Alignment
+
+### Completed
+- Fixed unit test `tool-gateway.test.js` to assert the correct 14 commerce tool definitions instead of the outdated 13 count.
+- Refactored `order-service.integration.test.js` to use the non-deprecated `isValidOrderTransition` and `OrderStatus` models from `order-types.js`.
+- Fixed `checkout-flow.test.js` database constraints by seeding platforms, contacts with `external_id`, and chats with `platform_id` and correct status enum values. Adjusted `carts` and `cart_items` inserts to match the active Postgres schemas and properties, and corrected status assertions from `'PENDING_PAYMENT'` to `'new'`.
+- Moved `auto-escalate-complaints` spec to `specs/active/` to align its folder with its active status.
+- Updated `current-task.md` status to `idle`.
+- Ran spec synchronization checking and validation scripts successfully.
+
+### Changed Files
+- `server/test/unit/ai/tool-gateway.test.js`
+- `server/test/integration/commerce/order-service.integration.test.js`
+- `server/test/integration/checkout-flow.test.js`
+- `docs/backend/09-ai-context/current-task.md`
+
+### Tests
+- `npm test` under `server/` passes successfully: 1239 pass, 0 fail.
+- `npm run specs:check` passes successfully.
+
+## 2026-06-27 — Telegram Multi-Tenant V1 Live E2E, SelaluKopi Backfill, and Outlet Location Canonicalization
+
+### Completed
+- Implemented and live-verified Telegram v1 multi-tenant routing using exact `channel_connections` instead of browser workspace or latest global Telegram platform fallback.
+- Created and applied Telegram channel connection schema migration `030_channel_connections_telegram.sql` and upsert constraint migration `031_channel_connection_upsert_constraints.sql`.
+- Added exact webhook route `POST /webhooks/telegram/v1/:connectionPublicId` with per-connection `secret_token` verification.
+- Added async `telegram_webhook_events` worker, connection-scoped inbound processor, connection-bound outbound service, diagnostics route, and channel-connection webhook reconciliation.
+- Disabled unsafe tokenless legacy `/webhook/telegram` fallback.
+- Backfilled legacy Telegram platforms into canonical channel connections for:
+  - `SelaluTeh Demo` → `selkoporder_bot` → `tgc_-TSDUlGLRQbDV6H1`.
+  - `SelaluKopi Demo` → `Selkoporders_bot` → `tgc_GALPZnnV4XJuwFJj`.
+- Registered both Telegram webhooks with v1 URLs and per-connection secret headers.
+- Live-verified SelaluKopi Telegram messages `/start` and `Kmu siapa` are persisted and processed under `SelaluKopi Demo`, while prior SelaluTeh messages remain isolated under `SelaluTeh Demo` even with the same Telegram `chat.id`.
+- Added incoming attachment handling, voice/audio transcription fallback, commerce callback handling, location handling, file mention outbound, reply markup, and checkout prompt injection in the v1 processor path.
+- Fixed frontend AI Agent/platform issues by replacing `_id`-only option key/value with `id || _id` and replacing unauthenticated `/api/agents` fetch with shared authenticated Axios client.
+- Created and applied migration `032_backfill_outlet_locations_from_metadata.sql` via Supabase MCP to promote `outlets.metadata.latitude`, `outlets.metadata.longitude`, and `outlets.metadata.googleMapsLink/googleMapsUrl` into canonical `outlet_locations` rows.
+- Verified `SelaluKopi Demo` now has canonical `outlet_locations` for `SELKOP Samarinda` and `SELKOP Tenggarong` with `google_maps_uri` populated.
+- Fixed nearest-outlet behavior for `jalan ahmad muksin tenggarong`; backend now returns `SELKOP Tenggarong` with `https://maps.app.goo.gl/NoPBo7ezXJDe3FUd6`.
+
+### Changed Files
+- `docs/backend/telegram-multi-tenant-webhook-architecture.md`
+- `server/src/db/migrations/030_channel_connections_telegram.sql`
+- `server/src/db/migrations/031_channel_connection_upsert_constraints.sql`
+- `server/src/db/migrations/032_backfill_outlet_locations_from_metadata.sql`
+- `server/src/controllers/telegram-webhook.controller.js`
+- `server/src/routes/webhooks/telegram-v1.js`
+- `server/src/routes/webhooks/telegram.js`
+- `server/src/routes/channel-connections.js`
+- `server/src/services/telegram/`
+- `server/src/workers/telegram-webhook-events.worker.js`
+- `server/src/workers/webhook-manager.worker.js`
+- `server/src/db/repositories/channel-connections.supabase.repository.js`
+- `server/src/db/repositories/telegram-webhook-events.supabase.repository.js`
+- `server/src/db/repositories/outlet-channel-assignments.supabase.repository.js`
+- `server/src/db/repositories/outlet-locations.supabase.repository.js`
+- `server/src/services/location-intelligence/nearest-outlet-reply.service.js`
+- `server/src/services/ai.service.js`
+- `web/src/modules/dashboard/pages/DashboardPage.jsx`
+- `web/src/modules/platforms/pages/PlatformsPage.jsx`
+
+### Notes
+- Telegram webhook tenant resolution is now URL-public-id + per-connection secret based. It does not rely on logged-in browser user, active browser workspace, latest platform, first enabled platform, or global default workspace.
+- `outlet_locations` is the canonical table for location intelligence. `outlets.metadata` coordinate/maps values are promoted via migration/backfill and remain a compatibility fallback.
+- Webhook registration can transiently fail when Telegram API fetch fails; already verified connections degrade instead of being made unusable for inbound processing.
+
+### Tests
+- Telegram + webhook/security regression: 42 pass, 0 fail.
+- Location + Telegram targeted suite: 541 pass, 0 fail.
+- Outlet location targeted suite: 14 pass, 0 fail.
+- Live SelaluKopi Telegram E2E: `/start` and `Kmu siapa` processed with outbound AI reply.
+
+### Next
+- Send a fresh live message to `@Selkoporders_bot` with `jalan ahmad muksin tenggarong` after deployment/restart to confirm the new deterministic maps reply appears in Telegram.
+- Add an explicit maintenance command if future metadata-to-`outlet_locations` promotion is needed outside migrations.
+
+## 2026-06-27 — Connected Platforms UI/UX Redesign & Webhook Synchronization
+
+### Completed
+- **Workspace Context Header Interceptor**: Added Axios request interceptor to `httpClient.js` to dynamically append `x-workspace-id` header from session storage to all platform and agent requests.
+- **Dynamic Workspace Switcher**: Refactored `Sidebar.jsx` to fetch real workspaces from backend and cleanly reload application context on workspace switch.
+- **AI Agent Assignment Modal**: Created selection modal in `PlatformsPage.jsx` supporting workspace-bound agent selection or unassignment (saving changes directly to database). Added drawer callback integration in `PlatformDetailDrawer.jsx`.
+- **Dynamic Platform Detail Labels**: Configured dynamic Page/Phone number ID and Access Token input labels in `PlatformDetailDrawer.jsx` based on Telegram vs Meta platform types.
+- **Webhook Health Synchronization & Self-Healing**:
+  - Implemented dynamic resolver in `platforms.supabase.repository.js` to cross-match `platforms.webhook_configured` status with linked `channel_connections.webhook_status` (and self-heal/update the `platforms` table in the background).
+  - Updated `integrations.js` to mark `webhookConfigured = true` in the DB when Telegram setWebhook API succeeds.
+  - Configured webhook event controllers (`meta.js` and `telegram.js`) to set `webhookConfigured = true` on first inbound webhook event.
+- **Minimalist Table & Summary Redesign**: Restyled search bar, summary cards (Lucide icons, border shadow, translateY hover transitions), outline action buttons, and styled purple active agent badges in `PlatformsPage.jsx`.
+
+### Changed Files
+- `web/src/shared/api/httpClient.js`
+- `web/src/layouts/components/Sidebar.jsx`
+- `web/src/modules/platforms/pages/PlatformsPage.jsx`
+- `web/src/modules/platforms/components/PlatformDetailDrawer.jsx`
+- `server/src/db/repositories/platforms.supabase.repository.js`
+- `server/src/routes/integrations.js`
+- `server/src/routes/webhooks/meta.js`
+- `server/src/routes/webhooks/telegram.js`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Tests
+- Full server test suite: **1269 pass, 0 fail** (30 new tests pass).
+- Web client compilation: Vite build compiled successfully.
+- Spec synchronization: 13 specs validated successfully (`npm run specs:check`).
+
+### Next
+- Proceed with remaining MVP validation and dashboard integrations.

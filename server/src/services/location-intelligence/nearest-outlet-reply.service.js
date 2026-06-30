@@ -29,6 +29,17 @@ function buildGoogleMapsLink({ latitude, longitude, googleMapsUri }) {
   return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
 }
 
+function normalizeMatchText(value = '') {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\b(jl|jln)\b/g, 'jalan')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function toEligibleOutlet(location) {
   const latitude = Number(location.latitude);
   const longitude = Number(location.longitude);
@@ -46,6 +57,23 @@ function toEligibleOutlet(location) {
       googleMapsUri: location.googleMapsUri,
     }),
   };
+}
+
+async function findOutletLocationTextFallback({ workspaceId, text }) {
+  const normalizedText = normalizeMatchText(text);
+  if (!normalizedText) return null;
+  const locations = await outletLocationsRepository.listVerifiedEligible(workspaceId);
+  const eligibleOutlets = (locations || [])
+    .map(toEligibleOutlet)
+    .filter(Boolean);
+  const matched = eligibleOutlets.find((outlet) => {
+    const haystack = normalizeMatchText(`${outlet.name} ${outlet.formattedAddress}`);
+    if (!haystack) return false;
+    const tokens = normalizedText.split(' ').filter((token) => token.length >= 3);
+    return tokens.length > 0 && tokens.every((token) => haystack.includes(token));
+  });
+  if (!matched) return null;
+  return formatNearestOutletReply({ recommendation: { ...matched, approximateDistanceMeters: 0, withinServiceRadius: true }, alternatives: [] });
 }
 
 export function createDefaultLocationProvider() {
@@ -138,7 +166,7 @@ export async function buildNearestOutletReplyFromText({ workspaceId, text, provi
     return `Maaf, kota tersebut belum masuk area yang didukung. Area tersedia: ${resolved.supportedCities?.join(', ') || 'Samarinda'}.`;
   }
   if (resolved.status === 'NOT_FOUND') {
-    return null;
+    return findOutletLocationTextFallback({ workspaceId, text });
   }
 
   const candidates = resolved.candidates || [];

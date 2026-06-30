@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../../shared/api/httpClient'
+import { getOrderQueryParams, getSessionUser } from '../../../shared/auth/permissions'
 import { isDemoMode } from '../../../mocks/demoState'
 import kalisStorefront from '../../../assets/kalis_storefront.jpg'
 import rinaAvatar from '../../../assets/rina_avatar.jpg'
@@ -1618,7 +1619,7 @@ export default function OutletsPage() {
         // Fetch orders to calculate today's orders & revenue dynamically
         let rawOrders = []
         try {
-          const ordersRes = await api.get('/orders')
+          const ordersRes = await api.get('/orders', { params: getOrderQueryParams(getSessionUser()) })
           rawOrders = Array.isArray(ordersRes.data)
             ? ordersRes.data
             : ordersRes.data && Array.isArray(ordersRes.data.data)

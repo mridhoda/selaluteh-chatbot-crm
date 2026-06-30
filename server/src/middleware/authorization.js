@@ -1,6 +1,7 @@
 import { AppError } from '../utils/errors.js';
 import { assertOutletAccess, canAccessAllOutlets } from '../services/access-control.service.js';
-import { hasPermission, normalizeRole } from '../security/permission-matrix.js';
+import { hasEffectivePermission } from '../services/access-control.service.js';
+import { normalizeRole } from '../security/permission-matrix.js';
 
 function getRequestRole(req) {
   return normalizeRole(req?.workspace?.role || req?.me?.workspaceRole || req?.me?.role);
@@ -12,7 +13,7 @@ export function authorizePermission(resource, action) {
       if (!req.me) throw new AppError('UNAUTHORIZED', 'Unauthorized', 401);
 
       const role = getRequestRole(req);
-      if (!hasPermission(role, resource, action)) {
+      if (!hasEffectivePermission(req.me, resource, action)) {
         throw new AppError('FORBIDDEN', `Missing permission: ${resource}.${action}`, 403, {
           resource,
           action,

@@ -1,6 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import api from '../../../shared/api/httpClient'
-import { isDemoMode } from '../../../mocks/demoState'
+import { paymentsApi } from '../api/paymentsApi'
 import '../styles/payments.css'
 import {
   User,
@@ -27,69 +26,28 @@ import {
 } from 'lucide-react'
 import BrandIcon from '../../../shared/components/brand/BrandIcon'
 
-const PAYMENT_STATUS = {
-  paid: {
-    label: 'Paid',
-    className: 'payment-badge payment-badge--paid',
-  },
-  pending: {
-    label: 'Pending',
-    className: 'payment-badge payment-badge--pending',
-  },
-  failed: {
-    label: 'Failed',
-    className: 'payment-badge payment-badge--failed',
-  },
-  expired: {
-    label: 'Expired',
-    className: 'payment-badge payment-badge--expired',
-  },
-  refunded: {
-    label: 'Refunded',
-    className: 'payment-badge payment-badge--refunded',
-  },
-}
-
-const RECONCILIATION_STATUS = {
-  matched: {
-    label: 'Matched',
-    className: 'reconciliation-badge reconciliation-badge--matched',
-  },
-  missing_webhook: {
-    label: 'Missing Webhook',
-    className: 'reconciliation-badge reconciliation-badge--warning',
-  },
-  unmatched: {
-    label: 'Unmatched',
-    className: 'reconciliation-badge reconciliation-badge--danger',
-  },
-  amount_mismatch: {
-    label: 'Amount Mismatch',
-    className: 'reconciliation-badge reconciliation-badge--warning',
-  },
-  pending: {
-    label: 'Pending Check',
-    className: 'reconciliation-badge reconciliation-badge--neutral',
-  },
-}
-
 const mapPaymentRow = (p, idx = 0) => {
-  const outletName = p.outlet_name || p.outletId || p.outlet_id || p.outlet || 'Samarinda'
-  const channelVal = p.channel || p.payment_channel || p.provider || 'xendit'
-  const methodVal = p.method || p.payment_method || p.paymentMethod || 'Virtual Account'
-  const providerVal = p.provider || 'xendit'
-  const statusVal = p.payment_status || p.paymentStatus || p.status || 'pending'
+  const outletName = p.outletName || p.outlet_name || p.outlet?.name || p.outletId || p.outlet_id || '-'
+  const channelVal = p.channel || p.payment_channel || p.provider || '-'
+  const methodVal = p.paymentMethod || p.payment_method || p.method || '-'
+  const providerVal = p.provider || '-'
+  const statusVal = p.status || p.paymentStatus || p.payment_status || 'pending'
+  const amountVal = p.grossAmount ?? p.gross_amount ?? p.amount ?? p.totalAmount ?? p.total_amount ?? 0
+  const feeVal = p.providerFee ?? p.provider_fee ?? 0
+  const netVal = p.netAmount ?? p.net_amount ?? Math.max(Number(amountVal || 0) - Number(feeVal || 0), 0)
+  const updatedAt = p.updatedAt || p.updated_at || p.createdAt || p.created_at || null
   return {
     id: p.id || p._id || `pay-${idx}`,
     _id: p.id || p._id || `pay-${idx}`,
     orderId: p.order_id || p.orderId || '-',
+    orderNumber: p.orderNumber || p.order_number || null,
     outlet: outletName,
     outletInitial: (outletName || 'S').charAt(0).toUpperCase(),
     provider: providerVal,
     channel: channelVal,
     method: methodVal,
     paymentMethod: methodVal,
-    amount: p.amount || p.total_amount || 0,
+    amount: amountVal,
     status: statusVal,
     paymentStatus: statusVal,
     reconciliationStatus: p.reconciliation_status || p.reconciliationStatus || 'pending',
@@ -97,346 +55,69 @@ const mapPaymentRow = (p, idx = 0) => {
     providerTransactionId: p.provider_transaction_id || p.providerTransactionId || p.reference || '-',
     paymentLink: p.payment_link || p.paymentLink || p.payment_url || p.paymentUrl || null,
     customer: {
-      name: p.customer_name_snapshot || p.customerSnapshot?.name || p.customer?.name || 'Unknown User',
-      phone: p.customer_phone_snapshot || p.customerSnapshot?.phone || p.customer?.phone || '-',
+      name: p.customerName || p.customer_name || p.customer_name_snapshot || p.customerSnapshot?.name || p.customerSnapshot?.contactName || p.customer?.name || '-',
+      phone: p.customerPhone || p.customer_phone || p.customer_phone_snapshot || p.customerSnapshot?.phone || p.customer?.phone || '-',
     },
+    attempts: p.attempts || (p.attemptNumber || p.attempt_number ? [{ number: p.attemptNumber || p.attempt_number, status: statusVal, time: formatDateTime(updatedAt).date }] : []),
+    paymentUrl: p.payment_url || p.paymentUrl || null,
+    updatedAt,
+    updatedTime: p.updated_time || p.updatedTime || formatDateTime(updatedAt).time,
+    updatedDate: p.updated_date || p.updatedDate || formatDateTime(updatedAt).date,
     events: p.events || [],
+    grossAmount: amountVal,
+    providerFee: feeVal,
+    netAmount: netVal,
+    merchantReference: p.merchant_reference || p.merchantReference || null,
+    expiresAt: p.expires_at || p.expiresAt || null,
+    paidAt: p.paid_at || p.paidAt || null,
+    matchedAt: p.matched_at || p.matchedAt || null,
   }
 }
 
-const summaryCards = [
+const sumBy = (items, selector) => items.reduce((total, item) => total + Number(selector(item) || 0), 0)
+
+const buildSummaryCards = (items) => [
   {
     label: 'Gross Collected',
-    value: 'Rp 8.240.000',
-    change: '18%',
-    changeType: 'positive',
+    value: formatRupiah(sumBy(items.filter((payment) => payment.paymentStatus === 'paid'), (payment) => payment.grossAmount)),
+    caption: `${items.filter((payment) => payment.paymentStatus === 'paid').length} paid`,
     icon: 'wallet',
     tone: 'green',
   },
   {
     label: 'Pending',
-    value: '12',
-    change: '6%',
-    changeType: 'positive',
+    value: String(items.filter((payment) => payment.paymentStatus === 'pending').length),
+    caption: 'awaiting payment',
     icon: 'clock',
     tone: 'orange',
   },
   {
     label: 'Failed / Expired',
-    value: '5',
-    change: '3%',
-    changeType: 'negative',
+    value: String(items.filter((payment) => ['failed', 'expired'].includes(payment.paymentStatus)).length),
+    caption: 'needs follow-up',
     icon: 'close',
     tone: 'pink',
   },
   {
     label: 'Needs Reconciliation',
-    value: '3',
-    change: '2%',
-    changeType: 'positive',
+    value: String(items.filter((payment) => payment.reconciliationStatus !== 'matched').length),
+    caption: 'not matched',
     icon: 'warning',
     tone: 'orange',
   },
   {
     label: 'Provider Fees',
-    value: 'Rp 152.000',
-    change: '5%',
-    changeType: 'positive',
+    value: formatRupiah(sumBy(items, (payment) => payment.providerFee)),
+    caption: 'from events',
     icon: 'tag',
     tone: 'purple',
   },
   {
     label: 'Net Received',
-    value: 'Rp 8.088.000',
-    change: '16%',
-    changeType: 'positive',
+    value: formatRupiah(sumBy(items.filter((payment) => payment.paymentStatus === 'paid'), (payment) => payment.netAmount)),
+    caption: 'paid net total',
     icon: 'bank',
     tone: 'green',
-  },
-]
-
-const initialPayments = [
-  {
-    id: 'PAY-2048',
-    orderId: 'ORD-1028',
-    customer: {
-      name: 'Rina Pratiwi',
-      phone: '0812-3456-7890',
-    },
-    outlet: 'Samarinda',
-    outletInitial: 'S',
-    channel: 'WhatsApp',
-    provider: 'Midtrans',
-    method: 'QRIS',
-    grossAmount: 38000,
-    providerFee: 266,
-    netAmount: 37734,
-    paymentStatus: 'paid',
-    reconciliationStatus: 'matched',
-    updatedTime: '06:23 PM',
-    updatedDate: '16 May 2025',
-    providerTransactionId: 'QRIS-829172',
-    merchantReference: 'ORD-1028-PAY-03',
-    paymentUrl: 'https://example.com/payment/PAY-2048',
-    expiresAt: '16 May 2025, 07:21 PM',
-    paidAt: '16 May 2025, 06:23 PM',
-    matchedAt: '16 May 2025, 06:23 PM',
-    attempts: [
-      {
-        number: 1,
-        status: 'expired',
-        method: 'QRIS',
-        createdAt: '16 May 2025, 05:51 PM',
-      },
-      {
-        number: 2,
-        status: 'paid',
-        method: 'QRIS',
-        createdAt: '16 May 2025, 06:20 PM',
-      },
-    ],
-    events: [
-      {
-        time: '10:21 AM',
-        label: 'Payment link created',
-        type: 'success',
-      },
-      {
-        time: '10:23 AM',
-        label: 'Webhook received',
-        type: 'success',
-      },
-      {
-        time: '10:23 AM',
-        label: 'Signature verified',
-        type: 'success',
-      },
-      {
-        time: '10:24 AM',
-        label: 'Payment marked paid',
-        type: 'success',
-      },
-      {
-        time: '10:24 AM',
-        label: 'Order updated',
-        type: 'success',
-      },
-      {
-        time: '10:25 AM',
-        label: 'Telegram notification sent',
-        type: 'success',
-      },
-    ],
-  },
-  {
-    id: 'PAY-2047',
-    orderId: 'ORD-1027',
-    customer: {
-      name: 'Dewi Lestari',
-      phone: '0813-2545-6789',
-    },
-    outlet: 'Tenggarong',
-    outletInitial: 'T',
-    channel: 'Telegram',
-    provider: 'Midtrans',
-    method: 'VA BCA',
-    grossAmount: 52000,
-    providerFee: 420,
-    netAmount: 51580,
-    paymentStatus: 'pending',
-    reconciliationStatus: 'missing_webhook',
-    updatedTime: '06:19 PM',
-    updatedDate: '16 May 2025',
-    providerTransactionId: 'BCA-991720',
-    merchantReference: 'ORD-1027-PAY-01',
-    paymentUrl: 'https://example.com/payment/PAY-2047',
-    expiresAt: '16 May 2025, 08:19 PM',
-    paidAt: null,
-    matchedAt: null,
-    attempts: [
-      {
-        number: 1,
-        status: 'pending',
-        method: 'VA BCA',
-        createdAt: '16 May 2025, 06:18 PM',
-      },
-    ],
-    events: [
-      {
-        time: '06:18 PM',
-        label: 'Payment link created',
-        type: 'success',
-      },
-      {
-        time: '06:19 PM',
-        label: 'Provider request accepted',
-        type: 'success',
-      },
-      {
-        time: '06:20 PM',
-        label: 'Waiting for webhook',
-        type: 'warning',
-      },
-    ],
-  },
-  {
-    id: 'PAY-2046',
-    orderId: 'ORD-1026',
-    customer: {
-      name: 'Andi Wijaya',
-      phone: '0811-2233-4455',
-    },
-    outlet: 'Bontang',
-    outletInitial: 'B',
-    channel: 'WhatsApp',
-    provider: 'Xendit',
-    method: 'QRIS',
-    grossAmount: 24000,
-    providerFee: 168,
-    netAmount: 23832,
-    paymentStatus: 'expired',
-    reconciliationStatus: 'unmatched',
-    updatedTime: '06:12 PM',
-    updatedDate: '16 May 2025',
-    providerTransactionId: 'XND-773012',
-    merchantReference: 'ORD-1026-PAY-01',
-    paymentUrl: 'https://example.com/payment/PAY-2046',
-    expiresAt: '16 May 2025, 06:12 PM',
-    paidAt: null,
-    matchedAt: null,
-    attempts: [
-      {
-        number: 1,
-        status: 'expired',
-        method: 'QRIS',
-        createdAt: '16 May 2025, 05:12 PM',
-      },
-    ],
-    events: [
-      {
-        time: '05:12 PM',
-        label: 'Payment link created',
-        type: 'success',
-      },
-      {
-        time: '06:12 PM',
-        label: 'Payment link expired',
-        type: 'danger',
-      },
-      {
-        time: '06:13 PM',
-        label: 'Reconciliation required',
-        type: 'warning',
-      },
-    ],
-  },
-  {
-    id: 'PAY-2045',
-    orderId: 'ORD-1025',
-    customer: {
-      name: 'Siti Aminah',
-      phone: '0812-9988-7766',
-    },
-    outlet: 'Samarinda',
-    outletInitial: 'S',
-    channel: 'Website',
-    provider: 'Midtrans',
-    method: 'GoPay',
-    grossAmount: 76000,
-    providerFee: 650,
-    netAmount: 75350,
-    paymentStatus: 'paid',
-    reconciliationStatus: 'matched',
-    updatedTime: '06:08 PM',
-    updatedDate: '16 May 2025',
-    providerTransactionId: 'GOPAY-317801',
-    merchantReference: 'ORD-1025-PAY-01',
-    paymentUrl: 'https://example.com/payment/PAY-2045',
-    expiresAt: '16 May 2025, 07:02 PM',
-    paidAt: '16 May 2025, 06:08 PM',
-    matchedAt: '16 May 2025, 06:08 PM',
-    attempts: [
-      {
-        number: 1,
-        status: 'paid',
-        method: 'GoPay',
-        createdAt: '16 May 2025, 06:02 PM',
-      },
-    ],
-    events: [
-      {
-        time: '06:02 PM',
-        label: 'Payment link created',
-        type: 'success',
-      },
-      {
-        time: '06:07 PM',
-        label: 'Webhook received',
-        type: 'success',
-      },
-      {
-        time: '06:08 PM',
-        label: 'Payment marked paid',
-        type: 'success',
-      },
-    ],
-  },
-  {
-    id: 'PAY-2044',
-    orderId: 'ORD-1024',
-    customer: {
-      name: 'Budi Santoso',
-      phone: '0852-6677-8899',
-    },
-    outlet: 'Balikpapan',
-    outletInitial: 'B',
-    channel: 'WhatsApp',
-    provider: 'Midtrans',
-    method: 'QRIS',
-    grossAmount: 31000,
-    providerFee: 217,
-    netAmount: 30783,
-    paymentStatus: 'failed',
-    reconciliationStatus: 'amount_mismatch',
-    updatedTime: '05:58 PM',
-    updatedDate: '16 May 2025',
-    providerTransactionId: 'QRIS-582190',
-    merchantReference: 'ORD-1024-PAY-02',
-    paymentUrl: 'https://example.com/payment/PAY-2044',
-    expiresAt: '16 May 2025, 06:58 PM',
-    paidAt: null,
-    matchedAt: null,
-    attempts: [
-      {
-        number: 1,
-        status: 'failed',
-        method: 'QRIS',
-        createdAt: '16 May 2025, 05:54 PM',
-      },
-      {
-        number: 2,
-        status: 'failed',
-        method: 'QRIS',
-        createdAt: '16 May 2025, 05:57 PM',
-      },
-    ],
-    events: [
-      {
-        time: '05:54 PM',
-        label: 'Payment link created',
-        type: 'success',
-      },
-      {
-        time: '05:57 PM',
-        label: 'Webhook received',
-        type: 'success',
-      },
-      {
-        time: '05:58 PM',
-        label: 'Amount mismatch detected',
-        type: 'danger',
-      },
-    ],
   },
 ]
 
@@ -476,6 +157,7 @@ const filterOptions = {
     { value: 'balikpapan', label: 'Balikpapan' },
   ],
   dateRange: [
+    { value: 'all', label: 'All Time' },
     { value: 'today', label: 'Today' },
     { value: 'yesterday', label: 'Yesterday' },
     { value: 'seven-days', label: 'Last 7 Days' },
@@ -502,11 +184,46 @@ const filterOptions = {
 }
 
 function formatRupiah(value) {
+  if (value == null || isNaN(Number(value))) return '—'
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     minimumFractionDigits: 0,
-  }).format(value)
+  }).format(Number(value))
+}
+
+function formatDateTime(value) {
+  if (!value) return { time: '-', date: '-' }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return { time: '-', date: '-' }
+  return {
+    time: new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' }).format(date),
+    date: new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(date),
+  }
+}
+
+function matchesDateRange(value, range) {
+  if (!value) return true
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return true
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const diffDays = Math.floor((startOfToday - startOfDate) / 86400000)
+
+  if (range === 'today') return diffDays === 0
+  if (range === 'yesterday') return diffDays === 1
+  if (range === 'seven-days') return diffDays >= 0 && diffDays < 7
+  if (range === 'thirty-days') return diffDays >= 0 && diffDays < 30
+  return true
+}
+
+function buildSelectOptions(items, selector, allLabel) {
+  const values = [...new Set(items.map(selector).filter(Boolean))]
+  return [
+    { value: 'all', label: allLabel },
+    ...values.map((value) => ({ value: value.toLowerCase(), label: value })),
+  ]
 }
 
 function SummaryIcon({ type }) {
@@ -1051,6 +768,8 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true)
   const [selectedPaymentId, setSelectedPaymentId] = useState(null)
   const [isDetailOpen, setIsDetailOpen] = useState(true)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null)
+  const [pageSize, setPageSize] = useState(10)
 
   useEffect(() => {
     loadPayments()
@@ -1080,10 +799,7 @@ export default function PaymentsPage() {
   const loadPayments = async () => {
     setLoading(true)
     try {
-      if (isDemoMode()) {
-        setPayments(initialPayments)
-      } else {
-        const res = await api.get('/payments')
+        const res = await paymentsApi.list({ limit: 100 })
         const rawPayments = Array.isArray(res.data)
           ? res.data
           : res.data && Array.isArray(res.data.data)
@@ -1092,7 +808,7 @@ export default function PaymentsPage() {
 
         const mappedPayments = rawPayments.map((p, idx) => mapPaymentRow(p, idx))
         setPayments(mappedPayments)
-      }
+        setLastUpdatedAt(new Date())
     } catch (err) {
       console.error('Failed to load payments:', err)
     } finally {
@@ -1104,16 +820,25 @@ export default function PaymentsPage() {
     if (payments.length > 0 && !selectedPaymentId) {
       setSelectedPaymentId(payments[0].id)
     }
-  }, [payments])
+  }, [payments, selectedPaymentId])
 
   const [search, setSearch] = useState('')
   const [outlet, setOutlet] = useState('all')
   const [provider, setProvider] = useState('all')
   const [method, setMethod] = useState('all')
   const [reconciliation, setReconciliation] = useState('all')
-  const [dateRange, setDateRange] = useState('today')
+  const [dateRange, setDateRange] = useState('all')
   const [activeTab, setActiveTab] = useState('all')
   const [page, setPage] = useState(1)
+
+  const dynamicFilterOptions = useMemo(() => ({
+    ...filterOptions,
+    outlet: buildSelectOptions(payments, (payment) => payment.outlet !== '-' ? payment.outlet : null, 'All Outlets'),
+    provider: buildSelectOptions(payments, (payment) => payment.provider !== '-' ? payment.provider : null, 'All Providers'),
+    method: buildSelectOptions(payments, (payment) => payment.method !== '-' ? payment.method : null, 'All Methods'),
+  }), [payments])
+
+  const summaryCards = useMemo(() => buildSummaryCards(payments), [payments])
 
   const currentSelectedPayment = useMemo(() => {
     return payments.find((p) => p.id === selectedPaymentId)
@@ -1147,6 +872,8 @@ export default function PaymentsPage() {
         reconciliation === 'all' ||
         payment.reconciliationStatus === reconciliation
 
+      const matchesDate = matchesDateRange(payment.createdAt, dateRange)
+
       let matchesTab = true
 
       if (activeTab === 'attention') {
@@ -1177,10 +904,25 @@ export default function PaymentsPage() {
         matchesProvider &&
         matchesMethod &&
         matchesReconciliation &&
+        matchesDate &&
         matchesTab
       )
     })
-  }, [payments, search, outlet, provider, method, reconciliation, activeTab])
+  }, [payments, search, outlet, provider, method, reconciliation, activeTab, dateRange])
+
+  const totalPages = Math.max(1, Math.ceil(filteredPayments.length / pageSize))
+  const paginatedPayments = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return filteredPayments.slice(start, start + pageSize)
+  }, [filteredPayments, page, pageSize])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, outlet, provider, method, reconciliation, dateRange, activeTab, pageSize])
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages))
+  }, [totalPages])
 
   function getTabCount(tabId) {
     if (tabId === 'all') {
@@ -1229,7 +971,7 @@ export default function PaymentsPage() {
   }
 
   function handleSyncProvider() {
-    console.log('Sync payment provider')
+    loadPayments()
   }
 
   function handleRetrySync(payment) {
@@ -1246,7 +988,7 @@ export default function PaymentsPage() {
 
   const clearAllFilters = () => {
     setOutlet('all')
-    setDateRange('today')
+    setDateRange('all')
     setProvider('all')
     setMethod('all')
     setReconciliation('all')
@@ -1255,7 +997,7 @@ export default function PaymentsPage() {
 
   const hasActiveFilters =
     outlet !== 'all' ||
-    dateRange !== 'today' ||
+    dateRange !== 'all' ||
     provider !== 'all' ||
     method !== 'all' ||
     reconciliation !== 'all' ||
@@ -1299,7 +1041,7 @@ export default function PaymentsPage() {
               </button>
 
               <div className='flex shrink-0 items-center text-xs font-medium text-[var(--text-muted)] xl:border-l xl:border-[var(--border-subtle)] xl:pl-3'>
-                <span>Last updated: 01:44:40 PM</span>
+                <span>Last updated: {lastUpdatedAt ? formatDateTime(lastUpdatedAt).time : '-'}</span>
               </div>
 
               <button
@@ -1331,7 +1073,7 @@ export default function PaymentsPage() {
               label='Outlet'
               icon={Store}
               value={outlet}
-              options={filterOptions.outlet}
+              options={dynamicFilterOptions.outlet}
               onChange={(e) => setOutlet(e.target.value)}
               className='flex-1 min-w-[120px]'
             />
@@ -1350,7 +1092,7 @@ export default function PaymentsPage() {
               label='Provider'
               icon={Store}
               value={provider}
-              options={filterOptions.provider}
+              options={dynamicFilterOptions.provider}
               onChange={(e) => setProvider(e.target.value)}
               className='flex-1 min-w-[120px]'
             />
@@ -1359,7 +1101,7 @@ export default function PaymentsPage() {
               label='Method'
               icon={Wallet}
               value={method}
-              options={filterOptions.method}
+              options={dynamicFilterOptions.method}
               onChange={(e) => setMethod(e.target.value)}
               className='flex-1 min-w-[120px]'
             />
@@ -1397,13 +1139,7 @@ export default function PaymentsPage() {
               <span className='text-[var(--brand-400)]'>·</span>
               <span>Date:</span>
               <span className='text-[var(--text-primary)] font-bold capitalize'>
-                {dateRange === 'today'
-                  ? 'Today'
-                  : dateRange === 'yesterday'
-                    ? 'Yesterday'
-                    : dateRange === 'seven-days'
-                      ? 'Last 7 Days'
-                      : 'Last 30 Days'}
+                {filterOptions.dateRange.find((option) => option.value === dateRange)?.label || 'All Time'}
               </span>
               {provider !== 'all' && (
                 <>
@@ -1485,17 +1221,8 @@ export default function PaymentsPage() {
                   {card.value}
                 </h3>
                 <div className='text-[9px] font-bold mt-0.5 flex items-center gap-1 whitespace-nowrap'>
-                  <span
-                    className={
-                      card.changeType === 'positive'
-                        ? 'text-[var(--success-500)]'
-                        : 'text-[var(--danger-500)]'
-                    }
-                  >
-                    {card.changeType === 'positive' ? '▲' : '▼'} {card.change}
-                  </span>
                   <span className='text-[var(--text-muted)] font-normal'>
-                    vs yesterday
+                    {card.caption}
                   </span>
                 </div>
               </div>
@@ -1586,8 +1313,17 @@ export default function PaymentsPage() {
             </thead>
 
             <tbody className='divide-y divide-gray-100'>
-              {filteredPayments.length > 0 ? (
-                filteredPayments.map((payment) => {
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan='13'
+                    className='text-center py-12 text-gray-400 text-sm font-medium'
+                  >
+                    Loading payments...
+                  </td>
+                </tr>
+              ) : paginatedPayments.length > 0 ? (
+                paginatedPayments.map((payment) => {
                   const isSelected = selectedPaymentId === payment.id
                   return (
                     <tr
@@ -1610,7 +1346,7 @@ export default function PaymentsPage() {
                             : 'border-l-transparent pl-5'
                         }`}
                       >
-                        {payment.id}
+                          <span title={payment.id}>{payment.id.slice(0, 8)}...</span>
                       </td>
 
                       {/* Order ID */}
@@ -1622,7 +1358,7 @@ export default function PaymentsPage() {
                             handleOpenOrder(payment)
                           }}
                         >
-                          {payment.orderId}
+                          {payment.orderNumber || payment.orderId}
                         </button>
                       </td>
 
@@ -1743,7 +1479,7 @@ export default function PaymentsPage() {
                   >
                     <strong>No payments found</strong>
                     <span className='block mt-1 text-xs'>
-                      Try changing the filters or search keyword.
+                      Real payment data is empty for this filter.
                     </span>
                   </td>
                 </tr>
@@ -1755,8 +1491,8 @@ export default function PaymentsPage() {
         {/* Table Pagination Footer */}
         <div className='bg-[var(--surface-primary)] border-x border-b border-[var(--border-subtle)] rounded-b-xl px-6 py-3 flex items-center justify-between shrink-0 select-none text-xs text-[var(--text-muted)] font-semibold mt-[-1px]'>
           <div>
-            Showing {filteredPayments.length > 0 ? (page - 1) * 10 + 1 : 0} to{' '}
-            {Math.min(page * 10, filteredPayments.length)} of{' '}
+            Showing {filteredPayments.length > 0 ? (page - 1) * pageSize + 1 : 0} to{' '}
+            {Math.min(page * pageSize, filteredPayments.length)} of{' '}
             {filteredPayments.length} payments
           </div>
 
@@ -1770,7 +1506,7 @@ export default function PaymentsPage() {
                 ‹
               </button>
 
-              {[1, 2, 3].map((pageNumber) => (
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, index) => index + 1).map((pageNumber) => (
                 <button
                   key={pageNumber}
                   className={`w-8 h-8 rounded-lg flex items-center justify-center transition text-xs font-bold border focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)] cursor-pointer ${
@@ -1784,22 +1520,11 @@ export default function PaymentsPage() {
                 </button>
               ))}
 
-              <span className='px-1 text-[var(--text-subtle)]'>…</span>
+              {totalPages > 5 && <span className='px-1 text-[var(--text-subtle)]'>...</span>}
 
               <button
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition text-xs font-bold border focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)] cursor-pointer ${
-                  page === 12
-                    ? 'bg-[var(--brand-50)] border-[var(--brand-500)] text-[var(--brand-600)]'
-                    : 'bg-[var(--surface-primary)] border-[var(--border-subtle)] text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)]'
-                }`}
-                onClick={() => setPage(12)}
-              >
-                12
-              </button>
-
-              <button
-                disabled={page === 12}
-                onClick={() => setPage((current) => Math.min(12, current + 1))}
+                disabled={page === totalPages}
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                 className='w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-primary)] flex items-center justify-center hover:bg-[var(--surface-secondary)] transition text-[var(--text-secondary)] disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-[var(--surface-primary)] focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)] cursor-pointer'
               >
                 ›
@@ -1807,7 +1532,8 @@ export default function PaymentsPage() {
             </div>
 
             <select
-              defaultValue='10'
+              value={pageSize}
+              onChange={(event) => setPageSize(Number(event.target.value))}
               className='bg-[var(--surface-primary)] border border-[var(--border-subtle)] py-1.5 px-3 rounded-lg text-xs font-semibold text-[var(--text-secondary)] cursor-pointer focus:outline-none focus-visible:border-[var(--brand-500)] focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]'
             >
               <option value='10'>10 / page</option>
