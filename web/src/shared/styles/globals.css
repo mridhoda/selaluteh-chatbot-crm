@@ -64,6 +64,21 @@
   --color-danger-100: var(--danger-100);
   --color-danger-500: var(--danger-500);
   --color-danger-600: var(--danger-600);
+
+  /* foodinesia-one theme registration */
+  --color-charcoal: var(--charcoal);
+  --color-forest: var(--forest);
+  --color-sage: var(--sage);
+  --color-cream: var(--cream);
+  --color-warm-white: var(--warm-white);
+  --color-amber-accent: var(--amber-accent);
+  --color-orange-accent: var(--orange-accent);
+  --color-muted-ink: var(--muted-ink);
+  --color-hairline: var(--hairline);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-info: var(--info);
 }
 
 :root {
@@ -184,6 +199,21 @@
   --lp-red-500: var(--danger-500);
   --lp-red-50: var(--danger-50);
 
+  /* foodinesia-one new variables */
+  --charcoal: #17211C;
+  --forest: #244C3A;
+  --sage: #DCE8DF;
+  --cream: #F7F4EC;
+  --warm-white: #FFFEFA;
+  --amber-accent: #D7953B;
+  --orange-accent: #E56F3D;
+  --muted-ink: #657169;
+  --hairline: #DDE3DE;
+  --success: #318354;
+  --warning: #C88628;
+  --error: #C84C4C;
+  --info: #3E6FA3;
+
   /* Dashboard specific colors */
   --dashboard-bg: var(--app-background);
   --sidebar-bg: var(--card);
@@ -221,17 +251,33 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-@layer base {
-  button {
-    background: transparent;
-    border: none;
-    padding: 0;
-    margin: 0;
-    font: inherit;
-    color: inherit;
-    cursor: pointer;
-  }
+
+@keyframes fdn-fade-up {
+  to { opacity: 1; transform: translateY(0); }
 }
+@keyframes fdn-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes fdn-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.15); }
+}
+
+@utility fade-up {
+  opacity: 0;
+  transform: translateY(14px);
+  animation: fdn-fade-up 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+
+@utility float-soft {
+  animation: fdn-float 6s ease-in-out infinite;
+}
+
+@utility pulse-dot {
+  animation: fdn-pulse 2.2s ease-in-out infinite;
+}
+
 
 @layer base {
   a {
@@ -986,15 +1032,15 @@ body.sidebar-pinned .sidebar {
   border-radius: 8px;
   background: linear-gradient(
     to bottom right,
-    var(--lp-orange-500),
-    var(--lp-pink-500)
+    var(--forest),
+    var(--amber-accent)
   );
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   font-size: 18px;
-  box-shadow: 0 2px 5px rgba(var(--lp-orange-500), 0.2);
+  box-shadow: 0 2px 5px rgba(36, 76, 58, 0.2);
 }
 
 .list {
@@ -1363,15 +1409,15 @@ body.sidebar-pinned .sidebar {
   /* rounded-xl */
   background: linear-gradient(
     to bottom right,
-    var(--lp-orange-500),
-    var(--lp-pink-500)
+    var(--forest),
+    var(--amber-accent)
   );
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   font-size: 24px;
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+  box-shadow: 0 4px 12px rgba(36, 76, 58, 0.3);
   transition: transform 0.3s ease;
 }
 
