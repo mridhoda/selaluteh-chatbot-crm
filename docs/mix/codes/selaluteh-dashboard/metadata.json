@@ -1,0 +1,6 @@
+{
+  "name": "SelaluTeh Dashboard",
+  "description": "Interactive and responsive business performance and operations dashboard for SelaluTeh.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

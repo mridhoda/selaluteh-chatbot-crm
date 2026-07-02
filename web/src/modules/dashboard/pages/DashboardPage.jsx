@@ -46,6 +46,7 @@ import ChatCenterPage from '../../chats/pages/ChatCenterPage'
 import ReportsPage from '../../reports/pages/ReportsPage'
 import Contacts from '../../contacts/pages/ContactsPage'
 import AccessControlPage from '../../access-control/pages/AccessControlPage'
+import DashboardOverviewPage from './DashboardOverviewPage'
 import { getSessionUser, hasPermission, isOwner, permissionsToResourceMap } from '../../../shared/auth/permissions'
 import {
   Chart as ChartJS,
@@ -1410,7 +1411,7 @@ export default function Dashboard() {
           className={`main-body ${isProductsPage ? 'main-body--products' : ''}`}
         >
           <Routes>
-            <Route index element={<Inbox />} />
+            <Route index element={<DashboardOverviewPage />} />
             <Route path='chats' element={<ProtectedPage user={accessUser} resource='chats'><ChatCenterPage /></ProtectedPage>} />
             <Route path='analytics' element={<ProtectedPage user={accessUser} resource='analytics'><AnalyticsPage /></ProtectedPage>} />
             <Route path='contacts' element={<ProtectedPage user={accessUser} resource='contacts'><Contacts /></ProtectedPage>} />

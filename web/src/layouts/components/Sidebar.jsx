@@ -60,6 +60,7 @@ const navigationIcons = {
 }
 
 const activeNavigationKeys = new Set([
+  'dashboard',
   'orders',
   'kitchen-view',
   'products',
