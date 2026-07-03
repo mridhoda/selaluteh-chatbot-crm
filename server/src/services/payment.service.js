@@ -39,13 +39,14 @@ export async function createPayment({ user, workspaceId, outletId, orderId, cust
   if (activeProvider !== 'manual') {
     try {
       const adapter = await loadPaymentAdapter(activeProvider);
+      const runtimeConfig = await getPaymentRuntimeConfig({ workspaceId });
       const result = await adapter.createPayment({
         orderId: orderId.toString(),
         merchantReference,
         amount: requestedAmount,
         currency,
         customer: customer || { name: '', email: '', phone: '' },
-      });
+      }, activeProvider === 'bayargg' ? runtimeConfig.bayargg : undefined);
       providerTransactionId = result.providerTransactionId;
       paymentUrl = result.paymentUrl;
     } catch (err) {
@@ -190,11 +191,11 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
   if (activeProvider === 'xendit') {
     return createXenditPaymentSessionForOrder({ user, workspaceId, orderId, customer, idempotencyKey });
   }
-  if (activeProvider !== 'doku') {
+  if (!['doku', 'bayargg'].includes(activeProvider)) {
     throw new AppError('PAYMENT_PROVIDER_NOT_ENABLED', `Payment provider ${activeProvider || 'manual'} does not support payment links`, 400);
   }
   if (!runtimeConfig.configured) {
-    throw new AppError('DOKU_NOT_CONFIGURED', 'DOKU credentials are not configured in Settings', 409);
+    throw new AppError('PAYMENT_PROVIDER_NOT_CONFIGURED', `${activeProvider.toUpperCase()} credentials are not configured in Settings`, 409);
   }
 
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
@@ -220,13 +221,13 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
 
   const existingAttempts = await paymentsRepository.count({ workspaceId, orderId });
   const attemptNumber = existingAttempts + 1;
-  const referenceId = buildPaymentReference({ order, attemptNumber, provider: 'doku' });
+  const referenceId = buildPaymentReference({ order, attemptNumber, provider: activeProvider });
   const paymentAmount = order.totals?.total || order.totalAmount || 0;
   if (paymentAmount <= 0) {
-    throw new AppError('INVALID_AMOUNT', 'Amount must be greater than zero for DOKU', 400);
+    throw new AppError('INVALID_AMOUNT', `Amount must be greater than zero for ${activeProvider.toUpperCase()}`, 400);
   }
 
-  const adapter = await loadPaymentAdapter('doku');
+  const adapter = await loadPaymentAdapter(activeProvider);
   const providerSession = await adapter.createPaymentSession({
     referenceId,
     orderId: order.id,
@@ -237,7 +238,8 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
     items: order.items || [],
     successReturnUrl: buildReturnUrl('success'),
     cancelReturnUrl: buildReturnUrl('cancel'),
-    notificationUrl: buildDokuWebhookUrl(),
+    notificationUrl: activeProvider === 'doku' ? buildDokuWebhookUrl() : undefined,
+    callbackUrl: activeProvider === 'bayargg' ? buildBayarGgWebhookUrl() : undefined,
     idempotencyKey,
     metadata: {
       workspace_id: workspaceId,
@@ -245,7 +247,7 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
       order_id: order.id,
       attempt: String(attemptNumber),
     },
-  }, runtimeConfig.doku);
+  }, runtimeConfig[activeProvider]);
 
   const payment = await paymentsRepository.create({
     workspaceId,
@@ -253,7 +255,7 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
     orderId,
     contactId: resolveEntityId(order.contactId),
     attemptNumber,
-    provider: 'doku',
+    provider: activeProvider,
     providerTransactionId: providerSession.providerTransactionId || providerSession.providerSessionId,
     providerSessionId: providerSession.providerSessionId,
     providerRef: providerSession.providerSessionId,
@@ -262,7 +264,7 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
     amount: providerSession.amount || paymentAmount,
     currency: providerSession.currency || order.totals?.currency || order.currency || 'IDR',
     paymentUrl: providerSession.paymentUrl,
-    paymentMethod: 'LINK_PAYMENT',
+    paymentMethod: providerSession.paymentMethod || (activeProvider === 'bayargg' ? runtimeConfig.bayargg.paymentMethod : 'LINK_PAYMENT'),
     customerSnapshot: buildCustomerSnapshot(order, customer),
     expiresAt: providerSession.expiresAt || null,
     metadata: {
@@ -283,11 +285,12 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
 export async function refreshPaymentSession({ user, workspaceId, paymentId }) {
   const payment = await getPaymentDetail({ workspaceId, paymentId });
   await assertOutletAccess(user, payment.outletId);
-  if (payment.provider !== 'xendit' || !payment.providerTransactionId) {
-    throw new AppError('NO_PROVIDER_TRANSACTION', 'No Xendit payment session to refresh', 400);
+  if (!['xendit', 'bayargg'].includes(payment.provider) || !payment.providerTransactionId) {
+    throw new AppError('NO_PROVIDER_TRANSACTION', 'No provider payment session to refresh', 400);
   }
-  const adapter = await loadPaymentAdapter('xendit');
-  const providerSession = await adapter.getPaymentSession(payment.providerTransactionId);
+  const adapter = await loadPaymentAdapter(payment.provider);
+  const runtimeConfig = payment.provider === 'bayargg' ? await getPaymentRuntimeConfig({ workspaceId }) : null;
+  const providerSession = await adapter.getPaymentSession(payment.providerTransactionId, runtimeConfig?.bayargg);
   await reconcileProviderSession({ payment, providerSession });
   const refreshed = await paymentsRepository.findById({ workspaceId, paymentId });
   return toPaymentSessionResponse(refreshed);
@@ -436,7 +439,8 @@ export async function syncPaymentWithProvider({ workspaceId, paymentId }) {
   }
 
   const adapter = await loadPaymentAdapter(payment.provider);
-  const result = await adapter.getPayment(payment.providerTransactionId);
+  const runtimeConfig = ['bayargg', 'doku'].includes(payment.provider) ? await getPaymentRuntimeConfig({ workspaceId }) : null;
+  const result = await adapter.getPayment(payment.providerTransactionId, runtimeConfig?.[payment.provider]);
 
   if (result.status !== payment.status && result.status === 'paid') {
     await processPaidPayment({ payment, providerEvent: result });
@@ -534,12 +538,20 @@ function buildDokuWebhookUrl() {
   return `${base.replace(/\/$/, '')}/webhook/doku`;
 }
 
+function buildBayarGgWebhookUrl() {
+  const base = env.publicBaseUrl || env.corsOrigin?.split(',')?.[0] || 'http://localhost:5000';
+  return `${base.replace(/\/$/, '')}/webhook/bayargg`;
+}
+
 async function loadPaymentAdapter(provider) {
   if (provider === 'xendit') {
     return import('../integrations/payments/xendit-client.js');
   }
   if (provider === 'doku') {
     return import('../integrations/payments/doku-client.js');
+  }
+  if (provider === 'bayargg') {
+    return import('../integrations/payments/bayargg-client.js');
   }
   throw new Error(`Unknown or disabled payment provider: ${provider}`);
 }

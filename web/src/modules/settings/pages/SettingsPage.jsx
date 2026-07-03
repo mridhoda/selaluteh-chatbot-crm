@@ -277,7 +277,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div style={{ padding: '20px 24px' }}>
+    <div className="flex flex-1 flex-col overflow-y-auto -m-4 p-6 h-[calc(100vh-58px)] max-h-[calc(100vh-58px)]">
       <PageHeader
         title='Settings'
         description='Manage your workspace and outlet configuration'

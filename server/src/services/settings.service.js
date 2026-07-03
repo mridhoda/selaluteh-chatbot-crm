@@ -11,7 +11,7 @@ export const SETTINGS_SCHEMAS = {
   commerce: { keys: ['ai_commerce_enabled', 'require_checkout_confirmation', 'human_handoff_enabled'] },
   notifications: { keys: ['default_channel', 'enabled_types', 'quiet_hours', 'outlet_recipients'] },
   ai: { keys: ['primary_ai', 'secondary_ai', 'default_model', 'custom_provider_url', 'custom_provider_key'] },
-  payment: { keys: ['provider', 'xendit_mode', 'environment', 'merchant_id', 'public_key', 'payment_methods', 'xendit_secret_key', 'xendit_webhook_token', 'doku_client_id', 'doku_secret_key'] },
+  payment: { keys: ['provider', 'xendit_mode', 'environment', 'merchant_id', 'public_key', 'payment_methods', 'xendit_secret_key', 'xendit_webhook_token', 'doku_client_id', 'doku_secret_key', 'bayargg_api_key', 'bayargg_webhook_secret', 'bayargg_checkout_url', 'bayargg_payment_method', 'bayargg_use_qris_converter'] },
   security: { keys: ['allow_all_outlets_view'] },
 };
 
@@ -144,7 +144,9 @@ export async function getPaymentRuntimeConfig({ workspaceId }) {
       ? Boolean(ns.doku_client_id && ns.doku_secret_key)
       : provider === 'xendit'
         ? Boolean(ns.xendit_secret_key)
-        : provider === 'manual',
+        : provider === 'bayargg'
+          ? Boolean(ns.bayargg_api_key)
+          : provider === 'manual',
     doku: {
       clientId: decryptSecret(ns.doku_client_id),
       secretKey: decryptSecret(ns.doku_secret_key),
@@ -155,6 +157,14 @@ export async function getPaymentRuntimeConfig({ workspaceId }) {
     xendit: {
       secretKey: decryptSecret(ns.xendit_secret_key),
       webhookToken: decryptSecret(ns.xendit_webhook_token),
+    },
+    bayargg: {
+      apiKey: decryptSecret(ns.bayargg_api_key),
+      webhookSecret: decryptSecret(ns.bayargg_webhook_secret),
+      apiBaseUrl: 'https://www.bayar.gg/api',
+      checkoutUrl: ns.bayargg_checkout_url || 'https://www.bayar.gg/pay',
+      paymentMethod: ns.bayargg_payment_method || 'qris',
+      useQrisConverter: Boolean(ns.bayargg_use_qris_converter),
     },
   };
 }

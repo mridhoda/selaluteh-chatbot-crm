@@ -6,8 +6,7 @@ import { listTelegramProductsForOutlet } from './product.service.js';
 import { addItem, removeItem, clearCart, getCartSummary } from './cart.service.js';
 import { createCheckout, confirmCheckout } from './checkout.service.js';
 import { createOrderFromCheckout } from './order.service.js';
-import { buildPaymentInstruction, createPaymentForOrder, createXenditPaymentSessionForOrder } from './payment.service.js';
-import { env } from '../config/env.js';
+import { buildPaymentInstruction, createPaymentForOrder, createPaymentSessionForOrder } from './payment.service.js';
 
 export const COMMERCE_VERSION = 1;
 const MAX_PRODUCTS_PER_PAGE = 8;
@@ -417,32 +416,8 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
 
       let payment;
       let paymentInstruction;
-      if (env.paymentProvider === 'xendit') {
-        try {
-          payment = await createXenditPaymentSessionForOrder({
-            workspaceId,
-            orderId: order.id,
-            customer: {
-              name: contact?.name || '',
-              phone: contact?.phone || contact?.platformAccountId || '',
-            },
-          });
-          paymentInstruction = `🔗 *Invoice:* ${payment.paymentUrl || payment.paymentLink}`;
-        } catch (xenditErr) {
-          console.warn('[payment] Xendit payment session request failed, falling back to manual payment:', xenditErr.message);
-          payment = await createPaymentForOrder({
-            workspaceId,
-            orderId: order.id,
-            customer: {
-              name: contact?.name || '',
-              phone: contact?.phone || contact?.platformAccountId || '',
-            },
-            provider: 'manual',
-          });
-          paymentInstruction = `⚠️ _Gagal membuat link pembayaran Xendit. Silakan lakukan pembayaran manual._\n\n${buildPaymentInstruction(payment)}`;
-        }
-      } else {
-        payment = await createPaymentForOrder({
+      try {
+        payment = await createPaymentSessionForOrder({
           workspaceId,
           orderId: order.id,
           customer: {
@@ -450,7 +425,19 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
             phone: contact?.phone || contact?.platformAccountId || '',
           },
         });
-        paymentInstruction = buildPaymentInstruction(payment);
+        paymentInstruction = `🔗 *Link pembayaran:* ${payment.paymentUrl || payment.paymentLink}`;
+      } catch (paymentLinkErr) {
+        console.warn('[payment] Payment link session request failed, falling back to manual payment:', paymentLinkErr.message, paymentLinkErr.code, JSON.stringify(paymentLinkErr.details || {}));
+        payment = await createPaymentForOrder({
+          workspaceId,
+          orderId: order.id,
+          customer: {
+            name: contact?.name || '',
+            phone: contact?.phone || contact?.platformAccountId || '',
+          },
+          provider: 'manual',
+        });
+        paymentInstruction = `⚠️ _Gagal membuat link pembayaran. Silakan lakukan pembayaran manual._\n\n${buildPaymentInstruction(payment)}`;
       }
       await checkoutsRepository.updateStatus({ workspaceId, checkoutId, status: 'converted' });
       const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId: contact.id, outletId: chat.currentOutletId });

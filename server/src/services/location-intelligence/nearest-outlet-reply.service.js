@@ -17,6 +17,11 @@ const LOCATION_HINT_KEYWORDS = [
 ];
 
 const CITY_KEYWORDS = ['samarinda', 'tenggarong', 'balikpapan', 'bontang'];
+const FOREIGN_LOCATION_KEYWORDS = [
+  'new york', 'newyork', 'nyc', 'america', 'amerika', 'usa', 'united states', 'singapore', 'singapura',
+  'malaysia', 'kuala lumpur', 'bangkok', 'tokyo', 'london', 'paris', 'sydney', 'melbourne',
+];
+const INDONESIAN_ADMIN_KEYWORDS = ['kel', 'kelurahan', 'kec', 'kecamatan', 'rt', 'rw', 'gg', 'gang', 'jalan', 'jl', 'jln'];
 
 function formatDistance(meters) {
   if (!Number.isFinite(meters)) return 'jarak tidak diketahui';
@@ -97,6 +102,29 @@ export function looksLikeCustomerLocationText(text) {
   return hasLocationHint || wordCount <= 5;
 }
 
+export function validateCustomerLocationText(text) {
+  const normalized = normalizeMatchText(text);
+  if (!normalized) return { valid: false, reason: 'empty' };
+  const hasForeignLocation = FOREIGN_LOCATION_KEYWORDS.some(keyword => normalized.includes(keyword));
+  const hasIndonesianAdminTerm = INDONESIAN_ADMIN_KEYWORDS.some(keyword => new RegExp(`\\b${keyword}\\b`, 'i').test(normalized));
+  const hasSupportedCity = CITY_KEYWORDS.some(city => normalized.includes(city));
+
+  if (hasForeignLocation && hasIndonesianAdminTerm) {
+    return { valid: false, reason: 'contradictory_address' };
+  }
+  if (hasForeignLocation && !hasSupportedCity) {
+    return { valid: false, reason: 'outside_supported_area' };
+  }
+  return { valid: true, reason: null };
+}
+
+export function buildInvalidAddressReply(reason) {
+  if (reason === 'outside_supported_area') {
+    return 'Maaf, alamat itu terlihat di luar area layanan kami. Boleh kirim alamat yang valid di Samarinda/Tenggarong/Balikpapan/Bontang, atau share live location/Google Maps?';
+  }
+  return 'Boleh verifikasi alamatnya? Format yang benar: nama jalan/landmark + kelurahan/kecamatan + kota, atau share live location/Google Maps. Contoh: “Jl. Jelawat, Samarinda”.';
+}
+
 export function formatNearestOutletReply(nearest) {
   const recommendation = nearest?.recommendation;
   if (!recommendation) {
@@ -148,6 +176,8 @@ export async function buildNearestOutletReplyFromCoordinates({ workspaceId, lati
 
 export async function buildNearestOutletReplyFromText({ workspaceId, text, provider = createDefaultLocationProvider() }) {
   if (!workspaceId || !looksLikeCustomerLocationText(text)) return null;
+  const validation = validateCustomerLocationText(text);
+  if (!validation.valid) return buildInvalidAddressReply(validation.reason);
 
   const parsed = parseLocationText(text);
   const resolutionService = createResolutionService({

@@ -1,5 +1,5 @@
 import express from 'express';
-import { processDokuCheckoutWebhook, processPaymentWebhook, processXenditPaymentSessionWebhook } from '../../services/payment-webhook.service.js';
+import { processBayarGgWebhook, processDokuCheckoutWebhook, processPaymentWebhook, processXenditPaymentSessionWebhook } from '../../services/payment-webhook.service.js';
 import { assertWebhookPayloadSafe } from '../../security/webhook-security.js';
 
 const router = express.Router();
@@ -17,8 +17,22 @@ async function handleDokuWebhook(req, res, next) {
   } catch (err) { next(err); }
 }
 
+async function handleBayarGgWebhook(req, res, next) {
+  try {
+    if (req.path === '/' && !String(req.baseUrl || '').endsWith('/bayargg')) return next('route');
+    assertWebhookPayloadSafe(req.body);
+    const result = await processBayarGgWebhook({
+      rawBody: req.rawBody || req.body,
+      headers: req.headers,
+    });
+    res.json(result);
+  } catch (err) { next(err); }
+}
+
 router.post('/', handleDokuWebhook);
 router.post('/doku', handleDokuWebhook);
+router.post('/', handleBayarGgWebhook);
+router.post('/bayargg', handleBayarGgWebhook);
 
 router.post('/xendit', async (req, res, next) => {
   try {

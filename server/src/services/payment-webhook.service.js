@@ -148,6 +148,98 @@ export async function processDokuCheckoutWebhook({ rawBody, headers, requestTarg
   return { processed: true, event: { eventType: event.eventType, status: 'paid' } };
 }
 
+export async function processBayarGgWebhook({ rawBody, headers }) {
+  const parsed = safeJson(rawBody);
+  const invoiceId = parsed?.invoice_id || parsed?.invoice;
+  if (!invoiceId) throw new AppError('BAYARGG_WEBHOOK_INVALID', 'Missing Bayar.gg invoice ID', 400);
+
+  const targetPayment = await paymentsRepository.findByProviderTransactionId(invoiceId);
+  if (!targetPayment) return { processed: false, reason: 'no_payment_found' };
+
+  const runtime = await getPaymentRuntimeConfig({ workspaceId: targetPayment.workspaceId });
+  const adapter = await loadAdapter('bayargg');
+  const { valid, event, reason } = await adapter.verifyWebhook(rawBody, headers, runtime.bayargg);
+  if (!valid || !event) throw new AppError('BAYARGG_WEBHOOK_UNAUTHORIZED', reason || 'Invalid Bayar.gg webhook signature', 401);
+
+  const eventKey = event.providerEventId || `${event.providerTransactionId}:${event.eventType}:${event.paidAt || ''}`;
+  const existingEvent = await paymentEventsRepository.findByProviderEventId('bayargg', eventKey);
+  if (existingEvent && existingEvent.processingStatus === 'processed') {
+    return { processed: false, reason: 'duplicate', existingEventId: existingEvent.id };
+  }
+
+  const registered = existingEvent || await paymentEventsRepository.create({
+    workspaceId: targetPayment.workspaceId,
+    provider: 'bayargg',
+    providerEventId: eventKey,
+    eventType: event.eventType,
+    status: event.status,
+    amount: event.amount,
+    currency: event.currency,
+    paymentMethod: event.paymentMethod,
+    raw: safePaymentSessionPayload(event.raw),
+    processingStatus: 'received',
+  });
+  await paymentEventsRepository.updateReferences({ eventId: registered.id, paymentId: targetPayment.id, orderId: targetPayment.orderId });
+
+  if (event.providerTransactionId !== targetPayment.providerTransactionId) {
+    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'provider_transaction_mismatch' });
+    return { processed: false, reason: 'provider_transaction_mismatch' };
+  }
+  if (Number(targetPayment.amount) !== Number(event.amount)) {
+    await paymentsRepository.updatePayment(targetPayment.id, { reconciliation_status: 'amount_mismatch' });
+    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'amount_mismatch' });
+    return { processed: false, reason: 'amount_mismatch' };
+  }
+  if (targetPayment.currency !== event.currency) {
+    await paymentsRepository.updatePayment(targetPayment.id, { reconciliation_status: 'amount_mismatch' });
+    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'currency_mismatch' });
+    return { processed: false, reason: 'currency_mismatch' };
+  }
+
+  if (targetPayment.status === 'paid' && event.status !== 'paid') {
+    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: 'stale_no_downgrade' });
+    return { processed: false, reason: 'stale_no_downgrade' };
+  }
+
+  if (event.status !== 'paid') {
+    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: event.status });
+    return { processed: true, event: { eventType: event.eventType, status: event.status } };
+  }
+
+  const updatedPayment = await paymentsRepository.transitionStatus({
+    paymentId: targetPayment.id,
+    fromStatuses: ['pending', 'expired'],
+    newStatus: 'paid',
+    updates: { reconciliation_status: 'matched', paid_at: event.paidAt || new Date().toISOString() },
+  });
+
+  if (!updatedPayment && targetPayment.status !== 'paid') {
+    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: 'state_conflict_noop' });
+    return { processed: false, reason: 'state_conflict_noop' };
+  }
+
+  await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: 'paid' });
+  if (!existingEvent) {
+    try {
+      await paymentsRepository.addEvent({ paymentId: targetPayment.id, event: {
+        provider: 'bayargg', providerEventId: eventKey, eventType: event.eventType, status: 'paid',
+        amount: event.amount, currency: event.currency, paymentMethod: event.paymentMethod, paidAt: event.paidAt ? new Date(event.paidAt) : new Date(), rawPayload: safePaymentSessionPayload(event.raw),
+      } });
+    } catch (evtErr) {
+      console.error('[PaymentWebhook] addEvent warning (non-fatal):', evtErr.message);
+    }
+  }
+  const updatedOrder = await ordersRepository.updateOne({
+    workspaceId: targetPayment.workspaceId,
+    orderId: targetPayment.orderId,
+    updates: { payment_status: 'paid', paid_at: event.paidAt || new Date().toISOString(), status: 'accepted' },
+  });
+  notifyPaymentUpdatedRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
+  notifyPaidOrderRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedOrder?.outletId, order: updatedOrder });
+  await notifyPaidOnce({ order: updatedOrder, paymentId: targetPayment.id, outletName: updatedOrder?.outletNameSnapshot || '' });
+  return { processed: true, event: { eventType: event.eventType, status: 'paid' } };
+}
+
 export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
   const adapter = await loadAdapter('xendit');
   const { valid, event, reason } = await adapter.verifyWebhook(rawBody, headers);
@@ -289,6 +381,7 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
 async function loadAdapter(provider) {
   if (provider === 'xendit') return import('../integrations/payments/xendit-client.js');
   if (provider === 'doku') return import('../integrations/payments/doku-client.js');
+  if (provider === 'bayargg') return import('../integrations/payments/bayargg-client.js');
   throw new Error(`Unknown payment provider: ${provider}`);
 }
 

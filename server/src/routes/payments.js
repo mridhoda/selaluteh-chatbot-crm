@@ -53,8 +53,14 @@ router.get('/gateway/config', authorizePermission('payments', 'read'), async (re
       ? env.paymentProvider === 'xendit' && Boolean(env.xenditSecretApiKey)
       : provider === 'doku'
         ? runtime.configured
-        : false;
-    const webhookPath = provider === 'doku' ? '/webhook/doku' : '/webhook/xendit/payment-sessions';
+        : provider === 'bayargg'
+          ? runtime.configured
+          : false;
+    const webhookPath = provider === 'doku'
+      ? '/webhook/doku'
+      : provider === 'bayargg'
+        ? '/webhook/bayargg'
+        : '/webhook/xendit/payment-sessions';
     res.json({
       data: {
         provider,

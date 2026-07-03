@@ -57,6 +57,7 @@ export const DEFAULT_AGENT_PROMPT_RULES = {
 - Follow the agent persona: ask the customer's current location first before recommending an outlet.
 - If the user asks about outlet/cabang/lokasi/gerai/store but has not mentioned an area/city/current location, do not list all outlets. Ask them to share their current location or mention their area/city.
 - After the customer provides a location, recommend the nearest outlet and include its Google Maps/share-location link when available.
+- If the customer provides an address that is incomplete, contradictory, impossible, outside Indonesia, or mixes local Indonesian terms with a foreign city/country (for example “kelurahan New York”), do not guess. Ask the customer to verify and resend a valid address with street/landmark + kelurahan/kecamatan + city, or share live location/Google Maps.
 - Offer: “Atau kamu mau aku listkan seluruh outlet yang ada di sekitarmu? Sebutin daerah atau kota tempat kamu tinggal ya.”
 - If listing outlets by a mentioned city/area, answer only from this Official Outlets list.
 - Do not invent outlet names, cities, locations, maps, or branches.
@@ -79,6 +80,7 @@ STEP 5: Call add_cart_item for each item, and you MUST specify the quantity the 
 STEP 6: After ALL items added, summarize the order and say: "Pesananmu sudah saya siapkan! Silakan klik tombol Checkout yang akan muncul."
 CRITICAL RULES:
 - When customer starts an order, ask location first; never show the full outlet list first.
+- If customer sends an invalid/contradictory address, do NOT call outlet/product tools and do NOT continue ordering. Ask them to verify the address format, e.g. “Boleh verifikasi alamatnya? Format yang benar: nama jalan/landmark + kelurahan/kecamatan + kota, atau share live location/Google Maps.”
 - If a selected outlet already exists in the chat context/current outlet, do NOT ask for location again. Continue with product search and add_cart_item immediately.
 - Do NOT call get_outlets or show all outlets unless customer specifically asks to list outlets around a mentioned area/city.
 - Always call select_outlet BEFORE add_cart_item.

@@ -28,6 +28,8 @@ import { recordInboundMessage, recordOutboundMessage } from '../../services/chat
 import {
   buildNearestOutletReplyFromCoordinates,
   buildNearestOutletReplyFromText,
+  buildInvalidAddressReply,
+  validateCustomerLocationText,
 } from '../../services/location-intelligence/nearest-outlet-reply.service.js';
 import {
   beginWebhookEvent,
@@ -46,6 +48,49 @@ import { env } from '../../config/env.js';
 import { buildManagedFileUrl, buildPublicFileUrl } from '../../utils/file-urls.js';
 
 const router = express.Router();
+
+async function reverseGeocodeLocation({ latitude, longitude }) {
+  const lat = Number(latitude);
+  const lon = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || !process.env.GOOGLE_MAPS_API_KEY) return null;
+  try {
+    const url = new URL('https://maps.googleapis.com/maps/api/geocode/json');
+    url.searchParams.set('latlng', `${lat},${lon}`);
+    url.searchParams.set('key', process.env.GOOGLE_MAPS_API_KEY);
+    url.searchParams.set('language', 'id');
+    const response = await fetch(url);
+    const payload = await response.json();
+    const result = payload?.results?.[0];
+    if (!result?.formatted_address) return null;
+    const preferredName = result.address_components?.find((component) => (
+      component.types?.some((type) => ['point_of_interest', 'establishment', 'premise', 'route'].includes(type))
+    ))?.long_name;
+    return {
+      name: preferredName || result.formatted_address.split(',')[0],
+      address: result.formatted_address,
+    };
+  } catch (err) {
+    console.warn('[telegram] reverse geocode warning:', err.message);
+    return null;
+  }
+}
+
+async function buildLocationAttachment(location = {}, fallbackName = 'Shared location') {
+  const latitude = location.latitude;
+  const longitude = location.longitude;
+  const enriched = (!location.name || !location.address)
+    ? await reverseGeocodeLocation({ latitude, longitude })
+    : null;
+  const address = location.address || enriched?.address || '';
+  return {
+    type: 'location',
+    latitude,
+    longitude,
+    name: location.name || enriched?.name || (address ? address.split(',')[0] : fallbackName),
+    address,
+    url: `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`,
+  };
+}
 
 function isImageFile(filename = '') {
   return /\.(png|jpe?g|gif|webp)$/i.test(filename);
@@ -259,6 +304,7 @@ router.post('/:token?', async (req, res) => {
         console.error('[telegram] Failed to store incoming document:', e);
       }
     } else if (sharedLocation) {
+      incomingAttachment = await buildLocationAttachment(sharedLocation);
       if (!text) {
         text = '[Lokasi dibagikan]';
       }
@@ -397,6 +443,19 @@ router.post('/:token?', async (req, res) => {
     }
 
     if (!sharedLocation && userMessage && text) {
+      const locationValidation = validateCustomerLocationText(text);
+      if (!locationValidation.valid && ['contradictory_address', 'outside_supported_area'].includes(locationValidation.reason)) {
+        const invalidAddressReply = buildInvalidAddressReply(locationValidation.reason);
+        await tgSendSplit(platform.token, chatId, invalidAddressReply);
+        await recordOutboundMessage({
+          chatId: chat.id,
+          workspaceId: platform.workspaceId,
+          from: 'ai',
+          text: invalidAddressReply,
+        });
+        await markWebhookProcessed(webhookEvent);
+        return;
+      }
       try {
         const nearestReply = await buildNearestOutletReplyFromText({
           workspaceId: platform.workspaceId,

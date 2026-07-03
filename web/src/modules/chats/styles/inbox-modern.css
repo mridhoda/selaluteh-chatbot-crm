@@ -3265,6 +3265,79 @@
   border-bottom-right-radius: 4px;
   box-shadow: 0 8px 20px rgba(244, 63, 112, 0.12);
 }
+
+.chat-prism-bubble.chat-prism-bubble-location-container {
+  padding: 0;
+  overflow: hidden;
+  width: min(320px, 78vw);
+  max-width: 320px;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+}
+
+.chat-prism-bubble.chat-prism-bubble-location-container.user {
+  border: 1px solid var(--border-subtle);
+}
+
+.chat-prism-location-card {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  color: inherit;
+  background: var(--surface-primary);
+}
+
+.chat-prism-location-map {
+  position: relative;
+  height: 150px;
+  width: 100%;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+
+.chat-prism-location-map-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  pointer-events: none;
+}
+
+.chat-prism-location-map-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0) 62%, rgba(15, 23, 42, 0.18) 100%);
+}
+
+.chat-prism-location-body {
+  padding: 12px 14px 13px;
+  background: var(--surface-primary);
+}
+
+.chat-prism-location-title {
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.chat-prism-location-address {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}
+
+.chat-prism-location-link {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--brand-600);
+}
 .chat-prism-message-meta {
   display: flex;
   align-items: center;

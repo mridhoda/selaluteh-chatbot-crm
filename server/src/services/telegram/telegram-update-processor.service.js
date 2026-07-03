@@ -12,7 +12,7 @@ import { transcribeAudio as defaultTranscribeAudio } from '../ai.service.js';
 import { loadRecentMessages as defaultLoadRecentMessages } from '../../ai/context/recent-messages.js';
 import { buildContext } from '../../ai/context/context-builder.js';
 import { telegramOutboundService } from './telegram-outbound.service.js';
-import { buildNearestOutletReplyFromCoordinates, buildNearestOutletReplyFromText } from '../location-intelligence/nearest-outlet-reply.service.js';
+import { buildInvalidAddressReply, buildNearestOutletReplyFromCoordinates, buildNearestOutletReplyFromText, validateCustomerLocationText } from '../location-intelligence/nearest-outlet-reply.service.js';
 import { findDatabaseFileMention, findUrlFileMention } from '../../utils/fileMentions.js';
 import { buildManagedFileUrl } from '../../utils/file-urls.js';
 import { downloadFile } from '../../utils/downloader.js';
@@ -53,7 +53,62 @@ function buildDatabaseAttachment(mention) {
   };
 }
 
+async function reverseGeocodeLocation({ latitude, longitude }) {
+  const lat = Number(latitude);
+  const lon = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || !process.env.GOOGLE_MAPS_API_KEY) return null;
+  try {
+    const url = new URL('https://maps.googleapis.com/maps/api/geocode/json');
+    url.searchParams.set('latlng', `${lat},${lon}`);
+    url.searchParams.set('key', process.env.GOOGLE_MAPS_API_KEY);
+    url.searchParams.set('language', 'id');
+    const response = await fetch(url);
+    const payload = await response.json();
+    const result = payload?.results?.[0];
+    if (!result?.formatted_address) return null;
+    const preferredName = result.address_components?.find((component) => (
+      component.types?.some((type) => ['point_of_interest', 'establishment', 'premise', 'route'].includes(type))
+    ))?.long_name;
+    return {
+      name: preferredName || result.formatted_address.split(',')[0],
+      address: result.formatted_address,
+    };
+  } catch (err) {
+    console.warn('[telegram] reverse geocode warning:', err.message);
+    return null;
+  }
+}
+
+async function buildLocationAttachment(location = {}, fallbackName = 'Shared location') {
+  const latitude = location.latitude;
+  const longitude = location.longitude;
+  const enriched = (!location.name || !location.address)
+    ? await reverseGeocodeLocation({ latitude, longitude })
+    : null;
+  const address = location.address || enriched?.address || '';
+  return {
+    type: 'location',
+    latitude,
+    longitude,
+    name: location.name || enriched?.name || (address ? address.split(',')[0] : fallbackName),
+    address,
+    url: `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`,
+  };
+}
+
 async function buildIncomingAttachment({ msgObj, token, telegramFileService, transcribeAudio }) {
+  const sharedLocation = msgObj.location || msgObj.venue?.location || null;
+  if (sharedLocation) {
+    const attachment = await buildLocationAttachment({
+      ...sharedLocation,
+      name: msgObj.venue?.title,
+      address: msgObj.venue?.address,
+    });
+    return {
+      text: '[Lokasi dibagikan]',
+      attachment,
+    };
+  }
   if (Array.isArray(msgObj.photo) && msgObj.photo.length > 0) {
     const largestPhoto = msgObj.photo[msgObj.photo.length - 1];
     const saved = await telegramFileService.saveTelegramFileLocally({
@@ -182,13 +237,16 @@ export function createTelegramUpdateProcessor({
       contactId: contact.id,
       senderType: 'customer',
       direction: 'inbound',
-      messageType: text ? 'text' : 'unknown',
+      messageType: incomingAttachment?.type === 'location' ? 'location' : (text ? 'text' : 'unknown'),
       content: text || null,
       attachment: incomingAttachment,
       platformMessageId: providerMessageId,
       providerMessageId,
       providerUpdateId: update.update_id !== undefined ? String(update.update_id) : null,
-      rawPayload: { telegram: { updateId: update.update_id, eventId: event.id } },
+      rawPayload: {
+        telegram: { updateId: update.update_id, eventId: event.id },
+        ...(incomingAttachment ? { attachment: incomingAttachment } : {}),
+      },
     });
     await chatsRepo.markInboundActivity(chat.id);
 
@@ -227,6 +285,12 @@ export function createTelegramUpdateProcessor({
         return { ok: true, chatId: chat.id, contactId: contact.id, location: true };
       }
     } else if (text) {
+      const locationValidation = validateCustomerLocationText(text);
+      if (!locationValidation.valid && ['contradictory_address', 'outside_supported_area'].includes(locationValidation.reason)) {
+        const invalidAddressReply = buildInvalidAddressReply(locationValidation.reason);
+        await outboundService.sendTelegramConversationMessage({ workspaceId: event.workspaceId, chatId: chat.id, text: invalidAddressReply, senderType: 'ai' });
+        return { ok: true, chatId: chat.id, contactId: contact.id, location: true };
+      }
       const nearestReply = await buildNearestOutletReplyFromText({ workspaceId: event.workspaceId, text });
       if (nearestReply) {
         await outboundService.sendTelegramConversationMessage({ workspaceId: event.workspaceId, chatId: chat.id, text: nearestReply, senderType: 'ai' });

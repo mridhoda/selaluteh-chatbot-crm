@@ -21,10 +21,15 @@ const normalizePaymentSettings = (data = {}, runtime = {}) => {
     merchantId: data.merchant_id || data.merchantId || '',
     publicKey: data.public_key || data.publicKey || '',
     paymentMethods: data.payment_methods || data.paymentMethods || ['qris', 'bank_transfer', 'ewallet'],
-    serverKeyConfigured: Boolean(data.xendit_secret_key_configured || data.doku_secret_key_configured || data.serverKeyConfigured || runtime.configured),
+    serverKeyConfigured: Boolean(data.xendit_secret_key_configured || data.serverKeyConfigured),
     dokuClientIdConfigured: Boolean(data.doku_client_id_configured),
     dokuSecretKeyConfigured: Boolean(data.doku_secret_key_configured),
     webhookSecretConfigured: Boolean(data.xendit_webhook_token_configured || data.webhookSecretConfigured),
+    bayarggApiKeyConfigured: Boolean(data.bayargg_api_key_configured),
+    bayarggWebhookSecretConfigured: Boolean(data.bayargg_webhook_secret_configured),
+    bayarggCheckoutUrl: data.bayargg_checkout_url || data.bayarggCheckoutUrl || 'https://www.bayar.gg/pay',
+    bayarggPaymentMethod: data.bayargg_payment_method || data.bayarggPaymentMethod || 'qris',
+    bayarggUseQrisConverter: Boolean(data.bayargg_use_qris_converter || data.bayarggUseQrisConverter),
     runtimeProvider: runtime.provider || provider || 'manual',
     runtimeEnvironment: runtime.environment || 'test',
     runtimeConfigured: Boolean(runtime.configured),
@@ -32,17 +37,27 @@ const normalizePaymentSettings = (data = {}, runtime = {}) => {
   }
 }
 
-const mapPaymentPayload = (payload = {}) => ({
-  provider: payload.provider || 'manual',
-  xendit_mode: payload.environment === 'sandbox' ? 'test' : payload.environment,
-  merchant_id: payload.merchantId || '',
-  public_key: payload.publicKey || '',
-  payment_methods: payload.paymentMethods || [],
-  ...(payload.serverKey !== undefined && payload.serverKey !== null ? { xendit_secret_key: payload.serverKey } : {}),
-  ...(payload.webhookSecret !== undefined && payload.webhookSecret !== null ? { xendit_webhook_token: payload.webhookSecret } : {}),
-  ...(payload.dokuClientId !== undefined && payload.dokuClientId !== null ? { doku_client_id: payload.dokuClientId } : {}),
-  ...(payload.dokuSecretKey !== undefined && payload.dokuSecretKey !== null ? { doku_secret_key: payload.dokuSecretKey } : {}),
-})
+const mapPaymentPayload = (payload = {}) => {
+  const provider = payload.provider || 'manual'
+  return {
+    provider,
+    xendit_mode: payload.environment === 'sandbox' ? 'test' : payload.environment,
+    merchant_id: payload.merchantId || '',
+    public_key: payload.publicKey || '',
+    payment_methods: payload.paymentMethods || [],
+    ...(provider === 'xendit' && payload.serverKey !== undefined && payload.serverKey !== null ? { xendit_secret_key: payload.serverKey } : {}),
+    ...(provider === 'xendit' && payload.webhookSecret !== undefined && payload.webhookSecret !== null ? { xendit_webhook_token: payload.webhookSecret } : {}),
+    ...(provider === 'doku' && payload.dokuClientId !== undefined && payload.dokuClientId !== null ? { doku_client_id: payload.dokuClientId } : {}),
+    ...(provider === 'doku' && payload.dokuSecretKey !== undefined && payload.dokuSecretKey !== null ? { doku_secret_key: payload.dokuSecretKey } : {}),
+    ...(provider === 'bayargg' && payload.bayarggApiKey !== undefined && payload.bayarggApiKey !== null ? { bayargg_api_key: payload.bayarggApiKey } : {}),
+    ...(provider === 'bayargg' && payload.bayarggWebhookSecret !== undefined && payload.bayarggWebhookSecret !== null ? { bayargg_webhook_secret: payload.bayarggWebhookSecret } : {}),
+    ...(provider === 'bayargg' ? {
+      bayargg_checkout_url: payload.bayarggCheckoutUrl || 'https://www.bayar.gg/pay',
+      bayargg_payment_method: payload.bayarggPaymentMethod || 'qris',
+      bayargg_use_qris_converter: Boolean(payload.bayarggUseQrisConverter),
+    } : {}),
+  }
+}
 
 export const settingsApi = {
   get: async () => {

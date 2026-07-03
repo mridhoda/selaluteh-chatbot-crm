@@ -167,6 +167,7 @@ const filterOptions = {
     { value: 'all', label: 'All Providers' },
     { value: 'midtrans', label: 'Midtrans' },
     { value: 'xendit', label: 'Xendit' },
+    { value: 'bayargg', label: 'Bayar.gg' },
   ],
   method: [
     { value: 'all', label: 'All Methods' },
@@ -358,13 +359,24 @@ function ReconciliationBadge({ status }) {
 }
 
 function PaymentProviderIcon({ provider }) {
-  if (provider === 'Midtrans') {
+  const normalizedProvider = String(provider || '').toLowerCase()
+  if (normalizedProvider === 'midtrans') {
     return (
       <span
         className='flex items-center justify-center w-5 h-5 rounded bg-blue-50 text-blue-600 font-bold text-[10px]'
         aria-hidden='true'
       >
         M
+      </span>
+    )
+  }
+  if (normalizedProvider === 'bayargg') {
+    return (
+      <span
+        className='flex items-center justify-center w-5 h-5 rounded bg-emerald-50 text-emerald-600 font-bold text-[10px]'
+        aria-hidden='true'
+      >
+        B
       </span>
     )
   }

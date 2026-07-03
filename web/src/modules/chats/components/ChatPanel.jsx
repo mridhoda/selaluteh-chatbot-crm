@@ -106,6 +106,7 @@ function normalizeMessageAttachment(message) {
   const normalized = { ...attachment }
   if (!normalized.url && normalized.storedName)
     normalized.url = `/files/${normalized.storedName}`
+  if (normalized.type === 'location') return normalized
   if (!normalized.type) {
     const filename = normalized.filename || normalized.url || ''
     normalized.type =
@@ -181,7 +182,9 @@ function MessageBubble({ message }) {
     (attachment.type === 'image' ||
       (attachment.filename &&
         attachment.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)))
-  const hasCaption = !!content
+  const isLocation = attachment?.type === 'location'
+  const displayContent = isLocation && content.trim() === '[Lokasi dibagikan]' ? '' : content
+  const hasCaption = !!displayContent
 
   const handleImageLoad = (event) => {
     const { naturalWidth, naturalHeight } = event.currentTarget
@@ -200,10 +203,40 @@ function MessageBubble({ message }) {
     <div className={`chat-prism-message-row ${isUser ? 'user' : 'agent'}`}>
       <div className='chat-prism-message-stack'>
         <div
-          className={`chat-prism-bubble ${isUser ? 'user' : isHuman ? 'human' : 'ai'} ${isImage ? 'chat-prism-bubble-image-container' : ''} flex flex-col`}
+          className={`chat-prism-bubble ${isUser ? 'user' : isHuman ? 'human' : 'ai'} ${isImage ? 'chat-prism-bubble-image-container' : ''} ${isLocation ? 'chat-prism-bubble-location-container' : ''} flex flex-col`}
         >
           {attachment &&
-            (isImage ? (
+            (isLocation ? (
+              <a
+                href={attachment.url || `https://www.google.com/maps/search/?api=1&query=${attachment.latitude},${attachment.longitude}`}
+                target='_blank'
+                rel='noopener noreferrer'
+                className={`chat-prism-location-card no-underline block ${isUser ? 'text-slate-900' : 'text-slate-900'}`}
+              >
+                <div className='chat-prism-location-map'>
+                  <iframe
+                    title='Location preview'
+                    src={`https://maps.google.com/maps?q=${attachment.latitude},${attachment.longitude}&z=15&output=embed`}
+                    className='chat-prism-location-map-frame'
+                    loading='lazy'
+                  />
+                  <div className='chat-prism-location-map-overlay' />
+                </div>
+                <div className='chat-prism-location-body'>
+                  <div className='chat-prism-location-title'>
+                    {attachment.name || 'Shared location'}
+                  </div>
+                  {attachment.address && (
+                    <div className='chat-prism-location-address'>
+                      {attachment.address}
+                    </div>
+                  )}
+                  <div className='chat-prism-location-link'>
+                    Buka di Google Maps
+                  </div>
+                </div>
+              </a>
+            ) : isImage ? (
               <div className={`chat-prism-image-preview ${imageShape}`}>
                 <img
                   src={attachmentUrl}
@@ -243,7 +276,7 @@ function MessageBubble({ message }) {
                 </span>
               </a>
             ))}
-          {content && (
+          {displayContent && (
             <div
               className={
                 isImage
@@ -251,7 +284,7 @@ function MessageBubble({ message }) {
                   : ''
               }
             >
-              {content}
+              {displayContent}
             </div>
           )}
         </div>

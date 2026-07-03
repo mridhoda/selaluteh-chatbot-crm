@@ -13,8 +13,7 @@ import {
 import { generateAIReply, getAgentPromptRules } from '../../services/ai.service.js';
 import { createCheckout, confirmCheckout } from '../../services/checkout.service.js';
 import { createOrderFromCheckout } from '../../services/order.service.js';
-import { buildPaymentInstruction, createPaymentForOrder, createXenditPaymentSessionForOrder } from '../../services/payment.service.js';
-import { env } from '../../config/env.js';
+import { buildPaymentInstruction, createPaymentForOrder, createPaymentSessionForOrder } from '../../services/payment.service.js';
 import {
   igGetUserProfile,
   igSend,
@@ -37,8 +36,52 @@ import { assertWebhookPayloadSafe, verifyMetaSignature } from '../../security/we
 import { logSecurityEvent } from '../../config/logger.js';
 import { buildManagedFileUrl, buildPublicFileUrl } from '../../utils/file-urls.js';
 import { buildContext } from '../../ai/context/context-builder.js';
+import { buildInvalidAddressReply, buildNearestOutletReplyFromCoordinates, validateCustomerLocationText } from '../../services/location-intelligence/nearest-outlet-reply.service.js';
 
 const router = express.Router();
+
+async function reverseGeocodeLocation({ latitude, longitude }) {
+  const lat = Number(latitude);
+  const lon = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || !process.env.GOOGLE_MAPS_API_KEY) return null;
+  try {
+    const url = new URL('https://maps.googleapis.com/maps/api/geocode/json');
+    url.searchParams.set('latlng', `${lat},${lon}`);
+    url.searchParams.set('key', process.env.GOOGLE_MAPS_API_KEY);
+    url.searchParams.set('language', 'id');
+    const response = await fetch(url);
+    const payload = await response.json();
+    const result = payload?.results?.[0];
+    if (!result?.formatted_address) return null;
+    const preferredName = result.address_components?.find((component) => (
+      component.types?.some((type) => ['point_of_interest', 'establishment', 'premise', 'route'].includes(type))
+    ))?.long_name;
+    return {
+      name: preferredName || result.formatted_address.split(',')[0],
+      address: result.formatted_address,
+    };
+  } catch (err) {
+    console.warn('[meta] reverse geocode warning:', err.message);
+    return null;
+  }
+}
+
+async function buildLocationAttachment(location = {}, fallbackName = 'Shared location') {
+  const latitude = location.latitude;
+  const longitude = location.longitude;
+  const enriched = (!location.name || !location.address)
+    ? await reverseGeocodeLocation({ latitude, longitude })
+    : null;
+  const address = location.address || enriched?.address || '';
+  return {
+    type: 'location',
+    latitude,
+    longitude,
+    name: location.name || enriched?.name || (address ? address.split(',')[0] : fallbackName),
+    address,
+    url: `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`,
+  };
+}
 
 function getPublicFileUrl(storedName) {
   const base = process.env.PUBLIC_FILES_BASE_URL || `${process.env.PUBLIC_BASE_URL || 'http://localhost:5000'}/public-files`;
@@ -169,7 +212,9 @@ router.post('/', async (req, res) => {
     assertWebhookPayloadSafe(req.body);
     const data = req.body;
     const signatureHeader = req.get('x-hub-signature-256');
-    if (!verifyMetaSignature(req.body, signatureHeader, process.env.META_APP_SECRET)) {
+    console.log('[meta] webhook received, signature present:', !!signatureHeader, 'object:', data?.object);
+    if (!verifyMetaSignature(req.rawBody || req.body, signatureHeader, process.env.META_APP_SECRET)) {
+      console.warn('[meta] signature REJECTED, header:', signatureHeader?.slice(0, 20));
       logSecurityEvent('warn', '[meta] invalid webhook signature', { signatureHeader });
       return;
     }
@@ -249,32 +294,8 @@ export async function handleWhatsAppCommerceAction({ actionId, workspaceId, chat
 
       let payment;
       let paymentInstruction;
-      if (env.paymentProvider === 'xendit') {
-        try {
-          payment = await createXenditPaymentSessionForOrder({
-            workspaceId,
-            orderId: order.id,
-            customer: {
-              name: contact?.name || '',
-              phone: contact?.phone || contact?.platformAccountId || '',
-            },
-          });
-          paymentInstruction = `🔗 *Invoice:* ${payment.paymentUrl || payment.paymentLink}`;
-        } catch (xenditErr) {
-          console.warn('[wa-commerce] Xendit payment session request failed, falling back to manual payment:', xenditErr.message);
-          payment = await createPaymentForOrder({
-            workspaceId,
-            orderId: order.id,
-            customer: {
-              name: contact?.name || '',
-              phone: contact?.phone || contact?.platformAccountId || '',
-            },
-            provider: 'manual',
-          });
-          paymentInstruction = `Gagal membuat link pembayaran Xendit. Silakan lakukan pembayaran manual.\n\n${buildPaymentInstruction(payment)}`;
-        }
-      } else {
-        payment = await createPaymentForOrder({
+      try {
+        payment = await createPaymentSessionForOrder({
           workspaceId,
           orderId: order.id,
           customer: {
@@ -282,7 +303,19 @@ export async function handleWhatsAppCommerceAction({ actionId, workspaceId, chat
             phone: contact?.phone || contact?.platformAccountId || '',
           },
         });
-        paymentInstruction = buildPaymentInstruction(payment);
+        paymentInstruction = `🔗 *Link pembayaran:* ${payment.paymentUrl || payment.paymentLink}`;
+      } catch (paymentLinkErr) {
+        console.warn('[wa-commerce] Payment link session request failed, falling back to manual payment:', paymentLinkErr.message);
+        payment = await createPaymentForOrder({
+          workspaceId,
+          orderId: order.id,
+          customer: {
+            name: contact?.name || '',
+            phone: contact?.phone || contact?.platformAccountId || '',
+          },
+          provider: 'manual',
+        });
+        paymentInstruction = `Gagal membuat link pembayaran. Silakan lakukan pembayaran manual.\n\n${buildPaymentInstruction(payment)}`;
       }
       await checkoutsRepository.updateStatus({ workspaceId, checkoutId, status: 'converted' });
 
@@ -311,11 +344,15 @@ async function handleWhatsapp(data) {
 
       const fromPhoneNumberId = value.metadata?.phone_number_id;
       const platformAccountId = entry.id;
-      let platform = await platformsSupabaseRepository.findByAccountId({ accountId: platformAccountId, type: 'whatsapp' });
+      // WhatsApp webhook entry.id is the WABA ID, while phone_number_id is the
+      // exact receiving number. In multi-workspace setups the phone number is
+      // the safest primary routing key; account_id remains a legacy fallback.
+      let platform = fromPhoneNumberId
+        ? await platformsSupabaseRepository.findByPhoneNumberId({ phoneNumberId: fromPhoneNumberId, type: 'whatsapp' })
+        : null;
 
-      if (!platform && fromPhoneNumberId) {
-        console.log('[meta] whatsapp platform not found by accountId, attempting lookup by phone_number_id:', fromPhoneNumberId);
-        platform = await platformsSupabaseRepository.findByPhoneNumberId({ phoneNumberId: fromPhoneNumberId, type: 'whatsapp' });
+      if (!platform && platformAccountId) {
+        platform = await platformsSupabaseRepository.findByAccountId({ accountId: platformAccountId, type: 'whatsapp' });
       }
 
       if (!platform) {
@@ -350,6 +387,7 @@ async function handleWhatsapp(data) {
         let webhookEvent = null;
         const from = message.from;
         const text = message.text?.body || '';
+        const sharedLocation = message.location || null;
         let incomingAttachment = null;
 
         const webhookResult = await beginWebhookEvent({
@@ -430,7 +468,7 @@ async function handleWhatsapp(data) {
           continue;
         }
 
-        if (!text && !incomingAttachment) {
+        if (!text && !incomingAttachment && !sharedLocation) {
           console.log('[meta] Skipping empty WhatsApp message.');
           await markWebhookProcessed(webhookEvent);
           continue;
@@ -450,6 +488,53 @@ async function handleWhatsapp(data) {
           contactId: contact.id,
           data: { agent_id: agent?.id || null, last_message_at: new Date().toISOString() },
         });
+
+        if (sharedLocation) {
+          const locationAttachment = await buildLocationAttachment(sharedLocation);
+          const nearestReply = await buildNearestOutletReplyFromCoordinates({
+            workspaceId: platform.workspaceId,
+            latitude: sharedLocation.latitude,
+            longitude: sharedLocation.longitude,
+          });
+          const locationText = locationAttachment.name || locationAttachment.address
+            ? [locationAttachment.name, locationAttachment.address].filter(Boolean).join(' - ')
+            : `Shared location: ${sharedLocation.latitude},${sharedLocation.longitude}`;
+          await recordInboundMessage({
+            chat,
+            workspaceId: platform.workspaceId,
+            text: locationText,
+            attachment: locationAttachment,
+            messageType: 'location',
+            platformMessageId: message.id || null,
+          });
+          if (nearestReply) {
+            await waSend(platform.token, fromPhoneNumberId, from, nearestReply);
+            await recordOutboundMessage({
+              chatId: chat.id,
+              workspaceId: platform.workspaceId,
+              from: 'ai',
+              text: nearestReply,
+            });
+          }
+          await markWebhookProcessed(webhookEvent);
+          continue;
+        }
+
+        if (text) {
+          const locationValidation = validateCustomerLocationText(text);
+          if (!locationValidation.valid && ['contradictory_address', 'outside_supported_area'].includes(locationValidation.reason)) {
+            const invalidAddressReply = buildInvalidAddressReply(locationValidation.reason);
+            await waSend(platform.token, fromPhoneNumberId, from, invalidAddressReply);
+            await recordOutboundMessage({
+              chatId: chat.id,
+              workspaceId: platform.workspaceId,
+              from: 'ai',
+              text: invalidAddressReply,
+            });
+            await markWebhookProcessed(webhookEvent);
+            continue;
+          }
+        }
         const isNewChat = !chat.updatedAt || (new Date(chat.createdAt).getTime() > Date.now() - 2000);
 
         const userMessage = await recordInboundMessage({

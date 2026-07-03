@@ -8,6 +8,7 @@ const PROVIDERS = [
   { value: 'midtrans', label: 'Midtrans' },
   { value: 'xendit', label: 'Xendit' },
   { value: 'doku', label: 'DOKU Checkout' },
+  { value: 'bayargg', label: 'Bayar.gg' },
 ]
 
 const PAYMENT_METHODS = [
@@ -16,6 +17,15 @@ const PAYMENT_METHODS = [
   { value: 'ewallet', label: 'E-Wallet' },
   { value: 'credit_card', label: 'Credit Card' },
   { value: 'cod', label: 'Cash on Delivery' },
+]
+
+const BAYARGG_PAYMENT_METHODS = [
+  { value: 'qris', label: 'QRIS' },
+  { value: 'qris_bayar_gg', label: 'QRIS Bayar.gg' },
+  { value: 'qris_user', label: 'QRIS User' },
+  { value: 'qris_livin', label: 'QRIS Livin' },
+  { value: 'gopay_qris', label: 'GoPay QRIS' },
+  { value: 'ovo', label: 'OVO' },
 ]
 
 const FIELD = { marginBottom: 16 }
@@ -67,6 +77,11 @@ export default function PaymentProviderSettingsForm({
     webhookSecret: null,
     dokuClientId: null,
     dokuSecretKey: null,
+    bayarggApiKey: null,
+    bayarggWebhookSecret: null,
+    bayarggCheckoutUrl: 'https://www.bayar.gg/pay',
+    bayarggPaymentMethod: 'qris',
+    bayarggUseQrisConverter: false,
     paymentMethods: ['qris', 'bank_transfer', 'ewallet'],
   })
   const [dirty, setDirty] = useState(false)
@@ -85,6 +100,11 @@ export default function PaymentProviderSettingsForm({
         webhookSecret: null,
         dokuClientId: null,
         dokuSecretKey: null,
+        bayarggApiKey: null,
+        bayarggWebhookSecret: null,
+        bayarggCheckoutUrl: payment.bayarggCheckoutUrl || 'https://www.bayar.gg/pay',
+        bayarggPaymentMethod: payment.bayarggPaymentMethod || 'qris',
+        bayarggUseQrisConverter: Boolean(payment.bayarggUseQrisConverter),
         paymentMethods: savedPaymentMethods || [
           'qris',
           'bank_transfer',
@@ -130,6 +150,11 @@ export default function PaymentProviderSettingsForm({
     if (form.webhookSecret !== null) payload.webhookSecret = form.webhookSecret
     if (form.dokuClientId !== null) payload.dokuClientId = form.dokuClientId
     if (form.dokuSecretKey !== null) payload.dokuSecretKey = form.dokuSecretKey
+    if (form.bayarggApiKey !== null) payload.bayarggApiKey = form.bayarggApiKey
+    if (form.bayarggWebhookSecret !== null) payload.bayarggWebhookSecret = form.bayarggWebhookSecret
+    payload.bayarggCheckoutUrl = form.bayarggCheckoutUrl
+    payload.bayarggPaymentMethod = form.bayarggPaymentMethod
+    payload.bayarggUseQrisConverter = form.bayarggUseQrisConverter
     return payload
   }
 
@@ -143,7 +168,17 @@ export default function PaymentProviderSettingsForm({
 
   const handleTest = () => onTest(buildPayload())
 
-  const webhookUrl = payment.webhookUrl || `${webhookBase}/webhook/xendit/payment-sessions`
+  const webhookPathByProvider = {
+    bayargg: '/webhook/bayargg',
+    doku: '/webhook/doku',
+    xendit: '/webhook/xendit/payment-sessions',
+    midtrans: '/webhook/midtrans',
+  }
+  const selectedWebhookPath = webhookPathByProvider[form.provider] || '/webhook/xendit/payment-sessions'
+  const selectedWebhookUrl = webhookBase
+    ? `${webhookBase.replace(/\/$/, '')}${selectedWebhookPath}`
+    : selectedWebhookPath
+  const webhookUrl = form.provider ? selectedWebhookUrl : (payment.webhookUrl || selectedWebhookUrl)
 
   const handleCopyWebhook = () => {
     navigator.clipboard?.writeText(webhookUrl)
@@ -295,7 +330,7 @@ export default function PaymentProviderSettingsForm({
                 style={{ width: '100%' }}
               />
             </div>
-            {form.provider !== 'doku' && <div style={FIELD}>
+            {!['doku', 'bayargg'].includes(form.provider) && <div style={FIELD}>
               <label style={LABEL}>
                 {form.provider === 'midtrans'
                   ? 'Client Key (Public)'
@@ -334,6 +369,27 @@ export default function PaymentProviderSettingsForm({
                   helperText='Write-only. Used to sign DOKU Checkout requests and verify notifications.'
                 />
               </>
+            ) : form.provider === 'bayargg' ? (
+              <>
+                <SecretField
+                  label='Bayar.gg API Key'
+                  name='bayarggApiKey'
+                  hasExistingValue={!!payment.bayarggApiKeyConfigured}
+                  value={form.bayarggApiKey}
+                  onChange={(val) => set('bayarggApiKey', val)}
+                  placeholder='Bayar.gg API key'
+                  helperText='Write-only. Used for create and check payment API requests.'
+                />
+                <SecretField
+                  label='Webhook Secret Key'
+                  name='bayarggWebhookSecret'
+                  hasExistingValue={!!payment.bayarggWebhookSecretConfigured}
+                  value={form.bayarggWebhookSecret}
+                  onChange={(val) => set('bayarggWebhookSecret', val)}
+                  placeholder='whsec_...'
+                  helperText='Write-only. Used to verify Bayar.gg webhook signatures.'
+                />
+              </>
             ) : (
               <>
                 <SecretField
@@ -362,6 +418,44 @@ export default function PaymentProviderSettingsForm({
                   placeholder='Webhook validation secret'
                   helperText='Used to verify incoming webhook signatures from the provider.'
                 />
+              </>
+            )}
+
+            {form.provider === 'bayargg' && (
+              <>
+                <div style={SECTION_HDR}>Bayar.gg Checkout</div>
+                <div style={FIELD}>
+                  <label style={LABEL}>Checkout URL</label>
+                  <input
+                    className='input'
+                    value={form.bayarggCheckoutUrl}
+                    onChange={(e) => set('bayarggCheckoutUrl', e.target.value)}
+                    placeholder='https://www.bayar.gg/pay'
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div style={FIELD}>
+                  <label style={LABEL}>Payment Method</label>
+                  <select
+                    className='input'
+                    value={form.bayarggPaymentMethod}
+                    onChange={(e) => set('bayarggPaymentMethod', e.target.value)}
+                    style={{ width: '100%' }}
+                  >
+                    {BAYARGG_PAYMENT_METHODS.map((method) => (
+                      <option key={method.value} value={method.value}>{method.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <label style={{ ...methodChipStyle('bayargg_qris_converter'), marginBottom: 20 }}>
+                  <input
+                    type='checkbox'
+                    checked={form.bayarggUseQrisConverter}
+                    onChange={(e) => set('bayarggUseQrisConverter', e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 13 }}>Use QRIS Converter</span>
+                </label>
               </>
             )}
 
@@ -397,7 +491,7 @@ export default function PaymentProviderSettingsForm({
               </div>
             </div>
 
-            <div style={SECTION_HDR}>Default Payment Methods</div>
+            {form.provider !== 'bayargg' && <><div style={SECTION_HDR}>Default Payment Methods</div>
             <div
               style={{
                 display: 'flex',
@@ -417,7 +511,7 @@ export default function PaymentProviderSettingsForm({
                   <span style={{ fontSize: 13 }}>{label}</span>
                 </label>
               ))}
-            </div>
+            </div></>}
 
             <div
               style={{
