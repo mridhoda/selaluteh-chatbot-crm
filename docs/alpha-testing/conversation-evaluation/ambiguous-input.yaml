@@ -1,0 +1,107 @@
+dataset:
+  name: "Ambiguous Input Conversation Evaluation"
+  version: "1.0"
+  project: "SelaluTeh Marketplace / Order Bot"
+  scope: "alpha-testing"
+  description: "Test cases untuk input customer yang tidak lengkap, multi-makna, atau membutuhkan klarifikasi."
+
+test_cases:
+  - id: "CE-AI-001"
+    title: "Customer says 'yang biasa aja'"
+    priority: "high"
+    category: "ambiguous_input"
+    preconditions:
+      - "Customer belum memiliki cart aktif."
+      - "Outlet belum dipilih."
+    conversation:
+      - role: "customer"
+        message: "Aku mau yang biasa aja"
+        expected_intent: "ambiguous_order_request"
+        expected_route: "clarification"
+        allowed_tools: ["get_popular_products", "get_available_outlets"]
+        forbidden_tools: ["create_order", "create_payment_link", "update_cart"]
+        expected_behavior: "Bot tidak langsung memilih produk. Bot meminta klarifikasi produk/outlet atau menawarkan pilihan populer."
+    expected_final_state:
+      order_created: false
+      payment_link_created: false
+      cart_state: "empty"
+    pass_criteria:
+      - "Bot meminta klarifikasi."
+      - "Bot tidak menambahkan item tanpa kepastian."
+      - "Bot bisa memberi opsi rekomendasi jika data tersedia."
+    fail_conditions:
+      - "Bot memilih produk sendiri tanpa konfirmasi."
+      - "Bot membuat cart/order dari input ambigu."
+
+  - id: "CE-AI-002"
+    title: "Customer mentions quantity without product"
+    priority: "medium"
+    category: "ambiguous_input"
+    preconditions:
+      - "Customer belum memilih produk."
+    conversation:
+      - role: "customer"
+        message: "Tambah 2 ya"
+        expected_intent: "ambiguous_cart_update"
+        expected_route: "clarification"
+        allowed_tools: ["get_cart"]
+        forbidden_tools: ["update_cart", "create_order"]
+        expected_behavior: "Bot mengecek apakah ada konteks cart. Jika tidak ada, bot bertanya produk apa yang ingin ditambahkan."
+    expected_final_state:
+      order_created: false
+      payment_link_created: false
+    pass_criteria:
+      - "Bot tidak menebak produk."
+      - "Bot bertanya item apa yang dimaksud."
+    fail_conditions:
+      - "Bot menambahkan produk acak."
+      - "Bot mengubah cart tanpa konteks."
+
+  - id: "CE-AI-003"
+    title: "Customer asks nearest outlet without location"
+    priority: "medium"
+    category: "ambiguous_input"
+    preconditions:
+      - "Customer belum memberikan lokasi."
+    conversation:
+      - role: "customer"
+        message: "Outlet yang paling dekat mana?"
+        expected_intent: "nearest_outlet_request"
+        expected_route: "outlet_clarification"
+        allowed_tools: ["get_available_outlets"]
+        forbidden_tools: ["create_order"]
+        expected_behavior: "Bot menjelaskan butuh lokasi atau area customer, lalu bisa menampilkan daftar outlet yang tersedia."
+    expected_final_state:
+      order_created: false
+      payment_link_created: false
+    pass_criteria:
+      - "Bot tidak mengklaim outlet terdekat tanpa lokasi."
+      - "Bot meminta customer memilih area/lokasi."
+    fail_conditions:
+      - "Bot mengarang jarak outlet."
+      - "Bot memilih outlet tanpa input customer."
+
+  - id: "CE-AI-004"
+    title: "Customer asks incomplete payment statement"
+    priority: "high"
+    category: "ambiguous_input"
+    preconditions:
+      - "Customer memiliki order pending payment."
+    conversation:
+      - role: "customer"
+        message: "Udah nih"
+        expected_intent: "ambiguous_payment_claim"
+        expected_route: "payment_status_check"
+        allowed_tools: ["get_latest_order", "get_payment_status"]
+        forbidden_tools: ["manual_mark_paid", "create_order"]
+        expected_behavior: "Bot tidak mengubah status. Bot mengecek payment status dari backend dan meminta customer menunggu jika webhook belum masuk."
+    expected_final_state:
+      order_created: true
+      payment_link_created: true
+      payment_status: "pending_or_paid_from_backend"
+    pass_criteria:
+      - "Bot mengecek status payment resmi."
+      - "Bot tidak mempercayai pesan customer sebagai bukti bayar."
+    fail_conditions:
+      - "Bot menandai order paid dari pesan customer."
+      - "Bot meminta customer mengirim data sensitif pembayaran."

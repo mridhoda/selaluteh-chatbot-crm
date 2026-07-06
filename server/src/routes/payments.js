@@ -47,15 +47,9 @@ router.use(authRequired, attachUser, attachWorkspaceContext);
 router.get('/gateway/config', authorizePermission('payments', 'read'), async (req, res, next) => {
   try {
     const runtime = await getPaymentRuntimeConfig({ workspaceId: req.me.workspaceId });
-    const provider = runtime.provider === 'manual' ? env.paymentProvider : runtime.provider;
-    const environment = runtime.provider === 'xendit' ? (env.xenditMode || 'test') : runtime.environment;
-    const configured = provider === 'xendit'
-      ? env.paymentProvider === 'xendit' && Boolean(env.xenditSecretApiKey)
-      : provider === 'doku'
-        ? runtime.configured
-        : provider === 'bayargg'
-          ? runtime.configured
-          : false;
+    const provider = runtime.provider;
+    const environment = runtime.environment;
+    const configured = runtime.configured;
     const webhookPath = provider === 'doku'
       ? '/webhook/doku'
       : provider === 'bayargg'

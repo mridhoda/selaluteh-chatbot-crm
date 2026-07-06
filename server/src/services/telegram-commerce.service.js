@@ -2,7 +2,7 @@ import { chatsRepository, contactsRepository, cartsRepository, productsRepositor
 import { createInlineKeyboard } from '../integrations/telegram/telegram-keyboards.js';
 import { executeAIAction } from './ai-actions.service.js';
 import { findActiveWorkspaceOutlet, listActiveWorkspaceOutlets } from './outlet.service.js';
-import { listTelegramProductsForOutlet } from './product.service.js';
+import { listCustomerProductsForOutlet } from './product.service.js';
 import { addItem, removeItem, clearCart, getCartSummary } from './cart.service.js';
 import { createCheckout, confirmCheckout } from './checkout.service.js';
 import { createOrderFromCheckout } from './order.service.js';
@@ -32,6 +32,128 @@ export function buildCallbackKey(scope, action, id, version) {
   const v = version ?? COMMERCE_VERSION;
   const idPart = id != null ? `:${id}` : '';
   return `act:${scope}:${action}${idPart}:v${v}`;
+}
+
+function formatTelegramButtonText(value = '') {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (text.length <= 64) return text;
+  return `${text.slice(0, 61).trimEnd()}...`;
+}
+
+export function buildOutletRecommendationKeyboard(recommendedOutlets = [], version) {
+  const ver = version ?? COMMERCE_VERSION;
+  const rows = buildOutletRecommendationActionButtons(recommendedOutlets, ver)
+    .map((button) => ([{
+      text: button.title,
+      callback_data: button.id,
+    }]));
+
+  return rows.length ? createInlineKeyboard(rows) : null;
+}
+
+export function buildOutletRecommendationActionButtons(recommendedOutlets = [], version) {
+  const ver = version ?? COMMERCE_VERSION;
+  return (recommendedOutlets || [])
+    .filter((outlet) => outlet?.outletId && outlet?.name)
+    .map((outlet) => ({
+      id: buildCallbackKey('outlet', 'select', String(outlet.outletId), ver),
+      title: formatTelegramButtonText(outlet.name),
+      type: 'outlet_select',
+      outletId: String(outlet.outletId),
+    }));
+}
+
+export function buildSingleOutletConfirmationKeyboard(outletId, version) {
+  if (!outletId) return null;
+  const ver = version ?? COMMERCE_VERSION;
+  return createInlineKeyboard([[{
+    text: 'Ambil dari outlet ini',
+    callback_data: buildCallbackKey('outlet', 'select', String(outletId), ver),
+  }]]);
+}
+
+export function isOutletConfirmationText(text = '') {
+  const normalized = String(text || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!normalized) return false;
+  return /\b(ya|iya|y|yes|ok|oke|setuju|lanjut|lanjutkan|ambil|pilih|boleh|gas)\b/.test(normalized);
+}
+
+export function getLatestRecommendedOutletId(chat = {}) {
+  const recommendation = chat.metadata?.latestOutletRecommendation || chat.latestOutletRecommendation || null;
+  const outlet = recommendation?.recommendedOutlets?.[0] || recommendation?.outlet || null;
+  return outlet?.outletId || outlet?.id || recommendation?.outletId || null;
+}
+
+export function getLatestRecommendedOutlets(chat = {}) {
+  const recommendation = chat.metadata?.latestOutletRecommendation || chat.latestOutletRecommendation || null;
+  if (Array.isArray(recommendation?.recommendedOutlets)) return recommendation.recommendedOutlets;
+  const outletId = getLatestRecommendedOutletId(chat);
+  if (!outletId) return [];
+  return [{ outletId, name: recommendation?.name || recommendation?.outletName || 'Outlet rekomendasi' }];
+}
+
+export function getRecommendedOutletIdFromTextSelection(text = '', chat = {}) {
+  const outlets = getLatestRecommendedOutlets(chat);
+  if (!outlets.length) return null;
+
+  const normalized = String(text || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!normalized) return null;
+
+  const ordinalByWord = new Map([
+    ['pertama', 1], ['satu', 1], ['kesatu', 1], ['ke satu', 1],
+    ['kedua', 2], ['dua', 2], ['ke dua', 2],
+    ['ketiga', 3], ['tiga', 3], ['ke tiga', 3],
+    ['keempat', 4], ['empat', 4], ['ke empat', 4],
+    ['kelima', 5], ['lima', 5], ['ke lima', 5],
+  ]);
+
+  let selectedNumber = null;
+  const numericMatch = normalized.match(/(?:^|\b)(?:nomor|no|pilih|ambil|yang|outlet)?\s*([1-9]\d?)(?:\b|$)/);
+  if (numericMatch) selectedNumber = Number(numericMatch[1]);
+
+  if (!selectedNumber) {
+    for (const [word, number] of ordinalByWord.entries()) {
+      if (new RegExp(`(?:^|\\b)${word}(?:\\b|$)`).test(normalized)) {
+        selectedNumber = number;
+        break;
+      }
+    }
+  }
+
+  if (!selectedNumber || selectedNumber < 1 || selectedNumber > outlets.length) return null;
+  return outlets[selectedNumber - 1]?.outletId || null;
+}
+
+export async function rememberLatestOutletRecommendation({ chat, recommendedOutlets = [] }) {
+  if (!chat?.id || !recommendedOutlets?.length) return null;
+  const firstOutlet = recommendedOutlets.find((outlet) => outlet?.outletId);
+  if (!firstOutlet) return null;
+  const metadata = {
+    ...(chat.metadata || {}),
+    latestOutletRecommendation: {
+      outletId: String(firstOutlet.outletId),
+      recommendedOutlets: recommendedOutlets.map((outlet) => ({
+        outletId: String(outlet.outletId),
+        name: outlet.name,
+      })),
+      updatedAt: new Date().toISOString(),
+    },
+  };
+  const updated = await chatsRepository.update({ chatId: chat.id, updates: { metadata } });
+  if (updated) chat.metadata = updated.metadata || metadata;
+  return updated;
 }
 
 function shouldExpireChatState(chat) {
@@ -76,6 +198,41 @@ export function buildCommerceMenuMessage({ outlet, version }) {
   };
 }
 
+function formatCurrencyIdr(value) {
+  return `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
+}
+
+async function buildSelectedOutletTextMenuMessage({ workspaceId, outlet }) {
+  const products = await productsRepository.findProducts({ workspaceId, isActive: true });
+  const activeProducts = (products || []).slice(0, 20);
+
+  if (!activeProducts.length) {
+    return {
+      text: `Kamu memilih ${outlet.name} ✅\n\nSaat ini menu belum bisa dimuat. Tea akan bantu cek ke admin dulu ya.`,
+      keyboard: null,
+    };
+  }
+
+  const lines = [
+    `Kamu memilih ${outlet.name} ✅`,
+    '',
+    `Berikut menu yang tersedia di ${outlet.name}:`,
+    '',
+  ];
+
+  activeProducts.forEach((product, index) => {
+    const price = product.outletAvailability?.priceOverride ?? product.basePrice;
+    lines.push(`**${index + 1}. ${product.name}** — ${formatCurrencyIdr(price)}`);
+    if (product.shortDescription || product.description) {
+      lines.push(product.shortDescription || product.description);
+    }
+    lines.push('');
+  });
+
+  lines.push('Semua dalam stok ya, jadi bisa langsung dipesan! Kalau mau pesan, Tea bantu proses dari awal ya. Ada yang ditanyakan lagi? 😊');
+  return { text: lines.join('\n').trim(), keyboard: null };
+}
+
 export async function selectOutletForChat({ workspaceId, chat, contact, agent, outletId, chatMessageId = null }) {
   const outlet = await findActiveWorkspaceOutlet({ workspaceId, outletId });
   const result = await executeAIAction({
@@ -93,6 +250,12 @@ export async function selectOutletForChat({ workspaceId, chat, contact, agent, o
       });
       await chatsRepository.setCurrentOutlet(chat.id, outlet.id);
       await contactsRepository.setLastOutlet(contact.id, outlet.id);
+      const metadata = { ...(chat.metadata || {}) };
+      delete metadata.latestOutletRecommendation;
+      await chatsRepository.update({ chatId: chat.id, updates: { metadata } });
+      chat.currentOutletId = outlet.id;
+      chat.metadata = metadata;
+      contact.lastOutletId = outlet.id;
       return { outletId: outlet.id, outletName: outlet.name };
     },
   });
@@ -103,7 +266,7 @@ export async function selectOutletForChat({ workspaceId, chat, contact, agent, o
     throw err;
   }
 
-  return { outlet, message: buildCommerceMenuMessage({ outlet }) };
+  return { outlet, message: await buildSelectedOutletTextMenuMessage({ workspaceId, outlet }) };
 }
 
 export async function buildProductDetailMessage({ workspaceId, outletId, product, contactId, chatId, page = 0 }) {
@@ -161,7 +324,7 @@ export async function buildCartViewMessage({ workspaceId, contactId, outletId, c
 export async function buildProductListMessage({ workspaceId, outletId, page = 0 }) {
   if (!outletId) return buildOutletSelectionMessage({ workspaceId });
 
-  const result = await listTelegramProductsForOutlet({ workspaceId, outletId, page, limit: MAX_PRODUCTS_PER_PAGE });
+  const result = await listCustomerProductsForOutlet({ workspaceId, outletId, page, limit: MAX_PRODUCTS_PER_PAGE });
   const { products, pagination } = result;
   if (!products.length) {
     const ver = COMMERCE_VERSION;
@@ -303,7 +466,7 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
 
   if (action.scope === 'prod' && action.action === 'detail' && action.id) {
     const page = 0;
-    const result = await listTelegramProductsForOutlet({
+    const result = await listCustomerProductsForOutlet({
       workspaceId, outletId: chat.currentOutletId, page, limit: 1000,
     });
     const product = result.products.find((p) => String(p.id) === action.id);
@@ -314,7 +477,7 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
   }
 
   if (action.scope === 'prod' && action.id) {
-    const result = await listTelegramProductsForOutlet({
+    const result = await listCustomerProductsForOutlet({
       workspaceId, outletId: chat.currentOutletId, page: 0, limit: 1000,
     });
     const product = result.products.find((p) => String(p.id) === action.id);
@@ -329,7 +492,7 @@ export async function handleTelegramCommerceAction({ action, workspaceId, chat, 
     if (!chat.currentOutletId) return buildOutletSelectionMessage({ workspaceId });
     const quantity = action.action === '3' ? 3 : 1;
     try {
-      const availableResult = await listTelegramProductsForOutlet({
+      const availableResult = await listCustomerProductsForOutlet({
         workspaceId, outletId: chat.currentOutletId, page: 0, limit: 1000,
       });
       const productExists = availableResult.products.find((p) => String(p.id) === productId);

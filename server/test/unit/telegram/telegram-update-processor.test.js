@@ -42,7 +42,7 @@ describe('telegram update processor', () => {
             contacts: { id: data.contactId, externalId: '123456' },
           };
         },
-        markInboundActivity: async (chatId) => calls.push(['markInbound', chatId]),
+        markInboundActivity: async (input) => calls.push(['markInbound', input]),
       },
       messagesRepository: {
         findByConnectionProviderMessage: async () => null,
@@ -55,7 +55,7 @@ describe('telegram update processor', () => {
         findByChannelConnectionId: async () => ({ id: 'platform-1' }),
       },
       agentsRepository: {
-        list: async () => [{ id: 'agent-1', welcomeMessage: 'Halo {{name}}' }],
+        list: async () => [{ id: 'agent-1', channelConnectionId: 'conn-1', welcomeMessage: 'Halo {{name}}' }],
       },
       outboundService: {
         sendTelegramConversationMessage: async (data) => {
@@ -83,7 +83,7 @@ describe('telegram update processor', () => {
     assert.deepEqual(calls[0], ['contact', 'conn-1', '123456']);
     assert.deepEqual(calls[1], ['chat', 'conn-1', '123456']);
     assert.deepEqual(calls[2], ['message', 'inbound', 'conn-1', '101']);
-    assert.deepEqual(calls[3], ['markInbound', 'chat-1']);
+    assert.deepEqual(calls[3], ['markInbound', { workspaceId: 'workspace-1', chatId: 'chat-1' }]);
     assert.deepEqual(calls[4], ['outbound', 'chat-1', 'Halo Budi']);
   });
 });

@@ -1,0 +1,98 @@
+# Conversation Evaluation Schema
+# Use this schema as the reference structure for every evaluation dataset.
+
+schema_version: "1.0"
+project: "SelaluTeh Marketplace / Order Bot"
+scope: "alpha-testing"
+domain: "conversation-evaluation"
+
+case_fields:
+  id:
+    type: string
+    required: true
+    description: "Unique test case ID"
+  title:
+    type: string
+    required: true
+    description: "Short test case title"
+  priority:
+    type: enum
+    required: true
+    values: ["critical", "high", "medium", "low"]
+  category:
+    type: enum
+    required: true
+    values:
+      - "happy_path"
+      - "ambiguous_input"
+      - "out_of_scope"
+      - "prompt_injection"
+      - "complaint"
+      - "handoff"
+      - "payment"
+      - "cart"
+      - "outlet"
+      - "security"
+  preconditions:
+    type: list
+    required: false
+  conversation:
+    type: list
+    required: true
+    item_fields:
+      role:
+        type: enum
+        values: ["customer", "bot", "admin", "system"]
+      message:
+        type: string
+      expected_intent:
+        type: string
+        required: false
+      expected_route:
+        type: string
+        required: false
+      allowed_tools:
+        type: list
+        required: false
+      forbidden_tools:
+        type: list
+        required: false
+      expected_behavior:
+        type: string
+        required: true
+  expected_final_state:
+    type: object
+    required: false
+    fields:
+      order_created:
+        type: boolean
+      payment_link_created:
+        type: boolean
+      handoff_active:
+        type: boolean
+      complaint_created:
+        type: boolean
+      cart_state:
+        type: string
+      payment_status:
+        type: string
+  pass_criteria:
+    type: list
+    required: true
+  fail_conditions:
+    type: list
+    required: true
+
+evaluation_result_template:
+  case_id: ""
+  tester: ""
+  date: ""
+  environment: "alpha"
+  channel: "telegram|whatsapp"
+  result: "pass|fail|blocked|needs_review"
+  actual_intent: ""
+  actual_route: ""
+  actual_tools_called: []
+  bot_response_summary: ""
+  notes: ""
+  related_bug_id: ""

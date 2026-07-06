@@ -36,9 +36,57 @@ import { assertWebhookPayloadSafe, verifyMetaSignature } from '../../security/we
 import { logSecurityEvent } from '../../config/logger.js';
 import { buildManagedFileUrl, buildPublicFileUrl } from '../../utils/file-urls.js';
 import { buildContext } from '../../ai/context/context-builder.js';
-import { buildInvalidAddressReply, buildNearestOutletReplyFromCoordinates, validateCustomerLocationText } from '../../services/location-intelligence/nearest-outlet-reply.service.js';
+import { buildInvalidAddressReply, buildNearestOutletReplyPayloadFromCoordinates, buildNearestOutletReplyPayloadFromText, validateCustomerLocationText } from '../../services/location-intelligence/nearest-outlet-reply.service.js';
+import {
+  buildOutletRecommendationActionButtons,
+  handleTelegramCommerceAction,
+  parseTelegramAction,
+} from '../../services/telegram-commerce.service.js';
 
 const router = express.Router();
+
+function buildOutletRecommendationRawPayload(reply) {
+  if (!reply?.recommendedOutlets?.length) return {};
+  return { actionButtons: buildOutletRecommendationActionButtons(reply.recommendedOutlets) };
+}
+
+function buildWhatsAppOutletRecommendationButtons(reply) {
+  return buildOutletRecommendationActionButtons(reply?.recommendedOutlets || [])
+    .slice(0, 3)
+    .map((button) => ({
+      id: button.id,
+      title: button.title.length > 20 ? button.title.slice(0, 20).trimEnd() : button.title,
+    }));
+}
+
+function buildWhatsAppButtonsFromKeyboard(keyboard) {
+  return (keyboard?.inline_keyboard || [])
+    .flat()
+    .filter((button) => button?.callback_data && button?.text)
+    .slice(0, 3)
+    .map((button) => ({
+      id: button.callback_data,
+      title: button.text.length > 20 ? button.text.slice(0, 20).trimEnd() : button.text,
+    }));
+}
+
+async function sendWhatsAppCommerceResponse({ token, fromPhoneNumberId, to, response }) {
+  const buttons = buildWhatsAppButtonsFromKeyboard(response?.keyboard);
+  if (buttons.length) {
+    await waSendInteractiveButton(token, fromPhoneNumberId, to, response.text, buttons);
+    return;
+  }
+  await waSend(token, fromPhoneNumberId, to, response.text);
+}
+
+async function sendWhatsAppNearestOutletReply({ token, fromPhoneNumberId, to, reply }) {
+  const buttons = buildWhatsAppOutletRecommendationButtons(reply);
+  if (buttons.length) {
+    await waSendInteractiveButton(token, fromPhoneNumberId, to, reply.text, buttons);
+    return;
+  }
+  await waSend(token, fromPhoneNumberId, to, reply.text);
+}
 
 async function reverseGeocodeLocation({ latitude, longitude }) {
   const lat = Number(latitude);
@@ -265,6 +313,18 @@ async function saveMetaFileLocally({ url, token, preferredName }) {
 export async function handleWhatsAppCommerceAction({ actionId, workspaceId, chat, contact, agent, platform, fromPhoneNumberId, from }) {
   if (!actionId) return null;
 
+  const telegramAction = parseTelegramAction(actionId);
+  if (telegramAction) {
+    return handleTelegramCommerceAction({
+      action: telegramAction,
+      workspaceId,
+      chat,
+      contact,
+      agent,
+      chatMessageId: null,
+    });
+  }
+
   // actionId format: wa_cart_view
   if (actionId === 'wa_cart_view') {
     try {
@@ -456,12 +516,18 @@ async function handleWhatsapp(data) {
             from,
           });
           if (actionResult?.text) {
-            await waSend(platform.token, fromPhoneNumberId, from, actionResult.text);
+            await sendWhatsAppCommerceResponse({
+              token: platform.token,
+              fromPhoneNumberId,
+              to: from,
+              response: actionResult,
+            });
             await recordOutboundMessage({
               chatId: chat.id,
               workspaceId: platform.workspaceId,
               from: 'ai',
               text: actionResult.text,
+              replyMarkup: actionResult.keyboard,
             });
           }
           await markWebhookProcessed(webhookEvent);
@@ -491,7 +557,7 @@ async function handleWhatsapp(data) {
 
         if (sharedLocation) {
           const locationAttachment = await buildLocationAttachment(sharedLocation);
-          const nearestReply = await buildNearestOutletReplyFromCoordinates({
+          const nearestReply = await buildNearestOutletReplyPayloadFromCoordinates({
             workspaceId: platform.workspaceId,
             latitude: sharedLocation.latitude,
             longitude: sharedLocation.longitude,
@@ -508,12 +574,18 @@ async function handleWhatsapp(data) {
             platformMessageId: message.id || null,
           });
           if (nearestReply) {
-            await waSend(platform.token, fromPhoneNumberId, from, nearestReply);
+            await sendWhatsAppNearestOutletReply({
+              token: platform.token,
+              fromPhoneNumberId,
+              to: from,
+              reply: nearestReply,
+            });
             await recordOutboundMessage({
               chatId: chat.id,
               workspaceId: platform.workspaceId,
               from: 'ai',
-              text: nearestReply,
+              text: nearestReply.text,
+              rawPayload: buildOutletRecommendationRawPayload(nearestReply),
             });
           }
           await markWebhookProcessed(webhookEvent);
@@ -530,6 +602,24 @@ async function handleWhatsapp(data) {
               workspaceId: platform.workspaceId,
               from: 'ai',
               text: invalidAddressReply,
+            });
+            await markWebhookProcessed(webhookEvent);
+            continue;
+          }
+          const nearestReply = await buildNearestOutletReplyPayloadFromText({ workspaceId: platform.workspaceId, text });
+          if (nearestReply) {
+            await sendWhatsAppNearestOutletReply({
+              token: platform.token,
+              fromPhoneNumberId,
+              to: from,
+              reply: nearestReply,
+            });
+            await recordOutboundMessage({
+              chatId: chat.id,
+              workspaceId: platform.workspaceId,
+              from: 'ai',
+              text: nearestReply.text,
+              rawPayload: buildOutletRecommendationRawPayload(nearestReply),
             });
             await markWebhookProcessed(webhookEvent);
             continue;
@@ -637,7 +727,12 @@ async function handleWhatsapp(data) {
           const cartItemAdded = typeof reply === 'object' ? (reply?.cartItemAdded || false) : false;
           if (replyText && contact.id && cartItemAdded) {
             try {
-              const cart = await cartsRepository.findActiveByContact({ workspaceId: platform.workspaceId, contactId: contact.id });
+              const currentOutletId = chat.currentOutletId || contact.lastOutletId || null;
+              const cart = await cartsRepository.findActiveByContact({
+                workspaceId: platform.workspaceId,
+                contactId: contact.id,
+                outletId: currentOutletId,
+              });
               if (cart && cart.items?.length > 0 && !['converted', 'cancelled'].includes(cart.status)) {
                 const idempotencyKey = `wa_checkout_${cart.id}`;
                 let checkout = await checkoutsRepository.findByIdempotencyKey({ workspaceId: platform.workspaceId, key: idempotencyKey });

@@ -5,6 +5,7 @@
 | Status | Workflow | Priority | ID | Spec | Path |
 |---|---|---|---|---|---|
 | active | in_progress | high | selaluteh-ai-agent-architecture | SelaluTeh AI Agent Architecture | `specs/active/selaluteh-ai-agent-architecture/spec.yaml` |
+| active | in_progress | critical | selaluteh-ai-security-guardrails | SelaluTeh AI Security Guardrails and Tool Execution Boundary | `specs/active/selaluteh-ai-security-guardrails/spec.yaml` |
 | active | in_progress | high | auto-escalate-complaints | SelaluTeh Auto Escalate Complaints | `specs/active/auto-escalate-complaints/spec.yaml` |
 | active | in_progress | critical | selaluteh-cart-order-lifecycle | SelaluTeh Cart & Order Lifecycle | `specs/active/selaluteh-cart-order-lifecycle/spec.yaml` |
 | active | in_progress | critical | selaluteh-channel-connections-sync | SelaluTeh Channel Connections & Sync | `specs/active/selaluteh-channel-connections-sync/spec.yaml` |

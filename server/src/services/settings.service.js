@@ -7,7 +7,7 @@ const SECRET_FLAG_SUFFIX = '_configured';
 const ENCRYPTED_PREFIX = 'enc:';
 
 export const SETTINGS_SCHEMAS = {
-  general: { keys: ['business_display_name', 'timezone', 'currency', 'locale', 'default_language'] },
+  general: { keys: ['business_display_name', 'timezone', 'currency', 'locale', 'default_language', 'support_contact_email', 'default_outlet_id', 'allow_all_outlets_view'] },
   commerce: { keys: ['ai_commerce_enabled', 'require_checkout_confirmation', 'human_handoff_enabled'] },
   notifications: { keys: ['default_channel', 'enabled_types', 'quiet_hours', 'outlet_recipients'] },
   ai: { keys: ['primary_ai', 'secondary_ai', 'default_model', 'custom_provider_url', 'custom_provider_key'] },
@@ -49,19 +49,25 @@ function decryptSecret(value) {
 
 function isTopLevelColumn(key) {
   return ['business_display_name', 'timezone', 'currency', 'locale', 'default_language',
+    'support_contact_email', 'default_outlet_id',
     'ai_commerce_enabled', 'require_checkout_confirmation', 'human_handoff_enabled',
     'allow_all_outlets_view', 'primary_ai', 'secondary_ai'].includes(key);
 }
 
 const COLUMN_MAP = {
-  business_display_name: 'business_display_name',
-  default_language: 'default_language',
-  ai_commerce_enabled: 'ai_commerce_enabled',
-  require_checkout_confirmation: 'require_checkout_confirmation',
-  human_handoff_enabled: 'human_handoff_enabled',
-  allow_all_outlets_view: 'allow_all_outlets_view',
-  primary_ai: 'primary_ai',
-  secondary_ai: 'secondary_ai',
+  business_display_name: 'businessDisplayName',
+  timezone: 'timezone',
+  currency: 'currency',
+  locale: 'locale',
+  default_language: 'defaultLanguage',
+  support_contact_email: 'supportContactEmail',
+  default_outlet_id: 'defaultOutletId',
+  ai_commerce_enabled: 'aiCommerceEnabled',
+  require_checkout_confirmation: 'requireCheckoutConfirmation',
+  human_handoff_enabled: 'humanHandoffEnabled',
+  allow_all_outlets_view: 'allowAllOutletsView',
+  primary_ai: 'primaryAi',
+  secondary_ai: 'secondaryAi',
 };
 
 async function getDbSettings(workspaceId) {
@@ -166,5 +172,19 @@ export async function getPaymentRuntimeConfig({ workspaceId }) {
       paymentMethod: ns.bayargg_payment_method || 'qris',
       useQrisConverter: Boolean(ns.bayargg_use_qris_converter),
     },
+  };
+}
+
+export async function getAiRuntimeConfig({ workspaceId }) {
+  const db = await getDbSettings(workspaceId);
+  const metadata = db?.metadata ?? {};
+  const ns = metadata[SETTINGS_NS] ?? {};
+
+  return {
+    primaryProvider: db?.primary_ai || ns.primary_ai || 'openai',
+    secondaryProvider: db?.secondary_ai || ns.secondary_ai || 'gemini',
+    defaultModel: ns.default_model || '',
+    customProviderUrl: ns.custom_provider_url || '',
+    customProviderKey: decryptSecret(ns.custom_provider_key),
   };
 }

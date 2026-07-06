@@ -119,6 +119,28 @@ function normalizeMessageAttachment(message) {
   return normalized
 }
 
+function normalizeMessageActionButtons(message) {
+  const rawPayload = message.rawPayload || message.raw_payload || {}
+  const actionButtons = rawPayload.actionButtons || []
+  if (actionButtons.length) {
+    return actionButtons
+      .filter((button) => button?.title || button?.text)
+      .map((button) => ({
+        id: button.id || button.callback_data,
+        title: button.title || button.text,
+      }))
+  }
+
+  const rows = rawPayload.replyMarkup?.inline_keyboard || rawPayload.reply_markup?.inline_keyboard || []
+  return rows
+    .flat()
+    .filter((button) => button?.text)
+    .map((button) => ({
+      id: button.callback_data || button.id,
+      title: button.text,
+    }))
+}
+
 // ─── message bubble ────────────────────────────────────────────────────────
 
 function MessageBubble({ message }) {
@@ -185,6 +207,7 @@ function MessageBubble({ message }) {
   const isLocation = attachment?.type === 'location'
   const displayContent = isLocation && content.trim() === '[Lokasi dibagikan]' ? '' : content
   const hasCaption = !!displayContent
+  const actionButtons = normalizeMessageActionButtons(message)
 
   const handleImageLoad = (event) => {
     const { naturalWidth, naturalHeight } = event.currentTarget
@@ -285,6 +308,19 @@ function MessageBubble({ message }) {
               }
             >
               {displayContent}
+            </div>
+          )}
+          {actionButtons.length > 0 && (
+            <div className='mt-3 flex flex-col gap-2'>
+              {actionButtons.map((button) => (
+                <button
+                  key={button.id || button.title}
+                  type='button'
+                  className={`text-left rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${isUser ? 'border-white/30 bg-white/10 text-white' : 'border-white/30 bg-white/15 text-white hover:bg-white/25'}`}
+                >
+                  {button.title}
+                </button>
+              ))}
             </div>
           )}
         </div>

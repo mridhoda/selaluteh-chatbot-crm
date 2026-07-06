@@ -1141,15 +1141,16 @@ function AnalyticsPage() {
 
 /* ========================= PROFILE ========================= */
 function Profile() {
-  const { user } = useAuth()
-  const [name, setName] = useState(user?.name || '')
-  const [email, setEmail] = useState(user?.email || '')
+  const { user, setUser } = useAuth()
+  const workspaceId = user?.workspaceId || user?.workspace_id || null
+  const initialWorkspaceName = user?.workspaceName || user?.workspace_name || user?.workspace?.name || user?.name || ''
+  const [name, setName] = useState(initialWorkspaceName)
+  const [email] = useState(user?.email || '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saveErr, setSaveErr] = useState(null)
 
   // Notification channel preferences
-  const workspaceId = user?.workspaceId || user?.workspace_id || null
   const [channels, setChannels] = useState(null) // null = all (default)
   const [channelLoading, setChannelLoading] = useState(true)
   const [channelSaving, setChannelSaving] = useState(false)
@@ -1162,8 +1163,18 @@ function Profile() {
   ]
 
   useEffect(() => {
+    if (!workspaceId) return
+    api.get('/api/workspaces/current', { skipAuthRedirect: true })
+      .then(res => {
+        const workspace = res.data?.data
+        if (workspace?.name) setName(workspace.name)
+      })
+      .catch(() => {})
+  }, [workspaceId])
+
+  useEffect(() => {
     if (!workspaceId) { setChannelLoading(false); return }
-    api.get(`/workspaces/${workspaceId}/members`)
+    api.get(`/api/workspaces/${workspaceId}/members`)
       .then(res => {
         const me = (res.data?.data || []).find(m => m.userId === user?.id || m.user_id === user?.id)
         if (me) setChannels(me.notificationChannels ?? me.notification_channels ?? null)
@@ -1187,11 +1198,25 @@ function Profile() {
   const save = async () => {
     setSaving(true); setSaved(false); setSaveErr(null)
     try {
-      await api.put('/users/profile', { name, email })
+      if (!workspaceId) throw new Error('Workspace tidak ditemukan')
+      const res = await api.patch(`/api/workspaces/${workspaceId}`, { name })
+      const workspace = res.data?.data || { id: workspaceId, name }
+      const nextUser = {
+        ...(user || {}),
+        email,
+        workspaceId: workspace.id || workspaceId,
+        workspaceName: workspace.name || name,
+        workspace: {
+          id: workspace.id || workspaceId,
+          name: workspace.name || name,
+        },
+      }
+      sessionStorage.setItem('user', JSON.stringify(nextUser))
+      setUser(nextUser)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
-      setSaveErr(err.response?.data?.error || 'Gagal menyimpan profil')
+      setSaveErr(err.response?.data?.error?.message || err.response?.data?.error || err.message || 'Gagal menyimpan profil')
     } finally { setSaving(false) }
   }
 
@@ -1199,7 +1224,7 @@ function Profile() {
     if (!workspaceId) return
     setChannelSaving(true); setChannelSaved(false); setChannelErr(null)
     try {
-      await api.patch(`/workspaces/${workspaceId}/members/me/notification-channels`, { channels })
+      await api.patch(`/api/workspaces/${workspaceId}/members/me/notification-channels`, { channels })
       setChannelSaved(true)
       setTimeout(() => setChannelSaved(false), 3000)
     } catch (err) {
@@ -1226,7 +1251,7 @@ function Profile() {
             {name?.[0]?.toUpperCase() || '?'}
           </div>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>{name || 'Pengguna'}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>{name || 'Workspace'}</div>
             <div style={{ fontSize: 13, color: '#64748b' }}>{email}</div>
             {user?.role && (
               <span style={{
@@ -1240,15 +1265,15 @@ function Profile() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 6 }}>Nama</label>
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 6 }}>Nama Workspace</label>
             <input className='input' value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
           </div>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 6 }}>Email</label>
-            <input className='input' type='email' value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 6 }}>Email Akun</label>
+            <input className='input' type='email' value={email} disabled style={{ width: '100%', boxSizing: 'border-box' }} />
           </div>
           {saveErr && <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#dc2626', fontSize: 13 }}>⚠️ {saveErr}</div>}
-          {saved && <div style={{ padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, color: '#15803d', fontSize: 13 }}>✅ Profil berhasil disimpan.</div>}
+          {saved && <div style={{ padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, color: '#15803d', fontSize: 13 }}>✅ Nama workspace berhasil disimpan.</div>}
           <button className='btn' onClick={save} disabled={saving} style={{ alignSelf: 'flex-start' }}>
             {saving ? 'Menyimpan…' : 'Simpan Perubahan'}
           </button>

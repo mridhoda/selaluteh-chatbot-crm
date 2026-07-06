@@ -436,3 +436,32 @@ Additional canonicalization note:
 | Web client compilation | Vite build compiled successfully |
 | Spec synchronization | 13 specs validated successfully (`npm run specs:check`) |
 
+## SelaluTeh AI Security Guardrails — 2026-07-03
+
+| Module | Status | Evidence |
+|---|---|---|
+| Spec lifecycle activation | Implemented | `selaluteh-ai-security-guardrails` moved to `specs/active/`; `workflow_state: in_progress`; `npm run specs:check` passes with 14 specs validated. |
+| AISG-T001 AI security audit | Complete | `specs/active/selaluteh-ai-security-guardrails/audit-evidence.md` documents AI tool definitions, inline tool schemas, direct repository mutation paths, legacy order paths, payment mutation authority paths, and requirement mappings AISG-R5-R8/AISG-R17-R24. |
+| Runtime guardrail changes | Not started | AISG-T001 is audit-only; direct AI repository mutation removal, gateway enforcement, confirmation guard, and legacy order shutdown are deferred to later explicit tasks. |
+| AISG Phase 0 baseline | Complete | AISG-T002 matrix, AISG-T003 import-boundary gate, AISG-T004 button-commerce regression, and AISG-T005 payment provider authority inventory completed. |
+| AI direct mutation mitigation | Phase 0 guard applied | Natural-language AI mutation tools now fail closed instead of mutating cart/chat/checkout/order/payment repositories directly; full gateway/proposal-confirm-execute remains deferred to Phase 1-3 tasks. |
+| Payment provider selection | Workspace config authority for generic flows | Generic payment creation/session/config routes now use `getPaymentRuntimeConfig()` instead of global provider fallback; provider-specific legacy gaps are documented in `payment-provider-inventory.md`. |
+| AISG Phase 1 scope and trusted context | Complete | AISG-T006 through AISG-T013 implemented with deterministic input/domain scope guard, out-of-scope short-circuit before retrieval/model/tools, human takeover short-circuit, server-owned agent modes, frozen `AIActionContext`, tenant consistency guard, authority-field rejection, and cross-tenant non-disclosure tests. |
+| AISG Phase 2 tool gateway and policy engine | Complete | AISG-T014 through AISG-T021 implemented with immutable versioned tool registry, deny-by-default gateway, restricted-action policy, strict schema validation, safe result normalization, call/payload/timeout limits, dependency breaker safe failure, and AI service marker sanitization/no contact-name mutation. |
+| AISG Phase 3 confirmation guard | Complete | AISG-T022 through AISG-T029 implemented with additive confirmation migration, payload hashing, opaque single-use token consume, context/state binding, ambiguity/customer-choice guard, recommendation-vs-selection separation, and canonical checkout summary confirmation. |
+| AISG Phase 4 product/outlet/cart/pricing | Complete | AISG-T030 through AISG-T045 implemented with active/customer-visible product search, outlet-aware pricing, outlet-required mutation guard, orderable outlet guard, canonical cart quantity/merge/single-outlet/server-price guards, freshness/idempotency helpers, and checkout intent from existing cart. |
+| AISG Phase 5 checkout/order/payment | Complete | AISG-T046 through AISG-T057 implemented with checkout revalidation, cart-version idempotency, canonical order/payment guard helpers, FILE_ORDER_JSON prompt removal/sanitization, workspace provider authority, payment snapshot validation, PAID authority proof, no silent provider fallback, and pickup-only checkout enforcement. |
+
+| Test / Validation | Result |
+|---|---|
+| Specs lifecycle dry run | Passed; planned one move from backlog to active. |
+| Specs synchronization | Passed; moved AISG spec and regenerated index. |
+| Specs validation | Passed; 14 specs validated. |
+| AI security tests | Passed: `npm run test:ai:security` (7 pass, 0 fail). |
+| AI E2E tests | Passed: `npm run test:ai:e2e` (4 pass, 0 fail). |
+| AI unit tests | Passed: `npm run test:ai:unit` (234 pass, 0 fail). |
+| AISG Phase 1 focused tests | Passed: Phase 1 unit/integration focus (24 pass, 0 fail); `npm run test:ai:unit` now reports 246 pass, 0 fail after adding Phase 1 tests. |
+| AISG Phase 2 focused tests | Passed: Phase 2 gateway/security focus (35 pass, 0 fail); `npm run test:ai:unit` now reports 254 pass, 0 fail after adding Phase 2 tests. |
+| AISG Phase 3-5 focused tests | Passed: `phase3-5-guardrails.test.js` (8 pass, 0 fail); `npm run test:ai:unit` now reports 262 pass, 0 fail after adding Phase 3-5 tests. |
+| Payment targeted tests | Passed: payment integration + Xendit unit tests (9 pass, 0 fail). |
+| Telegram marketplace smoke | Passed: `telegram-marketplace.e2e.test.js` (2 pass, 0 fail). |

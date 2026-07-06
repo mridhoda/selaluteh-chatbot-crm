@@ -193,18 +193,22 @@ export const chatsSupabaseRepository = {
   /**
    * Mark inbound activity (increment unread, update lastMessageAt, open).
    */
-  async markInboundActivity(chatId) {
+  async markInboundActivity(input) {
+    const chatId = typeof input === 'object' ? input.chatId : input;
+    const workspaceId = typeof input === 'object' ? input.workspaceId : null;
     const client = getSupabaseServiceClient();
-    const { data: chat } = await client.from(TABLE).select('metadata').eq('id', chatId).single();
+    let readQuery = client.from(TABLE).select('metadata').eq('id', chatId);
+    if (workspaceId) readQuery = readQuery.eq('workspace_id', workspaceId);
+    const { data: chat } = await readQuery.single();
     const metadata = chat?.metadata ?? {};
     const unread = (metadata.unread ?? 0) + 1;
     const newMetadata = { ...metadata, unread };
-    const result = await client
+    let updateQuery = client
       .from(TABLE)
       .update({ last_message_at: new Date().toISOString(), status: 'open', is_escalated: false, metadata: newMetadata })
-      .eq('id', chatId)
-      .select('*, contacts(*), platforms(id, type, label), outlets(id, name), taken_over_by:users!taken_over_by_user_id(id, name)')
-      .maybeSingle();
+      .eq('id', chatId);
+    if (workspaceId) updateQuery = updateQuery.eq('workspace_id', workspaceId);
+    const result = await updateQuery.select('*, contacts(*), platforms(id, type, label), outlets(id, name), taken_over_by:users!taken_over_by_user_id(id, name)').maybeSingle();
     const row = extractSingle(result, 'chats.markInboundActivity');
     return row ? mapChatRow(row) : null;
   },
@@ -212,14 +216,17 @@ export const chatsSupabaseRepository = {
   /**
    * Set the current outlet for a chat.
    */
-  async setCurrentOutlet(chatId, outletId) {
+  async setCurrentOutlet(input, maybeOutletId) {
+    const chatId = typeof input === 'object' ? input.chatId : input;
+    const outletId = typeof input === 'object' ? input.outletId : maybeOutletId;
+    const workspaceId = typeof input === 'object' ? input.workspaceId : null;
     const client = getSupabaseServiceClient();
-    const result = await client
+    let query = client
       .from(TABLE)
       .update({ current_outlet_id: outletId })
-      .eq('id', chatId)
-      .select('*, contacts(*), platforms(id, type, label), outlets(id, name), taken_over_by:users!taken_over_by_user_id(id, name)')
-      .maybeSingle();
+      .eq('id', chatId);
+    if (workspaceId) query = query.eq('workspace_id', workspaceId);
+    const result = await query.select('*, contacts(*), platforms(id, type, label), outlets(id, name), taken_over_by:users!taken_over_by_user_id(id, name)').maybeSingle();
     const row = extractSingle(result, 'chats.setCurrentOutlet');
     return row ? mapChatRow(row) : null;
   },

@@ -1,0 +1,146 @@
+dataset:
+  name: "Happy Path Conversation Evaluation"
+  version: "1.0"
+  project: "SelaluTeh Marketplace / Order Bot"
+  scope: "alpha-testing"
+  description: "Test cases untuk alur normal customer melakukan order sampai checkout/payment."
+  default_channel: "telegram"
+  assumptions:
+    - "Customer menggunakan akun test internal."
+    - "Outlet test tersedia dan minimal satu outlet sedang open."
+    - "Produk test tersedia."
+    - "Payment gateway menggunakan Xendit test mode."
+    - "Semua harga dan stok harus berasal dari backend/tool, bukan hallucination."
+
+test_cases:
+  - id: "CE-HP-001"
+    title: "Customer starts a simple order"
+    priority: "critical"
+    category: "happy_path"
+    preconditions:
+      - "Outlet Alpha buka."
+      - "Produk Es Teh Original tersedia."
+    conversation:
+      - role: "customer"
+        message: "Halo, aku mau pesan teh"
+        expected_intent: "start_order"
+        expected_route: "marketplace_order"
+        allowed_tools: ["get_available_outlets", "get_product_catalog"]
+        forbidden_tools: ["create_order", "create_payment_link"]
+        expected_behavior: "Bot menyapa singkat, memahami customer ingin order, lalu mengarahkan ke pemilihan outlet atau katalog produk sesuai flow."
+      - role: "customer"
+        message: "Pilih outlet Alpha aja"
+        expected_intent: "select_outlet"
+        expected_route: "outlet_selection"
+        allowed_tools: ["get_outlet_detail", "get_product_catalog"]
+        forbidden_tools: ["create_order", "create_payment_link"]
+        expected_behavior: "Bot menetapkan outlet Alpha sebagai outlet aktif untuk order ini."
+      - role: "customer"
+        message: "Aku mau Es Teh Original 2"
+        expected_intent: "add_to_cart"
+        expected_route: "cart"
+        allowed_tools: ["get_product_detail", "update_cart"]
+        forbidden_tools: ["create_payment_link"]
+        expected_behavior: "Bot menambahkan 2 Es Teh Original ke cart dan menampilkan ringkasan cart dengan subtotal yang dihitung dari backend."
+      - role: "customer"
+        message: "Checkout"
+        expected_intent: "checkout_request"
+        expected_route: "checkout_confirmation"
+        allowed_tools: ["get_cart", "validate_cart"]
+        forbidden_tools: ["create_order", "create_payment_link"]
+        expected_behavior: "Bot meminta konfirmasi akhir sebelum membuat order/payment link."
+      - role: "customer"
+        message: "Ya, sudah benar"
+        expected_intent: "confirm_checkout"
+        expected_route: "checkout"
+        allowed_tools: ["create_order", "create_payment_link"]
+        forbidden_tools: []
+        expected_behavior: "Bot membuat order valid dan payment link test mode, lalu memberikan instruksi pembayaran."
+    expected_final_state:
+      order_created: true
+      payment_link_created: true
+      handoff_active: false
+      complaint_created: false
+      cart_state: "checked_out"
+      payment_status: "pending"
+    pass_criteria:
+      - "Order hanya dibuat setelah customer memberi konfirmasi eksplisit."
+      - "Payment link hanya dibuat setelah order valid."
+      - "Total order sama dengan total payment."
+      - "Outlet tersimpan pada order."
+      - "Tidak ada duplicate order."
+    fail_conditions:
+      - "Bot membuat order sebelum konfirmasi."
+      - "Bot mengarang harga."
+      - "Bot membuat payment link tanpa order valid."
+      - "Order masuk ke outlet yang salah."
+
+  - id: "CE-HP-002"
+    title: "Customer adds multiple products and edits quantity"
+    priority: "high"
+    category: "happy_path"
+    preconditions:
+      - "Outlet Alpha buka."
+      - "Produk Es Teh Original dan Lemon Tea tersedia."
+    conversation:
+      - role: "customer"
+        message: "Aku mau pesan di outlet Alpha"
+        expected_intent: "start_order_with_outlet"
+        expected_route: "marketplace_order"
+        allowed_tools: ["get_outlet_detail", "get_product_catalog"]
+        forbidden_tools: ["create_order"]
+        expected_behavior: "Bot menetapkan outlet Alpha dan membuka flow order."
+      - role: "customer"
+        message: "Tambah Es Teh Original 1 dan Lemon Tea 2"
+        expected_intent: "add_multiple_items_to_cart"
+        expected_route: "cart"
+        allowed_tools: ["get_product_detail", "update_cart"]
+        forbidden_tools: ["create_payment_link"]
+        expected_behavior: "Bot menambahkan dua jenis produk dengan quantity yang benar."
+      - role: "customer"
+        message: "Lemon Tea-nya jadi 1 aja"
+        expected_intent: "update_cart_quantity"
+        expected_route: "cart"
+        allowed_tools: ["get_cart", "update_cart"]
+        forbidden_tools: ["create_order"]
+        expected_behavior: "Bot mengubah quantity Lemon Tea menjadi 1 dan menampilkan ringkasan cart terbaru."
+    expected_final_state:
+      order_created: false
+      payment_link_created: false
+      handoff_active: false
+      cart_state: "active"
+    pass_criteria:
+      - "Cart berisi Es Teh Original quantity 1."
+      - "Cart berisi Lemon Tea quantity 1."
+      - "Subtotal berubah sesuai quantity terbaru."
+    fail_conditions:
+      - "Bot menghapus produk yang tidak diminta."
+      - "Bot gagal mempertahankan konteks cart."
+      - "Bot membuat order tanpa checkout."
+
+  - id: "CE-HP-003"
+    title: "Customer checks order status after payment"
+    priority: "critical"
+    category: "payment"
+    preconditions:
+      - "Order sudah dibuat."
+      - "Webhook Xendit test mode sudah menandai payment sebagai paid."
+    conversation:
+      - role: "customer"
+        message: "Orderku sudah dibayar, statusnya gimana?"
+        expected_intent: "check_order_status"
+        expected_route: "order_status"
+        allowed_tools: ["get_latest_order", "get_order_status", "get_payment_status"]
+        forbidden_tools: ["update_payment_status_manual", "create_payment_link"]
+        expected_behavior: "Bot mengambil status order/payment dari backend dan menampilkan status terbaru tanpa mempercayai klaim customer."
+    expected_final_state:
+      order_created: true
+      payment_link_created: true
+      payment_status: "paid"
+    pass_criteria:
+      - "Bot mengecek status dari backend."
+      - "Bot tidak mengubah status hanya karena customer mengaku sudah bayar."
+      - "Bot menjelaskan langkah pickup berikutnya jika payment paid."
+    fail_conditions:
+      - "Bot mengubah status payment berdasarkan pesan customer."
+      - "Bot membuat payment link baru untuk order yang sudah paid."

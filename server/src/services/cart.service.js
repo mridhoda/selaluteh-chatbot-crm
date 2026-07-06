@@ -1,6 +1,8 @@
 import { cartsRepository } from '../db/repositories/index.js';
 import { productsRepository } from '../db/repositories/index.js';
+import { inventoryRepository } from '../db/repositories/inventory.supabase.repository.js';
 import { AppError } from '../utils/errors.js';
+import { DEFAULT_MAX_ITEM_QUANTITY } from '../ai/security/commerce-guardrails.js';
 
 export async function getOrCreateActiveCart({ workspaceId, outletId, contactId, chatId, platformType }) {
   let cart = await cartsRepository.findActiveByContact({ workspaceId, contactId, outletId });
@@ -15,6 +17,8 @@ export async function getOrCreateActiveCart({ workspaceId, outletId, contactId, 
 }
 
 export async function addItem({ workspaceId, outletId, contactId, chatId, platformType, productId, quantity = 1, variant = null, modifiers = [] }) {
+  if (!Number.isInteger(quantity) || quantity < 1) throw new AppError('INVALID_QUANTITY', 'Quantity must be at least 1', 400);
+  if (quantity > DEFAULT_MAX_ITEM_QUANTITY) throw new AppError('QUANTITY_LIMIT_EXCEEDED', 'Quantity exceeds maximum allowed per item', 400);
   const product = await productsRepository.findById({ workspaceId, productId });
   if (!product) throw new AppError('PRODUCT_NOT_FOUND', 'Product not found', 404);
   if (!product.isActive) throw new AppError('PRODUCT_UNAVAILABLE', 'Product is not available', 400);
@@ -28,7 +32,9 @@ export async function addItem({ workspaceId, outletId, contactId, chatId, platfo
   let availability = null;
   if (outletId) {
     availability = await productsRepository.findOneAvailability({ workspaceId, productId, outletId });
-    if (!availability || !availability.isAvailable) {
+    const inventory = await inventoryRepository.findByProduct({ workspaceId, outletId, productId });
+    const hasInventoryStock = Number(inventory?.quantity ?? 0) >= quantity;
+    if ((!availability || !availability.isAvailable) && !hasInventoryStock) {
       throw new AppError('PRODUCT_UNAVAILABLE', 'Product not available at this outlet', 400);
     }
   }
@@ -41,6 +47,7 @@ export async function addItem({ workspaceId, outletId, contactId, chatId, platfo
   const existingItem = cart.items.find((i) => String(i.productId) === String(productId));
   if (existingItem) {
     const newQty = existingItem.quantity + quantity;
+    if (newQty > DEFAULT_MAX_ITEM_QUANTITY) throw new AppError('QUANTITY_LIMIT_EXCEEDED', 'Quantity exceeds maximum allowed per item', 400);
     const newSubtotal = effectivePrice * newQty;
     const updated = await cartsRepository.updateItem({
       workspaceId, cartId: cart.id, productId,
@@ -69,7 +76,8 @@ export async function addItem({ workspaceId, outletId, contactId, chatId, platfo
 }
 
 export async function updateQuantity({ workspaceId, cartId, productId, quantity }) {
-  if (quantity < 1) throw new AppError('VALIDATION', 'Quantity must be at least 1', 400);
+  if (!Number.isInteger(quantity) || quantity < 1) throw new AppError('VALIDATION', 'Quantity must be at least 1', 400);
+  if (quantity > DEFAULT_MAX_ITEM_QUANTITY) throw new AppError('QUANTITY_LIMIT_EXCEEDED', 'Quantity exceeds maximum allowed per item', 400);
   const cart = await cartsRepository.findById({ workspaceId, cartId });
   if (!cart) throw new AppError('NOT_FOUND', 'Cart not found', 404);
   const item = cart.items.find((i) => String(i.productId) === String(productId));

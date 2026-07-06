@@ -45,3 +45,15 @@ export function safeError(errorCode, message, { retryable = false } = {}) {
     retryable,
   };
 }
+
+export function normalizeToolResult(result, { fallbackMessage = 'Terjadi kesalahan. Silakan coba lagi.', retryable = false } = {}) {
+  if (result instanceof Error) {
+    return safeError(result.code || 'AI_TOOL_EXECUTION_FAILED', fallbackMessage, { retryable });
+  }
+
+  if (result && typeof result === 'object' && result.ok === false) {
+    return safeError(result.code || 'AI_TOOL_EXECUTION_FAILED', result.userSafeMessage || fallbackMessage, { retryable: !!result.retryable });
+  }
+
+  return safeResult(result);
+}

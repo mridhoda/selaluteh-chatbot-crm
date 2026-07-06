@@ -288,6 +288,19 @@ body {
   a:hover {
     text-decoration: underline;
   }
+
+  button,
+  [type='button'],
+  [type='reset'],
+  [type='submit'] {
+    background-color: transparent;
+    background-image: none;
+    border: 0 solid transparent;
+    padding: 0;
+    line-height: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
 }
 
 .title {

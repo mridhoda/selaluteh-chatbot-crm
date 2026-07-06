@@ -160,6 +160,25 @@ export function formatNearestOutletReply(nearest) {
   return lines.join('\n');
 }
 
+function toRecommendedOutletButton(outlet) {
+  if (!outlet?.outletId || !outlet?.name) return null;
+  return {
+    outletId: String(outlet.outletId),
+    name: outlet.name,
+  };
+}
+
+export function formatNearestOutletReplyPayload(nearest) {
+  const text = formatNearestOutletReply(nearest);
+  const recommendation = nearest?.recommendation;
+  const alternatives = nearest?.alternatives || [];
+  const recommendedOutlets = [recommendation, ...alternatives]
+    .map(toRecommendedOutletButton)
+    .filter(Boolean);
+
+  return { text, recommendedOutlets };
+}
+
 export async function buildNearestOutletReplyFromCoordinates({ workspaceId, latitude, longitude }) {
   const lat = Number(latitude);
   const lon = Number(longitude);
@@ -172,6 +191,20 @@ export async function buildNearestOutletReplyFromCoordinates({ workspaceId, lati
 
   const nearest = findNearestOutlets({ latitude: lat, longitude: lon }, eligibleOutlets);
   return formatNearestOutletReply(nearest);
+}
+
+export async function buildNearestOutletReplyPayloadFromCoordinates({ workspaceId, latitude, longitude }) {
+  const lat = Number(latitude);
+  const lon = Number(longitude);
+  if (!workspaceId || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+  const locations = await outletLocationsRepository.listVerifiedEligible(workspaceId);
+  const eligibleOutlets = (locations || [])
+    .map(toEligibleOutlet)
+    .filter(Boolean);
+
+  const nearest = findNearestOutlets({ latitude: lat, longitude: lon }, eligibleOutlets);
+  return formatNearestOutletReplyPayload(nearest);
 }
 
 export async function buildNearestOutletReplyFromText({ workspaceId, text, provider = createDefaultLocationProvider() }) {
@@ -211,6 +244,50 @@ export async function buildNearestOutletReplyFromText({ workspaceId, text, provi
   if (!candidate) return null;
 
   return buildNearestOutletReplyFromCoordinates({
+    workspaceId,
+    latitude: candidate.latitude,
+    longitude: candidate.longitude,
+  });
+}
+
+export async function buildNearestOutletReplyPayloadFromText({ workspaceId, text, provider = createDefaultLocationProvider() }) {
+  if (!workspaceId || !looksLikeCustomerLocationText(text)) return null;
+  const validation = validateCustomerLocationText(text);
+  if (!validation.valid) return { text: buildInvalidAddressReply(validation.reason), recommendedOutlets: [] };
+
+  const parsed = parseLocationText(text);
+  const resolutionService = createResolutionService({
+    provider,
+    cache: createResolutionCache(),
+  });
+
+  const resolved = await resolutionService.resolve({ ...parsed, rawText: text }, { workspaceId });
+  if (resolved.status === 'MISSING_CITY') {
+    return { text: 'Boleh sebutkan kotanya juga? Contoh: “Jelawat Samarinda”.', recommendedOutlets: [] };
+  }
+  if (resolved.status === 'MISSING_DETAIL') {
+    return { text: 'Boleh sebutkan nama jalan/daerah/landmark yang lebih spesifik?', recommendedOutlets: [] };
+  }
+  if (resolved.status === 'OUTSIDE_SUPPORTED_CITY') {
+    return { text: `Maaf, kota tersebut belum masuk area yang didukung. Area tersedia: ${resolved.supportedCities?.join(', ') || 'Samarinda'}.`, recommendedOutlets: [] };
+  }
+  if (resolved.status === 'NOT_FOUND') {
+    const fallbackReply = await findOutletLocationTextFallback({ workspaceId, text });
+    return fallbackReply ? { text: fallbackReply, recommendedOutlets: [] } : null;
+  }
+
+  const candidates = resolved.candidates || [];
+  if (resolved.status === 'AMBIGUOUS' && candidates.length > 1) {
+    const options = candidates.slice(0, 3).map((candidate, index) => (
+      `${index + 1}. ${candidate.formattedAddress || candidate.label}`
+    ));
+    return { text: `Saya menemukan beberapa kemungkinan lokasi. Yang mana yang kamu maksud?\n${options.join('\n')}`, recommendedOutlets: [] };
+  }
+
+  const candidate = candidates[0];
+  if (!candidate) return null;
+
+  return buildNearestOutletReplyPayloadFromCoordinates({
     workspaceId,
     latitude: candidate.latitude,
     longitude: candidate.longitude,

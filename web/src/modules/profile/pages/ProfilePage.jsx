@@ -30,6 +30,14 @@ function getSessionUser() {
   try { return JSON.parse(sessionStorage.getItem('user') || 'null') } catch { return null }
 }
 
+function getWorkspaceName(user) {
+  const name = user?.workspaceName || user?.workspace_name || user?.workspace?.name || user?.name || 'Workspace'
+  return String(name)
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 const CHANNEL_OPTIONS = [
   {
     key: 'telegram',
@@ -60,7 +68,7 @@ function NotificationChannelsSection({ workspaceId }) {
   // Fetch current membership settings
   useEffect(() => {
     if (!workspaceId) return
-    api.get(`/workspaces/${workspaceId}/members`)
+    api.get(`/api/workspaces/${workspaceId}/members`)
       .then(res => {
         const user = getSessionUser()
         const me = (res.data?.data || []).find(m => m.userId === user?.id)
@@ -99,7 +107,7 @@ function NotificationChannelsSection({ workspaceId }) {
     setSaving(true)
     setError(null)
     try {
-      await api.patch(`/workspaces/${workspaceId}/members/me/notification-channels`, {
+      await api.patch(`/api/workspaces/${workspaceId}/members/me/notification-channels`, {
         channels: selected, // null = all channels
       })
       setSaved(true)
@@ -199,19 +207,21 @@ function NotificationChannelsSection({ workspaceId }) {
 export default function ProfilePage() {
   const user = getSessionUser()
   const workspaceId = user?.workspaceId || user?.workspace_id || null
+  const workspaceName = getWorkspaceName(user)
+  const role = user?.workspaceRole || user?.role
 
   return (
     <div className="profile-page">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="profile-header">
         <div className="profile-avatar">
-          {user?.name?.[0]?.toUpperCase() || <FontAwesomeIcon icon={faUser} />}
+          {workspaceName?.[0]?.toUpperCase() || <FontAwesomeIcon icon={faUser} />}
         </div>
         <div>
-          <h2 className="profile-header__name">{user?.name || 'Pengguna'}</h2>
+          <h2 className="profile-header__name">{workspaceName}</h2>
           <p className="profile-header__email">{user?.email || ''}</p>
-          {user?.role && (
-            <span className="profile-role-badge">{user.role.replace(/_/g, ' ')}</span>
+          {role && (
+            <span className="profile-role-badge">{role.replace(/_/g, ' ')}</span>
           )}
         </div>
       </div>

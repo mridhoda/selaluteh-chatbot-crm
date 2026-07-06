@@ -16,8 +16,14 @@ describe('settings.service', () => {
   describe('getSchemaKeys', () => {
     it('returns keys for known schema', () => {
       const keys = getSchemaKeys('general');
+      assert.ok(keys.includes('business_display_name'));
       assert.ok(keys.includes('timezone'));
       assert.ok(keys.includes('currency'));
+      assert.ok(keys.includes('locale'));
+      assert.ok(keys.includes('default_language'));
+      assert.ok(keys.includes('support_contact_email'));
+      assert.ok(keys.includes('default_outlet_id'));
+      assert.ok(keys.includes('allow_all_outlets_view'));
     });
 
     it('throws for unknown schema', () => {

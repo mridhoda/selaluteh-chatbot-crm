@@ -27,7 +27,7 @@ const DEFAULT_PROMPT_RULES = {
   noReintroInstruction:
     'PENTING: Customer sudah pernah chat sebelumnya. Jangan memberi salam, halo, atau perkenalan lagi. Langsung jawab kebutuhan customer.',
   askLocationForOrderReply:
-    'Siap, Tea bantu pesankan ya 😊 Boleh info lokasi kamu saat ini dulu? Bisa share location dari Telegram/Google Maps, atau ketik nama jalan/daerah/kota tempat kamu berada, contoh: “Jalan Jelawat Samarinda”. Nanti Tea carikan outlet terdekat dari lokasimu dan kirimkan link Google Maps-nya. Jadi Tea nggak akan list semua outlet dulu biar nggak kepanjangan.',
+    'Siap, Kea bantu pesankan ya 😊 Boleh info lokasi kamu saat ini dulu? Bisa share location, atau ketik alamat tempat kamu berada, contoh: “Jalan Jelawat Samarinda”. Nanti Kea carikan outlet terdekat dari lokasimu.',
   productRulesWhenEmpty: `Product/menu answer rules:
 - If the user asks for menu, products, prices, stock, or availability, answer only from this Official Active Products list.
 - Do not invent menu items, prices, variants, stock, promos, or availability.

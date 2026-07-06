@@ -486,6 +486,16 @@ function CommerceTab({
   setLiveOrders,
 }) {
   const ctx = chat.commerceContext || {}
+  const getProviderLabel = (prov) => {
+    if (!prov) return ''
+    const match = {
+      xendit: 'Xendit',
+      midtrans: 'Midtrans',
+      doku: 'DOKU Checkout',
+      bayargg: 'Bayar.gg',
+    }
+    return match[prov.toLowerCase()] || prov
+  }
   const [selectedOutletId, setSelectedOutletId] = useState(null)
   const [isOutletDropdownOpen, setIsOutletDropdownOpen] = useState(false)
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
@@ -496,6 +506,8 @@ function CommerceTab({
   const [ordersFilter, setOrdersFilter] = useState('all')
   const [isClearingCart, setIsClearingCart] = useState(false)
   const [isCreatingPaymentLink, setIsCreatingPaymentLink] = useState(false)
+  const [paymentConfig, setPaymentConfig] = useState(null)
+  const [selectedPaymentType, setSelectedPaymentType] = useState('link')
   const toast = useToast()
 
   const getChatContactId = () => {
@@ -643,20 +655,41 @@ function CommerceTab({
       const orderRes = await api.post('/orders', { checkoutId: confirmedCheckout.id || checkout.id })
       const order = orderRes?.data?.data || orderRes?.data
 
-      const paymentRes = await api.post(`/orders/${order.id}/payments/session`, {
-        customer: getCustomerSnapshot(),
-        idempotencyKey: `human_payment_${order.id}`,
-      })
-      const payment = paymentRes?.data?.data || paymentRes?.data
-      const paymentUrl = payment.paymentUrl || payment.paymentLink || payment.paymentLinkUrl
+      let paymentUrl = ''
+      let payment = null
+      const total = order.totals?.total || order.totalAmount || cartSummary.total
+      const orderNumber = order.orderNumber || order.order_number || order.id
 
-      if (!paymentUrl) {
-        throw new Error('Payment link tidak tersedia dari provider')
+      if (selectedPaymentType === 'link') {
+        const paymentRes = await api.post(`/orders/${order.id}/payments/session`, {
+          customer: getCustomerSnapshot(),
+          idempotencyKey: `human_payment_${order.id}`,
+        })
+        payment = paymentRes?.data?.data || paymentRes?.data
+        paymentUrl = payment.paymentUrl || payment.paymentLink || payment.paymentLinkUrl
+        if (!paymentUrl) {
+          throw new Error('Payment link tidak tersedia dari provider')
+        }
+      } else {
+        const paymentRes = await api.post('/payments', {
+          orderId: order.id,
+          amount: total,
+          currency: order.totals?.currency || 'IDR',
+          customer: getCustomerSnapshot(),
+          paymentMethod: selectedPaymentType === 'manual' ? 'bank_transfer' : 'cod',
+          outletId: selectedOutletId,
+        })
+        payment = paymentRes?.data?.data || paymentRes?.data
       }
 
-      const total = payment.amount || order.totalAmount || order.totals?.total || cartSummary.total
-      const orderNumber = order.orderNumber || order.order_number || order.id
-      const message = `Link pembayaran untuk pesanan ${orderNumber}:\n${paymentUrl}\n\nTotal: ${formatRupiah(total)}\nSilakan selesaikan pembayaran melalui link di atas.`
+      let message = ''
+      if (selectedPaymentType === 'link') {
+        message = `Link pembayaran untuk pesanan ${orderNumber}:\n${paymentUrl}\n\nTotal: ${formatRupiah(total)}\nSilakan selesaikan pembayaran melalui link di atas.`
+      } else if (selectedPaymentType === 'manual') {
+        message = `Pesanan ${orderNumber} telah dibuat menggunakan Manual Transfer.\nTotal: ${formatRupiah(total)}\nSilakan lakukan transfer manual sesuai instruksi pembayaran.`
+      } else if (selectedPaymentType === 'cod') {
+        message = `Pesanan ${orderNumber} telah dibuat menggunakan Cash on Delivery (COD).\nTotal: ${formatRupiah(total)}\nSilakan siapkan pembayaran saat pesanan diambil.`
+      }
 
       await api.post(`/chats/${chatId}/send`, { text: message })
 
@@ -664,10 +697,14 @@ function CommerceTab({
       setLiveCartItems([])
       setLiveCartId(null)
       window.dispatchEvent(new Event('cart-cleared'))
-      toast.success('Payment link berhasil dibuat dan dikirim')
+      toast.success(
+        selectedPaymentType === 'link'
+          ? 'Payment link berhasil dibuat dan dikirim'
+          : 'Pesanan berhasil dibuat dan dikirim'
+      )
     } catch (err) {
-      console.error('[CommerceTab] Failed to create/send payment link:', err)
-      toast.error(err.response?.data?.message || err.message || 'Gagal membuat payment link')
+      console.error('[CommerceTab] Failed to process order payment:', err)
+      toast.error(err.response?.data?.message || err.message || 'Gagal memproses pesanan')
     } finally {
       setIsCreatingPaymentLink(false)
     }
@@ -750,6 +787,35 @@ function CommerceTab({
     const isDone = latestStatus === 'completed' || latestStatus === 'delivered' || latestStatus === 'cancelled'
     if (isDone) window.dispatchEvent(new Event('cart-cleared'))
   }, [liveOrders])
+
+  useEffect(() => {
+    let active = true
+    const fetchPaymentConfig = async () => {
+      try {
+        const res = await api.get('/api/workspaces/settings/payment')
+        const data = res.data?.data || {}
+        if (active) {
+          setPaymentConfig(data)
+          // Set default selected payment type based on settings:
+          // 1. Link (gateway) if provider is configured
+          // 2. manual (bank_transfer) if bank_transfer is enabled
+          // 3. cod if cod is enabled
+          const methods = data.payment_methods || data.paymentMethods || []
+          if (data.provider) {
+            setSelectedPaymentType('link')
+          } else if (methods.includes('bank_transfer')) {
+            setSelectedPaymentType('manual')
+          } else if (methods.includes('cod')) {
+            setSelectedPaymentType('cod')
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load payment config:', err)
+      }
+    }
+    fetchPaymentConfig()
+    return () => { active = false }
+  }, [])
 
   const handleClearCart = async () => {
     if (!window.confirm('Yakin ingin menghapus semua item dari keranjang aktif user ini?')) return
@@ -915,58 +981,75 @@ function CommerceTab({
       <div>
         <OrderStepHeader num='5' title='Payment' />
         <div className='bg-white border border-slate-100 rounded-xl p-3.5 shadow-sm mt-1.5 space-y-3.5'>
-          <label className='flex items-center gap-2.5 cursor-pointer group'>
-            <input
-              type='radio'
-              name='payment-type'
-              defaultChecked
-              className='accent-[var(--brand-500)] h-4 w-4 border-slate-300 cursor-pointer'
-            />
-            <span className='text-xs font-bold text-[var(--brand-600)]'>
-              Link Payment — Xendit Test
-            </span>
-          </label>
-          <label className='flex items-center gap-2.5 cursor-pointer group'>
-            <input
-              type='radio'
-              name='payment-type'
-              className='accent-[var(--brand-500)] h-4 w-4 border-slate-300 cursor-pointer'
-            />
-            <span className='text-xs font-semibold text-slate-600 group-hover:text-slate-800 transition-colors'>
-              Manual Transfer
-            </span>
-          </label>
-          <label className='flex items-center gap-2.5 cursor-pointer group'>
-            <input
-              type='radio'
-              name='payment-type'
-              className='accent-[var(--brand-500)] h-4 w-4 border-slate-300 cursor-pointer'
-            />
-            <span className='text-xs font-semibold text-slate-600 group-hover:text-slate-800 transition-colors'>
-              Cash on Delivery
-            </span>
-          </label>
+          {/* Link Payment Option */}
+          {(!paymentConfig || paymentConfig?.provider) && (
+            <label className='flex items-center gap-2.5 cursor-pointer group'>
+              <input
+                type='radio'
+                name='payment-type'
+                checked={selectedPaymentType === 'link'}
+                onChange={() => setSelectedPaymentType('link')}
+                className='accent-[var(--brand-500)] h-4 w-4 border-slate-300 cursor-pointer'
+              />
+              <span className={`text-xs font-bold ${selectedPaymentType === 'link' ? 'text-[var(--brand-600)]' : 'text-slate-600 group-hover:text-slate-800 transition-colors'}`}>
+                Link Payment {paymentConfig?.provider ? `— ${getProviderLabel(paymentConfig.provider)}` : '— Xendit'} {paymentConfig?.environment === 'production' ? '' : 'Test'}
+              </span>
+            </label>
+          )}
+
+          {/* Manual Transfer Option */}
+          {(!paymentConfig || (paymentConfig?.paymentMethods || paymentConfig?.payment_methods || []).includes('bank_transfer')) && (
+            <label className='flex items-center gap-2.5 cursor-pointer group'>
+              <input
+                type='radio'
+                name='payment-type'
+                checked={selectedPaymentType === 'manual'}
+                onChange={() => setSelectedPaymentType('manual')}
+                className='accent-[var(--brand-500)] h-4 w-4 border-slate-300 cursor-pointer'
+              />
+              <span className={`text-xs font-bold ${selectedPaymentType === 'manual' ? 'text-[var(--brand-600)]' : 'text-slate-600 group-hover:text-slate-800 transition-colors'}`}>
+                Manual Transfer
+              </span>
+            </label>
+          )}
+
+          {/* COD Option */}
+          {(!paymentConfig || (paymentConfig?.paymentMethods || paymentConfig?.payment_methods || []).includes('cod')) && (
+            <label className='flex items-center gap-2.5 cursor-pointer group'>
+              <input
+                type='radio'
+                name='payment-type'
+                checked={selectedPaymentType === 'cod'}
+                onChange={() => setSelectedPaymentType('cod')}
+                className='accent-[var(--brand-500)] h-4 w-4 border-slate-300 cursor-pointer'
+              />
+              <span className={`text-xs font-bold ${selectedPaymentType === 'cod' ? 'text-[var(--brand-600)]' : 'text-slate-600 group-hover:text-slate-800 transition-colors'}`}>
+                Cash on Delivery
+              </span>
+            </label>
+          )}
 
           {/* Gateway state */}
-          <div className='mt-3 bg-emerald-50 border border-emerald-100 rounded-xl p-3 shadow-sm text-left'>
-            <div className='text-[11px] font-bold text-emerald-700 mb-0.5'>
-              Xendit Test Mode
+          {selectedPaymentType === 'link' && (paymentConfig?.provider || !paymentConfig) && (
+            <div className='mt-3 bg-emerald-50 border border-emerald-100 rounded-xl p-3 shadow-sm text-left'>
+              <div className='text-[11px] font-bold text-emerald-700 mb-0.5'>
+                {paymentConfig?.provider ? getProviderLabel(paymentConfig.provider) : 'Xendit'} {paymentConfig?.environment === 'production' ? 'Production Mode' : 'Test Mode'}
+              </div>
+              <div className='text-[10px] text-emerald-600/80 mb-2 leading-tight'>
+                Connected when backend is configured. Payment and order statuses remain separate.
+              </div>
+              <button
+                className='text-[10px] font-bold text-amber-700 flex items-center gap-1 hover:underline border-none bg-transparent cursor-pointer p-0'
+                onClick={() => setIsPaymentModalOpen(true)}
+              >
+                View setup{' '}
+                <ArrowRight
+                  size={10}
+                  className='group-hover:translate-x-0.5 transition-transform shrink-0'
+                />
+              </button>
             </div>
-            <div className='text-[10px] text-emerald-600/80 mb-2 leading-tight'>
-              Connected when backend Xendit Test Mode env is configured. Payment
-              and order statuses remain separate.
-            </div>
-            <button
-              className='text-[10px] font-bold text-amber-700 flex items-center gap-1 hover:underline border-none bg-transparent cursor-pointer p-0'
-              onClick={() => setIsPaymentModalOpen(true)}
-            >
-              View setup{' '}
-              <ArrowRight
-                size={10}
-                className='group-hover:translate-x-0.5 transition-transform shrink-0'
-              />
-            </button>
-          </div>
+          )}
         </div>
       </div>
 
@@ -979,7 +1062,15 @@ function CommerceTab({
             onClick={handleCreateAndSendPaymentLink}
             className='bg-gradient-to-r from-[var(--brand-500)] to-[var(--ai-500)] w-full py-3 text-white text-sm font-bold rounded-xl shadow-lg hover:opacity-95 transition-all cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed'
           >
-            {isCreatingPaymentLink ? 'Creating Payment Link...' : 'Create & Send Payment Link'}
+            {isCreatingPaymentLink
+              ? selectedPaymentType === 'link'
+                ? 'Creating Payment Link...'
+                : 'Creating Order...'
+              : selectedPaymentType === 'link'
+                ? 'Create & Send Payment Link'
+                : selectedPaymentType === 'manual'
+                  ? 'Create & Send Order (Manual Transfer)'
+                  : 'Create & Send Order (COD)'}
           </button>
           <button className='w-full py-2.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm hover:bg-slate-50 transition-colors cursor-pointer'>
             <Bookmark size={14} className='text-slate-400 shrink-0' />

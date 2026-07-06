@@ -19,7 +19,7 @@ function baseDeps(overrides = {}) {
         createWithConnection: async (data) => { calls.push(['message', data.content, data.attachment?.filename]); return { id: 'msg-1', ...data }; },
       },
       platformsRepository: { findByChannelConnectionId: async () => ({ id: 'platform-1' }) },
-      agentsRepository: { list: async () => [] },
+      agentsRepository: { list: async () => [{ id: 'agent-1', channelConnectionId: 'conn-1' }] },
       outboundService: { sendTelegramConversationMessage: async (data) => calls.push(['outbound', data.text, data.replyMarkup?.inline_keyboard?.length]) },
       loadRecentMessages: async () => [{ id: 'old-ai', senderType: 'ai', direction: 'outbound', content: 'Halo' }],
       ...overrides,

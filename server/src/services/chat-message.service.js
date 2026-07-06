@@ -35,6 +35,9 @@ export async function recordOutboundMessage({
   attachment = null,
   messageType = null,
   platformMessageId = null,
+  rawPayload = null,
+  replyMarkup = null,
+  actionButtons = null,
 }) {
   const resolvedMessageType = messageType || (attachment
     ? (/\.(png|jpe?g|gif|webp)$/i.test(attachment.filename || attachment.url || '') ? 'image' : 'file')
@@ -46,7 +49,12 @@ export async function recordOutboundMessage({
     from,
     text,
     attachment,
-    rawPayload: attachment ? { attachment } : {},
+    rawPayload: {
+      ...(rawPayload || {}),
+      ...(attachment ? { attachment } : {}),
+      ...(replyMarkup ? { replyMarkup } : {}),
+      ...(actionButtons ? { actionButtons } : {}),
+    },
     messageType: resolvedMessageType,
     platformMessageId,
     createdAt: new Date(),

@@ -12,11 +12,21 @@ import { transcribeAudio as defaultTranscribeAudio } from '../ai.service.js';
 import { loadRecentMessages as defaultLoadRecentMessages } from '../../ai/context/recent-messages.js';
 import { buildContext } from '../../ai/context/context-builder.js';
 import { telegramOutboundService } from './telegram-outbound.service.js';
-import { buildInvalidAddressReply, buildNearestOutletReplyFromCoordinates, buildNearestOutletReplyFromText, validateCustomerLocationText } from '../location-intelligence/nearest-outlet-reply.service.js';
+import { buildInvalidAddressReply, buildNearestOutletReplyPayloadFromCoordinates, buildNearestOutletReplyPayloadFromText, validateCustomerLocationText } from '../location-intelligence/nearest-outlet-reply.service.js';
 import { findDatabaseFileMention, findUrlFileMention } from '../../utils/fileMentions.js';
 import { buildManagedFileUrl } from '../../utils/file-urls.js';
 import { downloadFile } from '../../utils/downloader.js';
-import { handleTelegramCommerceAction, parseTelegramAction } from '../telegram-commerce.service.js';
+import {
+  buildOutletRecommendationKeyboard,
+  buildSingleOutletConfirmationKeyboard,
+  getLatestRecommendedOutletId,
+  getRecommendedOutletIdFromTextSelection,
+  handleTelegramCommerceAction,
+  isOutletConfirmationText,
+  parseTelegramAction,
+  rememberLatestOutletRecommendation,
+  selectOutletForChat,
+} from '../telegram-commerce.service.js';
 import { buildCallbackKey, COMMERCE_VERSION } from '../telegram-commerce.service.js';
 import { createInlineKeyboard } from '../../integrations/telegram/telegram-keyboards.js';
 import { cartsRepository as defaultCartsRepository, checkoutsRepository as defaultCheckoutsRepository } from '../../db/repositories/index.js';
@@ -26,6 +36,10 @@ import path from 'node:path';
 
 function resolveMessage(update = {}, normalized = {}) {
   return normalized.message || update.message || update.edited_message || update.callback_query?.message || null;
+}
+
+function resolveTelegramActor(update = {}, msgObj = {}) {
+  return update.callback_query?.from || msgObj.from || msgObj.chat || {};
 }
 
 function resolveText(update = {}, normalized = {}) {
@@ -38,6 +52,16 @@ function resolveContactName(chat = {}) {
 
 function isImageFile(filename = '') {
   return /\.(png|jpe?g|gif|webp)$/i.test(filename);
+}
+
+function shouldAttachOutletConfirmationButton(text = '', chat = {}) {
+  if (!getLatestRecommendedOutletId(chat)) return false;
+  const normalized = String(text || '').toLowerCase();
+  return normalized.includes('setuju')
+    || normalized.includes('outlet itu')
+    || normalized.includes('memesan dari outlet')
+    || normalized.includes('memilih outlet')
+    || normalized.includes('tea lanjutkan');
 }
 
 function buildDatabaseAttachment(mention) {
@@ -147,10 +171,12 @@ async function buildIncomingAttachment({ msgObj, token, telegramFileService, tra
 
 async function findAgent({ agentsRepo, workspaceId, connection, platformId }) {
   const agents = await agentsRepo.list({ workspaceId });
-  return agents.find((agent) => agent.channelConnectionId === connection.id)
-    || agents.find((agent) => agent.platformId === platformId)
-    || agents[0]
-    || null;
+  const connectionAgent = agents.find((agent) => agent.channelConnectionId === connection.id);
+  if (connectionAgent) return connectionAgent;
+  const platformAgent = platformId ? agents.find((agent) => agent.platformId === platformId) : null;
+  if (platformAgent) return platformAgent;
+  const unassignedAgents = agents.filter((agent) => !agent.channelConnectionId && !agent.platformId);
+  return unassignedAgents.length === 1 ? unassignedAgents[0] : null;
 }
 
 export function createTelegramUpdateProcessor({
@@ -186,9 +212,14 @@ export function createTelegramUpdateProcessor({
     const msgObj = resolveMessage(update, normalized);
     if (!msgObj?.chat?.id) return { ok: true, ignored: true };
 
+    const isCallbackQuery = !!update.callback_query;
+    const actor = resolveTelegramActor(update, msgObj);
     const providerConversationId = String(msgObj.chat.id);
-    const providerUserId = String(msgObj.from?.id || msgObj.chat.id);
-    const providerMessageId = msgObj.message_id ? String(msgObj.message_id) : null;
+    const providerUserId = String(actor?.id || msgObj.chat.id);
+    const originalProviderMessageId = msgObj.message_id ? String(msgObj.message_id) : null;
+    const providerMessageId = isCallbackQuery
+      ? (update.callback_query?.id ? `callback:${update.callback_query.id}` : null)
+      : originalProviderMessageId;
     let text = resolveText(update, normalized);
     let platformId = connection.legacyPlatformId || connection.platformId || connection.metadata?.legacyPlatformId || null;
     if (!platformId) {
@@ -196,7 +227,11 @@ export function createTelegramUpdateProcessor({
       platformId = legacyPlatform?.id || null;
     }
 
-    if (providerMessageId) {
+    // For callback_query, msgObj is the *original bot message* that contained the
+    // inline keyboard — its message_id already exists in the DB as an outbound
+    // message.  Checking for duplicates here would always fire and silently drop
+    // every button press.  Skip the check for callback_query events.
+    if (providerMessageId && !isCallbackQuery) {
       const existingMessage = await messagesRepo.findByConnectionProviderMessage({
         channelConnectionId: connection.id,
         providerMessageId,
@@ -215,8 +250,8 @@ export function createTelegramUpdateProcessor({
       providerUserId,
       platformId,
       data: {
-        name: resolveContactName(msgObj.chat),
-        handle: msgObj.chat.username ? `@${msgObj.chat.username}` : null,
+        name: resolveContactName(actor),
+        handle: actor.username ? `@${actor.username}` : null,
       },
     });
 
@@ -244,13 +279,17 @@ export function createTelegramUpdateProcessor({
       providerMessageId,
       providerUpdateId: update.update_id !== undefined ? String(update.update_id) : null,
       rawPayload: {
-        telegram: { updateId: update.update_id, eventId: event.id },
+        telegram: { updateId: update.update_id, eventId: event.id, originalMessageId: originalProviderMessageId, callbackQueryId: update.callback_query?.id || null },
         ...(incomingAttachment ? { attachment: incomingAttachment } : {}),
       },
     });
-    await chatsRepo.markInboundActivity(chat.id);
+    await chatsRepo.markInboundActivity({ workspaceId: event.workspaceId, chatId: chat.id });
 
     const agent = await findAgent({ agentsRepo, workspaceId: event.workspaceId, connection, platformId });
+    if (!agent) {
+      console.warn('[telegram-v1] no agent configured for connection', connection.id);
+      return { ok: true, chatId: chat.id, contactId: contact.id, ignored: true, reason: 'no_agent_configured' };
+    }
     const commerceAction = parseTelegramAction(update.callback_query?.data || '');
     if (commerceAction) {
       const commerceResponse = await handleTelegramCommerceAction({
@@ -275,13 +314,20 @@ export function createTelegramUpdateProcessor({
 
     const sharedLocation = normalized.location || normalized.venue?.location || null;
     if (sharedLocation) {
-      const nearestReply = await buildNearestOutletReplyFromCoordinates({
+      const nearestReply = await buildNearestOutletReplyPayloadFromCoordinates({
         workspaceId: event.workspaceId,
         latitude: sharedLocation.latitude,
         longitude: sharedLocation.longitude,
       });
       if (nearestReply) {
-        await outboundService.sendTelegramConversationMessage({ workspaceId: event.workspaceId, chatId: chat.id, text: nearestReply, senderType: 'ai' });
+        await rememberLatestOutletRecommendation({ chat, recommendedOutlets: nearestReply.recommendedOutlets });
+        await outboundService.sendTelegramConversationMessage({
+          workspaceId: event.workspaceId,
+          chatId: chat.id,
+          text: nearestReply.text,
+          replyMarkup: buildOutletRecommendationKeyboard(nearestReply.recommendedOutlets),
+          senderType: 'ai',
+        });
         return { ok: true, chatId: chat.id, contactId: contact.id, location: true };
       }
     } else if (text) {
@@ -291,11 +337,42 @@ export function createTelegramUpdateProcessor({
         await outboundService.sendTelegramConversationMessage({ workspaceId: event.workspaceId, chatId: chat.id, text: invalidAddressReply, senderType: 'ai' });
         return { ok: true, chatId: chat.id, contactId: contact.id, location: true };
       }
-      const nearestReply = await buildNearestOutletReplyFromText({ workspaceId: event.workspaceId, text });
+      const nearestReply = await buildNearestOutletReplyPayloadFromText({ workspaceId: event.workspaceId, text });
       if (nearestReply) {
-        await outboundService.sendTelegramConversationMessage({ workspaceId: event.workspaceId, chatId: chat.id, text: nearestReply, senderType: 'ai' });
+        await rememberLatestOutletRecommendation({ chat, recommendedOutlets: nearestReply.recommendedOutlets });
+        await outboundService.sendTelegramConversationMessage({
+          workspaceId: event.workspaceId,
+          chatId: chat.id,
+          text: nearestReply.text,
+          replyMarkup: buildOutletRecommendationKeyboard(nearestReply.recommendedOutlets),
+          senderType: 'ai',
+        });
         return { ok: true, chatId: chat.id, contactId: contact.id, location: true };
       }
+
+      {
+        const recommendedOutletId = getRecommendedOutletIdFromTextSelection(text, chat)
+          || (isOutletConfirmationText(text) ? getLatestRecommendedOutletId(chat) : null);
+        if (recommendedOutletId) {
+          const { message } = await selectOutletForChat({
+            workspaceId: event.workspaceId,
+            chat,
+            contact,
+            agent,
+            outletId: recommendedOutletId,
+            chatMessageId: inboundMessage.id,
+          });
+          await outboundService.sendTelegramConversationMessage({
+            workspaceId: event.workspaceId,
+            chatId: chat.id,
+            text: message.text,
+            replyMarkup: message.keyboard,
+            senderType: 'ai',
+          });
+          return { ok: true, chatId: chat.id, contactId: contact.id, commerce: true };
+        }
+      }
+
     }
 
     const history = await loadRecentMessages({ chatId: chat.id, limit: 10 });
@@ -365,6 +442,9 @@ export function createTelegramUpdateProcessor({
         workspaceId: event.workspaceId,
         chatId: chat.id,
         text: replyText,
+        replyMarkup: shouldAttachOutletConfirmationButton(replyText, chat)
+          ? buildSingleOutletConfirmationKeyboard(getLatestRecommendedOutletId(chat))
+          : null,
         senderType: 'ai',
       });
 

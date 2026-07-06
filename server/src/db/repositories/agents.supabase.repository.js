@@ -15,11 +15,19 @@
  */
 
 import { getSupabaseServiceClient } from '../supabase.js';
-import { mapRow, mapRows } from '../supabase-mapper.js';
+import { mapRow } from '../supabase-mapper.js';
 import { extractData, extractSingle } from '../supabase-errors.js';
 import { requireWorkspaceId } from '../supabase-query.js';
 
 const TABLE = 'agents';
+
+function mapAgentRow(row) {
+  if (!row) return null;
+  const mapped = mapRow(row);
+  if (mapped.metadata?.aiSettings) mapped.aiSettings = mapped.metadata.aiSettings;
+  if (mapped.metadata?.outlets) mapped.outlets = mapped.metadata.outlets;
+  return mapped;
+}
 
 export const agentsSupabaseRepository = {
   /**
@@ -33,7 +41,7 @@ export const agentsSupabaseRepository = {
       .select('*')
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false });
-    return mapRows(extractData(result, 'agents.list') ?? []);
+    return (extractData(result, 'agents.list') ?? []).map(mapAgentRow);
   },
 
   /**
@@ -50,10 +58,7 @@ export const agentsSupabaseRepository = {
       .maybeSingle();
     const row = extractSingle(result, 'agents.findById');
     if (!row) return null;
-    const mapped = mapRow(row);
-    if (mapped.metadata?.aiSettings) mapped.aiSettings = mapped.metadata.aiSettings;
-    if (mapped.metadata?.outlets) mapped.outlets = mapped.metadata.outlets;
-    return mapped;
+    return mapAgentRow(row);
   },
 
   /**
@@ -68,16 +73,13 @@ export const agentsSupabaseRepository = {
       .maybeSingle();
     const row = extractSingle(result, 'agents.findByIdRaw');
     if (!row) return null;
-    const mapped = mapRow(row);
-    if (mapped.metadata?.aiSettings) mapped.aiSettings = mapped.metadata.aiSettings;
-    if (mapped.metadata?.outlets) mapped.outlets = mapped.metadata.outlets;
-    return mapped;
+    return mapAgentRow(row);
   },
 
   /**
    * Create a new agent. Complex fields stored as JSONB.
    */
-  async create({ workspaceId, name, platformId, prompt, behavior, welcomeMessage,
+  async create({ workspaceId, name, platformId, channelConnectionId, prompt, behavior, welcomeMessage,
     stickerUrl, knowledge, followUps, database, complaintFields, complaintNotification,
     salesForms, payment, outlets, status = 'active', metadata = {} }) {
     requireWorkspaceId(workspaceId);
@@ -85,6 +87,7 @@ export const agentsSupabaseRepository = {
     const insert = {
       workspace_id: workspaceId,
       platform_id: platformId || null,
+      channel_connection_id: channelConnectionId || null,
       name,
       behavior: behavior || '',
       prompt: prompt || '',
@@ -122,6 +125,7 @@ export const agentsSupabaseRepository = {
       complaintNotification: 'complaint_notification', salesForms: 'sales_forms',
       payment: 'payment', status: 'status',
       platformId: 'platform_id',
+      channelConnectionId: 'channel_connection_id',
     };
     for (const [k, v] of Object.entries(updates)) {
       if (fieldMap[k] !== undefined) set[fieldMap[k]] = v;
@@ -156,10 +160,7 @@ export const agentsSupabaseRepository = {
       .maybeSingle();
     const row = extractSingle(result, 'agents.update');
     if (!row) return null;
-    const mapped = mapRow(row);
-    if (mapped.metadata?.aiSettings) mapped.aiSettings = mapped.metadata.aiSettings;
-    if (mapped.metadata?.outlets) mapped.outlets = mapped.metadata.outlets;
-    return mapped;
+    return mapAgentRow(row);
   },
 
   /**

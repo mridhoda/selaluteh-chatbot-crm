@@ -4,6 +4,7 @@ import { ordersRepository, paymentsRepository } from '../db/repositories/index.j
 import { assertOutletAccess, buildOutletScopedQuery } from './access-control.service.js';
 import { notifyOrderUpdatedRealtime, notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage } from './order.service.js';
 import { getPaymentRuntimeConfig } from './settings.service.js';
+import { assertPaymentProviderAuthority, assertPaymentSnapshot } from '../ai/security/payment-order-guardrails.js';
 
 const TERMINAL_PAID_STATUSES = new Set(['paid', 'refunded', 'partially_refunded']);
 const ACTIVE_SESSION_STATUSES = new Set(['pending', 'created']);
@@ -17,6 +18,7 @@ export async function createPayment({ user, workspaceId, outletId, orderId, cust
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
   if (!order) throw new AppError('NOT_FOUND', 'Order not found', 404);
   if (user) await assertOutletAccess(user, order.outletId);
+  const runtimeConfig = await getPaymentRuntimeConfig({ workspaceId });
 
   const expectedAmount = order.totals?.total || 0;
   const requestedAmount = amount ?? expectedAmount;
@@ -34,12 +36,14 @@ export async function createPayment({ user, workspaceId, outletId, orderId, cust
 
   let providerTransactionId = null;
   let paymentUrl = null;
-  const activeProvider = (requestedAmount === 0) ? 'manual' : (provider || env.paymentProvider);
+  const activeProvider = (requestedAmount === 0) ? 'manual' : assertPaymentProviderAuthority({ runtimeProvider: runtimeConfig.provider, requestedProvider: provider }).provider;
+  if (activeProvider !== 'manual') {
+    assertPaymentSnapshot({ amount: requestedAmount, currency, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) });
+  }
 
   if (activeProvider !== 'manual') {
     try {
       const adapter = await loadPaymentAdapter(activeProvider);
-      const runtimeConfig = await getPaymentRuntimeConfig({ workspaceId });
       const result = await adapter.createPayment({
         orderId: orderId.toString(),
         merchantReference,
@@ -187,7 +191,7 @@ export async function createXenditPaymentSessionForOrder({ user, workspaceId, or
 
 export async function createPaymentSessionForOrder({ user, workspaceId, orderId, customer = {}, idempotencyKey, provider }) {
   const runtimeConfig = await getPaymentRuntimeConfig({ workspaceId });
-  const activeProvider = provider || runtimeConfig.provider || env.paymentProvider;
+  const activeProvider = provider || runtimeConfig.provider;
   if (activeProvider === 'xendit') {
     return createXenditPaymentSessionForOrder({ user, workspaceId, orderId, customer, idempotencyKey });
   }

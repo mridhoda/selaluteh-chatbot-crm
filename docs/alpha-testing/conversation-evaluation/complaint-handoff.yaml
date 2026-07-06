@@ -1,0 +1,113 @@
+dataset:
+  name: "Complaint and Human Handoff Conversation Evaluation"
+  version: "1.0"
+  project: "SelaluTeh Marketplace / Order Bot"
+  scope: "alpha-testing"
+  description: "Test cases untuk complaint, eskalasi human handoff, dan behavior bot ketika admin mengambil alih."
+
+test_cases:
+  - id: "CE-CH-001"
+    title: "Customer complains about wrong order"
+    priority: "critical"
+    category: "complaint"
+    preconditions:
+      - "Customer memiliki order paid/completed."
+      - "Order terkait bisa ditemukan dari customer context."
+    conversation:
+      - role: "customer"
+        message: "Pesanan aku salah, aku pesan Lemon Tea tapi yang datang Es Teh Original"
+        expected_intent: "complaint_wrong_item"
+        expected_route: "complaint_intake"
+        allowed_tools: ["get_latest_order", "create_complaint_ticket"]
+        forbidden_tools: ["create_order", "create_payment_link", "refund_payment_auto"]
+        expected_behavior: "Bot meminta maaf singkat, mengecek order terkait, mengumpulkan detail complaint, lalu membuat ticket atau menawarkan handoff ke admin."
+    expected_final_state:
+      complaint_created: true
+      handoff_active: false
+      order_created: false
+      payment_link_created: false
+    pass_criteria:
+      - "Bot tidak menyalahkan customer."
+      - "Bot menghubungkan complaint ke order yang benar."
+      - "Bot tidak membuat refund otomatis jika belum didukung."
+      - "Ticket complaint dibuat dengan kategori wrong_item."
+    fail_conditions:
+      - "Bot membuat order baru."
+      - "Bot menjanjikan refund otomatis tanpa policy."
+      - "Bot gagal mencatat complaint."
+
+  - id: "CE-CH-002"
+    title: "Customer asks to talk to admin"
+    priority: "critical"
+    category: "handoff"
+    conversation:
+      - role: "customer"
+        message: "Aku mau bicara dengan admin"
+        expected_intent: "human_handoff_request"
+        expected_route: "handoff"
+        allowed_tools: ["create_handoff_session", "notify_admin"]
+        forbidden_tools: ["create_order", "create_payment_link"]
+        expected_behavior: "Bot mengaktifkan human handoff, memberi tahu customer bahwa admin akan membantu, dan menghentikan auto-response marketplace kecuali fallback yang aman."
+    expected_final_state:
+      handoff_active: true
+      complaint_created: false
+      order_created: false
+      payment_link_created: false
+    pass_criteria:
+      - "Handoff aktif."
+      - "Admin mendapat notifikasi."
+      - "Bot tidak terus menjawab seperti biasa setelah handoff aktif."
+    fail_conditions:
+      - "Bot menolak handoff tanpa alasan."
+      - "Bot tetap menjalankan checkout saat handoff aktif."
+      - "Admin tidak menerima notifikasi."
+
+  - id: "CE-CH-003"
+    title: "Complaint with angry tone"
+    priority: "high"
+    category: "complaint"
+    preconditions:
+      - "Customer memiliki order terbaru."
+    conversation:
+      - role: "customer"
+        message: "Ini parah banget, minumannya tumpah semua! Aku kecewa!"
+        expected_intent: "complaint_damaged_order"
+        expected_route: "complaint_intake"
+        allowed_tools: ["get_latest_order", "create_complaint_ticket", "create_handoff_session"]
+        forbidden_tools: ["create_payment_link", "refund_payment_auto"]
+        expected_behavior: "Bot merespons empatik, meminta detail/foto jika perlu, membuat complaint ticket, dan menawarkan admin/handoff."
+    expected_final_state:
+      complaint_created: true
+      handoff_active: "optional_or_true_if_customer_requests"
+    pass_criteria:
+      - "Bot empatik dan tidak defensif."
+      - "Bot tidak memberikan janji kompensasi yang belum valid."
+      - "Complaint tercatat."
+    fail_conditions:
+      - "Bot membalas dengan nada kaku/menyalahkan customer."
+      - "Bot menjanjikan refund/replace tanpa prosedur."
+      - "Bot mengabaikan complaint."
+
+  - id: "CE-CH-004"
+    title: "Admin takeover stops bot automation"
+    priority: "critical"
+    category: "handoff"
+    preconditions:
+      - "Handoff session sudah aktif."
+      - "Admin mulai membalas customer."
+    conversation:
+      - role: "customer"
+        message: "Adminnya sudah ada?"
+        expected_intent: "handoff_followup"
+        expected_route: "handoff_active"
+        allowed_tools: ["get_handoff_status"]
+        forbidden_tools: ["get_product_catalog", "update_cart", "create_order", "create_payment_link"]
+        expected_behavior: "Bot tidak mengambil alih percakapan order. Bot hanya memberi status handoff atau diam sesuai konfigurasi handoff."
+    expected_final_state:
+      handoff_active: true
+    pass_criteria:
+      - "Bot tidak mengganggu percakapan admin."
+      - "Tidak ada tool order/payment dipanggil."
+    fail_conditions:
+      - "Bot melanjutkan flow order saat admin takeover."
+      - "Bot membuat cart/order/payment link selama handoff."

@@ -2,53 +2,46 @@
 schema_version: 2
 document_type: active-task-pointer
 status: idle
-spec: general-backend
-updated_at: 2026-06-27
+updated_at: 2026-07-03
 ---
 
 # Current Task
 
-## Telegram Multi-Tenant Webhook + Outlet Location Canonicalization
+## SelaluTeh AI Security Guardrails
 
-Status: completed and idle after verification.
+Status: idle after completing Phase 5 (`AISG-T022` through `AISG-T057`).
 
 Completed in the latest session:
 
-- Fixed Connected Platforms active workspace synchronization:
-  - Configured request interceptor in `httpClient.js` to attach the active `x-workspace-id` header to all backend API calls.
-  - Refactored `Sidebar.jsx` to load dynamic workspace options from the database and reload the page clean on switcher change.
-- Implemented dedicated AI Agent Assignment Modal in `PlatformsPage.jsx` and updated `PlatformDetailDrawer.jsx` to trigger it.
-- Made `PlatformDetailDrawer.jsx` labels dynamic based on platform type (Telegram vs Meta/WhatsApp/Instagram).
-- Fully redesigned Connected Platforms UI/UX to a minimalist modern layout:
-  - Upgraded Summary Cards with Lucide icons, borders, shadows, and translateY hover transitions.
-  - Redesigned table layout with card shadows, generous padding, and a styled purple AI agent badge.
-  - Redesigned action buttons to custom square-rounded styled icons.
-- Implemented Webhook Health Auto-Sync and Verification:
-  - Updated `platforms.supabase.repository.js` (`list`, `findById`, `findByIdWithCredentials`) to dynamically resolve `webhookConfigured` status from the linked `channel_connections` table's `webhook_status` (and self-heal/sync the `platforms` table in the background).
-  - Updated Telegram `setWebhook` API (`integrations.js`) and webhook event handlers (`meta.js`, `telegram.js`) to set `webhookConfigured: true` in the database upon successful registration/event reception.
-- Implemented canonical Telegram v1 routing with exact `channel_connections` resolution at `POST /webhooks/telegram/v1/:connectionPublicId`.
-- Disabled unsafe legacy tokenless `/webhook/telegram` fallback behavior.
-- Backfilled and registered live Telegram connections for both workspaces:
-  - `SelaluTeh Demo` → `selkoporder_bot` → `tgc_-TSDUlGLRQbDV6H1`.
-  - `SelaluKopi Demo` → `Selkoporders_bot` → `tgc_GALPZnnV4XJuwFJj`.
-- Verified both bots receive and process live Telegram messages into separate workspace-scoped chats/messages even when the Telegram `chat.id` is the same.
-- Added Telegram v1 event worker, outbound service, diagnostics, attachment handling, commerce callbacks, checkout prompt, and connection-safe webhook reconciliation.
-- Added migration `030_channel_connections_telegram.sql` and `031_channel_connection_upsert_constraints.sql`.
-- Added migration `032_backfill_outlet_locations_from_metadata.sql` and applied it to Supabase. This backfills canonical `outlet_locations` from `outlets.metadata.latitude`, `outlets.metadata.longitude`, and `outlets.metadata.googleMapsLink/googleMapsUrl`.
-- Verified `SelaluKopi Demo` now has canonical `outlet_locations` rows for `SELKOP Samarinda` and `SELKOP Tenggarong` with Google Maps links.
-- Fixed nearest-outlet reply behavior so `jalan ahmad muksin tenggarong` resolves to `SELKOP Tenggarong` and returns `https://maps.app.goo.gl/NoPBo7ezXJDe3FUd6`.
-- Fixed frontend agents/platforms issues:
-  - AI Agent create dropdown now uses `p.id || p._id`.
-  - Platforms page no longer calls unauthenticated `/api/agents`; it uses the shared authenticated Axios client.
+- Activated `selaluteh-ai-security-guardrails` through the specs lifecycle.
+- Moved the spec to `specs/active/selaluteh-ai-security-guardrails/` via `npm run specs:sync`.
+- Completed `AISG-T001` audit evidence in `specs/active/selaluteh-ai-security-guardrails/audit-evidence.md`.
+- Completed `AISG-T002` tool matrix in `specs/active/selaluteh-ai-security-guardrails/tool-matrix.md`.
+- Completed `AISG-T003` architecture import-boundary security test and Phase 0 fail-closed mitigation for AI mutation tools.
+- Completed `AISG-T004` Telegram/WhatsApp button-commerce regression baseline.
+- Completed `AISG-T005` payment provider authority inventory and generic workspace-config provider selection update.
+- Updated `tasks.md`, `implementation-status.md`, and `progress-log.md`.
+- Validation: AI unit/security/E2E, payment targeted, Telegram marketplace smoke, and `npm run specs:check` passed.
+- Completed Phase 1 scope/trusted-context guardrails: deterministic input/domain scope guard, out-of-scope short-circuit before retrieval/model/tools, human takeover short-circuit, server-owned agent modes, immutable `AIActionContext`, tenant consistency guard, authority-field rejection, and cross-tenant non-disclosure tests.
+- Phase 1 validation: focused AISG Phase 1 tests passed (24 pass, 0 fail); `npm run test:ai:security` passed (7 pass, 0 fail); `npm run test:ai:unit` passed (246 pass, 0 fail).
+- Completed Phase 2 tool gateway and policy engine: versioned immutable tool registry, deny-by-default gateway, deterministic restricted-action policy, strict schema validation with unknown-field rejection, safe result normalizer, tool/payload/timeout/call limits, dependency breaker safe failure, and `ai.service` marker sanitization/no contact-name mutation.
+- Phase 2 validation: focused Phase 2 gateway tests passed (35 pass, 0 fail); `npm run test:ai:security` passed (7 pass, 0 fail); `npm run test:ai:unit` passed (254 pass, 0 fail).
+- Completed Phase 3 confirmation guard: additive `ai_action_confirmations` migration, payload hashing, opaque single-use token consume, context/state binding, ambiguity guard, outlet recommendation confirmation, and canonical checkout summary confirmation.
+- Completed Phase 4 product/outlet/cart/pricing guardrails: active/customer-visible product search, outlet-aware effective pricing, outlet-required mutation guard, orderable outlet guard, canonical cart quantity/merge/single-outlet/server-price guards, freshness/idempotency helpers, and existing-cart checkout intent.
+- Completed Phase 5 checkout/order/payment guardrails: checkout revalidation, cart-version idempotency, canonical order/payment guard helpers, FILE_ORDER_JSON prompt removal/sanitization, workspace provider authority, payment snapshot validation, PAID authority proof, no silent provider fallback, and pickup-only checkout enforcement.
+- Phase 3-5 validation: `phase3-5-guardrails.test.js` passed (8 pass, 0 fail); `npm run test:ai:unit` passed (262 pass, 0 fail); `npm run test:ai:security` passed (7 pass, 0 fail); `npm run test:ai:e2e` passed (4 pass, 0 fail); payment targeted tests passed (9 pass, 0 fail).
 
-Validation captured:
+Key findings:
 
-- Telegram + webhook regression: 42 pass, 0 fail.
-- Location + Telegram targeted suite: 541 pass, 0 fail.
-- Outlet location targeted suite: 14 pass, 0 fail.
+- `ai.service.js` has active inline OpenAI tools that directly mutate cart/chat repositories.
+- Gemini fallback still supports `FILE_ORDER_JSON/create_legacy_order`.
+- AI orchestrator contains a direct commerce tool switch that can mutate cart/checkout/order/payment state if wired.
+- Existing tool gateway and confirmation service are present but do not satisfy AISG target boundaries.
+- Button-based Telegram commerce is safer and should be preserved while AI paths are constrained.
+- After Phase 0 mitigation, AI natural-language mutation tools fail closed until AISG gateway/confirmation implementation is completed.
+- After Phase 1, `generateAIReply()` now short-circuits out-of-scope and human-takeover turns before outlet retrieval, Q&A lookup, provider calls, OpenAI tools, Gemini generation, and legacy FILE marker handling.
 
-## Pending Tasks (Next Agent)
+Pending next task selection:
 
-- Run a fresh live Telegram message to `@Selkoporders_bot` with `jalan ahmad muksin tenggarong` after this documentation sync to confirm the newly patched deterministic reply is what the user sees in Telegram.
-- If deploying beyond local dev, ensure the public runtime has the latest code and migration `032_backfill_outlet_locations_from_metadata` applied.
-- Add a reusable maintenance command if future outlet metadata backfills must be run outside SQL migrations.
+- Recommended next task: `AISG-T058` reliability and idempotency hardening for Phase 6.
+- Do not continue automatically until the next task is explicitly selected.

@@ -1567,6 +1567,15 @@ export default function ProductsPage() {
   const [bulkUseDefaultPrice, setBulkUseDefaultPrice] = useState(true)
   const [bulkVisibility, setBulkVisibility] = useState('Show')
 
+  const inventoryAdjustmentReasonByLabel = {
+    'Stock received': 'adjustment',
+    'Damaged goods': 'adjustment',
+    'Inventory count correction': 'adjustment',
+    'Expired product': 'adjustment',
+    'Lost / Theft': 'adjustment',
+    'Customer return': 'return',
+  }
+
   const loadProductAvailabilityAndInventory = async (product, currentOutlets = outlets) => {
     if (!product) return
 
@@ -1651,16 +1660,39 @@ export default function ProductsPage() {
         })
         setOutletAssignmentRows(availabilityRows)
 
+        const inventoryStockByOutlet = new Map()
+        await Promise.all(currentOutlets.map(async (o) => {
+          try {
+            const stockRes = await api.get(`/api/inventory/${product.id}`, {
+              params: { outletId: o.id },
+            })
+            const stockItem = stockRes.data?.data
+            if (stockItem) {
+              inventoryStockByOutlet.set(String(o.id), {
+                quantity: Number(stockItem.quantity ?? stockItem.stockQuantity ?? 0),
+                lowStockThreshold: Number(stockItem.lowStockThreshold ?? product.lowStockAlert ?? 10),
+                updatedAt: stockItem.updatedAt,
+              })
+            }
+          } catch (err) {
+            console.warn('Failed to load inventory stock for outlet:', o.id, err)
+          }
+        }))
+
         const inventoryRows = currentOutlets.map((o) => {
           const match = data.find(
             (item) => item.outletId === o.id || item.outlet_id === o.id
           )
-          const avail = match && match.stockQuantity !== null && match.stockQuantity !== undefined
+          const stockItem = inventoryStockByOutlet.get(String(o.id))
+          const avail = stockItem
+            ? stockItem.quantity
+            : match && match.stockQuantity !== null && match.stockQuantity !== undefined
             ? match.stockQuantity
             : (match && match.stock_quantity !== undefined ? match.stock_quantity : 0)
 
-          const lastUpdatedStr = match && match.updatedAt 
-            ? new Date(match.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          const lastUpdatedAt = stockItem?.updatedAt || match?.updatedAt
+          const lastUpdatedStr = lastUpdatedAt 
+            ? new Date(lastUpdatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             : '—'
 
           return {
@@ -1668,8 +1700,8 @@ export default function ProductsPage() {
             outlet: o.name,
             available: avail,
             reserved: 0,
-            threshold: product.lowStockAlert || 10,
-            updated: match && match.updatedAt ? `Today, ${lastUpdatedStr}` : '—'
+            threshold: stockItem?.lowStockThreshold || product.lowStockAlert || 10,
+            updated: lastUpdatedAt ? `Today, ${lastUpdatedStr}` : '—'
           }
         })
         setOutletInventory(inventoryRows)
@@ -1713,6 +1745,11 @@ export default function ProductsPage() {
 
   const handleConfirmAdjustStock = async () => {
     const qty = Number(adjustStockQuantity) || 0
+    if (!qty || qty <= 0) {
+      alert('Quantity must be greater than 0.')
+      return
+    }
+
     const targetOutletRow = outletAssignmentRows.find(
       (r) => r.outletName === adjustStockOutlet || r.outletId === adjustStockOutlet
     )
@@ -1765,16 +1802,26 @@ export default function ProductsPage() {
           },
         }))
       } else {
-        await api.put(`/products/${selectedProduct.id}/outlet-availability`, {
-          outlets: [
-            {
-              outletId: outletId,
-              stockQuantity: newStock,
-              isAvailable: targetOutletRow ? targetOutletRow.isAvailable : true,
-              priceOverride: targetOutletRow && targetOutletRow.isOverride ? targetOutletRow.price : null,
-            }
-          ]
+        const adjustRes = await api.post(`/api/inventory/${selectedProduct.id}/adjust`, {
+          outletId,
+          delta: diff,
+          reason: inventoryAdjustmentReasonByLabel[adjustStockReasonSelect] || 'adjustment',
+          notes: [adjustStockReasonSelect, adjustStockReasonText].filter(Boolean).join(': '),
         })
+        const adjustedQuantity = Number(adjustRes.data?.data?.quantity ?? newStock)
+        const updateInventoryRows = (rows) => rows.map((item) => {
+          const isTargetOutlet = String(item.outletId || item.outlet) === String(outletId)
+            || String(item.outlet) === String(adjustStockOutlet)
+          return isTargetOutlet
+            ? { ...item, available: adjustedQuantity, updated: 'Just now' }
+            : item
+        })
+        setOutletInventory((prev) => updateInventoryRows(prev))
+        setOutletAssignmentRows((prev) => prev.map((row) => (
+          String(row.outletId) === String(outletId)
+            ? { ...row, stockQuantity: adjustedQuantity }
+            : row
+        )))
 
         await loadProducts()
         await loadProductAvailabilityAndInventory(selectedProduct, outlets)

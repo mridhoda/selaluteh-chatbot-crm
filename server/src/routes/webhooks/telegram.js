@@ -26,8 +26,8 @@ import { loadRecentMessages } from '../../ai/context/recent-messages.js';
 import { downloadFile } from '../../utils/downloader.js';
 import { recordInboundMessage, recordOutboundMessage } from '../../services/chat-message.service.js';
 import {
-  buildNearestOutletReplyFromCoordinates,
-  buildNearestOutletReplyFromText,
+  buildNearestOutletReplyPayloadFromCoordinates,
+  buildNearestOutletReplyPayloadFromText,
   buildInvalidAddressReply,
   validateCustomerLocationText,
 } from '../../services/location-intelligence/nearest-outlet-reply.service.js';
@@ -38,9 +38,17 @@ import {
   markWebhookProcessed,
 } from '../../services/webhook-idempotency.service.js';
 import {
+  buildOutletRecommendationActionButtons,
+  buildOutletRecommendationKeyboard,
+  buildSingleOutletConfirmationKeyboard,
   buildOutletSelectionMessage,
+  getLatestRecommendedOutletId,
+  getRecommendedOutletIdFromTextSelection,
   handleTelegramCommerceAction,
+  isOutletConfirmationText,
   parseTelegramAction,
+  rememberLatestOutletRecommendation,
+  selectOutletForChat,
 } from '../../services/telegram-commerce.service.js';
 import { normalizeTelegramUpdate } from '../../integrations/telegram/telegram-parser.js';
 import { assertWebhookPayloadSafe, verifyTelegramSecret } from '../../security/webhook-security.js';
@@ -48,6 +56,33 @@ import { env } from '../../config/env.js';
 import { buildManagedFileUrl, buildPublicFileUrl } from '../../utils/file-urls.js';
 
 const router = express.Router();
+
+async function sendNearestOutletReply({ token, chatId, reply }) {
+  if (!reply) return null;
+  const text = typeof reply === 'string' ? reply : reply.text;
+  const keyboard = typeof reply === 'string' ? null : buildOutletRecommendationKeyboard(reply.recommendedOutlets);
+  if (!text) return null;
+  if (keyboard) return tgSend(token, chatId, text, null, { replyMarkup: keyboard });
+  return tgSendSplit(token, chatId, text);
+}
+
+function buildNearestOutletReplyRawPayload(reply) {
+  if (!reply || typeof reply === 'string') return {};
+  return {
+    replyMarkup: buildOutletRecommendationKeyboard(reply.recommendedOutlets),
+    actionButtons: buildOutletRecommendationActionButtons(reply.recommendedOutlets),
+  };
+}
+
+function shouldAttachOutletConfirmationButton(text = '', chat = {}) {
+  if (!getLatestRecommendedOutletId(chat)) return false;
+  const normalized = String(text || '').toLowerCase();
+  return normalized.includes('setuju')
+    || normalized.includes('outlet itu')
+    || normalized.includes('memesan dari outlet')
+    || normalized.includes('memilih outlet')
+    || normalized.includes('tea lanjutkan');
+}
 
 async function reverseGeocodeLocation({ latitude, longitude }) {
   const lat = Number(latitude);
@@ -372,7 +407,7 @@ router.post('/:token?', async (req, res) => {
     const commerceAction = parseTelegramAction(update.callback_query?.data || '');
 
     let userMessage = null;
-    if (text || incomingAttachment) {
+    if ((text || incomingAttachment) && !commerceAction) {
       // Check if this is a reply to another message
       let replyTo = null;
       const replyToMessage = msgObj.reply_to_message;
@@ -420,19 +455,21 @@ router.post('/:token?', async (req, res) => {
 
     if (sharedLocation && userMessage) {
       try {
-        const nearestReply = await buildNearestOutletReplyFromCoordinates({
+        const nearestReply = await buildNearestOutletReplyPayloadFromCoordinates({
           workspaceId: platform.workspaceId,
           latitude: sharedLocation.latitude,
           longitude: sharedLocation.longitude,
         });
 
         if (nearestReply) {
-          await tgSendSplit(platform.token, chatId, nearestReply);
+          await rememberLatestOutletRecommendation({ chat, recommendedOutlets: nearestReply.recommendedOutlets });
+          await sendNearestOutletReply({ token: platform.token, chatId, reply: nearestReply });
           await recordOutboundMessage({
             chatId: chat.id,
             workspaceId: platform.workspaceId,
             from: 'ai',
-            text: nearestReply,
+            text: nearestReply.text,
+            rawPayload: buildNearestOutletReplyRawPayload(nearestReply),
           });
           await markWebhookProcessed(webhookEvent);
           return;
@@ -457,24 +494,54 @@ router.post('/:token?', async (req, res) => {
         return;
       }
       try {
-        const nearestReply = await buildNearestOutletReplyFromText({
+        const nearestReply = await buildNearestOutletReplyPayloadFromText({
           workspaceId: platform.workspaceId,
           text,
         });
 
         if (nearestReply) {
-          await tgSendSplit(platform.token, chatId, nearestReply);
+          await rememberLatestOutletRecommendation({ chat, recommendedOutlets: nearestReply.recommendedOutlets });
+          await sendNearestOutletReply({ token: platform.token, chatId, reply: nearestReply });
           await recordOutboundMessage({
             chatId: chat.id,
             workspaceId: platform.workspaceId,
             from: 'ai',
-            text: nearestReply,
+            text: nearestReply.text,
+            rawPayload: buildNearestOutletReplyRawPayload(nearestReply),
           });
           await markWebhookProcessed(webhookEvent);
           return;
         }
       } catch (e) {
         console.error('[telegram] Failed to resolve nearest outlet from text location:', e);
+      }
+    }
+
+    if (!sharedLocation && userMessage && text) {
+      const recommendedOutletId = getRecommendedOutletIdFromTextSelection(text, chat)
+        || (isOutletConfirmationText(text) ? getLatestRecommendedOutletId(chat) : null);
+      if (recommendedOutletId) {
+        try {
+          const { message } = await selectOutletForChat({
+            workspaceId: platform.workspaceId,
+            chat,
+            contact,
+            agent,
+            outletId: recommendedOutletId,
+            chatMessageId: userMessage.id,
+          });
+          await tgSendSplit(platform.token, chatId, message.text);
+          await recordOutboundMessage({
+            chatId: chat.id,
+            workspaceId: platform.workspaceId,
+            from: 'ai',
+            text: message.text,
+          });
+          await markWebhookProcessed(webhookEvent);
+          return;
+        } catch (e) {
+          console.error('[telegram] Failed to confirm recommended outlet from text:', e);
+        }
       }
     }
 
@@ -760,19 +827,30 @@ router.post('/:token?', async (req, res) => {
         }
       } else if (replyText) {
         try {
-          await tgSendSplit(platform.token, chatId, replyText);
+          const outletButton = shouldAttachOutletConfirmationButton(replyText, chat)
+            ? buildSingleOutletConfirmationKeyboard(getLatestRecommendedOutletId(chat))
+            : null;
+          if (outletButton) {
+            await tgSend(platform.token, chatId, replyText, null, { replyMarkup: outletButton });
+          } else {
+            await tgSendSplit(platform.token, chatId, replyText);
+          }
         } catch (e) {
           console.error('[telegram] Failed to send text reply:', e);
         }
       }
 
       if (replyText || attachment) {
+        const outletButton = shouldAttachOutletConfirmationButton(replyText, chat)
+          ? buildSingleOutletConfirmationKeyboard(getLatestRecommendedOutletId(chat))
+          : null;
         await recordOutboundMessage({
           chatId: chat.id,
           workspaceId: platform.workspaceId,
           from: 'ai',
           text: replyText || '[Attachment]',
           attachment,
+          replyMarkup: outletButton,
         });
       }
 

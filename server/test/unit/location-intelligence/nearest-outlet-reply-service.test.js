@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { outletLocationsRepository } from '../../../src/db/repositories/index.js';
 import {
   buildNearestOutletReplyFromCoordinates,
+  buildNearestOutletReplyPayloadFromCoordinates,
   buildNearestOutletReplyFromText,
   formatNearestOutletReply,
   looksLikeCustomerLocationText,
@@ -47,6 +48,53 @@ describe('nearest-outlet-reply.service', () => {
   it('returns safe no-data message when no verified outlet exists', () => {
     const reply = formatNearestOutletReply({ recommendation: null, alternatives: [] });
     assert.match(reply, /belum ada outlet.*terverifikasi/i);
+  });
+
+  it('builds outlet recommendation button payload from recommendation and alternatives', async () => {
+    mock.method(outletLocationsRepository, 'listVerifiedEligible', async () => ([
+      {
+        outletId: 'timbau',
+        displayName: 'Selalu Teh - 58 Timbau',
+        formattedAddress: 'Tenggarong',
+        latitude: -0.429,
+        longitude: 116.994,
+        status: 'VERIFIED',
+      },
+      {
+        outletId: 'danau-murung',
+        displayName: 'Selalu Teh - 1 Danau Murung',
+        formattedAddress: 'Tenggarong',
+        latitude: -0.436,
+        longitude: 116.994,
+        status: 'VERIFIED',
+      },
+      {
+        outletId: 'sudirman',
+        displayName: 'Selalu Teh - 2 Sudirman',
+        formattedAddress: 'Tenggarong',
+        latitude: -0.437,
+        longitude: 116.995,
+        status: 'VERIFIED',
+      },
+    ]));
+
+    const payload = await buildNearestOutletReplyPayloadFromCoordinates({
+      workspaceId: 'workspace-1',
+      latitude: -0.429,
+      longitude: 116.994,
+    });
+
+    assert.match(payload.text, /Selalu Teh - 58 Timbau/);
+    assert.deepEqual(payload.recommendedOutlets.map((outlet) => outlet.outletId), [
+      'timbau',
+      'danau-murung',
+      'sudirman',
+    ]);
+    assert.deepEqual(payload.recommendedOutlets.map((outlet) => outlet.name), [
+      'Selalu Teh - 58 Timbau',
+      'Selalu Teh - 1 Danau Murung',
+      'Selalu Teh - 2 Sudirman',
+    ]);
   });
 
   it('resolves text location like jelawat samarinda then recommends nearest outlet', async () => {

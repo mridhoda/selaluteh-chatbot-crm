@@ -1,8 +1,29 @@
 import { productsRepository } from '../db/repositories/index.js';
+import { inventoryRepository } from '../db/repositories/inventory.supabase.repository.js';
 import { assertOutletAccess, buildOutletScopedQuery, canManageWorkspace } from './access-control.service.js';
 import { AppError } from '../utils/errors.js';
 import { resolveEffectivePrice } from './effective-price.service.js';
 import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
+
+async function buildOutletAvailabilityWithInventory({ workspaceId, outletId, productIds }) {
+  const [availability, inventory] = await Promise.all([
+    productsRepository.findAvailabilityByOutlet({
+      workspaceId,
+      outletId,
+      productIds,
+    }),
+    inventoryRepository.list({
+      workspaceId,
+      outletId,
+      limit: 1000,
+    }),
+  ]);
+
+  const availabilityByProduct = new Map(availability.map((row) => [String(row.productId), row]));
+  const inventoryByProduct = new Map(inventory.map((row) => [String(row.productId), row]));
+
+  return { availabilityByProduct, inventoryByProduct };
+}
 
 export async function listProducts({ user, outletId, status, search, page, limit, sort }) {
   const workspaceId = user.workspaceId;
@@ -29,25 +50,36 @@ export async function listProducts({ user, outletId, status, search, page, limit
   return { data: enriched, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
 }
 
-export async function listTelegramProductsForOutlet({ workspaceId, outletId, page = 0, limit = 8 }) {
+export async function listCustomerProductsForOutlet({ workspaceId, outletId, page = 0, limit = 8 }) {
   if (!workspaceId) throw new AppError('VALIDATION', 'workspace_id is required', 400);
   if (!outletId) throw new AppError('VALIDATION', 'outlet_id is required for customer-facing product list', 400);
 
   const products = await productsRepository.findProducts({ workspaceId, isActive: true });
-  const availability = await productsRepository.findAvailabilityByOutlet({
+  const productIds = products.map((p) => p.id);
+  const { availabilityByProduct, inventoryByProduct } = await buildOutletAvailabilityWithInventory({
     workspaceId,
     outletId,
-    status: 'active',
-    isAvailable: true,
-    productIds: products.map((p) => p.id),
+    productIds,
   });
-  const availableProductIds = new Set(availability.map((row) => String(row.productId)));
 
   const filtered = products
-    .filter((product) => availableProductIds.has(String(product.id)))
+    .filter((product) => {
+      const availability = availabilityByProduct.get(String(product.id));
+      const inventory = inventoryByProduct.get(String(product.id));
+      if (inventory && Number(inventory.quantity) <= 0) return false;
+      if (inventory && Number(inventory.quantity) > 0) return true;
+      return !!availability && availability.status === 'active' && availability.isAvailable !== false;
+    })
     .map((product) => ({
       ...product,
-      outletAvailability: availability.find((row) => String(row.productId) === String(product.id)) || null,
+      outletAvailability: availabilityByProduct.get(String(product.id)) || {
+        productId: product.id,
+        outletId,
+        isAvailable: true,
+        status: 'active',
+        priceOverride: null,
+      },
+      stockQuantity: inventoryByProduct.get(String(product.id))?.quantity ?? product.stockQuantity,
     }));
 
   const total = filtered.length;
@@ -61,6 +93,8 @@ export async function listTelegramProductsForOutlet({ workspaceId, outletId, pag
     },
   };
 }
+
+export const listTelegramProductsForOutlet = listCustomerProductsForOutlet;
 
 export async function getProductDetail({ user, productId }) {
   const product = await productsRepository.findById({ workspaceId: user.workspaceId, productId });
@@ -287,19 +321,22 @@ export async function requireProductAvailableAtOutlet({ user, productId, outletI
     isAvailable: true,
   }))[0] || null;
 
-  if (!availability) {
+  const inventory = await inventoryRepository.findByProduct({ workspaceId: user.workspaceId, outletId, productId });
+  const hasInventoryStock = Number(inventory?.quantity ?? 0) > 0;
+
+  if (!availability && !hasInventoryStock) {
     throw new AppError('PRODUCT_UNAVAILABLE', 'Product is not available at selected outlet', 400);
   }
 
   const now = new Date();
   const tz = 'Asia/Makassar';
   const currentTime = new Date(now.toLocaleString('en-US', { timeZone: tz }));
-  if (availability.availableFrom && currentTime < new Date(availability.availableFrom)) {
+  if (availability?.availableFrom && currentTime < new Date(availability.availableFrom)) {
     throw new AppError('PRODUCT_NOT_YET_AVAILABLE', 'Product is not yet available at this outlet', 400);
   }
-  if (availability.availableUntil && currentTime > new Date(availability.availableUntil)) {
+  if (availability?.availableUntil && currentTime > new Date(availability.availableUntil)) {
     throw new AppError('PRODUCT_EXPIRED', 'Product is no longer available at this outlet', 400);
   }
 
-  return { product, availability: resolveEffectivePrice(product, availability) };
+  return { product, availability: resolveEffectivePrice(product, availability || { isAvailable: true, status: 'active' }) };
 }

@@ -1,4 +1,6 @@
 import { inventoryRepository } from '../db/repositories/inventory.supabase.repository.js';
+import { productsRepository } from '../db/repositories/index.js';
+import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
 import { AppError } from '../utils/errors.js';
 import { buildOutletScopedQuery, assertOutletAccess } from './access-control.service.js';
 
@@ -43,6 +45,23 @@ export async function adjustStock({ workspaceId, outletId, productId, variant = 
   const res = await inventoryRepository.atomicAdjust({
     workspaceId, outletId, productId, variant, delta, reason, notes, userId,
   });
+
+  try {
+    const existingAvailability = await productsRepository.findOneAvailability({ workspaceId, productId, outletId });
+    await productsRepository.upsertAvailability({
+      workspaceId,
+      productId,
+      outletId,
+      updates: {
+        isAvailable: existingAvailability?.isAvailable ?? true,
+        priceOverride: existingAvailability?.priceOverride ?? null,
+        stockQuantity: res.quantity,
+        status: existingAvailability?.status || 'active',
+      },
+    });
+  } catch (err) {
+    console.error('Failed to sync inventory stock to product outlet availability:', err);
+  }
 
   try {
     await auditLogsRepository.log({

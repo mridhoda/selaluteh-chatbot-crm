@@ -17,7 +17,8 @@ export const inventoryRepository = {
     let q = client.from(INV_TABLE).select('*').eq('workspace_id', workspaceId).eq('product_id', productId);
     if (outletId) q = q.eq('outlet_id', outletId);
     else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
-    if (variant !== undefined) q = q.eq('variant', variant);
+    if (variant === null) q = q.is('variant', null);
+    else if (variant !== undefined) q = q.eq('variant', variant);
     const result = await q.maybeSingle();
     const row = extractSingle(result, 'inventory.findByProduct');
     return row ? mapRow(row) : null;
@@ -85,12 +86,14 @@ export const inventoryRepository = {
     requireWorkspaceId(workspaceId);
     if (delta === 0) throw new AppError('INVALID_DELTA', 'Delta cannot be zero', 400);
     const client = getSupabaseServiceClient();
-    const { data: item, error: findErr } = await client.from(INV_TABLE)
+    let findQuery = client.from(INV_TABLE)
       .select('id, quantity, low_stock_threshold')
       .eq('workspace_id', workspaceId)
       .eq('outlet_id', outletId)
-      .eq('product_id', productId)
-      .maybeSingle();
+      .eq('product_id', productId);
+    if (variant === null) findQuery = findQuery.is('variant', null);
+    else if (variant !== undefined) findQuery = findQuery.eq('variant', variant);
+    let { data: item, error: findErr } = await findQuery.maybeSingle();
     if (findErr) throw findErr;
     if (!item) {
       const { data: created } = await client.from(INV_TABLE).insert({

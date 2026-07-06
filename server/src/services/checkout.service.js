@@ -1,8 +1,10 @@
 import { cartsRepository, checkoutsRepository, productsRepository } from '../db/repositories/index.js';
 import { inventoryRepository } from '../db/repositories/inventory.supabase.repository.js';
 import { AppError } from '../utils/errors.js';
+import { assertPickupCheckout, buildCartVersionIdempotencyKey } from '../ai/security/commerce-guardrails.js';
 
 export async function createCheckout({ workspaceId, outletId, contactId, chatId, idempotencyKey, customerSnapshot, fulfillmentSnapshot }) {
+  assertPickupCheckout({ fulfillmentSnapshot: fulfillmentSnapshot || { method: 'pickup' }, selectedOutletId: outletId });
   if (idempotencyKey) {
     const existing = await checkoutsRepository.findByIdempotencyKey({ workspaceId, key: idempotencyKey });
     if (existing) return existing;
@@ -17,6 +19,11 @@ export async function createCheckout({ workspaceId, outletId, contactId, chatId,
   const cart = await cartsRepository.findActiveByContact({ workspaceId, contactId, outletId });
   if (!cart || cart.items.length === 0) throw new AppError('EMPTY_CART', 'Cart is empty', 400);
   if (cart.expiresAt && cart.expiresAt < new Date()) throw new AppError('EXPIRED_CART', 'Cart has expired', 400);
+  const checkoutIdempotencyKey = idempotencyKey || buildCartVersionIdempotencyKey({ cartId: cart.id, cartVersion: cart.version ?? cart.updatedAt ?? cart.items.length });
+  if (!idempotencyKey) {
+    const existing = await checkoutsRepository.findByIdempotencyKey({ workspaceId, key: checkoutIdempotencyKey });
+    if (existing) return existing;
+  }
 
   // Re-validate product availability and check stock (soft check — skip if no availability record to allow AI-added items)
   for (const item of cart.items) {
@@ -58,7 +65,7 @@ export async function createCheckout({ workspaceId, outletId, contactId, chatId,
     contactId,
     chatId,
     status: 'pending',
-    idempotencyKey: idempotencyKey || undefined,
+    idempotencyKey: checkoutIdempotencyKey,
     items,
     subtotalAmount: cartTotal,
     totalAmount: cartTotal,

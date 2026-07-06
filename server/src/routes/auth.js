@@ -150,6 +150,13 @@ router.post('/login', authRateLimit, async (req, res, next) => {
     await usersSupabaseRepository.setStatus(user.id, 'online');
     await usersSupabaseRepository.updateLastLogin(user.id);
 
+    const memberships = await membershipsSupabaseRepository.listUserMemberships({ userId: user.id });
+    const activeMembership = memberships.find((membership) => membership.status === 'active');
+    const activeWorkspaceId = activeMembership?.workspaceId || user.workspaceId;
+    const activeWorkspace = activeWorkspaceId
+      ? await workspacesSupabaseRepository.findById(activeWorkspaceId)
+      : null;
+
     const token = jwt.sign(
       { id: user.id, email: user.email },
       env.jwtSecret,
@@ -166,7 +173,15 @@ router.post('/login', authRateLimit, async (req, res, next) => {
         status: 'online',
         plan: user.plan,
         planExpiry: user.planExpiry,
-        workspaceId: user.workspaceId,
+        workspaceId: activeWorkspaceId,
+        workspaceRole: activeMembership?.role || user.role,
+        workspaceName: activeWorkspace?.name || '',
+        workspace: activeWorkspace
+          ? {
+            id: activeWorkspace.id,
+            name: activeWorkspace.name,
+          }
+          : null,
       },
     });
   } catch (err) {

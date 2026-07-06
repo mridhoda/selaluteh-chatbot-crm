@@ -91,6 +91,7 @@ export function createTelegramOutboundService({
       attachment,
       platformMessageId: providerMessageId,
       providerMessageId,
+      rawPayload: replyMarkup ? { replyMarkup } : {},
     });
 
     await connectionRepository.recordOutboundSuccess({ workspaceId, connectionId: connection.id });

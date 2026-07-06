@@ -110,10 +110,13 @@ export default function GeneralSettingsForm({ settings, onSave, isSaving }) {
         <input
           className='input'
           value={form.workspaceName}
-          onChange={(e) => set('workspaceName', e.target.value)}
-          placeholder='e.g. Selaluteh HQ'
+          disabled
+          placeholder='Managed from workspace profile'
           style={{ width: '100%' }}
         />
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+          Workspace name is managed separately from general settings.
+        </div>
       </div>
       <div style={FIELD}>
         <label style={LABEL}>Business Display Name</label>

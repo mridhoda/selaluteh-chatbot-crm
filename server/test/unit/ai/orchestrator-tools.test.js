@@ -75,9 +75,20 @@ describe('toolGateway', () => {
     assert.equal(defs.length, 3);
   });
 
-  it('validates known tool', () => {
+  it('denies known tool without explicit allowlist', () => {
     const gateway = createToolGateway({ tools: sampleTools });
     const result = gateway.validateToolCall({ toolName: 'search_products', args: {}, agent: {} });
+    assert.equal(result.valid, false);
+    assert.equal(result.code, 'AI_TOOL_DENIED_BY_DEFAULT');
+  });
+
+  it('validates explicitly allowlisted known tool', () => {
+    const gateway = createToolGateway({ tools: sampleTools });
+    const result = gateway.validateToolCall({
+      toolName: 'search_products',
+      args: {},
+      agent: { toolPolicy: { allowlist: ['search_products'] } },
+    });
     assert.equal(result.valid, true);
   });
 

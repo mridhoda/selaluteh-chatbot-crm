@@ -152,18 +152,21 @@ export const paymentsSupabaseRepository = {
     return mapRow(extractSingle(result, 'payments.create'));
   },
 
-  async atomicStatusUpdate({ paymentId, expectedStatus, newStatus }) {
+  async atomicStatusUpdate({ workspaceId, paymentId, expectedStatus, newStatus }) {
     const client = getSupabaseServiceClient();
     const updates = { status: newStatus };
     if (newStatus === 'paid') updates.paid_at = new Date().toISOString();
-    const result = await client.from(TABLE).update(updates).eq('id', paymentId).eq('status', expectedStatus).select().maybeSingle();
+    let q = client.from(TABLE).update(updates).eq('id', paymentId).eq('status', expectedStatus);
+    if (workspaceId) q = q.eq('workspace_id', workspaceId);
+    const result = await q.select().maybeSingle();
     const row = extractSingle(result, 'payments.atomicStatusUpdate');
     return row ? mapRow(row) : null;
   },
 
-  async transitionStatus({ paymentId, fromStatuses, newStatus, updates = {} }) {
+  async transitionStatus({ workspaceId, paymentId, fromStatuses, newStatus, updates = {} }) {
     const client = getSupabaseServiceClient();
     let q = client.from(TABLE).update({ status: newStatus, ...updates }).eq('id', paymentId);
+    if (workspaceId) q = q.eq('workspace_id', workspaceId);
     if (Array.isArray(fromStatuses)) q = q.in('status', fromStatuses);
     else if (fromStatuses) q = q.eq('status', fromStatuses);
     const result = await q.select().maybeSingle();
@@ -171,9 +174,14 @@ export const paymentsSupabaseRepository = {
     return row ? mapRow(row) : null;
   },
 
-  async updatePayment(paymentId, updates) {
+  async updatePayment(paymentIdOrInput, maybeUpdates) {
+    const input = typeof paymentIdOrInput === 'object'
+      ? paymentIdOrInput
+      : { paymentId: paymentIdOrInput, updates: maybeUpdates };
     const client = getSupabaseServiceClient();
-    const result = await client.from(TABLE).update(updates).eq('id', paymentId).select().maybeSingle();
+    let q = client.from(TABLE).update(input.updates).eq('id', input.paymentId);
+    if (input.workspaceId) q = q.eq('workspace_id', input.workspaceId);
+    const result = await q.select().maybeSingle();
     const row = extractSingle(result, 'payments.updatePayment');
     return row ? mapRow(row) : null;
   },
@@ -209,9 +217,11 @@ export const paymentsSupabaseRepository = {
     return mapRow(extractSingle(result, 'payments.createEvent'));
   },
 
-  async addEvent({ paymentId, event }) {
+  async addEvent({ workspaceId, paymentId, event }) {
     const client = getSupabaseServiceClient();
-    const paymentResult = await client.from(TABLE).select('workspace_id, order_id').eq('id', paymentId).maybeSingle();
+    let q = client.from(TABLE).select('workspace_id, order_id').eq('id', paymentId);
+    if (workspaceId) q = q.eq('workspace_id', workspaceId);
+    const paymentResult = await q.maybeSingle();
     const payment = paymentResult.data ? mapRow(paymentResult.data) : null;
     return this.createEvent({ paymentId, workspaceId: payment?.workspaceId, event: { ...event, orderId: event.orderId || payment?.orderId } });
   },
@@ -229,25 +239,34 @@ export const paymentsSupabaseRepository = {
     return mapRows(extractData(result, 'paymentEvents.findByPayment') ?? []);
   },
 
-  async findByProviderEventId(provider, providerEventId) {
+  async findByProviderEventId(providerOrInput, maybeProviderEventId) {
+    const input = typeof providerOrInput === 'object'
+      ? providerOrInput
+      : { provider: providerOrInput, providerEventId: maybeProviderEventId };
     const client = getSupabaseServiceClient();
-    const result = await client.from(EVENTS_TABLE).select('*').eq('provider', provider).eq('provider_event_id', providerEventId).maybeSingle();
+    let q = client.from(EVENTS_TABLE).select('*').eq('provider', input.provider).eq('provider_event_id', input.providerEventId);
+    if (input.workspaceId) q = q.eq('workspace_id', input.workspaceId);
+    const result = await q.maybeSingle();
     const row = extractSingle(result, 'paymentEvents.findByProviderEventId');
     return row ? mapRow(row) : null;
   },
 
-  async updateProcessingStatus({ eventId, status, verificationResult }) {
+  async updateProcessingStatus({ workspaceId, eventId, status, verificationResult }) {
     const client = getSupabaseServiceClient();
     const set = { processing_status: status };
     if (verificationResult !== undefined) set.verification_result = verificationResult;
-    const result = await client.from(EVENTS_TABLE).update(set).eq('id', eventId).select().maybeSingle();
+    let q = client.from(EVENTS_TABLE).update(set).eq('id', eventId);
+    if (workspaceId) q = q.eq('workspace_id', workspaceId);
+    const result = await q.select().maybeSingle();
     const row = extractSingle(result, 'paymentEvents.updateProcessingStatus');
     return row ? mapRow(row) : null;
   },
 
-  async updateReferences({ eventId, paymentId, orderId }) {
+  async updateReferences({ workspaceId, eventId, paymentId, orderId }) {
     const client = getSupabaseServiceClient();
-    const result = await client.from(EVENTS_TABLE).update({ payment_id: paymentId || null, order_id: orderId || null }).eq('id', eventId).select().maybeSingle();
+    let q = client.from(EVENTS_TABLE).update({ payment_id: paymentId || null, order_id: orderId || null }).eq('id', eventId);
+    if (workspaceId) q = q.eq('workspace_id', workspaceId);
+    const result = await q.select().maybeSingle();
     const row = extractSingle(result, 'paymentEvents.updateReferences');
     return row ? mapRow(row) : null;
   },

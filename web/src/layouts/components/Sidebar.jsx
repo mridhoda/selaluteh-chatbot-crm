@@ -7,7 +7,6 @@ import {
   faUserTie,
   faCog,
   faExclamationCircle,
-  faThumbtack,
   faBars,
   faStore,
   faFileAlt,
@@ -72,6 +71,34 @@ const activeNavigationKeys = new Set([
   'access-control',
 ])
 
+function getStoredWorkspace(user) {
+  const workspaceId = user?.workspaceId || user?.workspace_id || user?.currentWorkspaceId || user?.workspace?.id
+  const workspaceName = user?.workspaceName || user?.workspace_name || user?.workspace?.name
+  if (!workspaceId && !workspaceName) return null
+  return {
+    id: workspaceId || null,
+    name: workspaceName || 'Current Workspace',
+  }
+}
+
+function formatWorkspaceName(name) {
+  return String(name || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function getWorkspaceLabel(currentWorkspace, accessUser) {
+  return formatWorkspaceName(currentWorkspace?.name || getStoredWorkspace(accessUser)?.name) || 'Current Workspace'
+}
+
+function persistSessionUser(updates) {
+  const current = getSessionUser() || {}
+  const nextUser = { ...current, ...updates }
+  sessionStorage.setItem('user', JSON.stringify(nextUser))
+  return nextUser
+}
+
 export default function Sidebar() {
   const [accessUser, setAccessUser] = useState(() => getSessionUser())
   const role = normalizeRole(accessUser?.workspaceRole || accessUser?.role)
@@ -94,31 +121,44 @@ export default function Sidebar() {
   const [ordersCount, setOrdersCount] = useState(128)
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const [workspaces, setWorkspaces] = useState([])
-  const [currentWorkspace, setCurrentWorkspace] = useState(null)
+  const [currentWorkspace, setCurrentWorkspace] = useState(() => getStoredWorkspace(getSessionUser()))
 
   const handleSwitchWorkspace = (workspace) => {
-    const current = getSessionUser() || {}
-    const nextUser = {
-      ...current,
+    persistSessionUser({
       workspaceId: workspace.id,
       workspaceRole: workspace.role || 'member',
-    }
-    sessionStorage.setItem('user', JSON.stringify(nextUser))
+      workspaceName: workspace.name || '',
+      workspace: {
+        id: workspace.id,
+        name: workspace.name || '',
+      },
+    })
     window.location.reload()
   }
 
   useEffect(() => {
     // 1. Fetch current workspace details (contains the name)
     api
-      .get('/workspaces/current', { skipAuthRedirect: true })
+      .get('/api/workspaces/current', { skipAuthRedirect: true })
       .then((res) => {
-        setCurrentWorkspace(res.data?.data || null)
+        const workspace = res.data?.data || null
+        setCurrentWorkspace(workspace)
+        if (workspace?.id) {
+          persistSessionUser({
+            workspaceId: workspace.id,
+            workspaceName: workspace.name || '',
+            workspace: {
+              id: workspace.id,
+              name: workspace.name || '',
+            },
+          })
+        }
       })
       .catch((err) => console.warn('Failed to load current workspace', err))
 
     // 2. Fetch list of all workspaces user belongs to
     api
-      .get('/workspaces', { skipAuthRedirect: true })
+      .get('/api/workspaces', { skipAuthRedirect: true })
       .then((res) => {
         setWorkspaces(res.data?.data || [])
       })
@@ -135,6 +175,8 @@ export default function Sidebar() {
           ...current,
           workspaceRole: data.role || current.workspaceRole || current.role,
           workspaceId: data.workspaceId || current.workspaceId,
+          workspaceName: current.workspaceName,
+          workspace: current.workspace,
           allowedOutletIds: data.allowedOutletIds || [],
           accessPolicy: hasCustomPermissions
             ? { permissions: data.permissions, permissionsByResource: permissionsToResourceMap(data.permissions) }
@@ -228,6 +270,7 @@ export default function Sidebar() {
   }
 
   const isSidebarOpen = isExpanded || isPinned
+  const workspaceLabel = getWorkspaceLabel(currentWorkspace, accessUser)
 
   return (
     <div
@@ -241,7 +284,7 @@ export default function Sidebar() {
               <FontAwesomeIcon icon={faLeaf} />
             </div>
             <div className='sidebar-logo-text'>
-              <span className='logo-title'>{currentWorkspace?.name || 'Selalu Teh'}</span>
+              <span className='logo-title'>{workspaceLabel}</span>
               <span className='logo-subtitle'>CRM Chatbot</span>
             </div>
           </div>
@@ -327,7 +370,7 @@ export default function Sidebar() {
                 <FontAwesomeIcon icon={faBuilding} />
               </div>
               <div className='workspace-info'>
-                <div className='workspace-name'>{currentWorkspace?.name || 'Selalu Teh'}</div>
+                <div className='workspace-name'>{workspaceLabel}</div>
                 <div className='workspace-role'>{role === 'human_agent' ? 'Agent' : role.replace('_', ' ')}</div>
               </div>
               <FontAwesomeIcon

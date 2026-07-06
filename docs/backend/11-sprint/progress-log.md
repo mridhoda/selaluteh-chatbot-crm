@@ -2,6 +2,218 @@
 
 Use this file to record chronological progress.
 
+## 2026-07-03 — AISG-T001 AI Security Guardrails Audit
+
+### Completed
+- Activated `selaluteh-ai-security-guardrails` through the specs lifecycle by adding `workflow_state: in_progress`, syncing it from `specs/backlog/` to `specs/active/`, and updating `current-task.md` to `AISG-T001`.
+- Audited active AI runtime paths, including Telegram/Meta webhook entry points, `ai.service.js`, AI orchestrator/tool gateway files, domain tool schemas, legacy order handling, canonical cart/checkout/order services, payment webhook/reconciliation services, and button-based Telegram commerce flow.
+- Documented audit evidence in `specs/active/selaluteh-ai-security-guardrails/audit-evidence.md`.
+- Identified high-risk follow-ups without implementing them in this audit task: inline AI direct cart/chat mutations, legacy `FILE_ORDER_JSON/create_legacy_order`, orchestrator direct commerce mutations, missing strict schema rejection, missing persistent confirmation guard, and missing end-to-end restricted payment reachability proof.
+
+### Changed Files
+- `specs/active/selaluteh-ai-security-guardrails/spec.yaml`
+- `specs/active/selaluteh-ai-security-guardrails/tasks.md`
+- `specs/active/selaluteh-ai-security-guardrails/audit-evidence.md`
+- `specs/SPECS-INDEX.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Notes
+- AISG-T001 is audit-only; no runtime behavior was changed.
+- Existing Telegram/WhatsApp button commerce behavior was preserved.
+- Direct runtime fixes are deferred to the next explicit AISG tasks according to `.agents/agents.md`.
+
+### Tests
+- `npm run specs:check` initially failed due AISG lifecycle mismatch.
+- `npm run specs:sync:dry` passed after pointer/task metadata correction.
+- `npm run specs:sync` passed and moved AISG spec to active.
+- `npm run specs:check` passed with 14 specs validated.
+- Runtime tests were not run because no runtime code changed in AISG-T001.
+
+### Blockers
+- None for AISG-T001.
+
+### Next
+- Wait for an explicit next task pointer before continuing. Recommended next task is AISG-T002 or AISG-T003, but it must be selected explicitly before implementation.
+
+## 2026-07-03 — AISG Phase 0 Audit and Baseline Completion
+
+### Completed
+- Completed all remaining Phase 0 tasks: `AISG-T002`, `AISG-T003`, `AISG-T004`, and `AISG-T005`.
+- Added current AI tool matrix covering active inline OpenAI tools, domain tools, memory tools, prompt-marker actions, direct repository usage, canonical service status, and follow-up task mapping.
+- Added AISG architecture import-boundary security test and applied Phase 0 mitigation so AI natural-language mutation tools fail closed instead of directly mutating cart/chat/checkout/order/payment repositories.
+- Added Telegram and WhatsApp button-commerce regression tests to preserve the safer callback/button path while AI natural-language mutation paths are constrained.
+- Inventoried payment provider docs/runtime differences and updated generic payment provider selection to use workspace runtime configuration.
+
+### Changed Files
+- `server/src/services/ai.service.js`
+- `server/src/ai/orchestration/orchestrator.js`
+- `server/src/services/payment.service.js`
+- `server/src/routes/payments.js`
+- `server/test/security/ai/ai-import-boundary.test.js`
+- `server/test/security/ai/payment-provider-authority.test.js`
+- `server/test/e2e/ai/button-commerce-regression.test.js`
+- `specs/active/selaluteh-ai-security-guardrails/tool-matrix.md`
+- `specs/active/selaluteh-ai-security-guardrails/payment-provider-inventory.md`
+- `specs/active/selaluteh-ai-security-guardrails/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Notes
+- Full AISG gateway, immutable context, persistent confirmation, and canonical proposal-confirm-execute are not implemented in Phase 0 and remain Phase 1-3 work.
+- `FILE_ORDER_JSON/create_legacy_order` remains documented as a high-risk legacy path for AISG-T051/AISG-T082.
+- Button-commerce flows remain available and covered by regression tests.
+
+### Tests
+- `node --test "test/security/ai/ai-import-boundary.test.js"`: 1 pass, 0 fail.
+- `node --test "test/e2e/ai/button-commerce-regression.test.js"`: 3 pass, 0 fail.
+- `node --test "test/security/ai/payment-provider-authority.test.js"`: 1 pass, 0 fail.
+- `npm run test:ai:security`: 7 pass, 0 fail.
+- `npm run test:ai:e2e`: 4 pass, 0 fail.
+- `npm run test:ai:unit`: 234 pass, 0 fail.
+- `node --test "test/integration/payments/*.test.js" "test/unit/integrations/xendit-client.unit.test.js"`: 9 pass, 0 fail.
+- `node --test "test/e2e/telegram-marketplace.e2e.test.js"`: 2 pass, 0 fail.
+- `npm run specs:check`: 14 specs validated.
+
+### Blockers
+- None for Phase 0.
+
+### Next
+- Phase 1 should begin with `AISG-T006` only after the next task pointer is explicitly selected.
+
+## 2026-07-03 — AISG Phase 1 Scope and Trusted Context
+
+### Completed
+- Completed Phase 1 tasks `AISG-T006` through `AISG-T013`.
+- Added deterministic input-safety and SelaluTeh domain-scope guard with a fixed `out_of_scope` reply.
+- Integrated `generateAIReply()` short-circuit before outlet retrieval, Q&A lookup, provider/model calls, OpenAI tool loops, Gemini generation, and legacy FILE marker mutation handling.
+- Enforced human takeover as an early AI no-reply path using `takenOverByUserId` and legacy `takeoverBy` fields.
+- Added server-owned agent mode resolution so request/model payloads cannot switch agent mode.
+- Added immutable `AIActionContext` builder derived from server state.
+- Added tenant consistency guard for workspace, connection, conversation, contact, outlet, cart, and checkout context.
+- Added recursive authority-field rejection for model/tool payloads and cross-tenant non-disclosure tests.
+
+### Changed Files
+- `server/src/ai/security/scope-guard.js`
+- `server/src/ai/security/agent-mode.js`
+- `server/src/ai/security/ai-action-context.js`
+- `server/src/ai/security/tenant-guard.js`
+- `server/src/services/ai.service.js`
+- `server/test/unit/ai/security/phase1-security.test.js`
+- `specs/active/selaluteh-ai-security-guardrails/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Notes
+- No database migrations were added.
+- No payment provider, pricing, stock, order, or checkout authority was moved to the model.
+- Button-based Telegram/WhatsApp commerce remains unchanged.
+- Legacy `FILE_ORDER_JSON/create_legacy_order` remains a later Phase 5/Alpha-exit risk, but Phase 1 now prevents out-of-scope and human-takeover turns from reaching that path.
+
+### Tests
+- `node --test "test/unit/ai/security/phase1-security.test.js"`: 12 pass, 0 fail.
+- `node --test "test/unit/ai/security/phase1-security.test.js" "test/unit/services/ai-service-outlets.test.js" "test/integration/ai/chatbot-prompt-outlet.integration.test.js" "test/integration/chat/human-takeover.integration.test.js"`: 24 pass, 0 fail.
+- `npm run test:ai:security`: 7 pass, 0 fail.
+- `npm run test:ai:unit`: 246 pass, 0 fail.
+
+### Blockers
+- None for Phase 1.
+
+### Next
+- Stop at Phase 1. Phase 2 should begin with `AISG-T014` only after explicit task selection.
+
+## 2026-07-03 — AISG Phase 2 Tool Gateway and Policy Engine
+
+### Completed
+- Completed Phase 2 tasks `AISG-T014` through `AISG-T021`.
+- Added immutable versioned AI tool registry with `aisg-v1` definitions.
+- Converted AI tool gateway to deny-by-default for execution validation; tools require explicit server allowlist.
+- Added deterministic restricted-action policy registry for payment/admin/authority mutations.
+- Added strict schema validation for required/type/enum/minimum checks, unknown-field rejection, and Phase 1 authority-field rejection.
+- Added safe tool result normalizer with secret redaction and customer-safe errors.
+- Added gateway call count, payload size, timeout, and dependency breaker failure handling.
+- Hardened `ai.service` marker handling so legacy model action markers are stripped before customer-facing output and removed the AI-driven contact-name mutation path.
+
+### Changed Files
+- `server/src/ai/security/restricted-action-policy.js`
+- `server/src/ai/tools/tool-registry.js`
+- `server/src/ai/tools/tool-gateway.js`
+- `server/src/ai/tools/result-redactor.js`
+- `server/src/services/ai.service.js`
+- `server/test/unit/ai/security/phase2-tool-gateway.test.js`
+- `server/test/unit/ai/orchestrator-tools.test.js`
+- `specs/active/selaluteh-ai-security-guardrails/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Notes
+- No database migrations were added in Phase 2.
+- Telegram/WhatsApp button-based commerce remains unchanged.
+- Full persistent proposal-confirm-execute flow remains Phase 3.
+- Legacy `FILE_ORDER_JSON/create_legacy_order` prompt text remains a Phase 5 task, but marker output is sanitized before customer-facing output in Phase 2.
+
+### Tests
+- `node --test "test/unit/ai/security/phase2-tool-gateway.test.js" "test/unit/ai/orchestrator-tools.test.js" "test/unit/ai/tool-gateway.test.js"`: 35 pass, 0 fail.
+- `npm run test:ai:unit`: 254 pass, 0 fail.
+- `npm run test:ai:security`: 7 pass, 0 fail.
+
+### Blockers
+- None for Phase 2.
+
+### Next
+- Stop at Phase 2. Phase 3 should begin with `AISG-T022` only after explicit task selection.
+
+## 2026-07-03 — AISG Phases 3-5 Confirmation, Commerce, Checkout, and Payment Guards
+
+### Completed
+- Completed Phase 3 tasks `AISG-T022` through `AISG-T029`.
+- Completed Phase 4 tasks `AISG-T030` through `AISG-T045`.
+- Completed Phase 5 tasks `AISG-T046` through `AISG-T057`.
+- Added additive `ai_action_confirmations` migration and confirmation guard helpers for payload hash, opaque token, single-use consume, context binding, and state-version binding.
+- Added commerce confirmation helpers for hypothetical/menu mutation blocking, explicit customer choice, recommended-vs-selected outlet separation, and checkout summary confirmation.
+- Added commerce guardrail helpers for active/customer-visible search, outlet-aware pricing, orderable outlet checks, outlet-required mutation, canonical cart quantity/merge/single-outlet/server-price behavior, cart-version idempotency, and pickup checkout rules.
+- Hardened `cart.service.js`, `checkout.service.js`, and `payment.service.js` with quantity caps, cart-version checkout idempotency, pickup-only enforcement, workspace provider authority, and payment snapshot validation.
+- Removed `FILE_ORDER_JSON` instruction from AI sales-form prompt and kept marker sanitization before customer-facing output.
+
+### Changed Files
+- `server/src/ai/security/confirmation-guard.js`
+- `server/src/ai/security/commerce-confirmation.js`
+- `server/src/ai/security/commerce-guardrails.js`
+- `server/src/ai/security/payment-order-guardrails.js`
+- `server/src/db/migrations/035_ai_action_confirmations.sql`
+- `server/src/services/cart.service.js`
+- `server/src/services/checkout.service.js`
+- `server/src/services/payment.service.js`
+- `server/src/services/ai.service.js`
+- `server/test/unit/ai/security/phase3-5-guardrails.test.js`
+- `specs/active/selaluteh-ai-security-guardrails/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Notes
+- Database change is additive: `035_ai_action_confirmations.sql` creates a new confirmation table and indexes only.
+- Telegram/WhatsApp button commerce regression remains unchanged and passing.
+- Provider PAID mutation proof is implemented as guardrail tests and helper; live webhook/reconciliation behavior remains covered by existing payment services.
+- Unique order-per-checkout invariant is guarded at the canonical flow/helper layer; if production DB lacks a unique index, add an explicit DB constraint in a later rollout migration.
+
+### Tests
+- `node --test "test/unit/ai/security/phase3-5-guardrails.test.js"`: 8 pass, 0 fail.
+- `npm run test:ai:unit`: 262 pass, 0 fail.
+- `npm run test:ai:security`: 7 pass, 0 fail.
+- `npm run test:ai:e2e`: 4 pass, 0 fail.
+- `node --test "test/integration/payments/*.test.js" "test/unit/integrations/xendit-client.unit.test.js"`: 9 pass, 0 fail.
+
+### Blockers
+- None for Phases 3-5 automated validation.
+
+### Next
+- Stop at Phase 5. Phase 6 should begin with `AISG-T058` only after explicit task selection.
+
 ## Format
 
 ```md

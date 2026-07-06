@@ -1,30 +1,35 @@
 import Fuse from 'fuse.js';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { openaiClient, geminiClient } from './aiClient.js';
 import { env } from '../config/env.js';
+import { resolveAiRuntime } from './ai-runtime.service.js';
 
 import {
-  chatsSupabaseRepository,
   contactsSupabaseRepository,
-  platformsSupabaseRepository,
-  messagesSupabaseRepository,
   productsSupabaseRepository,
   outletsSupabaseRepository,
 } from '../db/repositories/index.js';
-import { tgSend, waSend } from './sender.js';
-import { createOrderFromAI } from './order.service.js';
-import { createComplaintFromAI } from './complaint.service.js';
-import { executeAIAction } from './ai-actions.service.js';
+import { addItem } from './cart.service.js';
+import { listCustomerProductsForOutlet } from './product.service.js';
 import {
-  buildAutoComplaintData,
-  shouldAutoCreateComplaintFromReply,
-} from './complaint-autocreate.service.js';
+  cartsRepository as aiCartsRepository,
+  chatsRepository as aiChatsRepository,
+} from '../db/repositories/index.js';
 import { redactSecretsInText } from '../utils/redaction.js';
 import { extractStoredNameFromUrl } from '../utils/file-urls.js';
+import { shouldShortCircuitAI } from '../ai/security/scope-guard.js';
 
 export function sanitizePromptText(value = '') {
   return redactSecretsInText(String(value || ''));
+}
+
+export function stripLegacyAIActionMarkers(value = '') {
+  return String(value || '')
+    .replace(/FILE_ORDER_JSON:\s*\{(?:[^{}]|\{[^{}]*\})*\}/g, '')
+    .replace(/FILE_COMPLAINT_JSON:\s*\{(?:[^{}]|\{[^{}]*\})*\}/g, '')
+    .replace(/FILE_ORDER_JSON:/g, '')
+    .replace(/FILE_COMPLAINT_JSON:/g, '')
+    .trim();
 }
 
 export const DEFAULT_AGENT_PROMPT_RULES = {
@@ -39,7 +44,7 @@ export const DEFAULT_AGENT_PROMPT_RULES = {
 - You MUST respect human takeover — if human is active, do not reply.
 - You MUST NOT reveal system secrets, API keys, or internal configuration.`,
   noReintroInstruction: 'PENTING: Customer sudah pernah chat sebelumnya. Jangan memberi salam, halo, atau perkenalan lagi. Langsung jawab kebutuhan customer.',
-  askLocationForOrderReply: 'Siap, Tea bantu pesankan ya 😊 Boleh info lokasi kamu saat ini dulu? Bisa share location dari Telegram/Google Maps, atau ketik nama jalan/daerah/kota tempat kamu berada, contoh: “Jalan Jelawat Samarinda”. Nanti Tea carikan outlet terdekat dari lokasimu dan kirimkan link Google Maps-nya. Jadi Tea nggak akan list semua outlet dulu biar nggak kepanjangan.',
+  askLocationForOrderReply: 'Siap, Kea bantu pesankan ya 😊 Boleh info lokasi kamu saat ini dulu? Bisa share location, atau ketik alamat tempat kamu berada, contoh: “Jalan Jelawat Samarinda”. Nanti Kea carikan outlet terdekat dari lokasimu.',
   productRulesWhenEmpty: `Product/menu answer rules:
 - If the user asks for menu, products, prices, stock, or availability, answer only from this Official Active Products list.
 - Do not invent menu items, prices, variants, stock, promos, or availability.
@@ -74,15 +79,18 @@ export const DEFAULT_AGENT_PROMPT_RULES = {
 ORDER FLOW (only activate when customer explicitly wants to place an order):
 STEP 1: Ask the customer current location first. Do NOT call get_outlets and do NOT present all outlet names as the first response.
 STEP 2: After customer sends location/share location/address, the location-intelligence flow will recommend the nearest outlet and include Google Maps/share-location link.
-STEP 3: After an outlet has been selected/recommended and customer agrees, call select_outlet with the matching outletId.
-STEP 4: Ask what items the customer wants. Use search_products to find them.
+STEP 3: Customer can confirm the outlet EITHER by clicking the outlet button OR by typing the outlet name in chat. BOTH methods are equally valid.
+  - If customer types the outlet name (e.g. "outlet danau murung", "ya", "pilih yang pertama"), you MUST call select_outlet with the outletId from get_outlets result. Do NOT tell them to click a button.
+  - After select_outlet returns ok, immediately proceed to STEP 4.
+STEP 4: Ask what items the customer wants (or if they already said the item, search and add immediately). Use search_products to find them.
 STEP 5: Call add_cart_item for each item, and you MUST specify the quantity the user asked for (use productId from search result, NEVER invent IDs).
 STEP 6: After ALL items added, summarize the order and say: "Pesananmu sudah saya siapkan! Silakan klik tombol Checkout yang akan muncul."
 CRITICAL RULES:
 - When customer starts an order, ask location first; never show the full outlet list first.
-- If customer sends an invalid/contradictory address, do NOT call outlet/product tools and do NOT continue ordering. Ask them to verify the address format, e.g. “Boleh verifikasi alamatnya? Format yang benar: nama jalan/landmark + kelurahan/kecamatan + kota, atau share live location/Google Maps.”
+- If customer sends an invalid/contradictory address, do NOT call outlet/product tools and do NOT continue ordering. Ask them to verify the address format, e.g. "Boleh verifikasi alamatnya? Format yang benar: nama jalan/landmark + kelurahan/kecamatan + kota, atau share live location/Google Maps."
 - If a selected outlet already exists in the chat context/current outlet, do NOT ask for location again. Continue with product search and add_cart_item immediately.
 - Do NOT call get_outlets or show all outlets unless customer specifically asks to list outlets around a mentioned area/city.
+- NEVER tell the customer to "click the outlet button" as the only way to confirm. Chat confirmation is always accepted.
 - Always call select_outlet BEFORE add_cart_item.
 - Never fabricate product IDs or prices. Only use IDs from search_products results.
 - If customer just asks about menu/prices, answer from the products list without starting the order flow.`,
@@ -248,7 +256,7 @@ function normalizeCity(value = '') {
 export function formatOutletList(outlets = [], { cityFilter = null } = {}) {
   const normalizedCityFilter = normalizeCity(cityFilter);
   if (!normalizedCityFilter) {
-    return 'Boleh info lokasi kamu saat ini dulu? Bisa sebut nama jalan/daerah/kota tempat kamu tinggal, contoh: “Jalan Jelawat Samarinda”. Nanti Tea carikan outlet terdekat dan kirimkan link Google Maps-nya. Kalau kamu mau, Tea juga bisa listkan seluruh outlet yang ada di sekitarmu setelah kamu sebutkan daerah atau kotanya ya.';
+    return 'Boleh info lokasi kamu saat ini dulu? Bisa share location, atau ketik alamat tempat kamu berada, contoh: “Jalan Jelawat Samarinda”. Nanti Kea carikan outlet terdekat dari lokasimu.';
   }
 
   const available = outlets.filter((outlet) => outlet.status !== 'archived');
@@ -306,6 +314,11 @@ export async function generateAIReply({ system, prompt, message, knowledge, agen
   const currentMessageText = sanitizePromptText(message.text || (message.attachment ? '[Attachment]' : ''));
   const promptRules = getAgentPromptRules(agent);
   const selectedOutletId = chat?.currentOutletId || chat?.current_outlet_id || null;
+
+  const guardDecision = shouldShortCircuitAI({ text: currentMessageText, chat, history });
+  if (guardDecision.shortCircuit) {
+    return guardDecision.reply;
+  }
 
   // ── Detect active complaint session from history ─────────────────────────
   // Scan recent messages for complaint signals to inject explicit session context
@@ -370,30 +383,16 @@ Perlakukan percakapan ini sebagai COMPLAINT SESSION — bukan percakapan baru.`;
     if (outletReply) return outletReply;
   }
 
-  // --- Per-agent AI settings override ---
-  // If the agent has its own aiSettings configured, those take priority over global env
-  let effectiveOpenaiClient = openaiClient;
-  let effectiveOpenaiModel = env.openaiModel;
-  let effectiveTemperature = 0.6;
-  let effectiveMaxTokens = undefined;
-
-  if (agent?.aiSettings && agent.aiSettings.provider === 'openai') {
-    const s = agent.aiSettings;
-    if (s.apiKey) {
-      const OpenAI = (await import('openai')).default;
-      effectiveOpenaiClient = new OpenAI({
-        apiKey: s.apiKey,
-        baseURL: s.baseUrl || undefined,
-        defaultHeaders: s.referer ? { 'HTTP-Referer': s.referer } : {},
-      });
-    }
-    if (s.model) effectiveOpenaiModel = s.model;
-    if (typeof s.temperature === 'number') effectiveTemperature = s.temperature;
-    if (s.maxTokens) effectiveMaxTokens = Number(s.maxTokens);
-  }
+  const aiRuntime = await resolveAiRuntime({ workspaceId: chat?.workspaceId || agent?.workspaceId, agent, message });
+  let effectiveOpenaiClient = aiRuntime.provider === 'openai' || aiRuntime.provider === 'openai_compatible' ? aiRuntime.client : null;
+  let effectiveOpenaiModel = aiRuntime.model || env.openaiModel;
+  let effectiveTemperature = aiRuntime.temperature ?? 0.6;
+  let effectiveMaxTokens = aiRuntime.maxTokens;
+  let effectiveGeminiClient = aiRuntime.provider === 'gemini' ? aiRuntime.client : null;
+  let effectiveGeminiModel = aiRuntime.model || env.geminiModel;
 
   // Fallback echo
-  if (!effectiveOpenaiClient && !geminiClient) {
+  if (aiRuntime.disabled || (!effectiveOpenaiClient && !effectiveGeminiClient)) {
     return `Echo: ${currentMessageText}`;
   }
 
@@ -451,35 +450,27 @@ Perlakukan percakapan ini sebagai COMPLAINT SESSION — bukan percakapan baru.`;
 
   try {
     let reply = '';
-    let complaintFiled = false;
-
-    const autoCreateComplaintIfAcknowledged = async () => {
-      if (complaintFiled) return;
-      if (!shouldAutoCreateComplaintFromReply({ reply, userText: currentMessageText })) return;
-
-      const complaintData = buildAutoComplaintData({ reply, userText: currentMessageText, contact });
-      console.log('[AI] Auto-filing acknowledged complaint:', complaintData);
-
-      const aiActionResult = await executeAIAction({
-        workspaceId: chat?.workspaceId || agent?.workspaceId,
-        chatId: chat?.id,
-        chatMessageId: message?.id || null,
-        agentId: agent?.id || null,
-        actionType: 'create_legacy_complaint',
-        input: { complaintData, source: 'ai_acknowledged_complaint_fallback' },
-        executor: () => createComplaintFromAI({ chat, agent, complaintData }),
-      });
-      if (!aiActionResult.valid) {
-        throw new Error(`AI complaint fallback action rejected: ${aiActionResult.validationErrors.join(', ')}`);
-      }
-
-      complaintFiled = true;
-    };
+    const autoCreateComplaintIfAcknowledged = async () => {};
 
     // Prioritize OpenAI (or per-agent override) if available
     if (effectiveOpenaiClient) {
       const commerceInstructions = promptRules.commerceInstructions
         ? `\n\n${promptRules.commerceInstructions}`
+        : '';
+
+      // ── Inject current commerce state so AI knows outlet is already selected ──
+      let outletName = chat?.outletName || chat?.outlets?.name || null;
+      if (!outletName && selectedOutletId) {
+        try {
+          const outlet = await outletsSupabaseRepository.findById({ workspaceId: chat?.workspaceId, outletId: selectedOutletId });
+          outletName = outlet?.name || null;
+        } catch (_) { /* non-fatal */ }
+      }
+      const commerceStateNote = selectedOutletId
+        ? `\n\n[COMMERCE STATE — SYSTEM INJECTED]
+Outlet sudah dipilih oleh customer: "${outletName || selectedOutletId}" (ID: ${selectedOutletId}).
+JANGAN tanya lokasi atau outlet lagi. Langsung proses pesanan customer.
+Langkah selanjutnya: cari produk dengan search_products, lalu tambahkan ke keranjang dengan add_cart_item.`
         : '';
 
 
@@ -544,10 +535,6 @@ Perlakukan percakapan ini sebagai COMPLAINT SESSION — bukan percakapan baru.`;
         try {
           console.log(`[ai-tool] ${toolName}`, toolArgs);
           const workspaceId = chat?.workspaceId;
-          const contactId = typeof chat?.contactId === 'object' ? chat.contactId?.id : chat?.contactId;
-
-          const { cartsRepository, productsRepository, outletsSupabaseRepository } =
-            await import('../db/repositories/index.js');
 
           if (toolName === 'get_outlets') {
             const outlets = await outletsSupabaseRepository.list({ workspaceId });
@@ -561,53 +548,105 @@ Perlakukan percakapan ini sebagai COMPLAINT SESSION — bukan percakapan baru.`;
           }
 
           if (toolName === 'search_products') {
-            const results = await productsRepository.search({ workspaceId, query: toolArgs.query || '', limit: 10 });
-            const items = Array.isArray(results) ? results : (results?.data || results?.items || []);
+            const outletIdForSearch = selectedOutletId || chat?.currentOutletId || chat?.current_outlet_id || null;
+            const query = String(toolArgs.query || '').trim().toLowerCase();
+            const results = outletIdForSearch
+              ? await listCustomerProductsForOutlet({ workspaceId, outletId: outletIdForSearch, page: 0, limit: 1000 })
+              : await productsSupabaseRepository.search({ workspaceId, query: toolArgs.query || '', limit: 10 });
+            const rawItems = Array.isArray(results) ? results : (results?.products || results?.data || results?.items || []);
+            const items = outletIdForSearch && query
+              ? rawItems.filter((p) => String(p.name || '').toLowerCase().includes(query))
+              : rawItems;
             return JSON.stringify(items.slice(0, 10).map(p => ({
               productId: p.id || p._id,
               name: p.name,
               price: p.basePrice ?? p.price ?? 0,
+              stock: p.stockQuantity ?? p.outletAvailability?.stockQuantity ?? null,
             })));
           }
 
           if (toolName === 'select_outlet') {
-            const outlet = await outletsSupabaseRepository.findById({ workspaceId, outletId: toolArgs.outletId });
-            if (!outlet) return JSON.stringify({ error: 'Outlet not found' });
-            // Create/update cart linked to this outlet
-            await cartsRepository.upsertByContact({ workspaceId, contactId, outletId: toolArgs.outletId, chatId: chat?.id || null });
-            // Persist outlet selection to chat record so sidebar polling picks it up
-            if (chat?.id) {
-              await chatsSupabaseRepository.setCurrentOutlet(chat.id, toolArgs.outletId);
+            // User confirmed outlet via CHAT (not button click).
+            // Validate the outlet and persist currentOutletId to DB — same as button flow.
+            const outletIdToSelect = toolArgs.outletId || selectedOutletId || chat?.currentOutletId || null;
+            if (!outletIdToSelect) {
+              return JSON.stringify({
+                error: 'NO_OUTLET_ID',
+                message: 'Outlet ID tidak ditemukan. Sebutkan nama outlet yang kamu inginkan.',
+              });
             }
-            console.log(`[ai-tool] select_outlet: cart+chat updated for contact=${contactId} outlet=${toolArgs.outletId} (${outlet.name})`);
-            return JSON.stringify({ success: true, outletId: toolArgs.outletId, name: outlet.name });
+            try {
+              // Validate outlet is real and active
+              const outlet = await outletsSupabaseRepository.findById({ workspaceId, outletId: outletIdToSelect });
+              if (!outlet) {
+                return JSON.stringify({ error: 'OUTLET_NOT_FOUND', message: 'Outlet tidak ditemukan dalam sistem.' });
+              }
+              const contactId = typeof chat?.contactId === 'object' ? chat.contactId?.id : chat?.contactId;
+              // Expire carts from other outlets
+              await aiCartsRepository.expireActiveByContactExceptOutlet({
+                workspaceId,
+                contactId,
+                outletId: outlet.id,
+              });
+              // Persist to DB — same as button-click flow
+              await aiChatsRepository.setCurrentOutlet({ workspaceId, chatId: chat.id, outletId: outlet.id });
+              // Update in-memory so add_cart_item in this same agentic loop sees it
+              chat.currentOutletId = outlet.id;
+              console.log(`[ai-tool] select_outlet: outlet ${outlet.name} (${outlet.id}) saved to chat ${chat.id}`);
+              return JSON.stringify({ ok: true, outletId: outlet.id, outletName: outlet.name, message: `Outlet ${outlet.name} berhasil dipilih. Silakan lanjutkan pesanan.` });
+            } catch (selErr) {
+              console.error('[ai-tool] select_outlet error:', selErr.message);
+              return JSON.stringify({ error: selErr.message });
+            }
           }
 
           if (toolName === 'add_cart_item') {
-            const outletId = chat?.currentOutletId || chat?.current_outlet_id || null;
-            const cart = outletId
-              ? await cartsRepository.findActiveByContact({ workspaceId, contactId, outletId })
-              : await cartsRepository.findActiveByContact({ workspaceId, contactId });
-            if (!cart) return JSON.stringify({ error: 'No active cart. Call select_outlet first.' });
-            const product = await productsRepository.findById({ workspaceId, productId: toolArgs.productId });
-            if (!product) return JSON.stringify({ error: 'Product not found. Call search_products again and use productId from the result.' });
-            const updatedCart = await cartsRepository.addItem({
-              workspaceId,
-              cartId: cart.id,
-              item: {
-                productId: toolArgs.productId,
-                quantity: toolArgs.quantity || 1,
-                name: product?.name || '',
-                productNameSnapshot: product?.name || '',
-                unitPrice: product?.basePrice ?? product?.price ?? 0,
-                effectivePrice: product?.basePrice ?? product?.price ?? 0,
-              },
-            });
-            const cartTotal = updatedCart.items.reduce((sum, i) => sum + (i.subtotal || i.subtotalAmount || 0), 0);
-            await cartsRepository.update({ workspaceId, cartId: cart.id, updates: { total: cartTotal } });
-            cartItemAdded = true;
-            console.log(`[ai-tool] add_cart_item: added ${toolArgs.quantity}x ${product?.name} to cart ${cart.id}`);
-            return JSON.stringify({ success: true, productId: toolArgs.productId, name: product?.name, quantity: toolArgs.quantity });
+            const outletIdForCart = selectedOutletId || chat?.currentOutletId || chat?.current_outlet_id || null;
+            if (!outletIdForCart) {
+              return JSON.stringify({ error: 'NO_OUTLET_SELECTED', message: 'Outlet belum dipilih. Gunakan tombol pilih outlet terlebih dahulu.' });
+            }
+            const contactId = typeof chat?.contactId === 'object' ? chat.contactId?.id : chat?.contactId;
+            try {
+              await addItem({
+                workspaceId,
+                outletId: outletIdForCart,
+                contactId,
+                chatId: chat?.id,
+                platformType: 'telegram',
+                productId: String(toolArgs.productId),
+                quantity: Number(toolArgs.quantity) || 1,
+              });
+              cartItemAdded = true;
+              return JSON.stringify({ ok: true, message: `Item berhasil ditambahkan ke keranjang (qty: ${toolArgs.quantity}).` });
+            } catch (cartErr) {
+              // If cart is from a different outlet, auto-clear it and retry once
+              if (cartErr.code === 'CART_OUTLET_MISMATCH' || (cartErr.message || '').includes('different outlet')) {
+                console.log('[ai-tool] add_cart_item: clearing mismatched cart and retrying...');
+                try {
+                  await aiCartsRepository.expireActiveByContactExceptOutlet({
+                    workspaceId,
+                    contactId,
+                    outletId: outletIdForCart,
+                  });
+                  await addItem({
+                    workspaceId,
+                    outletId: outletIdForCart,
+                    contactId,
+                    chatId: chat?.id,
+                    platformType: 'telegram',
+                    productId: String(toolArgs.productId),
+                    quantity: Number(toolArgs.quantity) || 1,
+                  });
+                  cartItemAdded = true;
+                  return JSON.stringify({ ok: true, message: `Item berhasil ditambahkan ke keranjang (qty: ${toolArgs.quantity}).` });
+                } catch (retryErr) {
+                  console.error('[ai-tool] add_cart_item retry error:', retryErr.message);
+                  return JSON.stringify({ error: retryErr.message });
+                }
+              }
+              console.error('[ai-tool] add_cart_item error:', cartErr.message);
+              return JSON.stringify({ error: cartErr.message });
+            }
           }
 
           return JSON.stringify({ error: 'Unknown tool' });
@@ -634,7 +673,7 @@ When the user has provided: (1) the issue/problem description, AND (2) their out
 NEVER respond to complaint details (outlet name, order number, location info) with a generic "ada yang bisa dibantu" — the user is completing a complaint, not starting a new conversation.`;
 
         const openaiMessages = [
-          { role: 'system', content: sanitizePromptText((system || promptRules.fallbackSystemPrompt) + contactName + fileInstruction + productMenuContext + officialOutletContext + commerceInstructions + openaiComplaintInstruction + (complaintSessionHint || '')) },
+          { role: 'system', content: sanitizePromptText((system || promptRules.fallbackSystemPrompt) + contactName + fileInstruction + productMenuContext + officialOutletContext + commerceInstructions + commerceStateNote + openaiComplaintInstruction + (complaintSessionHint || '')) },
         ];
 
         for (const msg of history) {
@@ -696,19 +735,14 @@ NEVER respond to complaint details (outlet name, order number, location info) wi
       }
       // Return cartItemAdded flag alongside reply
       if (reply) {
-        try {
-          await autoCreateComplaintIfAcknowledged();
-        } catch (err) {
-          console.error('[AI] Failed to auto-create acknowledged complaint:', err);
-        }
-        return { text: reply, cartItemAdded };
+        return { text: stripLegacyAIActionMarkers(reply), cartItemAdded };
       }
     } // end if (effectiveOpenaiClient)
 
-    // Fallback to Gemini if OpenAI fails or is not available
-    if (geminiClient && !reply) {
+    // Fallback to Gemini if selected by workspace/agent routing or if OpenAI failed and resolver chose Gemini.
+    if (effectiveGeminiClient && !reply) {
       try {
-        const model = geminiClient.getGenerativeModel({ model: env.geminiModel });
+        const model = effectiveGeminiClient.getGenerativeModel({ model: effectiveGeminiModel });
 
         // --- Sales Form Logic ---
         if (agent?.salesForms && agent.salesForms.length > 0) {
@@ -752,8 +786,8 @@ NEVER respond to complaint details (outlet name, order number, location info) wi
                          - **IF INVALID/FAKE**: Reply "Maaf, bukti pembayaran tidak valid. Nominal atau nomor tujuan tidak sesuai. Mohon kirim bukti yang benar." and DO NOT finalize.
                        - If the user just sends TEXT (e.g. "sudah"): You MUST ask for the photo proof ("Mohon lampirkan screenshot/foto bukti transfer"). Do NOT finalize without image proof.
                   ` : ''}
-                  7. **Completion**: ${agent?.payment?.enabled ? 'ONLY after payment proof is received/confirmed,' : 'When ALL required info (Fields + Name + Outlet) is gathered,'} reply with "FILE_ORDER_JSON:" followed by valid JSON with "formName", "formData" (captured fields including Outlet), "contactName", "contactPhone".
-                  8. **Final Response**: AFTER the JSON, strictly reply with: "Pesanan Anda sedang kami proses. Mohon tunggu konfirmasi selanjutnya." (Do NOT say "Accepted" or "Received" yet).
+                  7. **Completion**: When ALL required info (Fields + Name + Outlet) is gathered, summarize the request and ask the customer to use the official cart/checkout buttons. Do NOT output hidden JSON commands.
+                  8. **Final Response**: Reply with: "Pesananmu sudah saya rangkum. Silakan gunakan tombol keranjang/checkout resmi agar harga, outlet, dan pembayaran tervalidasi sistem.".
               `;
             }).join('\n');
 
@@ -905,6 +939,7 @@ NEVER respond to complaint details (outlet name, order number, "sudah pulang" et
         const result = await chatSession.sendMessage(promptParts);
         reply = result.response.text();
         console.log('Gemini AI reply:', reply);
+        reply = stripLegacyAIActionMarkers(reply);
 
         // Check for order filing
         if (reply.includes('FILE_ORDER_JSON:')) {
@@ -1072,26 +1107,11 @@ NEVER respond to complaint details (outlet name, order number, "sudah pulang" et
         if (reply.includes('ESCALATE_TO_HUMAN')) {
           const chatId = chat.id;
           console.log('[AI] Escalation triggered for chat:', chatId);
-          await chatsSupabaseRepository.update({ chatId, updates: { is_escalated: true } });
           return 'Baik, mohon tunggu sebentar, saya akan menyambungkan Anda dengan staf kami.';
         }
 
       } catch (e) {
         console.error('Gemini AI error:', e.message);
-      }
-    }
-
-    if (contactId && !contact?.name) {
-      const namePrompt = `Does the user reveal their name in this message? If so, what is it? If not, say "NO_NAME".\n\nUser: ${currentMessageText}`;
-      const model = geminiClient.getGenerativeModel({ model: env.geminiModel });
-      const resp = await model.generateContent(namePrompt);
-      const name = resp.response.text();
-      if (name && name.trim().toUpperCase() !== 'NO_NAME') {
-        await contactsSupabaseRepository.update({
-          workspaceId: chat.workspaceId,
-          contactId,
-          updates: { name: name.trim() },
-        });
       }
     }
 

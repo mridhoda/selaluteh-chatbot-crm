@@ -1,4 +1,5 @@
 import express from 'express';
+import telegramV1Router from './telegram-v1.js';
 import telegramRouter from './telegram.js';
 import metaRouter from './meta.js';
 import metaTestRouter from './metaTest.js';
@@ -9,6 +10,7 @@ const router = express.Router();
 
 router.use(webhookRateLimit);
 
+router.use('/telegram/v1', telegramV1Router);
 router.use('/telegram', telegramRouter);
 router.use('/meta', metaRouter);
 router.use('/test-meta', metaTestRouter);

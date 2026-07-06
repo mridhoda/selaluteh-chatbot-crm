@@ -90,7 +90,7 @@ router.get('/:chatId/messages', auth, async (req, res) => {
       return res.status(404).json({ error: 'Chat not found or access denied' });
     }
 
-    const rows = await messagesSupabaseRepository.listByChatId(chatId, { limit: 500 });
+    const rows = await messagesSupabaseRepository.listByChatId(chatId, { limit: 100 });
     res.json(rows);
   } catch (err) {
     console.error('[CHATS] GET /:chatId/messages error:', err);

@@ -9,7 +9,7 @@ export async function processPaymentWebhook({ workspaceId, provider, rawBody, he
   const { valid, event } = await adapter.verifyWebhook(rawBody, headers);
   if (!valid || !event) return { processed: false, reason: 'invalid_signature' };
 
-  const existingEvent = await paymentEventsRepository.findByProviderEventId(provider, event.providerTransactionId);
+  const existingEvent = await paymentEventsRepository.findByProviderEventId({ workspaceId, provider, providerEventId: event.providerTransactionId });
   if (existingEvent) return { processed: false, reason: 'duplicate', existingEventId: existingEvent.id };
 
   const registered = await paymentEventsRepository.create({
@@ -21,42 +21,43 @@ export async function processPaymentWebhook({ workspaceId, provider, rawBody, he
 
   const payment = await paymentsRepository.findByMerchantReference({ workspaceId, ref: event.merchantReference });
   if (!payment) {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'no_payment_found' });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId, eventId: registered.id, status: 'rejected', verificationResult: 'no_payment_found' });
     return { processed: false, reason: 'no_payment_found' };
   }
 
   await paymentEventsRepository.updateReferences({
+    workspaceId,
     eventId: registered.id,
     paymentId: payment.id,
     orderId: payment.orderId,
   });
 
   if (payment.status === 'paid') {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed' });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId, eventId: registered.id, status: 'processed' });
     return { processed: false, reason: 'already_paid', event };
   }
 
   if (event.status !== 'paid') {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed' });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId, eventId: registered.id, status: 'processed' });
     return { processed: true, event };
   }
 
   if (payment.amount !== event.amount) {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'amount_mismatch' });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId, eventId: registered.id, status: 'rejected', verificationResult: 'amount_mismatch' });
     return { processed: false, reason: 'amount_mismatch' };
   }
 
   if (payment.currency !== event.currency) {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'currency_mismatch' });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId, eventId: registered.id, status: 'rejected', verificationResult: 'currency_mismatch' });
     return { processed: false, reason: 'currency_mismatch' };
   }
 
   const updatedPayment = await paymentsRepository.atomicStatusUpdate({
-    paymentId: payment.id, expectedStatus: 'pending', newStatus: 'paid',
+    workspaceId, paymentId: payment.id, expectedStatus: 'pending', newStatus: 'paid',
   });
   if (!updatedPayment) return { processed: false, reason: 'concurrent_update' };
 
-  await paymentsRepository.addEvent({ paymentId: payment.id, event: {
+  await paymentsRepository.addEvent({ workspaceId, paymentId: payment.id, event: {
     providerEventId: event.providerTransactionId, eventType: 'settlement', status: 'paid',
     amount: event.amount, currency: event.currency, feeAmount: event.feeAmount || 0,
     netAmount: event.netAmount || event.amount, paymentMethod: event.paymentMethod, paidAt: new Date(),
@@ -65,8 +66,8 @@ export async function processPaymentWebhook({ workspaceId, provider, rawBody, he
   const updatedOrder = await ordersRepository.updateOne({ workspaceId, orderId: payment.orderId, updates: { payment_status: 'paid', status: 'accepted' } });
   notifyPaymentUpdatedRealtime({ workspaceId, outletId: updatedPayment.outletId, payment: updatedPayment, order: updatedOrder });
 
-  await paymentsRepository.updatePayment(payment.id, { reconciliation_status: 'matched' });
-  await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: 'paid' });
+  await paymentsRepository.updatePayment({ workspaceId, paymentId: payment.id, updates: { reconciliation_status: 'matched' } });
+  await paymentEventsRepository.updateProcessingStatus({ workspaceId, eventId: registered.id, status: 'processed', verificationResult: 'paid' });
 
   if (updatedOrder) {
     notifyPaidOrderRealtime({ workspaceId, outletId: updatedOrder.outletId, order: updatedOrder });
@@ -99,7 +100,7 @@ export async function processDokuCheckoutWebhook({ rawBody, headers, requestTarg
   if (!valid || !event) throw new AppError('DOKU_WEBHOOK_UNAUTHORIZED', reason || 'Invalid DOKU webhook signature', 401);
 
   const eventKey = event.providerEventId || `${event.merchantReference}:${event.eventType}:${event.paidAt || ''}`;
-  const existingEvent = await paymentEventsRepository.findByProviderEventId('doku', eventKey);
+  const existingEvent = await paymentEventsRepository.findByProviderEventId({ workspaceId: targetPayment.workspaceId, provider: 'doku', providerEventId: eventKey });
   if (existingEvent && existingEvent.processingStatus === 'processed') {
     return { processed: false, reason: 'duplicate', existingEventId: existingEvent.id };
   }
@@ -116,27 +117,28 @@ export async function processDokuCheckoutWebhook({ rawBody, headers, requestTarg
     raw: safePaymentSessionPayload(event.raw),
     processingStatus: 'received',
   });
-  await paymentEventsRepository.updateReferences({ eventId: registered.id, paymentId: targetPayment.id, orderId: targetPayment.orderId });
+  await paymentEventsRepository.updateReferences({ workspaceId: targetPayment.workspaceId, eventId: registered.id, paymentId: targetPayment.id, orderId: targetPayment.orderId });
 
   if (Number(targetPayment.amount) !== Number(event.amount)) {
-    await paymentsRepository.updatePayment(targetPayment.id, { reconciliation_status: 'amount_mismatch' });
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'amount_mismatch' });
+    await paymentsRepository.updatePayment({ workspaceId: targetPayment.workspaceId, paymentId: targetPayment.id, updates: { reconciliation_status: 'amount_mismatch' } });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'rejected', verificationResult: 'amount_mismatch' });
     return { processed: false, reason: 'amount_mismatch' };
   }
 
   if (event.status !== 'paid') {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: event.status });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: event.status });
     return { processed: true, event: { eventType: event.eventType, status: event.status } };
   }
 
   const updatedPayment = await paymentsRepository.transitionStatus({
+    workspaceId: targetPayment.workspaceId,
     paymentId: targetPayment.id,
     fromStatuses: ['pending', 'expired'],
     newStatus: 'paid',
     updates: { reconciliation_status: 'matched', paid_at: new Date().toISOString() },
   });
 
-  await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: 'paid' });
+  await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: 'paid' });
   const updatedOrder = await ordersRepository.updateOne({
     workspaceId: targetPayment.workspaceId,
     orderId: targetPayment.orderId,
@@ -162,7 +164,7 @@ export async function processBayarGgWebhook({ rawBody, headers }) {
   if (!valid || !event) throw new AppError('BAYARGG_WEBHOOK_UNAUTHORIZED', reason || 'Invalid Bayar.gg webhook signature', 401);
 
   const eventKey = event.providerEventId || `${event.providerTransactionId}:${event.eventType}:${event.paidAt || ''}`;
-  const existingEvent = await paymentEventsRepository.findByProviderEventId('bayargg', eventKey);
+  const existingEvent = await paymentEventsRepository.findByProviderEventId({ workspaceId: targetPayment.workspaceId, provider: 'bayargg', providerEventId: eventKey });
   if (existingEvent && existingEvent.processingStatus === 'processed') {
     return { processed: false, reason: 'duplicate', existingEventId: existingEvent.id };
   }
@@ -179,34 +181,35 @@ export async function processBayarGgWebhook({ rawBody, headers }) {
     raw: safePaymentSessionPayload(event.raw),
     processingStatus: 'received',
   });
-  await paymentEventsRepository.updateReferences({ eventId: registered.id, paymentId: targetPayment.id, orderId: targetPayment.orderId });
+  await paymentEventsRepository.updateReferences({ workspaceId: targetPayment.workspaceId, eventId: registered.id, paymentId: targetPayment.id, orderId: targetPayment.orderId });
 
   if (event.providerTransactionId !== targetPayment.providerTransactionId) {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'provider_transaction_mismatch' });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'rejected', verificationResult: 'provider_transaction_mismatch' });
     return { processed: false, reason: 'provider_transaction_mismatch' };
   }
   if (Number(targetPayment.amount) !== Number(event.amount)) {
-    await paymentsRepository.updatePayment(targetPayment.id, { reconciliation_status: 'amount_mismatch' });
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'amount_mismatch' });
+    await paymentsRepository.updatePayment({ workspaceId: targetPayment.workspaceId, paymentId: targetPayment.id, updates: { reconciliation_status: 'amount_mismatch' } });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'rejected', verificationResult: 'amount_mismatch' });
     return { processed: false, reason: 'amount_mismatch' };
   }
   if (targetPayment.currency !== event.currency) {
-    await paymentsRepository.updatePayment(targetPayment.id, { reconciliation_status: 'amount_mismatch' });
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'currency_mismatch' });
+    await paymentsRepository.updatePayment({ workspaceId: targetPayment.workspaceId, paymentId: targetPayment.id, updates: { reconciliation_status: 'amount_mismatch' } });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'rejected', verificationResult: 'currency_mismatch' });
     return { processed: false, reason: 'currency_mismatch' };
   }
 
   if (targetPayment.status === 'paid' && event.status !== 'paid') {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: 'stale_no_downgrade' });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: 'stale_no_downgrade' });
     return { processed: false, reason: 'stale_no_downgrade' };
   }
 
   if (event.status !== 'paid') {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: event.status });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: event.status });
     return { processed: true, event: { eventType: event.eventType, status: event.status } };
   }
 
   const updatedPayment = await paymentsRepository.transitionStatus({
+    workspaceId: targetPayment.workspaceId,
     paymentId: targetPayment.id,
     fromStatuses: ['pending', 'expired'],
     newStatus: 'paid',
@@ -214,14 +217,14 @@ export async function processBayarGgWebhook({ rawBody, headers }) {
   });
 
   if (!updatedPayment && targetPayment.status !== 'paid') {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: 'state_conflict_noop' });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: 'state_conflict_noop' });
     return { processed: false, reason: 'state_conflict_noop' };
   }
 
-  await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: 'paid' });
+  await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: 'paid' });
   if (!existingEvent) {
     try {
-      await paymentsRepository.addEvent({ paymentId: targetPayment.id, event: {
+      await paymentsRepository.addEvent({ workspaceId: targetPayment.workspaceId, paymentId: targetPayment.id, event: {
         provider: 'bayargg', providerEventId: eventKey, eventType: event.eventType, status: 'paid',
         amount: event.amount, currency: event.currency, paymentMethod: event.paymentMethod, paidAt: event.paidAt ? new Date(event.paidAt) : new Date(), rawPayload: safePaymentSessionPayload(event.raw),
       } });
@@ -252,13 +255,6 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
   }
 
   const eventKey = event.providerEventId || `${event.providerSessionId}:${event.eventType}:${event.updatedAt || ''}`;
-  const existingEvent = await paymentEventsRepository.findByProviderEventId('xendit', eventKey);
-  // Only treat fully-processed events as true duplicates.
-  // Events stuck in 'received' (e.g. due to a previous crash) are re-processed on retry.
-  if (existingEvent && existingEvent.processingStatus === 'processed') {
-    return { processed: false, reason: 'duplicate', existingEventId: existingEvent.id };
-  }
-
   const payment = event.providerSessionId
     ? await paymentsRepository.findByProviderTransactionId(event.providerSessionId)
     : null;
@@ -267,6 +263,13 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
 
   if (!targetPayment) {
     return { processed: false, reason: 'no_payment_found' };
+  }
+
+  const existingEvent = await paymentEventsRepository.findByProviderEventId({ workspaceId: targetPayment.workspaceId, provider: 'xendit', providerEventId: eventKey });
+  // Only treat fully-processed events as true duplicates.
+  // Events stuck in 'received' (e.g. due to a previous crash) are re-processed on retry.
+  if (existingEvent && existingEvent.processingStatus === 'processed') {
+    return { processed: false, reason: 'duplicate', existingEventId: existingEvent.id };
   }
 
   // If the previous attempt left a stuck 'received' event, reuse that record (avoids unique constraint error on retry).
@@ -286,30 +289,30 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
       raw: safePaymentSessionPayload(event.raw),
       processingStatus: 'received',
     });
-    await paymentEventsRepository.updateReferences({ eventId: registered.id, paymentId: targetPayment.id, orderId: targetPayment.orderId });
+    await paymentEventsRepository.updateReferences({ workspaceId: targetPayment.workspaceId, eventId: registered.id, paymentId: targetPayment.id, orderId: targetPayment.orderId });
   }
 
   if (event.providerSessionId && targetPayment.providerTransactionId !== event.providerSessionId) {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'provider_session_mismatch' });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'rejected', verificationResult: 'provider_session_mismatch' });
     return { processed: false, reason: 'provider_session_mismatch' };
   }
   if (targetPayment.merchantReference !== event.merchantReference) {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'reference_mismatch' });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'rejected', verificationResult: 'reference_mismatch' });
     return { processed: false, reason: 'reference_mismatch' };
   }
   if (Number(targetPayment.amount) !== Number(event.amount)) {
-    await paymentsRepository.updatePayment(targetPayment.id, { reconciliation_status: 'amount_mismatch' });
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'amount_mismatch' });
+    await paymentsRepository.updatePayment({ workspaceId: targetPayment.workspaceId, paymentId: targetPayment.id, updates: { reconciliation_status: 'amount_mismatch' } });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'rejected', verificationResult: 'amount_mismatch' });
     return { processed: false, reason: 'amount_mismatch' };
   }
   if (targetPayment.currency !== event.currency) {
-    await paymentsRepository.updatePayment(targetPayment.id, { reconciliation_status: 'amount_mismatch' });
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'currency_mismatch' });
+    await paymentsRepository.updatePayment({ workspaceId: targetPayment.workspaceId, paymentId: targetPayment.id, updates: { reconciliation_status: 'amount_mismatch' } });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'rejected', verificationResult: 'currency_mismatch' });
     return { processed: false, reason: 'currency_mismatch' };
   }
 
   if (targetPayment.status === 'paid' && event.status !== 'paid') {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: 'stale_no_downgrade' });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: 'stale_no_downgrade' });
     return { processed: false, reason: 'stale_no_downgrade' };
   }
 
@@ -317,14 +320,14 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
     try {
       const confirmed = await adapter.getPaymentSession(event.providerSessionId);
       if (confirmed.status !== 'paid') {
-        await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'rejected', verificationResult: 'provider_not_paid' });
+        await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'rejected', verificationResult: 'provider_not_paid' });
         return { processed: false, reason: 'provider_not_paid' };
       }
     } catch (verifyErr) {
       // Secondary verification failed (network/API error). Mark event as 'pending_retry'
       // so the next Xendit retry can re-process it rather than getting blocked by idempotency.
       console.error('[PaymentWebhook] Secondary Xendit verification failed, will retry on next webhook:', verifyErr.message);
-      await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'received', verificationResult: 'verify_error' });
+      await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'received', verificationResult: 'verify_error' });
       throw verifyErr;
     }
   }
@@ -332,6 +335,7 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
   const nextStatus = event.status === 'paid' ? 'paid' : event.status === 'expired' ? 'expired' : targetPayment.status;
   const allowedFrom = nextStatus === 'paid' ? ['pending', 'expired'] : ['pending'];
   const updatedPayment = await paymentsRepository.transitionStatus({
+    workspaceId: targetPayment.workspaceId,
     paymentId: targetPayment.id,
     fromStatuses: allowedFrom,
     newStatus: nextStatus,
@@ -342,11 +346,11 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
   });
 
   if (!updatedPayment && targetPayment.status !== nextStatus) {
-    await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: 'state_conflict_noop' });
+    await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: 'state_conflict_noop' });
     return { processed: false, reason: 'state_conflict_noop' };
   }
 
-  await paymentEventsRepository.updateProcessingStatus({ eventId: registered.id, status: 'processed', verificationResult: nextStatus });
+  await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: nextStatus });
 
   if (nextStatus === 'paid') {
     const updatedOrder = await ordersRepository.updateOne({
@@ -358,7 +362,7 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
     // Only add a settlement event if this is a fresh processing (not a retry of a stuck event)
     if (!existingEvent) {
       try {
-        await paymentsRepository.addEvent({ paymentId: targetPayment.id, event: {
+        await paymentsRepository.addEvent({ workspaceId: targetPayment.workspaceId, paymentId: targetPayment.id, event: {
           provider: 'xendit', providerEventId: eventKey, eventType: event.eventType, status: 'paid',
           amount: event.amount, currency: event.currency, paymentMethod: 'LINK_PAYMENT', paidAt: new Date(), rawPayload: safePaymentSessionPayload(event.raw),
         } });

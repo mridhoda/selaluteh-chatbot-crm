@@ -150,16 +150,18 @@ export const messagesSupabaseRepository = {
   /**
    * List messages for a chat, sorted oldest-first.
    */
-  async listByChatId(chatId, { limit = 500 } = {}) {
+  async listByChatId(chatId, { limit = 100 } = {}) {
     const client = getSupabaseServiceClient();
+    const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 100, 1), 100);
     const result = await client
       .from(TABLE)
       .select('*, users:user_id(id, name)')
       .eq('chat_id', chatId)
-      .order('created_at', { ascending: true })
-      .limit(limit);
+      .lte('created_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(safeLimit);
     const rows = extractData(result, 'messages.listByChatId');
-    return mapMessageRows(rows ?? []);
+    return mapMessageRows(rows ?? []).reverse();
   },
 
   /**
