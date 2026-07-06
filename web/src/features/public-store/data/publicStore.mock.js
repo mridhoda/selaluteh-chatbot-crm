@@ -8,8 +8,8 @@ import { calculateCartTotals } from '../utils/calculateDisplayTotal'
 import { maskPhone } from '../utils/maskPhone'
 
 export const mockStorefront = {
-  id: 'storefront-selaluteh-samarinda',
-  slug: 'selaluteh-samarinda',
+  id: 'storefront-selalu-kopi',
+  slug: 'selalu-kopi',
   name: 'Selkop Samarinda',
   brandName: 'Selkop',
   channel: 'WEB_STORE',

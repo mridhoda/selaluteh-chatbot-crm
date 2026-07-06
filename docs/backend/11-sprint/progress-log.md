@@ -2,6 +2,61 @@
 
 Use this file to record chronological progress.
 
+## 2026-07-06 — QR/Online Order Backend Lifecycle Phase 1
+
+### Completed
+- Activated `selaluteh-cart-order-lifecycle` task `ORD-QR-P1` from `.kilo/plans/1783347150798-swift-pixel.md` after the repository task pointer was idle.
+- Added lower-case `PaymentStatus`, `FulfillmentStatus`, and `PublicOrderStatus` helpers with transition validation, public status derivation, and paid-only capability flags.
+- Updated order creation/repository mapping to generate `public_order_token`, normalize `fulfillment_status = not_started`, map channel/QR fields, and return derived `publicOrderStatus` plus `capabilities`.
+- Updated generic, Doku, Bayar.gg, Xendit Payment Session, payment sync, and reconciliation paid paths so verified paid events set fulfillment to `awaiting_acceptance`, not legacy `accepted`.
+- Updated fulfillment services and admin routes for accept, reject, start-preparing, mark-ready, complete, and hard-delete denial.
+- Added QR session hashed-token repository/service and public QR/order lookup routes under `/api/public`.
+- Added additive migration `037_qr_public_order_lifecycle.sql` and updated order/payment/checkout/public API docs.
+
+### Changed Files
+- `server/src/orders/order-types.js`
+- `server/src/services/order.service.js`
+- `server/src/services/payment-webhook.service.js`
+- `server/src/services/payment.service.js`
+- `server/src/services/payment-reconciliation.service.js`
+- `server/src/services/public-order.service.js`
+- `server/src/services/qr-order-session.service.js`
+- `server/src/workers/payment-reconciliation.worker.js`
+- `server/src/db/repositories/orders.supabase.repository.js`
+- `server/src/db/repositories/qr-order-sessions.supabase.repository.js`
+- `server/src/db/repositories/index.js`
+- `server/src/routes/orders.js`
+- `server/src/routes/public-store.js`
+- `server/src/index.js`
+- `server/src/db/migrations/037_qr_public_order_lifecycle.sql`
+- `server/test/unit/orders/order-types.test.js`
+- `server/test/unit/routes/authorization-routes.test.js`
+- `docs/backend/03-business-rules/order-rules.md`
+- `docs/backend/03-business-rules/payment-rules.md`
+- `docs/backend/05-api-spec/orders-api.md`
+- `docs/backend/05-api-spec/checkout-api.md`
+- `docs/backend/05-api-spec/public-storefront-api.md`
+- `specs/active/selaluteh-cart-order-lifecycle/tasks.md`
+
+### Notes
+- Legacy `orders.status` remains for compatibility, but new runtime truth is `payment_status` plus `fulfillment_status`.
+- Payment `paid` remains provider/webhook/reconciliation authority only; admin/manual mark-paid remains disabled for alpha.
+- QR backend supports hashed token lookup and outlet locking foundation; frontend live API integration remains separate work.
+
+### Tests
+- `npm run specs:check`: passed before implementation, 15 specs validated.
+- `NODE_ENV=test node --test "test/unit/orders/order-types.test.js"`: 20 pass, 0 fail.
+- `NODE_ENV=test node --test "test/unit/routes/authorization-routes.test.js"`: 7 pass, 0 fail.
+- `NODE_ENV=test node --test "test/security/orders/cart-order-security.test.js"`: 9 pass, 0 fail.
+- `NODE_ENV=test node --test "test/property/orders/cart-order-property.test.js"`: 10 pass, 0 fail.
+- `NODE_ENV=test node --test "test/resilience/orders/cart-order-resilience.test.js"`: 7 pass, 0 fail.
+
+### Blockers
+- No live provider webhook or Supabase migration application was run in this local session.
+
+### Next
+- Apply migration `037_qr_public_order_lifecycle.sql` in the target Supabase environment before using public QR/order endpoints.
+
 ## 2026-07-06 — Public Storefront QR Guest Checkout Frontend
 
 ### Completed

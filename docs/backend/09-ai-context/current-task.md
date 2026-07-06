@@ -7,30 +7,32 @@ updated_at: 2026-07-06
 
 # Current Task
 
-## SelaluTeh Public Storefront QR Guest Checkout
+## Finalize Online QR Order Lifecycle Backend
 
-Status: idle after completing `PSF-T001` through `PSF-T011`.
+Status: idle after completing `ORD-QR-P1` for `selaluteh-cart-order-lifecycle`.
 
 Completed in the latest session:
 
-- Implement a modular public customer-facing QR storefront under `web/src/features/public-store/`.
-- Register public store routes without `DashboardLayout`, `Sidebar`, `Topbar`, or auth guard.
-- Use separated mock data, mock API adapter, hooks, utilities, pages, and presentational components.
-- Preserve backend authority for final pricing, payment state, order creation, and invoice generation.
-- Add utility tests for public store currency, phone normalization/masking, and display total calculations.
-- Update lifecycle documentation and run available frontend/spec validation.
+- Reconciled runtime order lifecycle with separate `payment_status`, `fulfillment_status`, and derived `public_order_status`.
+- Updated provider paid paths so verified paid moves fulfillment to `awaiting_acceptance`, not accepted/preparing/completed.
+- Enforced paid-only fulfillment guards for accept, prepare, ready, and complete actions.
+- Added public order token generation, QR session hashed-token lookup foundation, and public QR/order status endpoints.
+- Blocked admin hard delete in favor of cancellation with reason.
+- Added additive migration `037_qr_public_order_lifecycle.sql`.
+- Updated order/payment/checkout/public API docs, implementation status, progress log, and active task checklist.
 
-Validation:
+Validation completed before pointer closure:
 
-- `npm --prefix web test`: passed, 26 tests.
-- `npx eslint src/features/public-store test/public-store-utils.test.mjs` from `web/`: passed.
-- `npm --prefix web run build`: passed with chunk-size warning.
-- `npm run specs:check`: pending final validation in current session.
+- Baseline `npm run specs:check`: passed, 15 specs validated.
+- `NODE_ENV=test node --test "test/unit/orders/order-types.test.js"`: passed, 20 tests.
+- `NODE_ENV=test node --test "test/unit/routes/authorization-routes.test.js"`: passed, 7 tests before final cancel-route assertion update.
+- `NODE_ENV=test node --test "test/security/orders/cart-order-security.test.js"`: passed, 9 tests.
+- `NODE_ENV=test node --test "test/property/orders/cart-order-property.test.js"`: passed, 10 tests.
+- `NODE_ENV=test node --test "test/resilience/orders/cart-order-resilience.test.js"`: passed, 7 tests.
+- `NODE_ENV=test node --test "test/integration/commerce/order-service.integration.test.js" "test/e2e/orders/cart-order-e2e.test.js"`: passed, 24 tests.
 
 Known limitations and follow-ups:
 
-- Live backend public storefront API integration.
-- Real payment gateway redirect/session creation.
-- Admin online store settings UI.
-- Delivery fulfillment.
-- Component tests require a DOM test runner; current frontend test tooling only covers pure Node tests.
+- Apply migration `037_qr_public_order_lifecycle.sql` to the target Supabase environment before using public QR/order APIs.
+- Live provider webhook verification was not run in this local session.
+- Public storefront frontend still uses mock API and needs a later explicit backend integration task.

@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { chatsRepository, messagesRepository, ordersRepository, contactsRepository, outletsRepository } from '../db/repositories/index.js';
 import { tgSend, waSend, igSend } from './sender.js';
 import { buildOutletScopedQuery, assertOutletAccess, canAccessAllOutlets } from './access-control.service.js';
@@ -5,7 +6,7 @@ import { AppError } from '../utils/errors.js';
 import { sendOrderCreatedPush } from './web-push.service.js';
 import { broadcastToWorkspace } from './realtime.service.js';
 import {
-  OrderStatus, isValidOrderTransition, ORDER_ERRORS, ActorType,
+  OrderStatus, PaymentStatus, FulfillmentStatus, isValidOrderTransition, ORDER_ERRORS, ActorType,
 } from '../orders/order-types.js';
 
 export function resolveOutletName(formData = {}) {
@@ -24,6 +25,10 @@ export async function generateOrderNumber(workspaceId) {
   const date = new Date();
   const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
   return `SLTH-${dateStr}-${String(seq).padStart(4, '0')}`;
+}
+
+function generatePublicOrderToken() {
+  return `po_${randomBytes(18).toString('base64url')}`;
 }
 
 export async function createOrderFromCheckout({ workspaceId, checkout, user }) {
@@ -65,9 +70,15 @@ export async function createOrderFromCheckout({ workspaceId, checkout, user }) {
     totalAmount: checkout.total ?? checkout.totalAmount ?? 0,
     currency: checkout.currency || 'IDR',
     source: inferredSource,
-    status: 'new',
-    paymentStatus: 'unpaid',
-    fulfillmentStatus: 'unfulfilled',
+    channel: checkout.channel || 'online_store',
+    publicOrderToken: generatePublicOrderToken(),
+    qrSessionId: checkout.qrSessionId || null,
+    tableId: checkout.tableId || null,
+    qrLocationLabel: checkout.qrLocationLabel || null,
+    fulfillmentType: 'pickup',
+    status: OrderStatus.PENDING_PAYMENT,
+    paymentStatus: PaymentStatus.UNPAID,
+    fulfillmentStatus: FulfillmentStatus.NOT_STARTED,
   });
   notifyOrderCreated({ workspaceId, outletId: order.outletId, order });
   return order;
@@ -107,7 +118,10 @@ export async function createOrderFromAI({ chat, agent, orderData, paymentProofUr
     formData: orderData.formData || {},
     source: inferredSource,
     status: OrderStatus.PENDING_PAYMENT,
-    paymentStatus: paymentProofUrl ? 'pending' : 'unpaid',
+    publicOrderToken: generatePublicOrderToken(),
+    fulfillmentType: 'pickup',
+    paymentStatus: paymentProofUrl ? PaymentStatus.PENDING : PaymentStatus.UNPAID,
+    fulfillmentStatus: FulfillmentStatus.NOT_STARTED,
     paymentProofUrl,
     totals: { subtotal: 0, total: 0, currency: 'IDR' },
     timeline: [{ type: 'order:created', actor: 'ai', note: 'Legacy order from AI', timestamp: new Date() }],
@@ -202,12 +216,15 @@ export async function approveOrder({ workspaceId, orderId, outletId, userId }) {
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
   if (!order) throw new AppError(ORDER_ERRORS.ORDER_NOT_FOUND.code, 'Order not found', ORDER_ERRORS.ORDER_NOT_FOUND.status);
   if (order.outletId !== outletId) throw new AppError(ORDER_ERRORS.ORDER_NOT_FOUND.code, 'Order not found for outlet', 404);
-  if (order.paymentStatus !== 'paid') throw new AppError(ORDER_ERRORS.ORDER_PAYMENT_NOT_PAID.code, 'Payment not yet paid', ORDER_ERRORS.ORDER_PAYMENT_NOT_PAID.status);
+  if (order.paymentStatus !== PaymentStatus.PAID) throw new AppError(ORDER_ERRORS.ORDER_PAYMENT_NOT_PAID.code, 'Payment not yet paid', ORDER_ERRORS.ORDER_PAYMENT_NOT_PAID.status);
+  if (order.fulfillmentStatus !== FulfillmentStatus.AWAITING_ACCEPTANCE) throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, 'Order is not awaiting outlet acceptance', 400);
 
-  const updated = await ordersRepository.atomicStatusUpdate({
+  const updated = await ordersRepository.atomicFulfillmentStatusUpdate({
+    workspaceId,
     orderId,
-    expectedStatus: OrderStatus.AWAITING_OUTLET_APPROVAL,
-    newStatus: OrderStatus.APPROVED,
+    expectedStatus: FulfillmentStatus.AWAITING_ACCEPTANCE,
+    newStatus: FulfillmentStatus.ACCEPTED,
+    updates: { status: OrderStatus.APPROVED, approved_at: new Date().toISOString() },
   });
   if (!updated) throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, 'Cannot approve in current state', 400);
 
@@ -228,11 +245,15 @@ export async function rejectOrder({ workspaceId, orderId, outletId, userId, reas
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
   if (!order) throw new AppError(ORDER_ERRORS.ORDER_NOT_FOUND.code, 'Order not found', ORDER_ERRORS.ORDER_NOT_FOUND.status);
   if (order.outletId !== outletId) throw new AppError(ORDER_ERRORS.ORDER_NOT_FOUND.code, 'Order not found for outlet', 404);
+  if (!reason?.trim()) throw new AppError('VALIDATION', 'Reason is required', 400);
+  if (order.fulfillmentStatus !== FulfillmentStatus.AWAITING_ACCEPTANCE) throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, 'Order is not awaiting outlet acceptance', 400);
 
-  const updated = await ordersRepository.atomicStatusUpdate({
+  const updated = await ordersRepository.atomicFulfillmentStatusUpdate({
+    workspaceId,
     orderId,
-    expectedStatus: OrderStatus.AWAITING_OUTLET_APPROVAL,
-    newStatus: OrderStatus.REJECTED,
+    expectedStatus: FulfillmentStatus.AWAITING_ACCEPTANCE,
+    newStatus: FulfillmentStatus.CANCELLED,
+    updates: { status: OrderStatus.REJECTED, rejected_at: new Date().toISOString(), cancel_reason: reason },
   });
   if (!updated) throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, 'Cannot reject in current state', 400);
 
@@ -250,23 +271,30 @@ export async function rejectOrder({ workspaceId, orderId, outletId, userId, reas
 }
 
 export async function startPreparing({ workspaceId, orderId, outletId, userId }) {
-  return transitionOrderFulfillment({ workspaceId, orderId, outletId, userId, expected: OrderStatus.APPROVED, next: OrderStatus.PREPARING, eventType: 'order:preparing' });
+  return transitionOrderFulfillment({ workspaceId, orderId, outletId, userId, expected: FulfillmentStatus.ACCEPTED, next: FulfillmentStatus.PREPARING, legacyStatus: OrderStatus.PREPARING, timestampColumn: 'preparing_at', eventType: 'order:preparing' });
 }
 
 export async function markReady({ workspaceId, orderId, outletId, userId }) {
-  return transitionOrderFulfillment({ workspaceId, orderId, outletId, userId, expected: OrderStatus.PREPARING, next: OrderStatus.READY_FOR_PICKUP, eventType: 'order:ready' });
+  return transitionOrderFulfillment({ workspaceId, orderId, outletId, userId, expected: FulfillmentStatus.PREPARING, next: FulfillmentStatus.READY, legacyStatus: OrderStatus.READY_FOR_PICKUP, timestampColumn: 'ready_at', eventType: 'order:ready' });
 }
 
 export async function completeOrder({ workspaceId, orderId, outletId, userId }) {
-  return transitionOrderFulfillment({ workspaceId, orderId, outletId, userId, expected: OrderStatus.READY_FOR_PICKUP, next: OrderStatus.COMPLETED, eventType: 'order:completed' });
+  return transitionOrderFulfillment({ workspaceId, orderId, outletId, userId, expected: FulfillmentStatus.READY, next: FulfillmentStatus.COMPLETED, legacyStatus: OrderStatus.COMPLETED, timestampColumn: 'completed_at', eventType: 'order:completed' });
 }
 
-async function transitionOrderFulfillment({ workspaceId, orderId, outletId, userId, expected, next, eventType }) {
+async function transitionOrderFulfillment({ workspaceId, orderId, outletId, userId, expected, next, legacyStatus, timestampColumn, eventType }) {
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
   if (!order) throw new AppError(ORDER_ERRORS.ORDER_NOT_FOUND.code, 'Order not found', ORDER_ERRORS.ORDER_NOT_FOUND.status);
   if (outletId && order.outletId !== outletId) throw new AppError(ORDER_ERRORS.ORDER_NOT_FOUND.code, 'Order not found for outlet', 404);
+  if (order.paymentStatus !== PaymentStatus.PAID) throw new AppError(ORDER_ERRORS.ORDER_PAYMENT_NOT_PAID.code, 'Payment not yet paid', ORDER_ERRORS.ORDER_PAYMENT_NOT_PAID.status);
 
-  const updated = await ordersRepository.atomicStatusUpdate({ orderId, expectedStatus: expected, newStatus: next });
+  const updated = await ordersRepository.atomicFulfillmentStatusUpdate({
+    workspaceId,
+    orderId,
+    expectedStatus: expected,
+    newStatus: next,
+    updates: { status: legacyStatus, [timestampColumn]: new Date().toISOString() },
+  });
   if (!updated) throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, `Cannot transition to ${next}`, 400);
 
   await ordersRepository.addTimelineEntry({
@@ -319,7 +347,16 @@ const LEGACY_TO_NEW = {
   rejected: OrderStatus.REJECTED,
 };
 
-export async function transitionOrderStatus({ workspaceId, orderId, newStatus, actor }) {
+const LEGACY_TO_FULFILLMENT = {
+  accepted: FulfillmentStatus.ACCEPTED,
+  preparing: FulfillmentStatus.PREPARING,
+  ready: FulfillmentStatus.READY,
+  completed: FulfillmentStatus.COMPLETED,
+  cancelled: FulfillmentStatus.CANCELLED,
+  rejected: FulfillmentStatus.CANCELLED,
+};
+
+export async function transitionOrderStatus({ workspaceId, orderId, newStatus, actor, reason }) {
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
   if (!order) throw new AppError('NOT_FOUND', 'Order not found', 404);
   const currentStatus = LEGACY_TO_NEW[order.status] || order.status;
@@ -327,7 +364,20 @@ export async function transitionOrderStatus({ workspaceId, orderId, newStatus, a
   if (!isValidOrderTransition(currentStatus, targetStatus)) {
     throw new AppError('INVALID_TRANSITION', `Cannot transition from ${order.status} to ${newStatus}`, 409);
   }
-  const updated = await ordersRepository.atomicStatusUpdate({ workspaceId, orderId, expectedStatus: order.status, newStatus });
+  const fulfillmentStatus = LEGACY_TO_FULFILLMENT[newStatus] || LEGACY_TO_FULFILLMENT[targetStatus];
+  if (fulfillmentStatus && fulfillmentStatus !== FulfillmentStatus.CANCELLED && order.paymentStatus !== PaymentStatus.PAID) {
+    throw new AppError(ORDER_ERRORS.ORDER_PAYMENT_NOT_PAID.code, 'Payment not yet paid', ORDER_ERRORS.ORDER_PAYMENT_NOT_PAID.status);
+  }
+  const updated = await ordersRepository.atomicStatusUpdate({
+    workspaceId,
+    orderId,
+    expectedStatus: order.status,
+    newStatus,
+    updates: {
+      ...(fulfillmentStatus ? { fulfillment_status: fulfillmentStatus } : {}),
+      ...(['cancelled', OrderStatus.CANCELLED].includes(newStatus) ? { cancel_reason: reason || null, cancelled_at: new Date().toISOString() } : {}),
+    },
+  });
   if (!updated) throw new AppError('CONFLICT', 'Order status changed concurrently', 409);
 
   notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated });

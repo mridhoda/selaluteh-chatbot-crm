@@ -25,6 +25,40 @@ export const OrderStatus = {
 
 export const FulfillmentType = {
   PICKUP: 'PICKUP',
+  pickup: 'pickup',
+};
+
+export const PaymentStatus = {
+  UNPAID: 'unpaid',
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  PAID: 'paid',
+  FAILED: 'failed',
+  EXPIRED: 'expired',
+  REFUNDED: 'refunded',
+  CANCELLED: 'cancelled',
+};
+
+export const FulfillmentStatus = {
+  NOT_STARTED: 'not_started',
+  AWAITING_ACCEPTANCE: 'awaiting_acceptance',
+  ACCEPTED: 'accepted',
+  PREPARING: 'preparing',
+  READY: 'ready',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+};
+
+export const PublicOrderStatus = {
+  PAYMENT_PENDING: 'payment_pending',
+  PAYMENT_FAILED: 'payment_failed',
+  PAYMENT_EXPIRED: 'payment_expired',
+  ORDER_RECEIVED: 'order_received',
+  ACCEPTED: 'accepted',
+  PREPARING: 'preparing',
+  READY: 'ready',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
 };
 
 export const ActorType = {
@@ -61,6 +95,27 @@ export const ORDER_TRANSITIONS = {
   [OrderStatus.EXPIRED]: [],
 };
 
+export const PAYMENT_TRANSITIONS = {
+  [PaymentStatus.UNPAID]: [PaymentStatus.PENDING, PaymentStatus.CANCELLED],
+  [PaymentStatus.PENDING]: [PaymentStatus.PROCESSING, PaymentStatus.PAID, PaymentStatus.FAILED, PaymentStatus.EXPIRED, PaymentStatus.CANCELLED],
+  [PaymentStatus.PROCESSING]: [PaymentStatus.PAID, PaymentStatus.FAILED, PaymentStatus.EXPIRED],
+  [PaymentStatus.PAID]: [PaymentStatus.REFUNDED],
+  [PaymentStatus.FAILED]: [],
+  [PaymentStatus.EXPIRED]: [],
+  [PaymentStatus.REFUNDED]: [],
+  [PaymentStatus.CANCELLED]: [],
+};
+
+export const FULFILLMENT_TRANSITIONS = {
+  [FulfillmentStatus.NOT_STARTED]: [FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.CANCELLED],
+  [FulfillmentStatus.AWAITING_ACCEPTANCE]: [FulfillmentStatus.ACCEPTED, FulfillmentStatus.CANCELLED],
+  [FulfillmentStatus.ACCEPTED]: [FulfillmentStatus.PREPARING, FulfillmentStatus.CANCELLED],
+  [FulfillmentStatus.PREPARING]: [FulfillmentStatus.READY, FulfillmentStatus.CANCELLED],
+  [FulfillmentStatus.READY]: [FulfillmentStatus.COMPLETED],
+  [FulfillmentStatus.COMPLETED]: [],
+  [FulfillmentStatus.CANCELLED]: [],
+};
+
 export function isValidCartTransition(from, to) {
   const allowed = CART_TRANSITIONS[from];
   return allowed ? allowed.includes(to) : false;
@@ -69,6 +124,58 @@ export function isValidCartTransition(from, to) {
 export function isValidOrderTransition(from, to) {
   const allowed = ORDER_TRANSITIONS[from];
   return allowed ? allowed.includes(to) : false;
+}
+
+export function canTransitionPayment(from, to) {
+  const allowed = PAYMENT_TRANSITIONS[from];
+  return allowed ? allowed.includes(to) : false;
+}
+
+export function canTransitionFulfillment(from, to) {
+  const normalizedFrom = normalizeFulfillmentStatus(from);
+  const normalizedTo = normalizeFulfillmentStatus(to);
+  const allowed = FULFILLMENT_TRANSITIONS[normalizedFrom];
+  return allowed ? allowed.includes(normalizedTo) : false;
+}
+
+export function normalizeFulfillmentStatus(status) {
+  if (status === 'unfulfilled' || !status) return FulfillmentStatus.NOT_STARTED;
+  if (status === OrderStatus.AWAITING_OUTLET_APPROVAL) return FulfillmentStatus.AWAITING_ACCEPTANCE;
+  if (status === OrderStatus.APPROVED) return FulfillmentStatus.ACCEPTED;
+  if (status === OrderStatus.PREPARING) return FulfillmentStatus.PREPARING;
+  if (status === OrderStatus.READY_FOR_PICKUP) return FulfillmentStatus.READY;
+  if (status === OrderStatus.COMPLETED) return FulfillmentStatus.COMPLETED;
+  if (status === OrderStatus.CANCELLED || status === OrderStatus.REJECTED || status === OrderStatus.EXPIRED) return FulfillmentStatus.CANCELLED;
+  return String(status).toLowerCase();
+}
+
+export function derivePublicOrderStatus(order = {}) {
+  const paymentStatus = String(order.paymentStatus || order.payment_status || PaymentStatus.UNPAID).toLowerCase();
+  const fulfillmentStatus = normalizeFulfillmentStatus(order.fulfillmentStatus || order.fulfillment_status || order.status);
+
+  if (fulfillmentStatus === FulfillmentStatus.CANCELLED) return PublicOrderStatus.CANCELLED;
+  if (paymentStatus === PaymentStatus.FAILED) return PublicOrderStatus.PAYMENT_FAILED;
+  if (paymentStatus === PaymentStatus.EXPIRED) return PublicOrderStatus.PAYMENT_EXPIRED;
+  if (paymentStatus !== PaymentStatus.PAID) return PublicOrderStatus.PAYMENT_PENDING;
+  if ([FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.NOT_STARTED].includes(fulfillmentStatus)) return PublicOrderStatus.ORDER_RECEIVED;
+  if (fulfillmentStatus === FulfillmentStatus.ACCEPTED) return PublicOrderStatus.ACCEPTED;
+  if (fulfillmentStatus === FulfillmentStatus.PREPARING) return PublicOrderStatus.PREPARING;
+  if (fulfillmentStatus === FulfillmentStatus.READY) return PublicOrderStatus.READY;
+  if (fulfillmentStatus === FulfillmentStatus.COMPLETED) return PublicOrderStatus.COMPLETED;
+  return PublicOrderStatus.ORDER_RECEIVED;
+}
+
+export function getOrderCapabilities(order = {}) {
+  const paymentStatus = String(order.paymentStatus || order.payment_status || '').toLowerCase();
+  const fulfillmentStatus = normalizeFulfillmentStatus(order.fulfillmentStatus || order.fulfillment_status || order.status);
+  const paid = paymentStatus === PaymentStatus.PAID;
+  return {
+    canAccept: paid && fulfillmentStatus === FulfillmentStatus.AWAITING_ACCEPTANCE,
+    canStartPreparing: paid && fulfillmentStatus === FulfillmentStatus.ACCEPTED,
+    canMarkReady: paid && fulfillmentStatus === FulfillmentStatus.PREPARING,
+    canComplete: paid && fulfillmentStatus === FulfillmentStatus.READY,
+    canCancel: [FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.ACCEPTED, FulfillmentStatus.PREPARING].includes(fulfillmentStatus),
+  };
 }
 
 export const ORDER_ERRORS = {

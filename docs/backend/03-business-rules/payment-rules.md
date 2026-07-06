@@ -12,9 +12,10 @@ payments.outlet_id = orders.outlet_id
 Payment status comes from:
 
 - payment provider webhook
-- explicit authorized admin override
 
 AI cannot mark payment paid.
+
+Admin/manual mark-paid is disabled for current alpha. If a future audited override is approved, it must be specified separately before implementation.
 
 For the current Xendit MVP, the payment provider webhook means a verified Xendit Test Mode Payment Session event. Browser return URLs, Telegram button clicks, screenshots, customer messages, or AI output are never payment authority.
 
@@ -65,7 +66,9 @@ Must:
 - find payment/order
 - validate provider session/reference/amount/currency
 - update payment
-- update order payment_status only through allowed payment transition
+- update order `payment_status` only through allowed payment transition
+- set order `fulfillment_status = awaiting_acceptance` after verified paid events
+- never set paid orders directly to accepted, preparing, ready, completed, or equivalent fulfillment states
 - notify customer
 
 For Xendit Payment Session, verification uses the documented `x-callback-token` header. Event types currently accepted are `payment_session.completed` and `payment_session.expired`.
@@ -80,12 +83,3 @@ Xendit CANCELED  -> payment cancelled
 ```
 
 `paid` is monotonic for MVP. A stale `expired`, `cancelled`, `failed`, or `pending` event must not downgrade a paid payment.
-
-## Manual Override
-
-If enabled, require:
-
-- owner/admin role
-- reason
-- proof/reference
-- audit log

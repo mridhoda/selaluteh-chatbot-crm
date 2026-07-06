@@ -31,7 +31,7 @@ export default function OrderStatusPage() {
   }
 
   const handleBackToMenu = () => {
-    navigate(`/store/selaluteh-samarinda`)
+    navigate(`/store/selalu-kopi`)
   }
 
   return (

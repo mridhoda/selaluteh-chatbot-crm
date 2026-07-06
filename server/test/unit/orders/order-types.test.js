@@ -1,7 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CartStatus, OrderStatus, FulfillmentType, ActorType,
+  CartStatus, OrderStatus, PaymentStatus, FulfillmentStatus, PublicOrderStatus,
+  canTransitionFulfillment, canTransitionPayment,
+  derivePublicOrderStatus, getOrderCapabilities,
   isValidCartTransition, isValidOrderTransition, ORDER_ERRORS,
 } from '../../../src/orders/order-types.js';
 
@@ -19,6 +21,51 @@ describe('order-types', () => {
       assert.strictEqual(OrderStatus.PENDING_PAYMENT, 'PENDING_PAYMENT');
       assert.strictEqual(OrderStatus.AWAITING_OUTLET_APPROVAL, 'AWAITING_OUTLET_APPROVAL');
       assert.strictEqual(OrderStatus.COMPLETED, 'COMPLETED');
+    });
+  });
+
+  describe('payment, fulfillment, and public statuses', () => {
+    it('defines lower-case payment and fulfillment statuses', () => {
+      assert.strictEqual(PaymentStatus.PAID, 'paid');
+      assert.strictEqual(FulfillmentStatus.AWAITING_ACCEPTANCE, 'awaiting_acceptance');
+      assert.strictEqual(PublicOrderStatus.ORDER_RECEIVED, 'order_received');
+    });
+
+    it('validates payment transitions without allowing stale downgrade after paid', () => {
+      assert.ok(canTransitionPayment(PaymentStatus.PENDING, PaymentStatus.PAID));
+      assert.ok(canTransitionPayment(PaymentStatus.PROCESSING, PaymentStatus.PAID));
+      assert.ok(!canTransitionPayment(PaymentStatus.PAID, PaymentStatus.EXPIRED));
+      assert.ok(!canTransitionPayment(PaymentStatus.PAID, PaymentStatus.FAILED));
+    });
+
+    it('validates fulfillment transitions separately from payment', () => {
+      assert.ok(canTransitionFulfillment(FulfillmentStatus.NOT_STARTED, FulfillmentStatus.AWAITING_ACCEPTANCE));
+      assert.ok(canTransitionFulfillment(FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.ACCEPTED));
+      assert.ok(!canTransitionFulfillment(FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.PREPARING));
+      assert.ok(!canTransitionFulfillment(FulfillmentStatus.READY, FulfillmentStatus.PREPARING));
+    });
+
+    it('derives public order status from payment and fulfillment truth', () => {
+      assert.strictEqual(derivePublicOrderStatus({ paymentStatus: 'pending', fulfillmentStatus: 'not_started' }), 'payment_pending');
+      assert.strictEqual(derivePublicOrderStatus({ paymentStatus: 'failed', fulfillmentStatus: 'not_started' }), 'payment_failed');
+      assert.strictEqual(derivePublicOrderStatus({ paymentStatus: 'expired', fulfillmentStatus: 'not_started' }), 'payment_expired');
+      assert.strictEqual(derivePublicOrderStatus({ paymentStatus: 'paid', fulfillmentStatus: 'awaiting_acceptance' }), 'order_received');
+      assert.strictEqual(derivePublicOrderStatus({ paymentStatus: 'paid', fulfillmentStatus: 'preparing' }), 'preparing');
+      assert.strictEqual(derivePublicOrderStatus({ paymentStatus: 'paid', fulfillmentStatus: 'cancelled' }), 'cancelled');
+    });
+
+    it('exposes paid-only fulfillment capabilities', () => {
+      assert.deepStrictEqual(getOrderCapabilities({ paymentStatus: 'pending', fulfillmentStatus: 'awaiting_acceptance' }), {
+        canAccept: false,
+        canStartPreparing: false,
+        canMarkReady: false,
+        canComplete: false,
+        canCancel: true,
+      });
+      assert.equal(getOrderCapabilities({ paymentStatus: 'paid', fulfillmentStatus: 'awaiting_acceptance' }).canAccept, true);
+      assert.equal(getOrderCapabilities({ paymentStatus: 'paid', fulfillmentStatus: 'accepted' }).canStartPreparing, true);
+      assert.equal(getOrderCapabilities({ paymentStatus: 'paid', fulfillmentStatus: 'preparing' }).canMarkReady, true);
+      assert.equal(getOrderCapabilities({ paymentStatus: 'paid', fulfillmentStatus: 'ready' }).canComplete, true);
     });
   });
 

@@ -3,10 +3,9 @@ import { authRequired, attachUser } from '../middleware/auth.js';
 import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
 import { authorizePermission, requireOutletAccessFrom, requireScopedOutletSelection } from '../middleware/authorization.js';
 import {
-  deleteOrderForUser, findOrderForUser, listOrdersForUser,
   resolveOutletName, sendOrderStatusMessage, updateOrderForUser,
   listWorkspaceOrdersForUser, getWorkspaceOrderForUser, transitionOrderStatus,
-  createOrderFromCheckout,
+  createOrderFromCheckout, approveOrder, rejectOrder, startPreparing, markReady, completeOrder,
 } from '../services/order.service.js';
 import { checkoutsRepository } from '../db/repositories/index.js';
 import { AppError } from '../utils/errors.js';
@@ -92,7 +91,7 @@ router.put('/:id/cancel', authorizePermission('orders', 'manage_status'), async 
     const { reason } = req.body;
     if (!reason?.trim()) throw new AppError('VALIDATION', 'Alasan pembatalan harus diisi', 400);
     const order = await transitionOrderStatus({
-      workspaceId: req.me.workspaceId, orderId: req.params.id, newStatus: 'cancelled', actor: req.me?.name || 'admin',
+      workspaceId: req.me.workspaceId, orderId: req.params.id, newStatus: 'cancelled', actor: req.me?.name || 'admin', reason,
     });
     try {
       const msg = `Maaf, pesanan Anda dibatalkan.\nAlasan: ${reason}\n\nSilakan hubungi kami jika ada pertanyaan.`;
@@ -100,6 +99,52 @@ router.put('/:id/cancel', authorizePermission('orders', 'manage_status'), async 
     } catch (msgErr) {
       console.error('Failed to send cancellation message:', msgErr);
     }
+    res.json({ data: order });
+  } catch (err) { next(err); }
+});
+
+router.post('/:id/cancel', authorizePermission('orders', 'manage_status'), async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+    if (!reason?.trim()) throw new AppError('VALIDATION', 'Alasan pembatalan harus diisi', 400);
+    const order = await transitionOrderStatus({
+      workspaceId: req.me.workspaceId, orderId: req.params.id, newStatus: 'cancelled', actor: req.me?.name || 'admin', reason,
+    });
+    res.json({ data: order });
+  } catch (err) { next(err); }
+});
+
+router.post('/:id/accept', authorizePermission('orders', 'manage_status'), async (req, res, next) => {
+  try {
+    const order = await approveOrder({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: req.body?.outletId || req.query?.outletId, userId: req.me.id });
+    res.json({ data: order });
+  } catch (err) { next(err); }
+});
+
+router.post('/:id/reject', authorizePermission('orders', 'manage_status'), async (req, res, next) => {
+  try {
+    const order = await rejectOrder({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: req.body?.outletId || req.query?.outletId, userId: req.me.id, reason: req.body?.reason });
+    res.json({ data: order });
+  } catch (err) { next(err); }
+});
+
+router.post('/:id/start-preparing', authorizePermission('orders', 'manage_status'), async (req, res, next) => {
+  try {
+    const order = await startPreparing({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: req.body?.outletId || req.query?.outletId, userId: req.me.id });
+    res.json({ data: order });
+  } catch (err) { next(err); }
+});
+
+router.post('/:id/mark-ready', authorizePermission('orders', 'manage_status'), async (req, res, next) => {
+  try {
+    const order = await markReady({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: req.body?.outletId || req.query?.outletId, userId: req.me.id });
+    res.json({ data: order });
+  } catch (err) { next(err); }
+});
+
+router.post('/:id/complete', authorizePermission('orders', 'manage_status'), async (req, res, next) => {
+  try {
+    const order = await completeOrder({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: req.body?.outletId || req.query?.outletId, userId: req.me.id });
     res.json({ data: order });
   } catch (err) { next(err); }
 });
@@ -126,10 +171,7 @@ router.put('/:id', authorizePermission('orders', 'write'), async (req, res, next
 
 router.delete('/:id', authorizePermission('orders', 'write'), async (req, res, next) => {
   try {
-    const order = await findOrderForUser({ user: req.me, orderId: req.params.id });
-    if (!order) throw new AppError('NOT_FOUND', 'Order not found', 404);
-    await deleteOrderForUser({ user: req.me, orderId: req.params.id });
-    res.json({ ok: true });
+    res.status(405).json({ error: { code: 'ORDER_DELETE_DISABLED', message: 'Order deletion is disabled. Cancel the order with a reason instead.' } });
   } catch (err) { next(err); }
 });
 

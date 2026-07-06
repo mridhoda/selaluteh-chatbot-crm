@@ -526,6 +526,17 @@ advanced analytics
 delivery/shipping
 ```
 
+# ORD-QR-P1. Finalize Online QR Order Lifecycle Backend
+
+- [x] Reconcile runtime order lifecycle with separated `payment_status`, `fulfillment_status`, and derived public status.
+- [x] Ensure verified provider paid events move fulfillment to awaiting outlet acceptance, not accepted/preparing/completed.
+- [x] Enforce paid-only fulfillment guards for accept, prepare, ready, and complete actions.
+- [x] Add backend-safe public order token lookup and QR session validation foundation.
+- [x] Block admin hard delete in favor of cancellation with reason.
+- [x] Add or update unit, integration, security, and route tests for lifecycle, webhook, QR/public lookup, and delete denial.
+- [x] Update affected order, payment, checkout, API, testing, implementation-status, progress-log, and current-task documentation.
+- [x] Run targeted order/payment tests and final `npm run specs:check`.
+
 # 36. Final Validation
 
 Commands:

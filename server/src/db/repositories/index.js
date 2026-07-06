@@ -48,6 +48,7 @@ export { checkoutsSupabaseRepository as checkoutsRepository } from './checkouts.
 // ─── 24.14 — Orders + OrderItems + OrderEvents ───────────────────────────────
 export { ordersSupabaseRepository } from './orders.supabase.repository.js';
 export { ordersSupabaseRepository as ordersRepository } from './orders.supabase.repository.js';
+export { qrOrderSessionsRepository } from './qr-order-sessions.supabase.repository.js';
 
 // ─── 24.15 — Payments + PaymentEvents ────────────────────────────────────────
 export { paymentsSupabaseRepository } from './payments.supabase.repository.js';

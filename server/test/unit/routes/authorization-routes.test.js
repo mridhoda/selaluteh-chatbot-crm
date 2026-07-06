@@ -28,6 +28,12 @@ describe('critical route authorization coverage', () => {
   it('protects orders critical routes', () => {
     assert.ok(getRouteMiddlewares(ordersRouter, 'get', '/').length > 0);
     assert.ok(getRouteMiddlewares(ordersRouter, 'patch', '/:id/status').length > 0);
+    assert.ok(getRouteMiddlewares(ordersRouter, 'post', '/:id/accept').length > 0);
+    assert.ok(getRouteMiddlewares(ordersRouter, 'post', '/:id/start-preparing').length > 0);
+    assert.ok(getRouteMiddlewares(ordersRouter, 'post', '/:id/mark-ready').length > 0);
+    assert.ok(getRouteMiddlewares(ordersRouter, 'post', '/:id/complete').length > 0);
+    assert.ok(getRouteMiddlewares(ordersRouter, 'post', '/:id/cancel').length > 0);
+    assert.ok(getRouteMiddlewares(ordersRouter, 'delete', '/:id').length > 0);
   });
 
   it('protects payments critical routes', () => {

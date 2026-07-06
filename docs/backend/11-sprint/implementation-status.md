@@ -484,3 +484,25 @@ Additional canonicalization note:
 | Frontend tests | Passed: `npm --prefix web test` (26 pass, 0 fail). |
 | Frontend build | Passed: `npm --prefix web run build`; Vite reports existing chunk-size warning. |
 | Full frontend lint | Blocked by pre-existing errors outside public-store module, including service worker globals, legacy hook-order issues, no-control-regex rules, and unescaped entity rules. |
+
+## QR/Online Order Backend Lifecycle Phase 1 — 2026-07-06
+
+| Module | Status | Evidence |
+|---|---|---|
+| Task activation | Complete | `current-task.md` activated `selaluteh-cart-order-lifecycle` / `ORD-QR-P1`; baseline `npm run specs:check` passed. |
+| Three-layer status helpers | Implemented | `order-types.js` now defines `PaymentStatus`, `FulfillmentStatus`, `PublicOrderStatus`, transition helpers, public status derivation, and UI capability flags. |
+| Order repository mapping | Implemented | Order reads include `publicOrderStatus` and `capabilities`; create maps public token, channel, QR fields, `fulfillment_type`, and normalized `fulfillment_status`. |
+| Verified paid behavior | Implemented | Generic, Doku, Bayar.gg, Xendit Payment Session, payment sync, and reconciliation paths set `payment_status=paid`, `fulfillment_status=awaiting_acceptance`, and compatibility `status=AWAITING_OUTLET_APPROVAL`, not `accepted`. |
+| Fulfillment guards | Implemented | Accept/prepare/ready/complete require `payment_status=paid` and update `fulfillment_status` through `awaiting_acceptance -> accepted -> preparing -> ready -> completed`. |
+| Admin routes | Implemented | Added `POST /orders/:id/accept`, `/reject`, `/start-preparing`, `/mark-ready`, `/complete`; `DELETE /orders/:id` returns 405 `ORDER_DELETE_DISABLED`. |
+| Public QR/order APIs | Implemented foundation | Added `GET /api/public/qr/:qrToken` with hashed-token lookup and `GET /api/public/orders/:publicOrderToken` with customer-safe masked response. |
+| Additive migration | Added | `037_qr_public_order_lifecycle.sql` adds public token/channel/QR/cancel fields, indexes, normalized fulfillment backfill, and `qr_order_sessions`. |
+
+| Test / Validation | Result |
+|---|---|
+| Specs baseline | Passed: `npm run specs:check` (15 specs validated). |
+| Order types unit tests | Passed: 20 pass, 0 fail. |
+| Route authorization tests | Passed: 7 pass, 0 fail. |
+| Order security tests | Passed: 9 pass, 0 fail. |
+| Order property tests | Passed: 10 pass, 0 fail. |
+| Order resilience tests | Passed: 7 pass, 0 fail. |

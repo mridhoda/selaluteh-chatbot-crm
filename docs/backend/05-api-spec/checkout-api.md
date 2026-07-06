@@ -68,8 +68,11 @@ Create pending order from checkout.
   "success": true,
   "data": {
     "order_id": "019...",
-    "status": "new",
+    "status": "PENDING_PAYMENT",
     "payment_status": "pending",
+    "fulfillment_status": "not_started",
+    "public_order_status": "payment_pending",
+    "public_order_token": "po_...",
     "total_amount": 50000,
     "currency": "IDR"
   }
@@ -91,6 +94,16 @@ Updates:
 carts.status = converted
 checkouts.status = confirmed
 ```
+
+Verified provider paid events later set:
+
+```txt
+orders.payment_status = paid
+orders.fulfillment_status = awaiting_acceptance
+orders.status = AWAITING_OUTLET_APPROVAL
+```
+
+Checkout and frontend preview totals are not final authority; backend recalculates and stores immutable order totals.
 
 ## GET `/api/v1/checkouts/:checkout_id`
 

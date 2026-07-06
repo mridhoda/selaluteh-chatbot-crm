@@ -5,9 +5,28 @@ import { assertOutletAccess, buildOutletScopedQuery } from './access-control.ser
 import { notifyOrderUpdatedRealtime, notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage } from './order.service.js';
 import { getPaymentRuntimeConfig } from './settings.service.js';
 import { assertPaymentProviderAuthority, assertPaymentSnapshot } from '../ai/security/payment-order-guardrails.js';
+import { FulfillmentStatus, OrderStatus, PaymentStatus } from '../orders/order-types.js';
 
 const TERMINAL_PAID_STATUSES = new Set(['paid', 'refunded', 'partially_refunded']);
 const ACTIVE_SESSION_STATUSES = new Set(['pending', 'created']);
+
+function paidOrderUpdates(paidAt = new Date().toISOString()) {
+  return {
+    payment_status: PaymentStatus.PAID,
+    fulfillment_status: FulfillmentStatus.AWAITING_ACCEPTANCE,
+    paid_at: paidAt,
+    status: OrderStatus.AWAITING_OUTLET_APPROVAL,
+  };
+}
+
+async function markOrderPaidAwaitingAcceptance({ workspaceId, orderId, paidAt }) {
+  const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
+  const fulfillmentStatus = order?.fulfillmentStatus || order?.fulfillment_status;
+  if (order?.paymentStatus === PaymentStatus.PAID && ![FulfillmentStatus.NOT_STARTED, FulfillmentStatus.AWAITING_ACCEPTANCE, 'unfulfilled', null, undefined].includes(fulfillmentStatus)) {
+    return order;
+  }
+  return ordersRepository.updateOne({ workspaceId, orderId, updates: paidOrderUpdates(paidAt) });
+}
 
 function resolveEntityId(value) {
   if (!value || typeof value !== 'object') return value || null;
@@ -319,11 +338,7 @@ export async function reconcileProviderSession({ payment, providerSession }) {
   const updatedPayment = await paymentsRepository.transitionStatus({ paymentId: payment.id, fromStatuses: allowedFrom, newStatus: providerSession.status, updates });
   if (updatedPayment) {
     const updatedOrder = providerSession.status === 'paid'
-      ? await ordersRepository.updateOne({
-          workspaceId: payment.workspaceId,
-          orderId: payment.orderId,
-          updates: { payment_status: 'paid', paid_at: new Date().toISOString(), status: 'accepted' },
-        })
+      ? await markOrderPaidAwaitingAcceptance({ workspaceId: payment.workspaceId, orderId: payment.orderId })
       : null;
     notifyPaymentUpdatedRealtime({ workspaceId: payment.workspaceId, outletId: updatedPayment.outletId, payment: updatedPayment, order: updatedOrder });
     if (updatedOrder) notifyPaidOrderRealtime({ workspaceId: payment.workspaceId, outletId: updatedOrder.outletId, order: updatedOrder });
@@ -482,11 +497,7 @@ async function processPaidPayment({ payment, providerEvent }) {
 
   await paymentsRepository.updatePayment(payment.id, { reconciliation_status: 'matched' });
 
-  const updatedOrder = await ordersRepository.updateOne({
-    workspaceId: payment.workspaceId,
-    orderId: payment.orderId,
-    updates: { payment_status: 'paid', paid_at: new Date().toISOString(), status: 'accepted' },
-  });
+  const updatedOrder = await markOrderPaidAwaitingAcceptance({ workspaceId: payment.workspaceId, orderId: payment.orderId });
   notifyPaymentUpdatedRealtime({ workspaceId: payment.workspaceId, outletId: updated.outletId, payment: updated, order: updatedOrder });
   notifyPaidOrderRealtime({ workspaceId: payment.workspaceId, outletId: updatedOrder?.outletId || updated.outletId, order: updatedOrder });
   await notifyPaidOnce({ order: updatedOrder, paymentId: payment.id });
@@ -500,7 +511,7 @@ async function notifyPaidOnce({ order, paymentId }) {
   await sendOrderStatusMessage({
     order,
     from: 'ai',
-    messageText: `Pembayaran pesanan ${order.orderNumber || ''} sudah kami terima ✅\n\nPesanan telah dikonfirmasi dan akan segera diproses.\n\nKami akan memberi tahu saat pesanan siap diambil.`,
+    messageText: `Pembayaran pesanan ${order.orderNumber || ''} sudah kami terima.\n\nPesanan sudah masuk ke outlet dan menunggu diterima oleh staff.\n\nKami akan memberi tahu saat pesanan siap diambil.`,
   });
 
   await ordersRepository.updateOne({

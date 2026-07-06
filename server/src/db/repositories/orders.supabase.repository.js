@@ -17,6 +17,7 @@ import { getSupabaseServiceClient } from '../supabase.js';
 import { mapRow, mapRows } from '../supabase-mapper.js';
 import { extractData, extractSingle } from '../supabase-errors.js';
 import { requireWorkspaceId, applyPagination } from '../supabase-query.js';
+import { derivePublicOrderStatus, getOrderCapabilities, FulfillmentStatus } from '../../orders/order-types.js';
 
 const TABLE = 'orders';
 const ITEMS_TABLE = 'order_items';
@@ -45,6 +46,8 @@ function mapOrder(row) {
     total: order.totalAmount,
     currency: order.currency,
   };
+  order.publicOrderStatus = derivePublicOrderStatus(order);
+  order.capabilities = getOrderCapabilities(order);
   delete order.orderItems;
 
   // Map joined contacts row → contactId object (Supabase join returns as 'contacts' key)
@@ -87,8 +90,14 @@ export const ordersSupabaseRepository = {
       outlet_name_snapshot: data.outletNameSnapshot || data.outletName || '',
       source: data.source || 'telegram',
       status: data.status || 'new',
+      public_order_token: data.publicOrderToken || data.public_order_token || undefined,
+      channel: data.channel || (data.source === 'public_store' ? 'online_store' : null),
+      qr_session_id: data.qrSessionId || null,
+      table_id: data.tableId || null,
+      qr_location_label: data.qrLocationLabel || null,
+      fulfillment_type: data.fulfillmentType || 'pickup',
       payment_status: data.paymentStatus || 'unpaid',
-      fulfillment_status: data.fulfillmentStatus || 'unfulfilled',
+      fulfillment_status: data.fulfillmentStatus || FulfillmentStatus.NOT_STARTED,
       customer_name_snapshot: data.customerNameSnapshot || data.customerName || '',
       customer_phone_snapshot: data.customerPhoneSnapshot || data.customerPhone || null,
       channel_snapshot: data.channelSnapshot || null,
@@ -248,25 +257,56 @@ export const ordersSupabaseRepository = {
     return row ? mapOrder(row) : null;
   },
 
-  async atomicStatusUpdate({ workspaceId, orderId, expectedStatus, newStatus }) {
+  async atomicStatusUpdate({ workspaceId, orderId, expectedStatus, newStatus, updates = {} }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    const result = await client.from(TABLE).update({ status: newStatus }).eq('workspace_id', workspaceId).eq('id', orderId).eq('status', expectedStatus).select().maybeSingle();
+    const result = await client.from(TABLE).update({ ...updates, status: newStatus }).eq('workspace_id', workspaceId).eq('id', orderId).eq('status', expectedStatus).select().maybeSingle();
     const row = extractSingle(result, 'orders.atomicStatusUpdate');
     return row ? mapOrder(row) : null;
   },
 
-  async addTimelineEntry({ workspaceId, orderId, entry }) {
+  async atomicPaymentStatusUpdate({ workspaceId, orderId, fromStatuses, newStatus, updates = {} }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
+    let q = client.from(TABLE).update({ ...updates, payment_status: newStatus }).eq('workspace_id', workspaceId).eq('id', orderId);
+    q = Array.isArray(fromStatuses) ? q.in('payment_status', fromStatuses) : q.eq('payment_status', fromStatuses);
+    const result = await q.select('*, contacts(*), chats(*)').maybeSingle();
+    const row = extractSingle(result, 'orders.atomicPaymentStatusUpdate');
+    return row ? mapOrder(row) : null;
+  },
+
+  async atomicFulfillmentStatusUpdate({ workspaceId, orderId, expectedStatus, newStatus, updates = {} }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client.from(TABLE).update({ ...updates, fulfillment_status: newStatus }).eq('workspace_id', workspaceId).eq('id', orderId).eq('fulfillment_status', expectedStatus).select('*, contacts(*), chats(*)').maybeSingle();
+    const row = extractSingle(result, 'orders.atomicFulfillmentStatusUpdate');
+    return row ? mapOrder(row) : null;
+  },
+
+  async findByPublicOrderToken({ token }) {
+    const client = getSupabaseServiceClient();
+    const result = await client.from(TABLE).select('*, contacts(id, name, phone, handle, external_id), outlets(id, name, code, city, status), order_items(*)').eq('public_order_token', token).maybeSingle();
+    const row = extractSingle(result, 'orders.findByPublicOrderToken');
+    return row ? mapOrder(row) : null;
+  },
+
+  async addTimelineEntry({ workspaceId, orderId, entry, eventType, actorType, actorUserId, metadata }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const normalizedEntry = entry || {
+      type: eventType,
+      actor: actorType,
+      actorUserId,
+      metadata,
+    };
     await client.from(EVENTS_TABLE).insert({
       workspace_id: workspaceId,
       order_id: orderId,
-      event_type: entry.type || 'note',
-      label: entry.label || entry.type || 'event',
-      actor_type: entry.actor || 'system',
-      actor_user_id: entry.actorUserId || null,
-      metadata: entry.metadata || {},
+      event_type: normalizedEntry.type || 'note',
+      label: normalizedEntry.label || normalizedEntry.type || 'event',
+      actor_type: normalizedEntry.actor || 'system',
+      actor_user_id: normalizedEntry.actorUserId || null,
+      metadata: normalizedEntry.metadata || {},
     });
   },
 

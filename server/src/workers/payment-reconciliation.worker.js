@@ -2,6 +2,7 @@ import { getSupabaseServiceClient } from '../db/supabase.js';
 import { detectMissingWebhooks } from '../services/payment-reconciliation.service.js';
 import { ordersRepository } from '../db/repositories/index.js';
 import { notifyOrderUpdatedRealtime, notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage } from '../services/order.service.js';
+import { FulfillmentStatus, OrderStatus } from '../orders/order-types.js';
 
 const CHECK_INTERVAL_MS = 60_000;
 // Only check payments that have been pending for at least this long (avoid checking brand-new ones)
@@ -81,8 +82,9 @@ export async function reconcilePendingPayments(workspaceId) {
           .from('orders')
           .update({
             payment_status: 'paid',
+            fulfillment_status: FulfillmentStatus.AWAITING_ACCEPTANCE,
             paid_at: now,
-            status: 'accepted',
+            status: OrderStatus.AWAITING_OUTLET_APPROVAL,
           })
           .eq('id', row.order_id)
           .select()
@@ -104,7 +106,7 @@ export async function reconcilePendingPayments(workspaceId) {
               await sendOrderStatusMessage({
                 order,
                 from: 'ai',
-                messageText: `Pembayaran pesanan ${order.orderNumber || ''} sudah kami terima ✅\n\nPesanan telah dikonfirmasi dan akan segera diproses.${outletLine}`,
+                messageText: `Pembayaran pesanan ${order.orderNumber || ''} sudah kami terima.\n\nPesanan sudah masuk ke outlet dan menunggu diterima oleh staff.${outletLine}`,
               });
             }
           } catch (notifyErr) {

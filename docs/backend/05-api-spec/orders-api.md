@@ -32,8 +32,17 @@ limit
   },
   "customer": {},
   "total_amount": 75000,
-  "order_status": "new",
-  "payment_status": "pending"
+  "status": "PENDING_PAYMENT",
+  "payment_status": "pending",
+  "fulfillment_status": "not_started",
+  "public_order_status": "payment_pending",
+  "capabilities": {
+    "canAccept": false,
+    "canStartPreparing": false,
+    "canMarkReady": false,
+    "canComplete": false,
+    "canCancel": false
+  }
 }
 ```
 
@@ -49,3 +58,24 @@ limit
 ## Rule
 
 Order update requires outlet access.
+
+Fulfillment mutation endpoints:
+
+```http
+POST /orders/:id/accept
+POST /orders/:id/reject
+POST /orders/:id/start-preparing
+POST /orders/:id/mark-ready
+POST /orders/:id/complete
+POST /orders/:id/cancel
+```
+
+Fulfillment actions require `payment_status = paid` and move `fulfillment_status` through `awaiting_acceptance -> accepted -> preparing -> ready -> completed`.
+
+Hard delete is disabled:
+
+```http
+DELETE /orders/:id -> 405 ORDER_DELETE_DISABLED
+```
+
+Use cancellation with a reason instead.
