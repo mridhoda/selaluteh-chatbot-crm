@@ -1,3 +1,8 @@
+import butterSaltImage from '../../../assets/product-image/buttersalt.jpg'
+import nuttyLatteImage from '../../../assets/product-image/nutty-latte.png'
+import saltyCaramelImage from '../../../assets/product-image/salty-caramel.png'
+import selkopArenCreamyImage from '../../../assets/product-image/selkop-aren-creamy.png'
+import selkopSocietyImage from '../../../assets/product-image/selkop-society.png'
 import { PUBLIC_ORDER_STATUS } from '../types/orderStatus.types'
 import { calculateCartTotals } from '../utils/calculateDisplayTotal'
 import { maskPhone } from '../utils/maskPhone'
@@ -5,77 +10,62 @@ import { maskPhone } from '../utils/maskPhone'
 export const mockStorefront = {
   id: 'storefront-selaluteh-samarinda',
   slug: 'selaluteh-samarinda',
-  name: 'SelaluTeh Samarinda',
-  brandName: 'SelaluTeh',
+  name: 'Selkop Samarinda',
+  brandName: 'Selkop',
   channel: 'WEB_STORE',
   source: 'QR',
   fulfillmentMethod: 'PICKUP',
   isActive: true,
   theme: {
-    primaryColor: '#166534',
-    primarySoftColor: '#dcfce7',
-    logoUrl: '',
+    primaryColor: 'var(--brand-500)',
+    primarySoftColor: 'var(--brand-50)',
+    logoUrl: '/logo-selalu-kopi.png',
   },
   outlet: {
     id: 'outlet-smd-001',
-    name: 'SelaluTeh Samarinda Kota',
-    address: 'Jl. Juanda No. 18, Samarinda',
+    name: 'SELKOP Samarinda',
+    address: 'Jl. Mayor Jendral Sutoyo No.9, Sungai Pinang Dalam, Kec. Sungai Pinang, Kota Samarinda, Kalimantan Timur 75123',
     isLockedFromQr: false,
   },
   outlets: [
     {
       id: 'outlet-smd-001',
-      name: 'Samarinda Kota',
-      address: 'Jl. Juanda No. 18, Samarinda',
-      distanceLabel: '32.000 m',
+      name: 'SELKOP Samarinda',
+      address: 'Jl. Mayor Jendral Sutoyo No.9, Sungai Pinang Dalam, Kec. Sungai Pinang, Kota Samarinda, Kalimantan Timur 75123',
+      distanceLabel: 'Samarinda',
       isAvailable: true,
       isLockedFromQr: false,
     },
     {
       id: 'outlet-smd-002',
-      name: 'Samarinda Seberang',
-      address: 'Jl. Mulawarman No. 45, Samarinda',
-      distanceLabel: '35.000 m',
-      isAvailable: true,
-      isLockedFromQr: false,
-    },
-    {
-      id: 'outlet-smd-003',
-      name: 'Samarinda Ulu',
-      address: 'Jl. Datuk Setia Maharaja No. 27, Samarinda',
-      distanceLabel: '38.000 m',
-      isAvailable: true,
-      isLockedFromQr: false,
-    },
-    {
-      id: 'outlet-bpp-001',
-      name: 'Balikpapan Center',
-      address: 'Jl. Jend. Sudirman No. 88, Balikpapan',
-      distanceLabel: '120.000 m',
+      name: 'SELKOP Tenggarong',
+      address: 'Jl. K.H. Ahmad Muksin, Timbau, Kec. Tenggarong, Kabupaten Kutai Kartanegara, Kalimantan Timur 75513',
+      distanceLabel: 'Tenggarong',
       isAvailable: true,
       isLockedFromQr: false,
     },
   ],
   banner: {
-    title: 'Pickup cepat, teh segar langsung dari outlet',
+    title: 'Pickup cepat, kopi segar langsung dari outlet',
     subtitle: 'Pilih menu favoritmu, bayar online, lalu ambil saat siap.',
   },
 }
 
 export const mockCategories = [
   { id: 'cat-signature', name: 'Signature', sortOrder: 1 },
-  { id: 'cat-milk-tea', name: 'Milk Tea', sortOrder: 2 },
-  { id: 'cat-snack', name: 'Snack', sortOrder: 3 },
+  { id: 'cat-creamy', name: 'Creamy', sortOrder: 2 },
+  { id: 'cat-caramel', name: 'Caramel', sortOrder: 3 },
 ]
 
 export const mockProducts = [
   {
-    id: 'prod-jasmine-tea',
+    id: 'prod-selkop-society',
     categoryId: 'cat-signature',
-    name: 'Jasmine Tea Selalu Segar',
-    description: 'Teh melati dingin dengan aroma ringan dan gula aren pilihan.',
-    basePriceMinor: 14000,
-    imageUrl: '',
+    name: 'Selkop Society',
+    description: '',
+    basePriceMinor: 25000,
+    originalPriceMinor: 35000,
+    imageUrl: selkopSocietyImage,
     isAvailable: true,
     badges: ['NEW'],
     modifierGroups: [
@@ -107,14 +97,14 @@ export const mockProducts = [
     ],
   },
   {
-    id: 'prod-lychee-tea',
-    categoryId: 'cat-signature',
-    name: 'Lychee Tea Spark',
-    description: 'Teh buah leci dengan sensasi segar untuk siang hari.',
-    basePriceMinor: 18000,
-    imageUrl: '',
+    id: 'prod-selkop-aren-creamy',
+    categoryId: 'cat-creamy',
+    name: 'Selkop Aren Creamy',
+    description: 'Kopi dengan gula aren lokal yang creamy dan manis.',
+    basePriceMinor: 15000,
+    imageUrl: selkopArenCreamyImage,
     isAvailable: true,
-    badges: ['PROMO'],
+    badges: ['CREAMY'],
     modifierGroups: [
       {
         id: 'grp-ice-lychee',
@@ -131,13 +121,14 @@ export const mockProducts = [
     ],
   },
   {
-    id: 'prod-brown-sugar',
-    categoryId: 'cat-milk-tea',
-    name: 'Brown Sugar Milk Tea',
-    description: 'Milk tea creamy dengan brown sugar dan boba lembut.',
-    basePriceMinor: 22000,
-    imageUrl: '',
+    id: 'prod-selkop-alpha',
+    categoryId: 'cat-signature',
+    name: 'Selkop Alpha',
+    description: 'Kopi kuat dengan gula aren lokal yang tegas.',
+    basePriceMinor: 19000,
+    imageUrl: selkopArenCreamyImage,
     isAvailable: true,
+    badges: ['BOLD'],
     modifierGroups: [
       {
         id: 'grp-topping-milk',
@@ -154,25 +145,36 @@ export const mockProducts = [
     ],
   },
   {
-    id: 'prod-taro',
-    categoryId: 'cat-milk-tea',
-    name: 'Taro Milk Tea',
-    description: 'Taro lembut, susu segar, dan teh ringan.',
-    basePriceMinor: 21000,
-    imageUrl: '',
-    isAvailable: false,
-    availabilityLabel: 'Sold Out',
-    badges: ['SOLD_OUT'],
+    id: 'prod-nutty-latte',
+    categoryId: 'cat-creamy',
+    name: 'Nutty Latte',
+    description: 'Hazelnut latte dengan aroma kacang yang creamy.',
+    basePriceMinor: 20000,
+    imageUrl: nuttyLatteImage,
+    isAvailable: true,
+    badges: ['NUTTY'],
     modifierGroups: [],
   },
   {
-    id: 'prod-toast',
-    categoryId: 'cat-snack',
-    name: 'Roti Panggang Kaya',
-    description: 'Snack manis untuk teman minum teh.',
-    basePriceMinor: 16000,
-    imageUrl: '',
+    id: 'prod-salty-caramel',
+    categoryId: 'cat-caramel',
+    name: 'Salty Caramel',
+    description: 'Sea salt caramel manis dengan sentuhan asin.',
+    basePriceMinor: 20000,
+    imageUrl: saltyCaramelImage,
     isAvailable: true,
+    badges: ['SWEET-SALTY'],
+    modifierGroups: [],
+  },
+  {
+    id: 'prod-butter-salt',
+    categoryId: 'cat-caramel',
+    name: 'Butter Salt',
+    description: 'Kombinasi butterscotch yang creamy.',
+    basePriceMinor: 20000,
+    imageUrl: butterSaltImage,
+    isAvailable: true,
+    badges: ['CREAMY'],
     modifierGroups: [],
   },
 ]
@@ -190,15 +192,15 @@ export const mockPublicOrder = {
   queueNumber: 'A18',
   status: PUBLIC_ORDER_STATUS.PREPARING,
   customer: {
-    name: 'Tamu SelaluTeh',
+    name: 'Tamu Selkop',
     phoneMasked: maskPhone('6281234567890'),
   },
   outlet: mockStorefront.outlet,
   items: [
     {
       id: 'order-item-1',
-      productId: 'prod-brown-sugar',
-      productName: 'Brown Sugar Milk Tea',
+      productId: 'prod-selkop-aren-creamy',
+      productName: 'Selkop Aren Creamy',
       quantity: 1,
       selectedModifierOptionIds: ['opt-boba'],
       modifierSummary: ['Boba'],

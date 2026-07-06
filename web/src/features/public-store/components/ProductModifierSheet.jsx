@@ -62,57 +62,74 @@ export default function ProductModifierSheet({ product, open, onClose, onAdd }) 
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40" role="dialog" aria-modal="true" aria-label="Detail produk">
-      <button type="button" aria-label="Tutup detail produk" className="absolute inset-0 h-full w-full cursor-default" onClick={onClose} />
-      <div className="absolute bottom-0 left-1/2 max-h-[92vh] w-full max-w-md -translate-x-1/2 overflow-y-auto rounded-t-[32px] bg-white shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-4 py-3">
-          <h2 className="text-sm font-black text-gray-900">Detail Menu</h2>
-          <button type="button" className="h-11 w-11 rounded-full bg-gray-100 text-lg font-bold" onClick={onClose} aria-label="Tutup">
-            x
-          </button>
+    <>
+      <div className="fixed inset-0 z-50 bg-black/60 transition-opacity" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 mx-auto flex max-h-[90vh] max-w-md flex-col rounded-t-3xl bg-white shadow-2xl">
+        <div className="flex justify-center pt-3 pb-2 shrink-0">
+          <div className="h-1.5 w-12 rounded-full bg-gray-200" />
         </div>
-        <div className="p-4">
-          <div className="flex h-40 items-center justify-center rounded-[28px] bg-gradient-to-br from-[var(--brand-50)] to-amber-50 text-5xl font-black text-[var(--store-primary)]">
-            {product.name.slice(0, 1)}
-          </div>
-          <h3 className="mt-4 text-xl font-black text-gray-900">{product.name}</h3>
-          <p className="mt-2 text-sm leading-6 text-gray-500">{product.description}</p>
-          <p className="mt-3 text-base font-black text-gray-900">{formatCurrency(product.basePriceMinor)}</p>
 
-          <div className="mt-5 space-y-4">
-            {product.modifierGroups.map((group) => (
+        <div className="flex-1 overflow-y-auto pb-24">
+          <div className="px-4 pb-4">
+            {product.imageUrl ? (
+              <img src={product.imageUrl} alt={product.name} className="aspect-[4/3] w-full rounded-2xl bg-gray-100 object-cover" />
+            ) : (
+              <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand-50)] to-amber-50 text-5xl font-black text-[var(--brand-500)]">
+                {product.name.slice(0, 1)}
+              </div>
+            )}
+
+            <div className="mt-4">
+              <h2 className="text-xl font-black text-gray-900">{product.name}</h2>
+              <p className="mt-1 text-lg font-black text-[var(--brand-600)]">{formatCurrency(product.basePriceMinor)}</p>
+              <p className="mt-2 text-sm leading-relaxed text-gray-500">{product.description}</p>
+            </div>
+          </div>
+
+          <div className="h-2 w-full bg-gray-50" />
+
+          {product.modifierGroups.map((group) => (
+            <div key={group.id} className="border-b border-gray-100 p-4 last:border-0">
               <ModifierGroup
-                key={group.id}
                 group={group}
                 selectedOptionIds={selectedOptionIds}
                 onToggle={toggleOption}
                 error={errors[group.id]}
               />
-            ))}
-          </div>
+            </div>
+          ))}
 
-          <label className="mt-5 block">
-            <span className="text-sm font-black text-gray-900">Catatan item</span>
+          <div className="h-2 w-full bg-gray-50" />
+
+          <div className="p-4">
+            <h3 className="mb-2 text-sm font-black uppercase tracking-wide text-gray-900">Catatan Opsional</h3>
             <textarea
               value={note}
               onChange={(event) => setNote(event.target.value)}
-              className="mt-2 min-h-24 w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm outline-none focus:border-[var(--store-primary)] focus:ring-4 focus:ring-[var(--brand-100)]"
-              placeholder="Contoh: less ice, pisah topping"
+              className="w-full resize-none rounded-xl border border-gray-200 p-3 text-sm outline-none focus:border-[var(--brand-500)] focus:ring-2 focus:ring-[var(--brand-100)]"
+              placeholder="Contoh: jangan terlalu manis, es dipisah"
+              rows={2}
             />
-          </label>
+          </div>
 
-          <div className="mt-5 flex items-center justify-between">
-            <span className="text-sm font-bold text-gray-600">Jumlah</span>
+          <div className="flex items-center justify-between p-4">
+            <h3 className="text-sm font-black uppercase tracking-wide text-gray-900">Jumlah</h3>
             <QuantityStepper value={quantity} onChange={setQuantity} />
           </div>
         </div>
-        <div className="sticky bottom-0 border-t border-gray-100 bg-white p-4">
-          <button type="button" className="h-12 w-full rounded-xl bg-[var(--store-primary)] font-black text-white" onClick={submit}>
-            Tambah ke Keranjang - {formatCurrency(previewTotal)}
+
+        <div className="absolute bottom-0 left-0 right-0 border-t border-gray-100 bg-white p-4 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+          <button
+            type="button"
+            onClick={submit}
+            className="flex w-full items-center justify-between rounded-full bg-[var(--brand-500)] px-6 py-3.5 text-base font-black text-white transition-all hover:bg-[var(--brand-600)] active:scale-[0.98]"
+          >
+            <span>Tambah ke Keranjang</span>
+            <span>{formatCurrency(previewTotal)}</span>
           </button>
-          <p className="mt-2 text-center text-[11px] text-gray-500">Total ini hanya preview. Harga final dari backend saat checkout.</p>
+          <p className="mt-2 text-center text-[10px] text-gray-400">Harga final akan divalidasi backend saat checkout.</p>
         </div>
       </div>
-    </div>
+    </>
   )
 }

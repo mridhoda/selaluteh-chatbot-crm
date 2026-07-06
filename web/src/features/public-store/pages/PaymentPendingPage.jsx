@@ -9,7 +9,7 @@ export default function PaymentPendingPage() {
   const navigate = useNavigate()
   const paymentStatus = usePaymentStatus(checkoutToken)
 
-  const [timeLeft, setTimeLeft] = useState(14 * 60 + 59) // 15 mins mock
+  const [timeLeft, setTimeLeft] = useState(14 * 60 + 59)
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -31,79 +31,222 @@ export default function PaymentPendingPage() {
     navigate(`/store/order/${paymentStatus.payment?.publicOrderToken || 'mock-public-order'}`)
   }
 
+  const orderId = `#ST-${checkoutToken?.slice(0, 6).toUpperCase() || 'MOCK'}`
+  const totalTagihan = formatCurrency(paymentStatus.payment?.totals?.totalMinor || 28000)
+
   return (
     <PublicStoreLayout theme={{ primaryColor: 'var(--brand-500)', primarySoftColor: 'var(--brand-50)' }}>
       {/* Header */}
-      <header className="sticky top-0 z-45 bg-white border-b border-gray-100 shadow-sm h-14 shrink-0">
-        <div className="flex items-center justify-between px-4 h-full max-w-md mx-auto">
-          <div className="w-10" />
-          <h1 className="text-lg font-black text-gray-900 flex-1 text-center truncate">Pembayaran</h1>
-          <div className="w-10" />
-        </div>
-      </header>
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 45,
+          height: '48px',
+          backgroundColor: '#fff',
+          borderBottom: '1px solid #f3f4f6',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+        }}
+      >
+        <h1 style={{ margin: 0, fontSize: '14px', fontWeight: 900, color: '#111827' }}>
+          Pembayaran
+        </h1>
+      </div>
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-md w-full mx-auto flex flex-col items-center justify-center p-6 text-center pb-24">
-        {/* Animated Clock Circle */}
-        <div className="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center text-orange-500 mb-6 relative shadow-sm">
-          <svg className="h-10 w-10 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {/* Main content */}
+      <div
+        style={{
+          width: '100%',
+          boxSizing: 'border-box',
+          padding: '24px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          minHeight: 'calc(100vh - 48px)',
+        }}
+      >
+        {/* Clock icon */}
+        <div
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: '50%',
+            backgroundColor: '#fff7ed',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+            marginBottom: 16,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+            flexShrink: 0,
+          }}
+        >
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />
             <path d="M12 6v6l4 2" />
           </svg>
-          <div className="absolute top-0 right-0 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm">
-            <div className="w-3.5 h-3.5 bg-orange-500 rounded-full animate-pulse" />
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: 16,
+              height: 16,
+              borderRadius: '50%',
+              backgroundColor: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+            }}
+          >
+            <div
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                backgroundColor: '#f97316',
+                animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              }}
+            />
           </div>
         </div>
 
-        <h2 className="text-xl font-extrabold text-gray-900 mb-2">Menunggu Pembayaran</h2>
-        <p className="text-gray-500 text-sm mb-6">Selesaikan pembayaran dalam waktu:</p>
+        {/* Title */}
+        <h2 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 900, color: '#111827', textAlign: 'center' }}>
+          Menunggu Pembayaran
+        </h2>
+        <p style={{ margin: 0, fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
+          Selesaikan pembayaran dalam waktu:
+        </p>
 
-        {/* Countdown Timer */}
-        <div className="text-4xl font-black text-gray-900 font-mono tracking-widest mb-8">
+        {/* Timer */}
+        <div
+          style={{
+            margin: '20px 0',
+            fontSize: '36px',
+            fontWeight: 900,
+            fontFamily: 'ui-monospace, monospace',
+            letterSpacing: '0.18em',
+            color: '#111827',
+          }}
+        >
           {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
         </div>
 
-        {/* Invoice Summary */}
-        <div className="w-full bg-gray-50 rounded-2xl p-4 mb-6 text-left border border-gray-100">
-          <div className="flex justify-between items-center mb-2 text-sm">
-            <span className="text-gray-500">Order ID</span>
-            <span className="font-extrabold text-gray-900">#ST-{checkoutToken?.slice(0, 6).toUpperCase() || 'MOCK'}</span>
+        {/* Order info card */}
+        <div
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            backgroundColor: '#f9fafb',
+            borderRadius: 12,
+            padding: '12px 16px',
+            marginBottom: 16,
+          }}
+        >
+          {/* Order ID row */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <span style={{ fontSize: 12, color: '#6b7280', flexShrink: 0 }}>Order ID</span>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 900,
+                color: '#111827',
+                textAlign: 'right',
+                wordBreak: 'break-all',
+                overflowWrap: 'anywhere',
+                maxWidth: '70%',
+              }}
+            >
+              {orderId}
+            </span>
           </div>
-          <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-250 border-dashed">
-            <span className="text-gray-500">Total Tagihan</span>
-            <span className="font-black text-[var(--brand-600)] text-base">
-              {formatCurrency(paymentStatus.payment?.totals?.totalMinor || 28000)}
+
+          {/* Divider */}
+          <div style={{ height: 1, backgroundColor: '#e5e7eb', margin: '10px 0' }} />
+
+          {/* Total row */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 12, color: '#6b7280', flexShrink: 0 }}>Total Tagihan</span>
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 900,
+                color: 'var(--brand-600)',
+                flexShrink: 0,
+                textAlign: 'right',
+              }}
+            >
+              {totalTagihan}
             </span>
           </div>
         </div>
 
+        {/* Error */}
         {paymentStatus.error && (
-          <p className="text-red-500 text-xs font-bold mb-4">{paymentStatus.error}</p>
+          <p style={{ margin: '0 0 12px', fontSize: 12, fontWeight: 700, color: '#ef4444', textAlign: 'center' }}>
+            {paymentStatus.error}
+          </p>
         )}
 
-        <p className="text-xs text-gray-400 mb-8 max-w-[260px] leading-relaxed">
+        {/* Info text */}
+        <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', lineHeight: 1.6, margin: '0 0 24px', maxWidth: 280 }}>
           Silakan selesaikan pembayaran di gateway sebelum waktu habis agar pesanan diproses.
         </p>
 
-        {/* Action Buttons */}
-        <div className="w-full space-y-3 mt-auto max-w-sm">
+        {/* Buttons */}
+        <div style={{ width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
           <button
             type="button"
             onClick={openPayment}
             disabled={!paymentStatus.payment?.paymentUrl}
-            className="w-full bg-[var(--brand-500)] text-white font-black text-base py-3.5 rounded-full hover:bg-[var(--brand-600)] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            style={{
+              width: '100%',
+              height: 48,
+              borderRadius: 999,
+              border: 'none',
+              backgroundColor: paymentStatus.payment?.paymentUrl ? 'var(--brand-500)' : '#e5e7eb',
+              color: paymentStatus.payment?.paymentUrl ? '#fff' : '#9ca3af',
+              fontSize: 14,
+              fontWeight: 900,
+              cursor: paymentStatus.payment?.paymentUrl ? 'pointer' : 'not-allowed',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              boxSizing: 'border-box',
+              transition: 'background-color 0.15s',
+            }}
           >
             <span>Bayar Sekarang (Simulasi)</span>
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </button>
-          
+
           <button
             type="button"
             onClick={paymentStatus.status === 'paid' ? handleOpenOrder : paymentStatus.refresh}
             disabled={paymentStatus.loading}
-            className="w-full bg-white border border-[var(--brand-500)] text-[var(--brand-600)] font-black text-base py-3.5 rounded-full hover:bg-[var(--brand-50)] active:scale-[0.98] transition-all"
+            style={{
+              width: '100%',
+              height: 48,
+              borderRadius: 999,
+              border: '2px solid var(--brand-500)',
+              backgroundColor: '#fff',
+              color: 'var(--brand-600)',
+              fontSize: 14,
+              fontWeight: 900,
+              cursor: paymentStatus.loading ? 'not-allowed' : 'pointer',
+              opacity: paymentStatus.loading ? 0.6 : 1,
+              boxSizing: 'border-box',
+              transition: 'background-color 0.15s',
+            }}
           >
             {paymentStatus.status === 'paid'
               ? 'Lihat Status Pesanan'
@@ -111,21 +254,30 @@ export default function PaymentPendingPage() {
               ? 'Mengecek...'
               : 'Cek Status Pembayaran'}
           </button>
-        </div>
 
-        {/* Help Link */}
-        <a
-          href="https://wa.me/6281234567890"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 text-gray-500 text-sm mt-8 hover:text-emerald-600 transition-colors font-bold"
-        >
-          <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-          </svg>
-          Butuh bantuan? Hubungi WhatsApp
-        </a>
-      </main>
+          <a
+            href="https://wa.me/6281234567890"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              paddingTop: 12,
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#6b7280',
+              textDecoration: 'none',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+            Butuh bantuan? Hubungi WhatsApp
+          </a>
+        </div>
+      </div>
     </PublicStoreLayout>
   )
 }

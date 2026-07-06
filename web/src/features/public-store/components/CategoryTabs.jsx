@@ -19,12 +19,12 @@ export default function CategoryTabs({ categories, selectedCategoryId, onSelect,
         </button>
         {searchOpen && (
           <label className="block shrink-0">
-            <span className="sr-only">Cari menu SelaluTeh</span>
+            <span className="sr-only">Cari menu Selkop</span>
             <input
               autoFocus
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
-              className="h-11 w-44 rounded-full border border-gray-100 bg-white px-4 text-sm font-semibold text-gray-900 shadow-sm outline-none focus:border-[var(--store-primary)] focus:ring-4 focus:ring-green-100"
+              className="h-11 w-44 rounded-full border border-gray-100 bg-white px-4 text-sm font-semibold text-gray-900 shadow-sm outline-none focus:border-[var(--brand-500)] focus:ring-4 focus:ring-[var(--brand-100)]"
               placeholder="Cari menu"
             />
           </label>
@@ -37,7 +37,7 @@ export default function CategoryTabs({ categories, selectedCategoryId, onSelect,
               type="button"
               className={`h-11 rounded-full px-4 text-sm font-bold transition ${
                 active
-                  ? 'bg-[var(--store-primary)] text-white shadow-sm'
+                  ? 'bg-[var(--brand-500)] text-white shadow-sm'
                   : 'border border-gray-100 bg-white text-gray-600 hover:bg-gray-50'
               }`}
               onClick={() => onSelect(category.id)}

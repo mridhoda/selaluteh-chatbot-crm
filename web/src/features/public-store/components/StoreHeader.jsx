@@ -3,12 +3,12 @@ export default function StoreHeader({ brandName, logoUrl, cartCount, onOpenCart 
     <header className="border-b border-gray-100 bg-white px-4 py-3">
       <div className="mx-auto flex max-w-md items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3 text-left">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--store-primary)] text-sm font-black text-white">
-            {logoUrl ? <img src={logoUrl} alt="" className="h-full w-full rounded-2xl object-cover" /> : brandName?.slice(0, 2)}
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-sm font-black text-white">
+            {logoUrl ? <img src={logoUrl} alt="" className="h-full w-full rounded-2xl object-contain p-1" /> : brandName?.slice(0, 2)}
           </span>
           <span className="min-w-0">
             <span className="block truncate text-sm font-black text-gray-900">{brandName}</span>
-            <span className="block truncate text-xs font-medium text-gray-500">QR Online Store</span>
+            <span className="block truncate text-xs font-medium text-gray-500">Online Store</span>
           </span>
         </div>
         <button

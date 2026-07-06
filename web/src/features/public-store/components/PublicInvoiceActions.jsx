@@ -1,7 +1,7 @@
 export default function PublicInvoiceActions({ invoice, onBackToMenu }) {
   const shareInvoice = async () => {
     if (navigator.share && invoice?.shareUrl) {
-      await navigator.share({ title: 'Invoice SelaluTeh', url: invoice.shareUrl })
+      await navigator.share({ title: 'Invoice Selkop', url: invoice.shareUrl })
       return
     }
     if (invoice?.shareUrl) await navigator.clipboard?.writeText(invoice.shareUrl)

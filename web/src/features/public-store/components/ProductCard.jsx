@@ -8,22 +8,22 @@ export default function ProductCard({ product, cartQuantity = 0, onSelect }) {
     <article className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
       <div className="flex gap-0">
         {/* Image block — full height, no padding offset */}
-        <div className="flex-shrink-0">
+        <div className="w-24 shrink-0 self-stretch overflow-hidden">
           {product.imageUrl ? (
             <img
               src={product.imageUrl}
               alt=""
-              className={`h-24 w-24 object-cover ${unavailable ? 'grayscale opacity-60' : ''}`}
+              className={`h-full min-h-24 w-full object-cover ${unavailable ? 'grayscale opacity-60' : ''}`}
             />
           ) : (
-            <div className="h-24 w-24 flex items-center justify-center bg-gradient-to-br from-[var(--brand-50)] to-amber-50 text-2xl font-black text-[var(--store-primary)]">
+            <div className="flex h-full min-h-24 w-full items-center justify-center bg-gradient-to-br from-[var(--brand-50)] to-amber-50 text-2xl font-black text-[var(--store-primary)]">
               {product.name.slice(0, 1)}
             </div>
           )}
         </div>
 
         {/* Text block — compact top padding to give a tiny bit of distance from top */}
-        <div className="min-w-0 flex-1 flex flex-col justify-between px-3 pt-1 pb-2.5">
+        <div className="min-w-0 flex-1 flex flex-col justify-between px-3 pt-5 pb-2.5">
           <div>
             <div className="flex items-start justify-between gap-1.5">
               <h3 className="line-clamp-2 text-sm font-black text-gray-900 m-0 p-0" style={{ lineHeight: '1.15' }}>
@@ -36,12 +36,17 @@ export default function ProductCard({ product, cartQuantity = 0, onSelect }) {
               )}
             </div>
             <p className="mt-0.5 text-[11px] leading-tight text-gray-500 line-clamp-2">
-              {product.description || 'Menu SelaluTeh siap pickup.'}
+              {product.description || ''}
             </p>
           </div>
 
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-black text-gray-900">{formatCurrency(product.basePriceMinor)}</span>
+            <span className="flex flex-col leading-none">
+              {product.originalPriceMinor && (
+                <span className="text-[9px] font-bold text-gray-400 line-through">{formatCurrency(product.originalPriceMinor)}</span>
+              )}
+              <span className="text-xs font-black text-gray-900">{formatCurrency(product.basePriceMinor)}</span>
+            </span>
             <button
               type="button"
               className={`h-8 min-w-8 rounded-xl px-3 text-[11px] font-black focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 ${

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { publicStoreApi } from '../api/publicStoreApi'
 import { normalizePhone } from '../utils/normalizePhone'
 
@@ -8,10 +8,10 @@ export function useCheckoutForm({ cart, onSuccess }) {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
-  const setField = (field, value) => {
+  const setField = useCallback((field, value) => {
     setValues((current) => ({ ...current, [field]: value }))
     setErrors((current) => ({ ...current, [field]: '' }))
-  }
+  }, [])
 
   const validate = () => {
     const nextErrors = {}

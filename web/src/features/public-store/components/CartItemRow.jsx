@@ -33,19 +33,19 @@ export default function CartItemRow({ item, onUpdateQuantity, onRemove }) {
         </h4>
 
         {item.modifierSummary?.length > 0 && (
-          <p className="mt-0.5 text-xs text-gray-500 truncate">
+          <p className="-mt-3 text-xs leading-none text-gray-500 truncate">
             {item.modifierSummary.join(', ')}
           </p>
         )}
 
         {item.note && (
-          <p className="mt-0.5 text-xs italic text-gray-400 truncate">
+          <p className="-mt-0.5 text-xs leading-none italic text-gray-400 truncate">
             Note: {item.note}
           </p>
         )}
 
         {/* Price & Stepper Row */}
-        <div className="mt-2 flex items-center justify-between gap-3">
+        <div className="mt-1.5 flex items-center justify-between gap-3">
           <span className="text-sm font-bold text-gray-900">
             {formatCurrency(item.lineTotalMinor)}
           </span>
