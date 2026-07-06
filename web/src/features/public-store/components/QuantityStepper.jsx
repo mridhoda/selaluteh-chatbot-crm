@@ -6,11 +6,11 @@ export default function QuantityStepper({ value, onChange, min = CART_QUANTITY.M
   const compact = size === 'compact'
 
   return (
-    <div className={`inline-flex items-center rounded-full border border-gray-200 bg-white shadow-sm ${compact ? 'min-h-9 p-0.5' : 'min-h-11 p-1'}`}>
+    <div className={`inline-flex items-center rounded-full bg-gray-50 p-1 shadow-sm ${compact ? 'min-h-9 p-0.5' : 'min-h-11 p-1'}`}>
       <button
         type="button"
         aria-label="Kurangi jumlah"
-        className={`${compact ? 'h-7 w-7 text-sm' : 'h-9 w-9 text-lg'} rounded-full font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40`}
+        className={`${compact ? 'h-7 w-7 text-sm' : 'h-9 w-9 text-lg'} rounded-full font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none`}
         onClick={decrease}
         disabled={value <= min}
       >
@@ -20,7 +20,7 @@ export default function QuantityStepper({ value, onChange, min = CART_QUANTITY.M
       <button
         type="button"
         aria-label="Tambah jumlah"
-        className={`${compact ? 'h-7 w-7 text-sm' : 'h-9 w-9 text-lg'} rounded-full font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40`}
+        className={`${compact ? 'h-7 w-7 text-sm' : 'h-9 w-9 text-lg'} rounded-full font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none`}
         onClick={increase}
         disabled={value >= max}
       >

@@ -93,7 +93,7 @@ export default function StorefrontPage() {
         searchQuery={store.searchQuery}
         onSearchChange={store.setSearchQuery}
       />
-      <ProductGrid products={store.filteredProducts} onSelect={setSelectedProduct} />
+      <ProductGrid products={store.filteredProducts} cartItems={cart.items} onSelect={setSelectedProduct} />
       <FloatingCartButton count={cart.cartCount} totalMinor={cart.displayTotalMinor} onClick={() => setCartOpen(true)} />
       <ProductModifierSheet
         open={Boolean(selectedProduct)}

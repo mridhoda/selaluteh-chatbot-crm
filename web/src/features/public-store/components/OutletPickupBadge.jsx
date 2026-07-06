@@ -16,7 +16,7 @@ export default function OutletPickupBadge({ outlets = [], selectedOutletId, onSe
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className="flex h-12 min-w-0 flex-1 items-center justify-between rounded-xl border border-emerald-200 bg-white px-4 text-left transition focus:border-emerald-400 focus:outline-none focus:ring-4 focus:ring-emerald-100"
+              className="flex h-12 min-w-0 flex-1 items-center justify-between rounded-xl border border-[var(--brand-200)] bg-white px-4 text-left transition focus:border-[var(--brand-400)] focus:outline-none focus:ring-4 focus:ring-[var(--brand-100)]"
               onClick={() => setOpen(true)}
               aria-haspopup="dialog"
             >
@@ -25,7 +25,7 @@ export default function OutletPickupBadge({ outlets = [], selectedOutletId, onSe
                 <path d="m6 9 6 6 6-6" />
               </svg>
             </button>
-            <span className="shrink-0 rounded-full bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-600">Pickup</span>
+            <span className="shrink-0 rounded-full bg-[var(--brand-50)] px-4 py-2 text-sm font-black text-[var(--brand-600)]">Pickup</span>
           </div>
           <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-gray-500">
             {selectedOutlet?.address && (
@@ -74,7 +74,7 @@ export default function OutletPickupBadge({ outlets = [], selectedOutletId, onSe
                     key={outlet.id}
                     type="button"
                     className={`w-full rounded-xl border bg-white px-4 py-1 text-left transition ${
-                      active ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-gray-100 hover:border-emerald-200'
+                      active ? 'border-[var(--brand-500)] ring-1 ring-[var(--brand-500)]' : 'border-gray-100 hover:border-[var(--brand-200)]'
                     }`}
                     onClick={() => chooseOutlet(outlet.id)}
                   >
@@ -90,7 +90,7 @@ export default function OutletPickupBadge({ outlets = [], selectedOutletId, onSe
               })}
             </div>
             <div className="border-t border-gray-100 px-5 py-4">
-              <button type="button" className="inline-flex h-11 items-center gap-2 rounded-xl px-1 text-sm font-black text-emerald-600">
+              <button type="button" className="inline-flex h-11 items-center gap-2 rounded-xl px-1 text-sm font-black text-[var(--brand-600)]">
                 <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 21s7-5.2 7-11a7 7 0 0 0-14 0c0 5.8 7 11 7 11Z" />
                   <circle cx="12" cy="10" r="2.3" />

@@ -12,6 +12,8 @@ Use this file to record chronological progress.
 - Implemented Phase 1 and Phase 2 local interactions: category/search filtering, modifier validation, quantity stepper, guest cart drawer, checkout validation, mock payment pending, and public order status/invoice actions.
 - Added Node test coverage for public-store utility behavior supported by the current frontend test runner.
 - Updated pickup outlet UI so customers can freely choose available pickup outlets instead of seeing a locked QR outlet, and compacted menu cards to better match the small-card storefront reference.
+- Redesigned cart drawer pop up menu, checkout page, payment pending page, and order status page to match the design details and structures in `plans/store-qr-webpage/ui-design-2.md`.
+- Restyled all public storefront colors and elements to use the website's brand color palette variables (`var(--brand-500)`, `var(--brand-100)`, `var(--brand-50)` etc.) instead of custom greens.
 
 ### Changed Files
 - `web/src/routes/privateRoutes.jsx`

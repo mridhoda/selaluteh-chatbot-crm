@@ -72,7 +72,7 @@ export default function ProductModifierSheet({ product, open, onClose, onAdd }) 
           </button>
         </div>
         <div className="p-4">
-          <div className="flex h-40 items-center justify-center rounded-[28px] bg-gradient-to-br from-green-50 to-amber-50 text-5xl font-black text-[var(--store-primary)]">
+          <div className="flex h-40 items-center justify-center rounded-[28px] bg-gradient-to-br from-[var(--brand-50)] to-amber-50 text-5xl font-black text-[var(--store-primary)]">
             {product.name.slice(0, 1)}
           </div>
           <h3 className="mt-4 text-xl font-black text-gray-900">{product.name}</h3>
@@ -96,7 +96,7 @@ export default function ProductModifierSheet({ product, open, onClose, onAdd }) 
             <textarea
               value={note}
               onChange={(event) => setNote(event.target.value)}
-              className="mt-2 min-h-24 w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm outline-none focus:border-[var(--store-primary)] focus:ring-4 focus:ring-green-100"
+              className="mt-2 min-h-24 w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm outline-none focus:border-[var(--store-primary)] focus:ring-4 focus:ring-[var(--brand-100)]"
               placeholder="Contoh: less ice, pisah topping"
             />
           </label>
