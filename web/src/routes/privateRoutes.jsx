@@ -6,6 +6,12 @@ import VerifyPage from '../modules/auth/pages/VerifyPage'
 import ForgotPasswordPage from '../modules/auth/pages/ForgotPasswordPage'
 import ResetPasswordPage from '../modules/auth/pages/ResetPasswordPage'
 import DashboardLayout from '../layouts/DashboardLayout'
+import {
+  CheckoutPage,
+  OrderStatusPage,
+  PaymentPendingPage,
+  StorefrontPage,
+} from '../features/public-store'
 
 export default function AppRoutes() {
   return (
@@ -16,6 +22,10 @@ export default function AppRoutes() {
       <Route path='/verify' element={<VerifyPage />} />
       <Route path='/forgot-password' element={<ForgotPasswordPage />} />
       <Route path='/reset-password/:token' element={<ResetPasswordPage />} />
+      <Route path='/store/:storefrontSlug' element={<StorefrontPage />} />
+      <Route path='/store/:storefrontSlug/checkout' element={<CheckoutPage />} />
+      <Route path='/store/payment/pending/:checkoutToken' element={<PaymentPendingPage />} />
+      <Route path='/store/order/:publicOrderToken' element={<OrderStatusPage />} />
       <Route path='/app/*' element={<DashboardLayout />} />
       <Route path='*' element={<Navigate to='/' />} />
     </Routes>

@@ -1,0 +1,56 @@
+schema_version: 2
+spec_version: 1.0.0
+id: selaluteh-public-storefront
+title: SelaluTeh Public Storefront QR Guest Checkout
+description: Frontend public QR storefront and guest checkout module for customer-facing pickup orders using mock API adapters before backend integration.
+type: feature
+workflow: requirements-first
+status: active
+workflow_state: in_progress
+priority: high
+created_at: '2026-07-06'
+updated_at: '2026-07-06'
+lifecycle:
+  config: specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: active
+  current_path: specs/active/selaluteh-public-storefront
+  move_entire_spec_directory: true
+  repository_root_relative_paths: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+product:
+  name: SelaluTeh Marketplace
+  area: frontend
+  stage: qr-public-storefront-phase-1
+  customer_surface: public web storefront
+  admin_surface: react-vite-dashboard
+scope:
+  included:
+    - public-storefront-route
+    - qr-outlet-locked-menu
+    - guest-cart-ui
+    - guest-checkout-form
+    - mock-payment-pending
+    - public-order-status
+    - mock-api-adapter
+    - mobile-first-ui
+  deferred:
+    - live-backend-public-storefront-api
+    - real-payment-gateway-redirect
+    - invoice-pdf-generation
+    - admin-online-store-settings
+  excluded:
+    - customer-login
+    - delivery-fulfillment
+    - frontend-price-authority
+    - frontend-payment-authority
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+  implementation_prompt: plans/store-qr-webpage/implementation-prompt.md
+  reading_order: docs/backend/READING-ORDER.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md

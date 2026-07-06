@@ -2,6 +2,53 @@
 
 Use this file to record chronological progress.
 
+## 2026-07-06 — Public Storefront QR Guest Checkout Frontend
+
+### Completed
+- Activated `selaluteh-public-storefront` as a dedicated frontend spec after `current-task.md` was idle and the user selected a new spec lifecycle context.
+- Audited frontend routing, layout, API, utilities, UI component, test, and feature folder patterns before coding.
+- Implemented `web/src/features/public-store/` with separated mock data, mock API adapter, utilities, hooks, layout, components, pages, and index exports.
+- Registered public routes outside the admin dashboard shell: `/store/:storefrontSlug`, `/store/:storefrontSlug/checkout`, `/store/payment/pending/:checkoutToken`, and `/store/order/:publicOrderToken`.
+- Implemented Phase 1 and Phase 2 local interactions: category/search filtering, modifier validation, quantity stepper, guest cart drawer, checkout validation, mock payment pending, and public order status/invoice actions.
+- Added Node test coverage for public-store utility behavior supported by the current frontend test runner.
+- Updated pickup outlet UI so customers can freely choose available pickup outlets instead of seeing a locked QR outlet, and compacted menu cards to better match the small-card storefront reference.
+
+### Changed Files
+- `web/src/routes/privateRoutes.jsx`
+- `web/src/features/public-store/api/publicStoreApi.js`
+- `web/src/features/public-store/api/publicStoreEndpoints.js`
+- `web/src/features/public-store/components/*.jsx`
+- `web/src/features/public-store/data/publicStore.mock.js`
+- `web/src/features/public-store/hooks/*.js`
+- `web/src/features/public-store/layouts/PublicStoreLayout.jsx`
+- `web/src/features/public-store/pages/*.jsx`
+- `web/src/features/public-store/types/*.js`
+- `web/src/features/public-store/utils/*.js`
+- `web/src/features/public-store/index.js`
+- `web/test/public-store-utils.test.mjs`
+- `specs/active/selaluteh-public-storefront/`
+- `specs/SPECS-INDEX.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Notes
+- Public store pages are customer-facing and do not use `DashboardLayout`, `Sidebar`, `Topbar`, or auth guard.
+- Pickup outlet selection is stored locally per storefront slug and carried into checkout/cart preview state.
+- Mock totals are display previews only; final price, availability, fee, payment, order, and invoice authority remains backend-owned.
+- Component tests are deferred because the current frontend test runner is Node-only and no DOM testing library is configured.
+
+### Tests
+- `npm --prefix web test`: 26 pass, 0 fail.
+- `npx eslint src/features/public-store test/public-store-utils.test.mjs` from `web/`: passed.
+- `npm --prefix web run build`: passed with Vite chunk-size warning.
+- `npm --prefix web run lint`: failed due pre-existing errors outside public-store module; public-store focused lint passed.
+
+### Next
+- Define real public storefront backend endpoints for storefront loading, guest session/cart, checkout, payment status, and public order invoice.
+- Add DOM/component tests after frontend DOM test tooling is introduced.
+- Add admin Online Store settings in a separate admin-dashboard task.
+
 ## 2026-07-03 — AISG-T001 AI Security Guardrails Audit
 
 ### Completed

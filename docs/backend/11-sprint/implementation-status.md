@@ -465,3 +465,22 @@ Additional canonicalization note:
 | AISG Phase 3-5 focused tests | Passed: `phase3-5-guardrails.test.js` (8 pass, 0 fail); `npm run test:ai:unit` now reports 262 pass, 0 fail after adding Phase 3-5 tests. |
 | Payment targeted tests | Passed: payment integration + Xendit unit tests (9 pass, 0 fail). |
 | Telegram marketplace smoke | Passed: `telegram-marketplace.e2e.test.js` (2 pass, 0 fail). |
+
+## SelaluTeh Public Storefront QR Guest Checkout — 2026-07-06
+
+| Module | Status | Evidence |
+|---|---|---|
+| Spec lifecycle activation | Complete | `selaluteh-public-storefront` active spec added with requirements, design, tasks, and current task pointer used during implementation. |
+| Public storefront routes | Implemented | Added `/store/:storefrontSlug`, `/store/:storefrontSlug/checkout`, `/store/payment/pending/:checkoutToken`, and `/store/order/:publicOrderToken` in `web/src/routes/privateRoutes.jsx` before `/app/*`. |
+| Public layout separation | Implemented | `PublicStoreLayout` is separate from `DashboardLayout`, `Sidebar`, and `Topbar`. |
+| Feature-based module | Implemented | Added `web/src/features/public-store/` with `api`, `components`, `data`, `hooks`, `layouts`, `pages`, `types`, and `utils`. |
+| Mock API adapter | Implemented | `publicStoreApi` returns Promise-based mock storefront, cart, checkout, payment status, and public order responses. |
+| Guest cart and checkout UI | Implemented | Storefront supports category/search filtering, modifier sheet validation, quantity stepper, cart drawer, checkout validation, payment pending, and public order status. |
+| Frontend authority guardrail | Implemented for UI scope | Frontend only sends product IDs, modifier option IDs, quantity, and customer input; preview totals are documented as display-only. |
+
+| Test / Validation | Result |
+|---|---|
+| Public store focused lint | Passed: `npx eslint src/features/public-store test/public-store-utils.test.mjs` from `web/`. |
+| Frontend tests | Passed: `npm --prefix web test` (26 pass, 0 fail). |
+| Frontend build | Passed: `npm --prefix web run build`; Vite reports existing chunk-size warning. |
+| Full frontend lint | Blocked by pre-existing errors outside public-store module, including service worker globals, legacy hook-order issues, no-control-regex rules, and unescaped entity rules. |
