@@ -1,6 +1,6 @@
 import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
 import { AppError } from '../utils/errors.js';
-import { REDACTED, redactSecrets } from '../utils/redaction.js';
+import { redactSensitiveDetails } from '../utils/audit-redaction.js';
 
 export const SENSITIVE_ACTIONS = [
   'auth.login', 'auth.logout', 'auth.password_reset',
@@ -14,22 +14,7 @@ export const SENSITIVE_ACTIONS = [
   'settings.update',
 ];
 
-const KNOWN_SENSITIVE_FIELDS = new Set([
-  'token', 'app_secret', 'webhook_secret', 'password_hash', 'secret_key', 'api_key',
-]);
-
-export function redactSensitiveDetails(details) {
-  if (!details || typeof details !== 'object') return redactSecrets(details);
-  const redacted = { ...redactSecrets(details) };
-  for (const [key, value] of Object.entries(redacted)) {
-    if (KNOWN_SENSITIVE_FIELDS.has(key) || key.toLowerCase().includes('secret') || key.toLowerCase().includes('token') || key.toLowerCase().includes('password') || key.toLowerCase().includes('key')) {
-      redacted[key] = value ? REDACTED : value;
-    } else if (typeof value === 'object' && value !== null) {
-      redacted[key] = redactSensitiveDetails(value);
-    }
-  }
-  return redacted;
-}
+export { redactSensitiveDetails } from '../utils/audit-redaction.js';
 
 export async function auditLog({ req, workspaceId, outletId, action, resourceType, resourceId, details }) {
   if (!action) throw new AppError('VALIDATION', 'action is required for audit', 400);

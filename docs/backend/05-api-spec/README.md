@@ -31,6 +31,24 @@ Folder ini hanya menjelaskan **kontrak endpoint/API**:
 - state changes
 - idempotency behavior
 
+Machine-readable OpenAPI contract lives at:
+
+```txt
+docs/api/openapi.yaml
+```
+
+OpenAPI governance and alpha contract details live in:
+
+```txt
+docs/backend/05-api-spec/03.7.1-openapi-specification.md
+```
+
+REST API architecture and route boundary rules live in:
+
+```txt
+docs/backend/05-api-spec/03.7-rest-api-architecture.md
+```
+
 Detail yang **tidak** ditaruh di folder ini:
 
 | Topic | Folder yang benar |
@@ -46,6 +64,8 @@ Detail yang **tidak** ditaruh di folder ini:
 
 | File | Purpose |
 |---|---|
+| `03.7-rest-api-architecture.md` | REST API architecture, route boundaries, auth strategy, response/error conventions, idempotency, rate limits, and alpha readiness |
+| `03.7.1-openapi-specification.md` | OpenAPI governance, schema strategy, examples, contract testing, and alpha readiness checklist |
 | `overview.md` | API conventions, auth, pagination, idempotency |
 | `error-format.md` | Standard error response format |
 | `auth-api.md` | Register, verify OTP, login, reset password |

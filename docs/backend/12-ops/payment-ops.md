@@ -51,3 +51,18 @@ If payment is completed in Xendit but internal state remains pending:
 3. Confirm `XENDIT_WEBHOOK_VERIFICATION_TOKEN` matches the dashboard token.
 4. Use `POST /api/payments/:paymentId/refresh` to reconcile from provider status.
 5. Do not manually mark paid unless an audited admin process is explicitly approved.
+
+## Background Reconciliation
+
+Runtime worker behavior:
+
+- Pending/processing payments with `expires_at <= backend now` are expired by the backend worker, not by frontend countdowns.
+- Already paid/refunded/cancelled/manual-review payments are not expiry candidates.
+- Missing-webhook reconciliation queries provider status only where supported by the registered provider adapter and configured workspace settings.
+- Successful provider-paid reconciliation uses the same service-layer paid transition and writes `reconciliation_audit`.
+- Paid notifications are suppressed when the order was already paid before reconciliation.
+
+BayarGG limitation:
+
+- BayarGG adapter supports status query, but SELKOP real BayarGG credentials/settings are intentionally deferred.
+- Until authorized real settings exist, BayarGG reconciliation should fail safe as unconfigured and must not mark payments paid.

@@ -90,6 +90,43 @@ create index idx_payment_events_payment_received on payment_events(payment_id, r
 create index idx_payment_events_order_received on payment_events(order_id, received_at desc);
 create index idx_payment_events_processing on payment_events(processing_status);
 
+-- Phase 3 Online/QR Store
+create unique index storefront_outlets_one_default_idx on storefront_outlets(storefront_id) where is_default = true and status = 'active';
+create unique index qr_locations_outlet_code_key on qr_locations(outlet_id, code) where code is not null;
+create unique index payment_provider_settings_one_active_per_mode_idx on payment_provider_settings(workspace_id, mode) where is_active = true;
+create unique index payment_provider_settings_workspace_provider_mode_unique_idx on payment_provider_settings(workspace_id, provider_code, mode);
+create index storefronts_workspace_status_idx on storefronts(workspace_id, status);
+create index storefronts_slug_status_idx on storefronts(slug, status);
+create index qr_codes_workspace_outlet_idx on qr_codes(workspace_id, outlet_id, status);
+create index qr_order_sessions_qr_code_idx on qr_order_sessions(qr_code_id);
+create index qr_order_sessions_qr_location_idx on qr_order_sessions(qr_location_id);
+create index qr_locations_outlet_sort_idx on qr_locations(outlet_id, status, sort_order);
+create index qr_codes_public_code_status_idx on qr_codes(public_code, status);
+create index qr_codes_token_hash_status_idx on qr_codes(qr_token_hash, status);
+create index qr_order_sessions_status_expires_idx on qr_order_sessions(session_status, expires_at) where session_status is not null;
+create index storefront_outlets_visible_sort_idx on storefront_outlets(storefront_id, is_visible, status, sort_order);
+create index payment_provider_settings_active_mode_idx on payment_provider_settings(workspace_id, mode) where is_active = true;
+create index payments_provider_setting_idx on payments(provider_setting_id) where provider_setting_id is not null;
+create unique index payments_provider_ref_unique_idx on payments(provider, provider_ref) where provider_ref is not null;
+create index security_events_workspace_created_idx on security_events(workspace_id, created_at desc);
+
+-- Phase 3.3 integrity hardening
+create index orders_admin_filter_idx on orders(workspace_id, outlet_id, channel, payment_status, fulfillment_status, created_at desc);
+create index orders_outlet_created_at_idx on orders(outlet_id, created_at desc);
+create index orders_payment_status_created_at_idx on orders(workspace_id, payment_status, created_at desc);
+create unique index orders_public_order_token_unique_idx on orders(public_order_token) where public_order_token is not null;
+create unique index orders_workspace_order_number_unique_idx on orders(workspace_id, order_number) where order_number is not null and order_number <> '';
+create unique index order_idempotency_records_public_checkout_unique_idx on order_idempotency_records(workspace_id, idempotency_key) where command_type = 'public_checkout';
+create index qr_order_sessions_qr_code_created_idx on qr_order_sessions(qr_code_id, created_at desc) where qr_code_id is not null;
+create index product_outlet_availability_outlet_product_idx on product_outlet_availability(outlet_id, product_id);
+create index payments_order_id_idx on payments(order_id);
+create unique index payments_provider_transaction_unique_idx on payments(provider, provider_transaction_id) where provider_transaction_id is not null;
+create unique index payments_merchant_reference_provider_unique_idx on payments(provider, merchant_reference) where merchant_reference is not null;
+create unique index payment_provider_settings_one_active_per_mode_idx on payment_provider_settings(workspace_id, mode) where is_active = true;
+create unique index payment_events_provider_event_unique_idx on payment_events(provider, provider_event_id) where provider_event_id is not null;
+create index payment_events_raw_payload_hash_idx on payment_events((md5(raw_payload::text))) where raw_payload is not null;
+create index payment_events_processing_created_idx on payment_events(processing_status, created_at desc);
+
 -- AI Actions
 create index idx_ai_actions_workspace_chat_created on ai_actions(workspace_id, chat_id, created_at desc);
 create index idx_ai_actions_workspace_action_status on ai_actions(workspace_id, action_type, status);
@@ -105,4 +142,7 @@ Notes:
 - WebhookEvent uses provider + platform_id + external_event_id uniqueness, with null platform ids normalized by `coalesce`.
 - Mongo sparse unique indexes become Postgres partial unique indexes, especially product slug/SKU, outlet code, checkout idempotency key, order number, payment provider transaction id, merchant reference, and payment provider event id.
 - Xendit `payment_session_id` is stored in `payments.provider_transaction_id`; Xendit `reference_id` is stored in `payments.merchant_reference`.
+- Phase 3.2 detail-schema indexes are additive and use existing runtime tables. They do not introduce duplicate `qr_sessions`, `product_availability`, `checkout_sessions`, or `idempotency_keys` tables.
+- Phase 3.3 indexes use existing runtime table names for greenfield concepts, especially `qr_order_sessions`, `product_outlet_availability`, and `order_idempotency_records`.
+- Phase 3.3 follow-up replaces the older one-active-provider-per-workspace index with one-active-provider-per-workspace/mode and indexes runtime `payment_events` because webhook processing writes there.
 ```

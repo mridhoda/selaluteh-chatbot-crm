@@ -152,3 +152,42 @@ Example:
 Viewing payment requires access to payment outlet.
 
 Only verified provider events or future audited admin manual flows may set payment status to `paid`.
+
+`manual_review` is the alpha-safe status for verified webhook/provider events that match a known payment but fail amount, currency, reference, or expiry validation. It must not auto-promote the linked order to paid.
+
+Active payment provider selection is mode-aware: normalized provider settings allow one active provider per workspace/mode, while encrypted workspace settings metadata remains the credential fallback until a dedicated credential migration is completed.
+
+Current alpha payment-provider reality:
+
+- Supabase MCP verified the `bayargg` provider catalog row exists and is QRIS-enabled.
+- SELKOP has no real BayarGG `payment_provider_settings` row, no active BayarGG settings row, and no encrypted credential/fingerprint reference at Phase 4 closure.
+- BayarGG live credential/session/webhook validation is an approved deferral. Do not claim real paid-alpha or live payment readiness until an authorized operator configures real encrypted/referenced credentials and live/provider validation is run.
+- Mocked BayarGG session/webhook implementation coverage exists for configured-session requirement, customer-safe session response, verification-before-mutation, duplicate no-op, amount/currency/expiry mismatch manual review, and provider transaction/reference mismatch. Local command execution is blocked in the current session, so no new pass result is claimed.
+
+## Public Payment Status
+
+```http
+GET /api/v1/public/payments/:paymentId/status
+```
+
+Returns only customer-safe payment and linked public order status. It never exposes raw provider payloads, reconciliation internals, workspace IDs, or secrets.
+
+```json
+{
+  "payment": {
+    "id": "payment-id",
+    "provider": "xendit",
+    "status": "pending",
+    "amount": 42000,
+    "currency": "IDR",
+    "payment_url": "https://...",
+    "expires_at": "2026-07-07T00:00:00.000Z"
+  },
+  "order": {
+    "public_order_token": "po_...",
+    "public_order_status": "payment_pending"
+  }
+}
+```
+
+Frontend may poll this route, but only verified provider webhook/reconciliation paths may move a payment to `paid`.

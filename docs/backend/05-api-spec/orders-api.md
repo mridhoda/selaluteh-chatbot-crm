@@ -70,7 +70,27 @@ POST /orders/:id/complete
 POST /orders/:id/cancel
 ```
 
+Phase 2 admin aliases are also available for dashboard alpha clients:
+
+```http
+GET  /api/v1/admin/orders
+GET  /api/v1/admin/orders/:orderId
+POST /api/v1/admin/orders/:orderId/accept
+POST /api/v1/admin/orders/:orderId/prepare
+POST /api/v1/admin/orders/:orderId/ready
+POST /api/v1/admin/orders/:orderId/complete
+POST /api/v1/admin/orders/:orderId/cancel
+```
+
+The alias response includes snake_case status fields and server-derived `allowed_actions`. These actions are advisory UI hints only; service transition guards remain authoritative.
+
 Fulfillment actions require `payment_status = paid` and move `fulfillment_status` through `awaiting_acceptance -> accepted -> preparing -> ready -> completed`.
+
+Admin lifecycle routes resolve the order through the caller's outlet scope before mutation and pass that resolved scope into accept, prepare, ready, complete, cancel, and generic status transitions. Cross-outlet mutation attempts must be denied before state change.
+
+`allowed_actions` is returned only when both backend order capability and the existing `orders.manage_status` permission are present. Per-action permission splitting is deferred to avoid changing the existing permission model during alpha hardening.
+
+Cancellation requires a non-empty reason for both legacy and `/api/v1/admin/orders` status routes.
 
 Hard delete is disabled:
 
@@ -78,4 +98,4 @@ Hard delete is disabled:
 DELETE /orders/:id -> 405 ORDER_DELETE_DISABLED
 ```
 
-Use cancellation with a reason instead.
+Use cancellation with a reason instead. The hard-delete block is enforced in route, service, and repository layers.

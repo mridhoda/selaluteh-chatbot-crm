@@ -30,6 +30,43 @@ Rules:
 4. AI must not be the source of truth for product price, cart total, order status, or payment status.
 5. Xendit provider IDs and merchant references are reconciliation keys, not authorization sources.
 
+## Phase 3 Online QR Store Additions
+
+Migration `038_online_qr_store_schema_phase3.sql` adds an additive schema layer for public Online Store, QR Store, and configurable payment providers without replacing existing commerce tables.
+
+Migrations `039_online_qr_store_phase31_hardening.sql` and `040_online_qr_store_phase32_detail_schema.sql` continue that additive approach. They reconcile Phase 3.1/3.2 detail-schema fields into existing runtime tables instead of creating greenfield duplicates.
+
+Migration `041_online_qr_store_phase33_integrity.sql` adds Phase 3.3 index and integrity hardening on the same runtime tables. Check constraints are added as `NOT VALID` so new writes are guarded while existing legacy rows can be cleaned up separately if needed. Follow-up hardening keeps payment provider settings unique per workspace/provider/mode, permits exactly one active provider per workspace/mode, indexes runtime `payment_events` for webhook idempotency, and includes `manual_review` as a payment-integrity state.
+
+Target alpha reality on 2026-07-07: the live Supabase target had schema drift and did not track local `038` through `041` by local migration name, so they were not blindly replayed. Target-aware migration `042_online_qr_store_target_reconciliation.sql` was applied through Supabase MCP and verified. Migration `043`/`universal_qr_scope` was verified present in the target ledger/schema. Migration `044_public_checkout_idempotency_state.sql` was applied through Supabase MCP and verified. See `specs/backlog/qr-store-backend/database-readiness.md` for redacted target evidence.
+
+Runtime mapping:
+
+| Domain concept | Physical table |
+|---|---|
+| Storefront | `storefronts` |
+| Storefront outlet mapping | `storefront_outlets` |
+| QR location | `qr_locations` |
+| QR code | `qr_codes` |
+| QR session | existing `qr_order_sessions`, extended with QR code/location references and Universal QR selected/locked outlet context |
+| Product availability | existing `product_outlet_availability` |
+| Checkout idempotency | existing `order_idempotency_records` |
+| Payment provider settings | `payment_provider_settings`, with existing encrypted workspace metadata as runtime credential fallback |
+| Phase 3.2 checkout sessions | existing `checkouts` and service checkout snapshot flow |
+| Phase 3.2 idempotency keys | existing `order_idempotency_records` |
+| Phase 3.2 admin roles/permissions | existing `users`, `memberships`, `user_outlet_access`, and permission middleware |
+| Phase 3.2 security events | optional `security_events` table from migration `040` |
+
+Compatibility rules:
+
+1. Existing public storefront metadata slug fallback remains valid until `storefronts` rows are seeded.
+2. Existing `qr_order_sessions` hashed-token lookup remains valid until `qr_codes` rows are seeded.
+3. Runtime fulfillment remains pickup-only even though schema can model future `dine_in` and `takeaway` values.
+4. Payment providers remain data/config driven; BayarGG is seeded as an enabled provider but not hardcoded as the only provider. BayarGG live credential/readiness is deferred because no real SELKOP provider settings/credential row exists.
+5. Phase 3.2 money-standard conversion to integer minor units is deferred because current runtime amount columns come from existing migrations and require coordinated data/API migration.
+6. Paid-only fulfillment, provider-paid authority, backend total recomputation, QR outlet lock, cancel reason enforcement, customer-safe public responses, and public checkout customer identity requirements remain service-layer rules even when database constraints/indexes assist integrity.
+7. BayarGG amount/currency/expiry mismatch paths move payments into `manual_review` and do not mark orders as paid.
+
 ---
 
 ## Core Tenant & Access Tables

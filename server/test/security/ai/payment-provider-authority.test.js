@@ -10,10 +10,10 @@ describe('AISG payment provider authority', () => {
     const paymentService = readFileSync(resolve(PROJECT_ROOT, 'src/services/payment.service.js'), 'utf8');
     const paymentRoutes = readFileSync(resolve(PROJECT_ROOT, 'src/routes/payments.js'), 'utf8');
 
-    assert.match(paymentService, /getPaymentRuntimeConfig\(\{ workspaceId \}\)/);
     assert.doesNotMatch(paymentService, /provider \|\| runtimeConfig\.provider \|\| env\.paymentProvider/);
     assert.doesNotMatch(paymentService, /provider \|\| env\.paymentProvider/);
-    assert.match(paymentService, /const activeProvider = provider \|\| runtimeConfig\.provider;/);
+    assert.match(paymentService, /resolvePaymentProvider\(\{ workspaceId, provider, capability: 'statusQuery' \}\)/);
+    assert.match(paymentService, /const activeProvider = resolvedProvider\.provider;/);
 
     assert.match(paymentRoutes, /const provider = runtime\.provider;/);
     assert.match(paymentRoutes, /const configured = runtime\.configured;/);

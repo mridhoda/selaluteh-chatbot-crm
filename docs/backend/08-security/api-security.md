@@ -41,8 +41,13 @@ reset_token
 otp_code
 platform.token
 platform.app_secret
-payment_provider_secret
-SUPABASE_SERVICE_ROLE_KEY
+  payment_provider_secret
+  secret_key
+  webhook_secret
+  raw auth headers
+  raw provider payloads
+  audit logs/events
+  SUPABASE_SERVICE_ROLE_KEY
 OPENAI_API_KEY
 GOOGLE_API_KEY
 ```
@@ -134,3 +139,51 @@ not:
 ```txt
 Telegram user -> public /cart endpoint without session validation
 ```
+
+## Public QR Store Security
+
+- Public order lookup uses an opaque `public_order_token`, not internal order IDs.
+- Public order responses expose public-safe amount fields only: `subtotal_amount`, `discount_amount`, `service_fee_amount`, `tax_amount`, `total_amount`, and `currency`.
+- Public order responses must not include internal order IDs, raw provider payloads, audit logs, internal notes, raw totals objects, or unmasked phone numbers.
+- Customer phone numbers are masked before response serialization.
+- Random/unknown public order tokens return a safe not-found response.
+
+## Public Rate Limiting
+
+Current public route limits are implemented with in-memory buckets:
+
+| Endpoint family | Limit |
+|---|---:|
+| QR lookup | 60/min/IP |
+| Cart validation | 30/min/IP |
+| Checkout | 10/min/IP |
+| Payment polling | 30/min/IP/payment |
+| Public order lookup | 60/min/IP/token |
+
+The in-memory limiter is alpha-grade and single-instance only. Production multi-instance deployments should use edge/WAF route-level limiting as the primary distributed strategy. Add Redis-backed app-level throttling only when the application needs identity-aware or token-aware limits that cannot be expressed at the edge.
+
+## Audit Logs And Security Events
+
+Use `audit_logs` for business/admin mutations and `security_events` for suspicious public/security failures.
+
+Audited actions:
+
+- `order.created`
+- `order.accepted`
+- `order.preparing`
+- `order.ready`
+- `order.completed`
+- `order.cancelled`
+- `payment.created`
+- `payment.webhook_received`
+- `payment.paid`
+- `payment.manual_review`
+- `settings.payment_provider_changed`
+
+Security events:
+
+- `qr.invalid_attempt` for invalid, expired, revoked, unavailable, or mismatched public QR attempts.
+- `payment.webhook_verification_failed` for provider webhook signature/verification failures.
+- `checkout.idempotency_conflict` for same public checkout idempotency key with different request hash.
+
+Audit and security event metadata is redacted before persistence. Secret keys, webhook secrets, raw authorization headers, bearer tokens, cookies/signatures, and unsafe raw provider payload/response fields must not be stored in plaintext.

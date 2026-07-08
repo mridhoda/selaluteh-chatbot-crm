@@ -145,6 +145,27 @@ export const outletsSupabaseRepository = {
     return this.findById({ workspaceId, outletId });
   },
 
+  async findOutletById({ workspaceId, outletId }) {
+    return this.findById({ workspaceId, outletId });
+  },
+
+  async listActiveOutlets({ workspaceId }) {
+    return this.list({ workspaceId, status: 'active', page: 1, limit: 200 });
+  },
+
+  async validateOutletOrdering({ workspaceId, outletId }) {
+    const outlet = await this.findById({ workspaceId, outletId });
+    if (!outlet) return { valid: false, reason: 'OUTLET_NOT_FOUND', outlet: null };
+    const metadata = outlet.metadata || {};
+    const orderingEnabled = metadata.orderingEnabled ?? metadata.ordering_enabled ?? true;
+    const valid = outlet.status === 'active' && orderingEnabled !== false;
+    return {
+      valid,
+      reason: valid ? null : 'OUTLET_NOT_ACCEPTING_ORDERS',
+      outlet,
+    };
+  },
+
   /**
    * Find outlet by unique code within a workspace.
    */

@@ -2,6 +2,873 @@
 
 Use this file to record chronological progress.
 
+## 2026-07-07 — Phase 4 Sections 11-13 Regression, Docs, Alpha Readiness, Final Status
+
+### Progress
+
+- Documented existing regression protection coverage for WhatsApp/Meta commerce, Telegram marketplace/webhooks, AI guardrails, cart/order/payment guardrails, admin authorization/order lifecycle, payment webhooks, and public route/rate-limit guardrails.
+- Updated Phase 4 section 11 task statuses conservatively: implementation/test coverage is identified or added in prior waves, but targeted executable validation is blocked by command policy, so no pass result is claimed.
+- Updated backend API docs for Public Storefront, Orders/Admin Orders, Payments, and Webhooks to reflect Universal QR, public checkout idempotency, BayarGG deferral, webhook verification/mismatch behavior, allowed actions, and alpha validation limits.
+- Updated data docs and seed docs with current Supabase reality: target-aware migration `042` applied, `043` Universal QR verified, `044` applied, SELKOP seed data enabled, active product availability seeded, Universal QR seeded, and BayarGG live credentials deferred.
+- Added `docs/backend/12-devops/alpha-readiness-checklist.md` with Go/No-Go gates, validation commands to run later, BayarGG deferral exit criteria, and rollback notes.
+- Updated section 13 final validation with actual targeted commands attempted/blocked, Supabase MCP validations passed, and final No-Go checklist.
+
+### Changed Files
+
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/05-api-spec/public-storefront-api.md`
+- `docs/backend/05-api-spec/orders-api.md`
+- `docs/backend/05-api-spec/payments-api.md`
+- `docs/backend/05-api-spec/webhooks-api.md`
+- `docs/backend/06-data/database-schema.md`
+- `docs/backend/06-data/seed-data.md`
+- `plans/qr-order-backend/database-schema-plan.md`
+- `docs/backend/12-devops/alpha-readiness-checklist.md`
+- `docs/backend/12-devops/production-readiness.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Validation
+
+- Command execution is blocked in this session; no local tests, E2E tests, specs check, lint, typecheck, or build are marked passing.
+- Supabase MCP validations already documented as passed: target confirmation, migration `042` apply/verification, migration `043` ledger/schema verification, migration `044` apply/verification, SELKOP seed verification, Universal QR seed verification, BayarGG provider catalog presence/no credential rows, uniqueness duplicate groups zero for checked constraints, and advisor review.
+
+### Limitations
+
+- BayarGG real credential/live sandbox readiness remains an approved deferral and No-Go for real paid-alpha claims.
+- Public route rate limiting remains in-memory alpha-only.
+- Background workers remain in-process MVP timers without distributed locks or durable queueing.
+- Pre-existing Supabase advisor findings remain production-hardening work.
+- Security events are written, but no admin security-event browsing UI/API was added.
+
+### Final Status
+
+- Phase 4 sections 11-13 documentation/regression/alpha readiness are complete as documentation/status work with validation blocked where appropriate.
+- Runtime code was not changed in this final documentation pass.
+
+## 2026-07-07 — Phase 4 Section 10 Background Workers and Reconciliation
+
+### Progress
+- Inspected existing `payment-reconciliation.worker.js`, `checkout-cleanup.worker.js`, `qr-session-expiry.worker.js`, payment expiry/reconciliation services, provider adapters, QR session service/repository, and worker job contract.
+- Added payment due scans in the payments repository and wired backend-time expiry through `payment-expiry.service.js` with atomic `pending`/`processing` guards so paid payments are not expired.
+- Refactored payment reconciliation worker paths to call service-layer reconciliation/expiry functions instead of direct unsafe payment/order row updates.
+- Added provider-status reconciliation via configured provider resolver and adapter `getPayment()` where supported, with safe errors when provider settings are unavailable.
+- Added reconciliation audit dependency seam and kept `reconciliation_audit` system records for reconciliation attempts.
+- Suppressed duplicate paid notifications when provider reconciliation finds a payment paid but the order was already paid before reconciliation.
+- Updated QR session cleanup to expire/revoke old sessions without deleting rows, preserving session/order operational history.
+
+### Changed Files
+- `server/src/db/repositories/payments.supabase.repository.js`
+- `server/src/db/repositories/qr-order-sessions.supabase.repository.js`
+- `server/src/services/payment-expiry.service.js`
+- `server/src/services/payment-reconciliation.service.js`
+- `server/src/services/qr-order-session.service.js`
+- `server/src/workers/payment-reconciliation.worker.js`
+- `server/test/unit/services/payment-expiry.service.test.js`
+- `server/test/unit/services/payment-reconciliation.unit.test.js`
+- `server/test/unit/workers/qr-session-expiry.worker.test.js`
+- `docs/backend/04-tech-spec/03.6.4-background-workers-scheduler.md`
+- `docs/backend/04-tech-spec/runbook.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+- `docs/backend/12-ops/payment-ops.md`
+- `specs/backlog/qr-store-backend/tasks.md`
+
+### Validation
+- Targeted tests attempted from `server/`: `NODE_ENV=test node --test "test/unit/services/payment-expiry.service.test.js" "test/unit/services/payment-reconciliation.unit.test.js" "test/unit/workers/qr-session-expiry.worker.test.js"`.
+- Execution was blocked by active command permission policy before Node started; no pass/fail result is claimed.
+- Static pass completed over touched service/worker references after the blocked test attempt.
+
+### Limitations
+- BayarGG real credential/live readiness remains deferred; implementation supports configured status-query behavior and safe unconfigured failure only.
+- Workers remain in-process MVP timers and are not yet backed by a durable distributed queue/lock.
+
+### Next Task
+- Continue Phase 4 section 11 regression protection for existing WhatsApp/AI/marketplace flows.
+
+## 2026-07-07 — Phase 4 Sections 8-9 Audit Log, Security Events, Public Security
+
+### Progress
+- Verified existing order audit coverage for create/accept/prepare/ready/complete/cancel and BayarGG webhook audit coverage for webhook received, paid, and manual review.
+- Added `payment.created` audit logging in payment session creation and `settings.payment_provider_changed` audit logging for payment provider setting changes.
+- Centralized audit redaction in `server/src/utils/audit-redaction.js` and applied it at the audit/security-event repository boundary.
+- Added minimal `security_events` repository/service for the existing table and wired non-blocking events for invalid QR attempts, BayarGG webhook verification failures, and public checkout idempotency conflicts.
+- Confirmed public order response safety: opaque public token lookup, no internal order ID, no raw provider payload, no audit logs, masked phone, and public-safe amounts.
+- Confirmed public rate limits for QR lookup, cart validation, checkout, payment polling, and public order lookup.
+- Documented alpha-only in-memory limiting and selected edge/WAF route-level limiting as the recommended production distributed strategy, with Redis only if app-level identity-aware throttling is required.
+
+### Changed Files
+- `server/src/db/repositories/audit-logs.supabase.repository.js`
+- `server/src/db/repositories/index.js`
+- `server/src/db/repositories/security-events.supabase.repository.js`
+- `server/src/routes/public-store.js`
+- `server/src/services/audit.service.js`
+- `server/src/services/payment.service.js`
+- `server/src/services/payment-webhook.service.js`
+- `server/src/services/public-storefront.service.js`
+- `server/src/services/security-event.service.js`
+- `server/src/services/settings.service.js`
+- `server/src/utils/audit-redaction.js`
+- `server/test/integration/payments/payment-session-bayargg.integration.test.js`
+- `server/test/integration/payments/payment-webhook.integration.test.js`
+- `server/test/unit/middleware/rate-limit.test.js`
+- `server/test/unit/orders/audit-events.test.js`
+- `server/test/unit/services/public-storefront.service.test.js`
+- `server/test/unit/services/security-event.service.test.js`
+- `server/test/unit/utils/redaction.test.js`
+- `docs/backend/05-api-spec/public-storefront-api.md`
+- `docs/backend/08-security/api-security.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+- `specs/backlog/qr-store-backend/tasks.md`
+
+### Validation
+- Targeted tests could not be started because the active tool permission policy blocks shell/background process execution.
+- Intended targeted command: `NODE_ENV=test node --test "server/test/unit/orders/audit-events.test.js" "server/test/unit/utils/redaction.test.js" "server/test/unit/services/public-storefront.service.test.js" "server/test/unit/middleware/rate-limit.test.js" "server/test/unit/services/security-event.service.test.js" "server/test/integration/payments/payment-session-bayargg.integration.test.js" "server/test/integration/payments/payment-webhook.integration.test.js"`.
+
+### Limitations
+- No live Supabase write was performed; `security_events` relies on the existing Phase 3.2/target reconciliation table.
+- The in-memory rate limiter remains alpha/single-instance only.
+- BayarGG live readiness remains deferred until authorized real credentials/settings exist.
+
+### Next Task
+- Continue Phase 4 at section `10.1 Audit existing background workers` after targeted tests can be run.
+
+## 2026-07-07 — Supabase Migration 044 Public Checkout Idempotency State
+
+### Progress
+- Re-confirmed Supabase target identity through MCP: `marketplace-chatbot-Project` (`hxel...ioff`, redacted), region `ap-southeast-1`, status `ACTIVE_HEALTHY`.
+- Reviewed local migration `server/src/db/migrations/044_public_checkout_idempotency_state.sql` as additive/guarded/idempotent: `alter table if exists`, `add column if not exists`, guarded `DO` blocks, `create index if not exists`, `NOT VALID` check constraint, no drops/deletes/truncates.
+- Confirmed migration name `public_checkout_idempotency_state` was absent from the target ledger before apply.
+- Applied migration through Supabase MCP with name `public_checkout_idempotency_state`; result was `success: true`.
+- Verified ledger version `20260707075151`, `order_idempotency_records.status`, `error_snapshot`, `order_idempotency_records_status_check`, `order_idempotency_records_public_checkout_status_idx`, and preserved unique index `order_idempotency_records_public_checkout_unique_idx`.
+- Section 8 was not run in this task.
+
+### Changed Files
+- `specs/backlog/qr-store-backend/database-readiness.md`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Validation
+- Supabase MCP apply migration: `success: true`.
+- Supabase MCP SQL verification confirmed requested columns, check constraint, status index, existing public checkout uniqueness, and migration ledger entry.
+
+### Limitations
+- No local test command was run for this task.
+- No unrelated data was intentionally touched; verification focused on schema objects and migration ledger.
+
+## 2026-07-07 — Phase 4 Section 7 Order Lifecycle and Admin Fulfillment
+
+### Progress
+- Confirmed existing order lifecycle states: unpaid orders remain `payment_status=unpaid` with `fulfillment_status=not_started`; verified paid paths move fulfillment to `awaiting_acceptance`; accept/prepare/ready/complete progress through `accepted`, `preparing`, `ready`, and `completed`.
+- Preserved `orders.manage_status` for lifecycle actions because the user did not explicitly approve splitting permissions into per-action grants; documented the split as deferred.
+- Updated admin order `allowed_actions` so actions are returned only when both backend capability and `orders.manage_status` permission are present.
+- Hardened lifecycle outlet scope uniformly by resolving the order through existing user outlet scope before admin lifecycle mutations and passing the resolved outlet into accept/prepare/ready/complete/cancel transitions.
+- Added service-level outlet guard to generic `transitionOrderStatus` so cancellation/status updates can enforce cross-outlet denial when route callers pass outlet scope.
+- Added targeted security tests for unpaid prepare denial, cancel reason enforcement, cross-outlet prepare/cancel denial, hard delete blocking, and allowed-actions permission/capability consistency.
+
+### Changed Files
+- `server/src/routes/admin-orders.js`
+- `server/src/routes/orders.js`
+- `server/src/services/order.service.js`
+- `server/test/security/orders/cart-order-security.test.js`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Validation
+- Targeted tests were run after implementation; see current task notes for exact commands and results.
+
+### Limitations
+- Per-action admin lifecycle permissions remain deferred; `orders.manage_status` is intentionally retained to preserve existing behavior and permissions.
+- Tests use repository mocks for denied service paths and do not exercise a live Supabase database.
+
+### Next Task
+- Continue Phase 4 at section `8.1 Verify audit log coverage` while keeping BayarGG live-readiness deferred until real credentials/settings are authorized.
+
+## 2026-07-07 — Phase 4 Section 6 BayarGG Webhook Hardening
+
+### Progress
+- Inspected BayarGG payment session creation, runtime provider resolution, BayarGG adapter verification, and payment webhook service paths.
+- Confirmed BayarGG session creation uses backend-owned order amount/currency/reference and returns `toPaymentSessionResponse`, which omits metadata/raw provider response from public responses.
+- Added a BayarGG merchant reference mismatch guard in `processBayarGgWebhook` after provider verification and before payment mutation/fulfillment.
+- Added dependency-injection seams for BayarGG webhook/session service tests without changing production call sites.
+- Added mocked BayarGG tests for configured-session requirement, authoritative session payload/public response safety, valid paid webhook, verification failure before event mutation, duplicate safe no-op, amount/currency/expired manual-review paths, provider transaction mismatch, and merchant reference mismatch.
+- Kept the user-approved BayarGG credential/live-readiness deferral: no real credentials or fake active provider settings were created, and live sandbox readiness is not claimed.
+
+### Changed Files
+- `server/src/services/payment.service.js`
+- `server/src/services/payment-webhook.service.js`
+- `server/test/integration/payments/payment-session-bayargg.integration.test.js`
+- `server/test/integration/payments/payment-webhook.integration.test.js`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Validation
+- Attempted targeted tests from `server/`: `npm test -- --test-reporter=spec test/integration/payments/payment-session-bayargg.integration.test.js test/integration/payments/payment-webhook.integration.test.js`.
+- Test execution was blocked by active command permission policy before Node started; no pass/fail result is claimed.
+- Static review completed against existing helper contracts for BayarGG reference generation and webhook URL.
+
+### Limitations
+- Real BayarGG credential/reference validation and live sandbox webhook verification remain deferred until authorized real credentials/settings exist.
+- Mocked tests validate service behavior without real BayarGG network calls or real credentials.
+
+### Next Task
+- Continue Phase 4 at section `7.1 Confirm order lifecycle states`; do not claim BayarGG live readiness or real paid-alpha payment readiness until credential task `2.4` and sandbox verification are completed.
+
+## 2026-07-07 — BayarGG Deferral Accepted For Phase 4 Non-Credential Work
+
+### Progress
+- Recorded the user's explicit decision to **Defer BayarGG**.
+- Kept task `2.4` incomplete/blocked by real BayarGG credentials because no real SELKOP provider settings row, active setting, encrypted credential, or approved secret reference exists.
+- Confirmed no fake BayarGG credentials should be created and no live payment readiness should be claimed from the current state.
+- Marked checkpoint `2.6` complete with approved BayarGG credential/live-readiness deferral, allowing Phase 4 to proceed with P0 non-credential work.
+
+### Changed Files
+- `specs/backlog/qr-store-backend/tasks.md`
+- `specs/backlog/qr-store-backend/database-readiness.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Validation
+- Documentation/status update only; no runtime code changed and no tests were run.
+
+### Next Task
+- Start Phase 4 P0 non-credential work at task `3.1 Confirm public storefront contract`. BayarGG task `2.4` remains deferred until an authorized operator provides real encrypted/referenced credentials and live/provider verification can be run.
+
+## 2026-07-07 — Universal QR MCP Verified And SELKOP Storefront Ready
+
+### Progress
+- Re-confirmed Supabase target as `marketplace-chatbot-Project` (`hxel...ioff`, redacted) through MCP.
+- Confirmed migration `universal_qr_scope` is already present in the Supabase migration ledger; no duplicate apply was needed.
+- Verified QR schema: `qr_codes.outlet_id` and `qr_order_sessions.outlet_id` are nullable, `qr_codes.scope`/`qr_type` exist, expected scope/type/target checks and indexes exist, and QR session selected/locked context columns exist.
+- Seeded/verified one active SELKOP Universal QR with `scope='universal'`, `qr_type='universal'`, null outlet/location targets, public code `uqr_7d8dd103549e8cae38dacdce6da68820e0b7`, and token hash last8 `e6b5d9bf`. Plaintext token was not printed or stored.
+- Updated only workspace `b4af...393c6` and the two requested SELKOP outlets so both are active, `OPEN`, accepting pickup orders, and mapped to an active/orderable `selkop` storefront.
+- Seeded product outlet availability for active products at both requested outlets; verification shows `1` active product and `1` active available product-outlet row per outlet.
+- Validated BayarGG provider catalog is present/QRIS-enabled, but no SELKOP BayarGG settings row or credential reference exists. No fake credentials or active provider settings were created.
+
+### Changed Files
+- `specs/backlog/qr-store-backend/database-readiness.md`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Validation
+- Supabase MCP migration ledger, schema, seed, storefront readiness, product availability, Universal QR, and BayarGG status checks completed.
+- Local command-based tests were not executed in this wave because shell command execution is unavailable in the current toolset.
+
+### Blocker
+- Task `2.4` remains blocked: there are `0` SELKOP BayarGG provider settings rows, `0` active settings rows, and `0` encrypted credential/credential-fingerprint references.
+
+### Next Task
+- Configure or explicitly defer real BayarGG credentials/settings, then update checkpoint `2.6` accordingly.
+
+## 2026-07-07 — Universal QR Local Implementation Ready
+
+### Progress
+- Added guarded local migration `043_universal_qr_scope.sql` after `042` to relax QR outlet/session nullability, add `scope`/`qr_type` constraints/indexes, and add missing QR session context columns.
+- Updated QR Store runtime so Universal QR returns `outlet_locked=false`, exposes selectable active/orderable outlets, requires a selected outlet for cart/checkout, and validates selected outlets against the QR workspace.
+- Preserved outlet/location QR locking and added outlet override rejection through QR context, cart validation, and checkout.
+- Updated public checkout mapping so location/table QR stores `qr_location_id` and structured QR metadata/fulfillment snapshots instead of writing a human location label into UUID `tableId`.
+- Did not apply `043` or change the Supabase target in this wave.
+
+### Changed Files
+- `server/src/db/migrations/043_universal_qr_scope.sql`
+- `server/src/services/qr-order-session.service.js`
+- `server/src/db/repositories/qr-order-sessions.supabase.repository.js`
+- `server/src/routes/public-store.js`
+- `server/src/services/public-storefront.service.js`
+- `server/src/services/order.service.js`
+- `server/src/db/repositories/orders.supabase.repository.js`
+- `server/test/unit/migrations/phase3-online-qr-store-schema.test.js`
+- `server/test/unit/services/qr-order-session.service.test.js`
+- `server/test/unit/services/public-storefront.service.test.js`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `specs/backlog/qr-store-backend/database-readiness.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Validation
+- Targeted local tests were prepared for migration and QR/public storefront helpers. Supabase MCP apply was intentionally not run in this wave.
+
+### Next MCP Apply Steps
+- Apply local migration `043_universal_qr_scope.sql` to the Supabase target as migration name `universal_qr_scope` after review.
+- Run post-apply checks for `qr_codes.outlet_id` nullable, `scope`/`qr_type` columns and `NOT VALID` constraints, new indexes, and `qr_order_sessions` nullable/context columns.
+- Seed or upsert the real Universal QR row only after `043` apply succeeds; keep storing only public code and hashed token, not plaintext token values.
+
+## 2026-07-07 — QR Store Backend Tasks 2.2-2.6 Supabase Seed/Validation
+
+### Progress
+- Continued Phase 4 section 2 in order and did not proceed to section 3.
+- Inspected target Supabase data through MCP and identified `SelaluKopi Demo` as the SELKOP workspace with two relevant active outlets: `SELKOP Samarinda` (`SLKP-SMD-01`) and `SELKOP Tenggarong` (`SLKP-TGR-01`). Both source outlets are `operational_status=DRAFT`, `accepts_orders=false`, and have `0` product availability rows.
+- Seeded/upserted one active SELKOP storefront (`selkop`, `SELKOP Online Store`) and two visible active storefront outlet mappings. Ordering remains disabled because the source outlets are not orderable.
+- Seeded/upserted four QR locations and six active outlet/location/table QR codes using random public codes and hashed token values. Full public codes and token hashes were not printed or documented.
+- Left true Universal QR blocked because the current target schema requires `qr_codes.outlet_id NOT NULL` and the runtime public QR lookup is outlet-locked.
+- Validated BayarGG provider settings state: BayarGG provider catalog row exists, no duplicate active provider groups exist, plaintext secret columns are absent, and no real provider settings rows exist. No fake credentials were created.
+- Validated post-seed uniqueness/indexes for public order tokens, order numbers, payment provider references/transactions, payment event provider-event IDs, public checkout idempotency keys, QR public codes/token hashes, and QR outlet/location codes. All duplicate group counts were `0`.
+- Reviewed Supabase advisors. Security advisor reports broad pre-existing RLS/function warnings; newly reconciled Phase 3 tables have RLS enabled with one policy each. Performance advisor output was too large to inline.
+
+### Changed Files
+- `specs/backlog/qr-store-backend/database-readiness.md`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Supabase Changes
+- `storefronts`: `1` SELKOP row seeded/upserted.
+- `storefront_outlets`: `2` SELKOP outlet mappings seeded/upserted.
+- `qr_locations`: `4` SELKOP rows seeded/upserted.
+- `qr_codes`: `6` SELKOP outlet/location/table rows seeded/upserted.
+- `payment_provider_settings`: no rows created or modified.
+
+### Validation
+- Storefront seed count: `1`; storefront outlet mapping count: `2`.
+- QR seed count: `4` locations and `6` QR codes.
+- BayarGG catalog: present and QRIS-enabled; settings rows: `0`.
+- Forbidden plaintext provider secret columns: `0`.
+- Required uniqueness indexes: present and unique.
+- Duplicate groups: `0` for all checked order/payment/idempotency/QR uniqueness domains.
+
+### Blockers
+- Task `2.2`: SELKOP outlets are not orderable and have no product availability rows, so storefront/orderable mappings cannot be safely activated.
+- Task `2.3`: true Universal QR cannot be seeded safely until schema/runtime supports non-outlet-locked universal QR semantics.
+- Task `2.4`: no real BayarGG `payment_provider_settings` row or credential reference exists to validate.
+- Task `2.6`: originally remained blocked by the three blockers above; later updates resolved orderability/Universal QR and recorded BayarGG as an approved credential/live-readiness deferral, so checkpoint `2.6` is now complete with deferral.
+
+### Next Task
+- Superseded by later status: proceed to Phase 4 P0 non-credential work under the approved BayarGG deferral; do not claim BayarGG live readiness until real credentials and verification are completed.
+
+## 2026-07-07 — QR Store Backend Task 2.1 MCP Apply Complete
+
+### Progress
+- Re-confirmed the Supabase target as `marketplace-chatbot-Project` (`hxel...ioff`, redacted), status `ACTIVE_HEALTHY`.
+- Reviewed `server/src/db/migrations/042_online_qr_store_target_reconciliation.sql` before apply and confirmed it is additive/guarded for the target, has no data drops or table drops, and only removes old named `payment_provider_settings(provider)` uniqueness objects that conflict with per-mode settings.
+- Applied migration `online_qr_store_target_reconciliation` through Supabase MCP `apply_migration`; result was `success: true`.
+- Ran post-apply MCP SQL verification and confirmed required tables exist, `gen_random_uuid()` works, old uniqueness objects are absent, per-mode provider-setting indexes are unique and column-correct, expected `041` `NOT VALID` constraints exist, and forbidden duplicate tables were not created.
+- Marked Phase 4 task `2.1` complete and did not start task `2.2`.
+
+### Changed Files
+- `specs/backlog/qr-store-backend/database-readiness.md`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Validation
+- Supabase MCP `apply_migration`: passed with `success: true`.
+- Required tables: `storefronts`, `storefront_outlets`, `qr_locations`, `qr_codes`, `payment_providers`, `payment_status_history`, and `security_events` all exist.
+- Provider-setting uniqueness: old `payment_provider_settings_unique` and `uq_payment_provider_settings_workspace_provider` are absent; `payment_provider_settings_one_active_per_mode_idx` is unique on `{workspace_id,mode}` with predicate `(is_active = true)`; `payment_provider_settings_workspace_provider_mode_unique_idx` is unique on `{workspace_id,provider,mode}`.
+- Constraints: `orders_payment_status_check`, `orders_fulfillment_status_check`, `orders_fulfillment_type_check`, `orders_channel_check`, `orders_amounts_non_negative_check`, `payments_status_check`, `payments_amount_non_negative_check`, and `order_items_quantity_positive_check` exist with `convalidated = false`.
+- Forbidden duplicate tables: `qr_sessions`, `product_availability`, `checkout_sessions`, `idempotency_keys`, and `admin_users` are absent.
+
+### Next Task
+- Start `2.2 Seed real storefront data` in a separate wave.
+
+## 2026-07-07 — QR Store Backend Task 2.1 Target Reconciliation Migration Prepared
+
+### Progress
+- Added target-aware additive migration `042_online_qr_store_target_reconciliation.sql` after Supabase MCP revealed drift between local migrations `038` through `041` and the active target.
+- Reconciled missing Phase 3 tables/columns/indexes with `IF NOT EXISTS` and guarded `DO` blocks while preserving runtime table names.
+- Used `payment_provider_settings.provider` for the target runtime schema and avoided any `provider_code` assumption in the reconciliation migration.
+- Added non-destructive structural cleanup for old named `(workspace_id, provider)` uniqueness objects that block per-mode settings, with no row deletes or secret-column updates.
+- Added/ensured per-mode provider-setting uniqueness and guarded `NOT VALID` constraints from `041` where compatible.
+- Updated migration contract tests and readiness/status docs. Supabase apply was not run in this wave because no safe dry-run mechanism was available.
+
+### Changed Files
+- `server/src/db/migrations/042_online_qr_store_target_reconciliation.sql`
+- `server/test/unit/migrations/phase3-online-qr-store-schema.test.js`
+- `specs/backlog/qr-store-backend/database-readiness.md`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Validation
+- Targeted migration contract test attempted from `server/`: `NODE_ENV=test node --test "test/unit/migrations/phase3-online-qr-store-schema.test.js"`; blocked by active command permission policy before Node started.
+- `npm run specs:check` was not run after the targeted command was blocked by the same shell-backed execution policy.
+- Static scan confirmed migration `042` does not contain `provider_code`, plaintext secret columns, or duplicate greenfield table creation patterns for `qr_sessions`, `product_availability`, `checkout_sessions`, `idempotency_keys`, or `admin_users`.
+- Target Supabase migration apply was intentionally not run.
+
+### Next Task
+- Apply `042_online_qr_store_target_reconciliation.sql` via Supabase MCP `apply_migration` after operator confirmation of the target project, then run post-apply object/index/constraint checks before task `2.2`.
+
+## 2026-07-07 — QR Store Backend Task 2.1 Supabase MCP Verification Blocked by Schema Drift
+
+### Progress
+- Identified the accessible Supabase target through MCP as `marketplace-chatbot-Project` (`hxel...ioff`, redacted), region `ap-southeast-1`, active/healthy. Repository project references match the same ref; no credentials were printed.
+- Ran read-only MCP SQL against the target migration ledger. `supabase_migrations.schema_migrations` exists, but exact local migration names `038_online_qr_store_schema_phase3`, `039_online_qr_store_phase31_hardening`, `040_online_qr_store_phase32_detail_schema`, and `041_online_qr_store_phase33_integrity` are absent.
+- Noted later target migration records such as `qr_order_alpha_schema_sync_v2`, `qr_order_alpha_order_fulfillment_type`, and `qr_order_alpha_status_enum_sync`, indicating target drift/partial overlap.
+- Confirmed required UUID support: `pgcrypto` `1.3`, `uuid-ossp` `1.1`, and `gen_random_uuid()` are available.
+- Confirmed base Phase 3 objects from local migrations are missing, including `storefronts`, `storefront_outlets`, `qr_locations`, `qr_codes`, `payment_providers`, `payment_status_history`, and `security_events`.
+- Confirmed target `payment_provider_settings` uses `provider` rather than local migration `provider_code`; it already has per-mode provider-setting indexes on `(workspace_id, provider, mode)` but still has old `(workspace_id, provider)` uniqueness.
+- Confirmed no current row-level duplicate conflicts for `(workspace_id, provider, mode)` or active `(workspace_id, mode)` groups; the target currently has zero provider-setting rows.
+- Confirmed expected `041` `NOT VALID` constraints are absent, so acceptance cannot be claimed.
+- Did not apply migrations `038` through `041` because blind direct apply is unsafe against the drifted target schema and would reference `provider_code` where the target has `provider`.
+- Did not start `2.2` seed work.
+
+### Changed Files
+- `specs/backlog/qr-store-backend/database-readiness.md`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Validation
+- Supabase MCP read-only SQL checks completed and summarized in `database-readiness.md`.
+- Migration apply was intentionally not run.
+- `npm run specs:check` was attempted through the available background process tool, but shell-backed command execution is denied by active environment permissions; no pass/fail result is claimed.
+
+### Next Task
+- Continue task `2.1` by preparing a target-aware additive reconciliation migration for the actual Supabase schema. Do not start task `2.2` until target migration checks pass.
+
+## 2026-07-07 — QR Store Backend Task 2.1 Migration Readiness Blocked
+
+### Progress
+- Inspected local migrations `038_online_qr_store_schema_phase3.sql`, `039_online_qr_store_phase31_hardening.sql`, `040_online_qr_store_phase32_detail_schema.sql`, and `041_online_qr_store_phase33_integrity.sql`.
+- Documented expected apply order, required target environment inputs, required `gen_random_uuid()`/extension checks, `NOT VALID` constraint checks, provider-setting uniqueness conflict checks, manual apply commands, post-apply SQL checks, and rollback notes.
+- Marked task `2.1` as blocked/pending target Supabase execution access and command validation; all verification checklist items remain unchecked because no target apply/check output was produced.
+- Did not start tasks `2.2` or later.
+
+### Changed Files
+- `specs/backlog/qr-store-backend/database-readiness.md`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Notes
+- Documentation-only work; no runtime code changes.
+- Exact blocker: missing target Supabase migration execution access/credentials and command execution validation in this session.
+- Next manual action: an operator with target Supabase access must run the documented migration apply and SQL verification commands, capture outputs, and only then update task `2.1` completion status.
+
+### Validation
+- Local file inspection only.
+- Supabase migration apply was not executed.
+- Required extension SQL checks, `NOT VALID` constraint checks, provider-setting uniqueness checks, and Supabase advisors were not executed; no outputs are claimed.
+
+## 2026-07-07 — QR Store Backend Section 3 Public Storefront/Menu Hardening
+
+### Progress
+- Hardened public storefront outlet selection so only active, visible, orderable, pickup-enabled outlets are returned and selected unavailable outlets return `OUTLET_UNAVAILABLE` before cart/checkout side effects.
+- Hardened public menu mapping to expose only customer-safe storefront/outlet/product/modifier fields, omitting cost price, inventory counts, raw metadata, and unavailable products from the customer product list.
+- Added backend-owned modifier validation/pricing for public cart/checkout snapshots: group ownership, option ownership, supported min/max fields, backend price deltas, and invalid payload rejection.
+- Updated public storefront API docs and Phase 4 section 3 task status with the explicit modifier model limitation: min/max is enforced only when the existing product modifier metadata/relation supplies those fields.
+
+### Changed Files
+- `server/src/services/public-storefront.service.js`
+- `server/test/unit/services/public-storefront.service.test.js`
+- `docs/backend/05-api-spec/public-storefront-api.md`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Validation
+- Added focused unit coverage for safe product/modifier mapping, orderable outlet gating, invalid modifier group/option/min/max, and modifier price tampering ignored.
+- Attempted targeted test execution with `npm test -- --test-name-pattern="public storefront"` from `server/`, but command execution was blocked by the active tool policy. No pass/fail result is claimed.
+
+## 2026-07-07 — QR Store Backend Tasks 1.3-1.8 Audit Completion
+
+### Progress
+- Freshly inspected marketplace preservation paths for WhatsApp/Meta commerce, active Telegram commerce, AI assisted order/cart behavior, and regression tests that must remain green.
+- Freshly inspected product, outlet availability, and modifier runtime, including product service/repository, `product_outlet_availability`, inventory checks, cart/checkout modifier carry-through, and public cart modifier validation/pricing gaps.
+- Freshly inspected public checkout/order/payment lifecycle, including idempotency behavior, order snapshots, payment session creation, BayarGG webhook paid/manual-review transitions, and paid-only fulfillment guards.
+- Freshly inspected admin order lifecycle and permissions, including list/detail scoping, outlet access, cancel reason, hard-delete blocking, and the `orders.manage_status` versus per-action permission gap.
+- Compared API/data docs against runtime and migrations, then marked stale docs in `specs/backlog/qr-store-backend/audit-evidence.md` before any runtime edit.
+- Marked tasks `1.3` through `1.7` complete as documentation audits and checkpoint `1.8` complete.
+
+### Changed Files
+- `specs/backlog/qr-store-backend/audit-evidence.md`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Notes
+- Documentation/spec work only; no runtime code changes.
+- Next recommended task is `2.1 Verify migrations 038 through 041`.
+
+### Validation
+- Baseline tests were identified in `audit-evidence.md` for marketplace, public store/QR, product/checkout/payment, admin lifecycle, and migration coverage.
+- Tests and `npm run specs:check` were not executed in this documentation-only wave; no pass/fail output is claimed.
+
+## 2026-07-07 — QR Store Backend Task 1.1 Online Store Audit
+
+### Progress
+- Freshly inspected Online Store runtime paths in `public-store.js`, `public-storefront.service.js`, `storefronts.supabase.repository.js`, and relevant public order support/tests/docs.
+- Added a dedicated `1.1 Online Store Audit` section to `specs/backlog/qr-store-backend/audit-evidence.md` with file references, public storefront, outlet selection, menu browsing, cart validation, checkout, payment status, public order tracking, gaps/risks, and baseline tests.
+- Marked task `1.1` completed as a documentation audit because all inspection/mapping acceptance items are satisfied.
+- Did not mark checkpoint `1.8`.
+
+### Changed Files
+- `specs/backlog/qr-store-backend/audit-evidence.md`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Notes
+- Documentation/spec work only; no runtime code changes.
+- Next task is `1.3 Audit existing marketplace preservation paths` because tasks `1.1` and `1.2` are now documented as complete.
+
+### Validation
+- Online Store baseline tests identified: `server/test/unit/routes/authorization-routes.test.js` and `server/test/unit/services/public-storefront.service.test.js`.
+- Tests were not executed in this documentation-only wave; no pass/fail output is claimed.
+
+## 2026-07-07 — QR Store Backend Task 1.2 Runtime Audit
+
+### Progress
+- Freshly inspected QR Store runtime paths in `qr-order-session.service.js`, `qr-order-sessions.supabase.repository.js`, migrations `038` through `041`, and QR unit/migration tests.
+- Added a dedicated `1.2 QR Store Runtime Audit` section to `specs/backlog/qr-store-backend/audit-evidence.md` with file references, Universal/Outlet/Location QR support mapping, gaps, and baseline tests.
+- Marked task `1.2` completed as an audit because all inspection/mapping acceptance items are satisfied.
+- Documented that true Universal QR remains a runtime/schema gap: current `qr_codes.outlet_id` is non-null and the QR Store context is always `outlet_locked: true`.
+- Did not mark checkpoint `1.8`.
+
+### Changed Files
+- `specs/backlog/qr-store-backend/audit-evidence.md`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Notes
+- Documentation/spec work only; no runtime code changes.
+- Superseded by the later task `1.1` entry above; next task is now `1.3 Audit existing marketplace preservation paths`.
+
+### Validation
+- QR baseline tests identified: `NODE_ENV=test node --test "test/unit/services/qr-order-session.service.test.js"` and `NODE_ENV=test node --test "test/unit/migrations/phase3-online-qr-store-schema.test.js"`.
+- Tests were not executed in this documentation-only wave; no pass/fail output is claimed.
+
+## 2026-07-07 — QR Store Backend Backlog Continuation Tasks 0.1-0.3
+
+### Progress
+- Applied the user's explicit decision to continue `specs/backlog/qr-store-backend` as a Phase 3.x follow-up/continuation and bypass the spec authority blocker.
+- Kept the spec in backlog; no active-folder move was performed.
+- Marked task `0.1` completed with validation limitation after confirming normalized `requirements.md` and `design.md` document shape from prior cleanup.
+- Marked task `0.2` completed with the recorded authority decision.
+- Marked task `0.3` completed by creating `specs/backlog/qr-store-backend/audit-evidence.md` with capability/gap mapping against supplied Phase 3.x evidence.
+- Left checkpoint task `0.4` pending because specs lifecycle validation was not executed in this wave.
+
+### Changed Files
+- `specs/backlog/qr-store-backend/tasks.md`
+- `specs/backlog/qr-store-backend/audit-evidence.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Notes
+- Documentation/spec work only; no runtime code changes.
+- Next task is `1.1 Audit Online Store runtime paths`.
+
+### Validation
+- `npm run specs:check`: not executed in this wave; no pass/fail output is claimed.
+
+## 2026-07-07 — QR Store Backend Backlog Spec Hygiene Task 0.1
+
+### Progress
+- Normalized `specs/backlog/qr-store-backend/requirements.md` by removing the generator wrapper lines only.
+- Normalized `specs/backlog/qr-store-backend/design.md` by removing the conversational copy/paste wrapper and tail save/commit instructions.
+- Preserved legitimate Markdown and code fences inside the backlog spec documents.
+- Left `specs/backlog/qr-store-backend/tasks.md` task `0.1` pending validation because the specs check could not be run in this session.
+- Kept `specs/backlog/qr-store-backend/spec.yaml` in backlog status and did not move the spec to active.
+- Superseded later on 2026-07-07 by continuation entry: task `0.1` marked completed with validation limitation; task `0.2` completed by explicit user authority decision.
+
+### Changed Files
+- `specs/backlog/qr-store-backend/requirements.md`
+- `specs/backlog/qr-store-backend/design.md`
+- `specs/backlog/qr-store-backend/tasks.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+
+### Notes
+- Documentation/spec hygiene only; no runtime code changes.
+- Next task after validation is `0.2 Confirm spec authority before activation`.
+
+### Validation
+- `npm run specs:check`: blocked by local shell/process execution permission policy before command execution.
+
+## 2026-07-07 — Online QR Store Phase 3.4 Security Guardrails
+
+### Completed
+- Implemented `plans/qr-order-backend/phase-3.4.md` alpha security guardrails on the existing Online/QR Store backend.
+- Added public route rate limits for QR lookup, cart validation, checkout, payment status polling, and public order lookup.
+- Hardened public order response safety by keeping phone masking and removing raw `totals` from the public response.
+- Added non-blocking audit logs for order lifecycle actions and BayarGG payment events.
+- Hardened BayarGG webhook mismatch/expired paths to `manual_review` without marking payment/order paid.
+- Disabled order hard delete in service/repository layers and enforced cancel reason on generic cancellation.
+
+### Changed Files
+- `server/src/middleware/rate-limit.js`
+- `server/src/routes/public-store.js`
+- `server/src/services/public-order.service.js`
+- `server/src/services/public-storefront.service.js`
+- `server/src/services/order.service.js`
+- `server/src/services/payment-webhook.service.js`
+- `server/src/db/repositories/orders.supabase.repository.js`
+- `server/test/unit/middleware/rate-limit.test.js`
+- `server/test/unit/services/public-storefront.service.test.js`
+- `server/test/security/orders/cart-order-security.test.js`
+- `server/test/security/payments/payment-security.test.js`
+
+### Notes
+- Payment paid remains provider/webhook/reconciliation authority only.
+- Public checkout now requires customer name and phone before side effects.
+- In-memory rate limiting is alpha-grade; shared/distributed rate limiting remains a future deployment hardening task.
+
+### Tests
+- Syntax checks for touched runtime modules: passed.
+- `NODE_ENV=test node --test "test/unit/services/public-storefront.service.test.js" "test/unit/middleware/rate-limit.test.js" "test/security/orders/cart-order-security.test.js" "test/security/payments/payment-security.test.js"`: 24 pass, 0 fail.
+- `NODE_ENV=test node --test "test/unit/migrations/phase3-online-qr-store-schema.test.js"`: 6 pass, 0 fail.
+- `npm run specs:check`: passed, 15 specs validated.
+
+## 2026-07-07 — Online QR Store Phase 3.3 Integrity Follow-up
+
+### Completed
+- Tightened Phase 3.3 migration `041_online_qr_store_phase33_integrity.sql` after runtime gap scan.
+- Added missing order/payment indexes from the plan: outlet-created, payment-status-created, and payment order lookup.
+- Reconciled payment provider settings uniqueness to support one active provider per workspace/mode and one provider config per workspace/provider/mode.
+- Added runtime `payment_events` provider-event unique and raw-payload hash indexes because webhook processing writes to `payment_events`.
+- Added `manual_review` to runtime payment status transitions and `orders.payment_status` constraint.
+- Made active payment-provider runtime lookup mode-aware and conflict-detecting.
+
+### Changed Files
+- `server/src/db/migrations/041_online_qr_store_phase33_integrity.sql`
+- `server/src/db/repositories/payment-provider-settings.supabase.repository.js`
+- `server/src/services/settings.service.js`
+- `server/src/orders/order-types.js`
+- `server/src/services/payment-webhook.service.js`
+- `server/src/services/public-storefront.service.js`
+- `server/src/services/order.service.js`
+- `server/src/db/repositories/orders.supabase.repository.js`
+- `server/test/unit/migrations/phase3-online-qr-store-schema.test.js`
+- `server/test/unit/repositories/payment-provider-settings.repository.test.js`
+- `server/test/unit/orders/order-types.test.js`
+- `server/test/unit/services/public-storefront.service.test.js`
+- `server/test/security/orders/cart-order-security.test.js`
+
+### Notes
+- Full transaction/claim-based public checkout idempotency locking and full modifier pricing validation remain deferred for a larger repository/schema workflow pass.
+
+### Tests
+- Syntax checks for touched runtime modules: passed.
+- `NODE_ENV=test node --test "test/unit/migrations/phase3-online-qr-store-schema.test.js" "test/unit/repositories/payment-provider-settings.repository.test.js" "test/unit/orders/order-types.test.js" "test/unit/services/public-storefront.service.test.js" "test/security/orders/cart-order-security.test.js" "test/security/payments/payment-security.test.js"`: 55 pass, 0 fail.
+- `NODE_ENV=test node --test "test/unit/services/settings.service.test.js" "test/unit/middleware/rate-limit.test.js"`: 6 pass, 0 fail.
+- `npm run specs:check`: passed, 15 specs validated.
+
+## 2026-07-07 — Online QR Store Phase 3.3 Integrity Hardening
+
+### Completed
+- Activated `selaluteh-cart-order-lifecycle` task `ORD-QR-P3.3` for `plans/qr-order-backend/phase-3.3.md` and ran baseline `npm run specs:check`.
+- Added migration `041_online_qr_store_phase33_integrity.sql` for additive indexes, partial unique indexes, and guarded check constraints.
+- Applied greenfield `qr_sessions`, `product_availability`, and `idempotency_keys` integrity concepts to existing runtime tables `qr_order_sessions`, `product_outlet_availability`, and `order_idempotency_records`.
+- Added provider-agnostic payment uniqueness and one-active-provider-per-workspace/mode indexes without adding provider-specific columns.
+- Added `NOT VALID` order/payment/order-item constraints so future writes are guarded while legacy data can be audited separately.
+- Updated migration contract tests and integrity documentation.
+
+### Changed Files
+- `server/src/db/migrations/041_online_qr_store_phase33_integrity.sql`
+- `server/test/unit/migrations/phase3-online-qr-store-schema.test.js`
+- `plans/qr-order-backend/database-schema-plan.md`
+- `docs/backend/06-data/database-schema.md`
+- `docs/backend/06-data/indexes.md`
+- `docs/backend/06-data/migration-plan.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+- `specs/active/selaluteh-cart-order-lifecycle/tasks.md`
+
+### Notes
+- Paid-only fulfillment, backend total recomputation, provider-paid authority, QR outlet locking, and public response redaction remain service-layer authority.
+- Migration `041` was not applied to a live Supabase project in this local session.
+
+### Tests
+- Baseline `npm run specs:check`: passed, 15 specs validated.
+- `NODE_ENV=test node --test "test/unit/migrations/phase3-online-qr-store-schema.test.js"`: 6 pass, 0 fail.
+- Final `npm run specs:check`: passed, 15 specs validated.
+
+## 2026-07-07 — Online QR Store Phase 3.2 Detail Schema Reconciliation
+
+### Completed
+- Activated `selaluteh-cart-order-lifecycle` task `ORD-QR-P3.2` for `plans/qr-order-backend/phase-3.2.md` and ran baseline `npm run specs:check`.
+- Reconciled the 36-table Phase 3.2 greenfield schema draft against existing Supabase/Postgres runtime tables.
+- Added additive migration `040_online_qr_store_phase32_detail_schema.sql` for safe storefront, storefront outlet, provider settings, payment, webhook, payment history, order history, and security event detail fields.
+- Kept `qr_order_sessions`, `product_outlet_availability`, `order_idempotency_records`, existing checkout/order/payment tables, and existing auth/permission runtime as canonical physical tables.
+- Documented deferred/non-duplicate Phase 3.2 decisions in `plans/qr-order-backend/database-schema-plan.md`.
+
+### Changed Files
+- `server/src/db/migrations/040_online_qr_store_phase32_detail_schema.sql`
+- `server/test/unit/migrations/phase3-online-qr-store-schema.test.js`
+- `plans/qr-order-backend/database-schema-plan.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+- `specs/active/selaluteh-cart-order-lifecycle/tasks.md`
+
+### Notes
+- Phase 3.2 money-standard conversion to integer minor units was documented as a future coordinated data/API migration, not silently changed in this additive migration.
+- `brands`, `storefront_settings`, greenfield checkout/idempotency/admin auth tables, and catalog rebuilds remain deferred to avoid duplicate runtime authority.
+- Migration `040` was not applied to a live Supabase project in this local session.
+
+### Tests
+- Baseline `npm run specs:check`: passed, 15 specs validated.
+- `NODE_ENV=test node --test "test/unit/migrations/phase3-online-qr-store-schema.test.js"`: 5 pass, 0 fail.
+- Final `npm run specs:check`: passed, 15 specs validated.
+
+## 2026-07-07 — Online QR Store Phase 3.1 Hardening
+
+### Completed
+- Activated `selaluteh-cart-order-lifecycle` task `ORD-QR-P3.1` from `.kilo/plans/1783371302130-tidy-knight.md` and ran baseline `npm run specs:check`.
+- Added runtime domain constants for public order channels, QR location/status/session values, fulfillment types, and supported payment provider codes/modes.
+- Added additive migration `039_online_qr_store_phase31_hardening.sql` for QR location sort order, QR code outlet lock/revocation/admin fields, safe indexes, and check-constraint hardening.
+- Split QR code vs QR order session semantics so QR-code-only lookup returns `qr_session.id = null` and keeps `qr_session.qr_code_id` separate.
+- Preserved public storefront response shape while carrying table-backed storefront ID through internal context and order metadata.
+- Documented seed/application strategy for storefronts, storefront outlets, QR locations, QR codes, and provider verification without plaintext secrets.
+
+### Changed Files
+- `server/src/orders/order-types.js`
+- `server/src/services/public-storefront.service.js`
+- `server/src/services/qr-order-session.service.js`
+- `server/src/services/order.service.js`
+- `server/src/db/migrations/039_online_qr_store_phase31_hardening.sql`
+- `server/test/unit/orders/order-types.test.js`
+- `server/test/unit/services/public-storefront.service.test.js`
+- `server/test/unit/services/qr-order-session.service.test.js`
+- `server/test/unit/migrations/phase3-online-qr-store-schema.test.js`
+- `plans/qr-order-backend/database-schema-plan.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+- `specs/active/selaluteh-cart-order-lifecycle/tasks.md`
+
+### Notes
+- Active runtime remains pickup-only for public checkout even though schema can model future `dine_in` and `takeaway` values.
+- `payment_provider_settings` remains provider/mode metadata and redaction surface; encrypted workspace settings metadata remains credential authority.
+- Migration `039` was not applied to a live Supabase project in this local session.
+
+### Tests
+- Baseline `npm run specs:check`: passed, 15 specs validated.
+- `NODE_ENV=test node --check "src/services/public-storefront.service.js"`: passed.
+- `NODE_ENV=test node --check "src/services/qr-order-session.service.js"`: passed.
+- `NODE_ENV=test node --check "src/orders/order-types.js"`: passed.
+- `NODE_ENV=test node --check "src/services/order.service.js"`: passed.
+- `NODE_ENV=test node --test "test/unit/orders/order-types.test.js" "test/unit/services/public-storefront.service.test.js" "test/unit/services/qr-order-session.service.test.js" "test/unit/migrations/phase3-online-qr-store-schema.test.js" "test/unit/services/settings.service.test.js" "test/unit/repositories/payment-provider-settings.repository.test.js"`: 39 pass, 0 fail.
+- Final `npm run specs:check`: passed, 15 specs validated.
+
+## 2026-07-07 — Online QR Store Database Schema Phase 3
+
+### Completed
+- Activated `selaluteh-cart-order-lifecycle` task `ORD-QR-P3` from `.kilo/plans/1783370216800-cosmic-nebula.md` after the repository task pointer was idle.
+- Inspected existing commerce, payment, QR, and settings runtime migrations before adding schema: `022_cart_order_canonical.sql`, `023_payments_xendit_canonical.sql`, `033_payment_provider_bayargg.sql`, and `037_qr_public_order_lifecycle.sql`.
+- Added schema mapping plan `plans/qr-order-backend/database-schema-plan.md` to reconcile Phase 3 logical names with existing physical runtime tables.
+- Added additive migration `038_online_qr_store_schema_phase3.sql` for `storefronts`, `storefront_outlets`, `qr_locations`, `qr_codes`, QR session/order extension columns, provider-agnostic payment provider settings, and payment status history.
+- Added storefront and payment provider settings repositories, extended QR repository/service lookup, and updated public storefront service to prefer `storefronts` while preserving workspace/settings metadata fallback.
+- Kept payment provider runtime configurable and preserved existing encrypted workspace settings metadata as credential source.
+
+### Changed Files
+- `server/src/db/migrations/038_online_qr_store_schema_phase3.sql`
+- `server/src/db/repositories/storefronts.supabase.repository.js`
+- `server/src/db/repositories/payment-provider-settings.supabase.repository.js`
+- `server/src/db/repositories/qr-order-sessions.supabase.repository.js`
+- `server/src/db/repositories/index.js`
+- `server/src/services/public-storefront.service.js`
+- `server/src/services/qr-order-session.service.js`
+- `server/src/services/settings.service.js`
+- `server/test/unit/migrations/phase3-online-qr-store-schema.test.js`
+- `server/test/unit/repositories/payment-provider-settings.repository.test.js`
+- `server/test/unit/services/public-storefront.service.test.js`
+- `server/test/unit/services/settings.service.test.js`
+- `plans/qr-order-backend/database-schema-plan.md`
+- `docs/backend/06-data/database-schema.md`
+- `docs/backend/06-data/indexes.md`
+- `docs/backend/06-data/rls-policies.md`
+- `docs/backend/06-data/migration-plan.md`
+- `docs/backend/05-api-spec/public-storefront-api.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+- `specs/active/selaluteh-cart-order-lifecycle/tasks.md`
+
+### Notes
+- `033_payment_provider_bayargg.sql` only adds provider enum values, so Phase 3 adds provider-agnostic settings tables without hardcoding BayarGG in runtime code.
+- `qr_order_sessions`, `product_outlet_availability`, and `order_idempotency_records` remain the physical runtime tables for their domains.
+- Active fulfillment remains pickup-only; `dine_in` and `takeaway` are stored as future storefront outlet flags only.
+- Live Supabase migration application was not run in this local session.
+
+### Tests
+- `npm run specs:check`: passed before implementation, 15 specs validated.
+- `NODE_ENV=test node --check "src/services/public-storefront.service.js"`: passed.
+- `NODE_ENV=test node --check "src/services/qr-order-session.service.js"`: passed.
+- `NODE_ENV=test node --check "src/services/settings.service.js"`: passed.
+- `NODE_ENV=test node --test "test/unit/services/public-storefront.service.test.js" "test/unit/services/settings.service.test.js" "test/unit/migrations/phase3-online-qr-store-schema.test.js" "test/unit/repositories/payment-provider-settings.repository.test.js"`: 13 pass, 0 fail.
+- `NODE_ENV=test node --test "test/unit/orders/order-types.test.js" "test/unit/routes/authorization-routes.test.js" "test/unit/services/public-storefront.service.test.js" "test/unit/services/settings.service.test.js" "test/unit/migrations/phase3-online-qr-store-schema.test.js" "test/unit/repositories/payment-provider-settings.repository.test.js"`: 42 pass, 0 fail.
+- Final `npm run specs:check`: passed, 15 specs validated.
+
+## 2026-07-07 — QR/Online Store Backend API Contract Phase 2
+
+### Completed
+- Activated `selaluteh-cart-order-lifecycle` task `ORD-QR-P2` from `.kilo/plans/1783347396991-happy-canyon.md` after the repository task pointer was idle.
+- Added `/api/v1/public`, `/api/v1/admin/orders`, and `/api/v1/webhooks` aliases while preserving existing `/api/public`, `/orders`, `/webhook`, and `/api/webhooks` behavior.
+- Implemented public storefront/menu, QR store context envelope, cart validation, public checkout, public payment status, and expanded public order response mapping.
+- Added public checkout idempotency using `order_idempotency_records`, server-side cart total recomputation, QR outlet lock enforcement, and pickup-only guardrails.
+- Added Phase 2 admin order alias router with allowed actions derived from existing order capabilities.
+- Added tests for public route unauthenticated registration, admin alias protection, and public storefront helper behavior.
+
+### Changed Files
+- `server/src/index.js`
+- `server/src/routes/public-store.js`
+- `server/src/routes/admin-orders.js`
+- `server/src/services/public-storefront.service.js`
+- `server/src/services/public-order.service.js`
+- `server/src/services/qr-order-session.service.js`
+- `server/src/db/repositories/payments.supabase.repository.js`
+- `server/src/db/repositories/qr-order-sessions.supabase.repository.js`
+- `server/test/unit/routes/authorization-routes.test.js`
+- `server/test/unit/services/public-storefront.service.test.js`
+- `docs/backend/05-api-spec/public-storefront-api.md`
+- `docs/backend/05-api-spec/orders-api.md`
+- `docs/backend/05-api-spec/payments-api.md`
+- `docs/backend/05-api-spec/webhooks-api.md`
+- `docs/backend/09-ai-context/current-task.md`
+- `docs/backend/11-sprint/implementation-status.md`
+- `docs/backend/11-sprint/progress-log.md`
+- `specs/active/selaluteh-cart-order-lifecycle/tasks.md`
+
+### Notes
+- Payment provider remains workspace runtime configuration; no provider is hard-coded for public checkout.
+- Public checkout creates payment after order creation. If provider configuration is missing, the request fails after order creation and requires operational retry handling.
+- Public storefront slug resolution currently reads workspace/settings metadata conventions; a dedicated storefront table remains a future hardening option.
+- Active fulfillment remains pickup-only even when Phase 2 examples mention dine-in/takeaway.
+
+### Tests
+- `npm run specs:check`: passed before implementation, 15 specs validated.
+- `NODE_ENV=test node --test "test/unit/routes/authorization-routes.test.js"`: 9 pass, 0 fail.
+- `NODE_ENV=test node --test "test/unit/services/public-storefront.service.test.js"`: 3 pass, 0 fail.
+- `NODE_ENV=test node --check src/services/public-storefront.service.js`: passed.
+- `NODE_ENV=test node --check src/routes/admin-orders.js`: passed.
+- `NODE_ENV=test node --test "test/unit/orders/order-types.test.js" "test/unit/routes/authorization-routes.test.js" "test/unit/services/public-storefront.service.test.js"`: 32 pass, 0 fail.
+- `NODE_ENV=test node --test "test/security/orders/cart-order-security.test.js" "test/property/orders/cart-order-property.test.js" "test/resilience/orders/cart-order-resilience.test.js"`: 26 pass, 0 fail.
+- `NODE_ENV=test node --test "test/integration/payments/payment-attempt.integration.test.js" "test/integration/payments/payment-webhook.integration.test.js"`: 5 pass, 0 fail.
+- Final `npm run specs:check`: passed, 15 specs validated.
+
+### Blockers
+- Live provider webhook/payment and Supabase migration application were not run in this local session.
+
+### Next
+- Current task pointer closed to idle. Wait for an explicitly selected next task before continuing.
+
 ## 2026-07-06 — QR/Online Order Backend Lifecycle Phase 1
 
 ### Completed

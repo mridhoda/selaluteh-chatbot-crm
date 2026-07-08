@@ -94,6 +94,62 @@ export const productsSupabaseRepository = {
     return row ? mapRow(row) : null;
   },
 
+  async listCategories({ workspaceId, brandId } = {}) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    let query = client.from('product_categories').select('*').eq('workspace_id', workspaceId).order('sort_order', { ascending: true });
+    if (brandId) query = query.eq('brand_id', brandId);
+    const result = await query;
+    return mapRows(extractData(result, 'catalog.listCategories') ?? []);
+  },
+
+  async listProductsForOutlet({ workspaceId, outletId }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(AVAIL_TABLE)
+      .select('*, products(*)')
+      .eq('workspace_id', workspaceId)
+      .eq('outlet_id', outletId);
+    const rows = extractData(result, 'catalog.listProductsForOutlet') ?? [];
+    return rows
+      .map((row) => ({ ...mapRow(row.products || {}), outletAvailability: mapRow(row) }))
+      .filter((product) => product.id);
+  },
+
+  async findProductWithModifiers({ workspaceId, productId }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .select('*, product_modifiers(*)')
+      .eq('workspace_id', workspaceId)
+      .eq('id', productId)
+      .maybeSingle();
+    const row = extractSingle(result, 'catalog.findProductWithModifiers');
+    if (!row) return null;
+    const product = mapRow(row);
+    product.modifiers = mapRows(row.product_modifiers || []);
+    return product;
+  },
+
+  async findProductsByIds({ workspaceId, productIds }) {
+    requireWorkspaceId(workspaceId);
+    if (!Array.isArray(productIds) || productIds.length === 0) return [];
+    return this.findProducts({ workspaceId, ids: productIds });
+  },
+
+  async listAvailabilityForOutlet({ workspaceId, outletId }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(AVAIL_TABLE)
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .eq('outlet_id', outletId);
+    return mapRows(extractData(result, 'catalog.listAvailabilityForOutlet') ?? []);
+  },
+
   /**
    * Find products matching arbitrary query (used by AI service).
    */

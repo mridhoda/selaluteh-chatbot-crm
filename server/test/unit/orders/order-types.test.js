@@ -2,6 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CartStatus, OrderStatus, PaymentStatus, FulfillmentStatus, PublicOrderStatus,
+  PublicOrderChannel, RuntimeFulfillmentType, RuntimePaymentProviderCode, RuntimePaymentProviderMode,
+  RuntimeQrLocationType, RuntimeQrSessionStatus, RuntimeQrStatus,
   canTransitionFulfillment, canTransitionPayment,
   derivePublicOrderStatus, getOrderCapabilities,
   isValidCartTransition, isValidOrderTransition, ORDER_ERRORS,
@@ -27,6 +29,7 @@ describe('order-types', () => {
   describe('payment, fulfillment, and public statuses', () => {
     it('defines lower-case payment and fulfillment statuses', () => {
       assert.strictEqual(PaymentStatus.PAID, 'paid');
+      assert.strictEqual(PaymentStatus.MANUAL_REVIEW, 'manual_review');
       assert.strictEqual(FulfillmentStatus.AWAITING_ACCEPTANCE, 'awaiting_acceptance');
       assert.strictEqual(PublicOrderStatus.ORDER_RECEIVED, 'order_received');
     });
@@ -34,6 +37,8 @@ describe('order-types', () => {
     it('validates payment transitions without allowing stale downgrade after paid', () => {
       assert.ok(canTransitionPayment(PaymentStatus.PENDING, PaymentStatus.PAID));
       assert.ok(canTransitionPayment(PaymentStatus.PROCESSING, PaymentStatus.PAID));
+      assert.ok(canTransitionPayment(PaymentStatus.PROCESSING, PaymentStatus.MANUAL_REVIEW));
+      assert.ok(canTransitionPayment(PaymentStatus.MANUAL_REVIEW, PaymentStatus.FAILED));
       assert.ok(!canTransitionPayment(PaymentStatus.PAID, PaymentStatus.EXPIRED));
       assert.ok(!canTransitionPayment(PaymentStatus.PAID, PaymentStatus.FAILED));
     });
@@ -66,6 +71,24 @@ describe('order-types', () => {
       assert.equal(getOrderCapabilities({ paymentStatus: 'paid', fulfillmentStatus: 'accepted' }).canStartPreparing, true);
       assert.equal(getOrderCapabilities({ paymentStatus: 'paid', fulfillmentStatus: 'preparing' }).canMarkReady, true);
       assert.equal(getOrderCapabilities({ paymentStatus: 'paid', fulfillmentStatus: 'ready' }).canComplete, true);
+    });
+  });
+
+  describe('Phase 3.1 runtime domain constants', () => {
+    it('locks public ordering alpha channels and pickup-only runtime checkout scope', () => {
+      assert.deepEqual(Object.values(PublicOrderChannel).sort(), ['online_store', 'qr_store']);
+      assert.equal(RuntimeFulfillmentType.PICKUP, 'pickup');
+      assert.equal(RuntimeFulfillmentType.DINE_IN, 'dine_in');
+      assert.equal(RuntimeFulfillmentType.TAKEAWAY, 'takeaway');
+    });
+
+    it('keeps QR and payment provider values aligned to runtime support', () => {
+      assert.equal(RuntimeQrLocationType.PICKUP_AREA, 'pickup_area');
+      assert.equal(RuntimeQrLocationType.PICKUP_LEGACY, 'pickup');
+      assert.deepEqual(Object.values(RuntimeQrSessionStatus).sort(), ['active', 'cancelled', 'completed', 'expired']);
+      assert.ok(Object.values(RuntimeQrStatus).includes('archived'));
+      assert.deepEqual(Object.values(RuntimePaymentProviderCode).sort(), ['bayargg', 'doku', 'manual', 'xendit']);
+      assert.deepEqual(Object.values(RuntimePaymentProviderMode).sort(), ['production', 'sandbox', 'test']);
     });
   });
 

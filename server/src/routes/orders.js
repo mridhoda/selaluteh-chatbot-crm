@@ -15,6 +15,18 @@ const router = express.Router();
 
 router.use(authRequired, attachUser, attachWorkspaceContext);
 
+function requestedOutletId(req) {
+  return req.body?.outletId || req.body?.outlet_id || req.query?.outletId || req.query?.outlet_id;
+}
+
+async function getScopedLifecycleOrder(req) {
+  return getWorkspaceOrderForUser({ user: req.me, orderId: req.params.id });
+}
+
+function lifecycleOutletId(req, order) {
+  return requestedOutletId(req) || order?.outletId;
+}
+
 router.get('/', authorizePermission('orders', 'read'), requireScopedOutletSelection((req) => req.query.outletId || req.query.outlet_id, 'outletId is required for outlet-scoped order access'), async (req, res, next) => {
   try {
     const { status, outlet_id, outletId, paymentStatus, search, page, limit, sort, chat_id, chatId, contact_id, contactId } = req.query;
@@ -79,8 +91,9 @@ router.patch('/:id/status', authorizePermission('orders', 'manage_status'), asyn
   try {
     const { status } = req.body;
     if (!status) throw new AppError('VALIDATION', 'status is required', 400);
+    const scopedOrder = await getScopedLifecycleOrder(req);
     const order = await transitionOrderStatus({
-      workspaceId: req.me.workspaceId, orderId: req.params.id, newStatus: status, actor: req.me?.name || 'admin',
+      workspaceId: req.me.workspaceId, orderId: req.params.id, newStatus: status, actor: req.me, outletId: lifecycleOutletId(req, scopedOrder),
     });
     res.json({ data: order });
   } catch (err) { next(err); }
@@ -90,8 +103,9 @@ router.put('/:id/cancel', authorizePermission('orders', 'manage_status'), async 
   try {
     const { reason } = req.body;
     if (!reason?.trim()) throw new AppError('VALIDATION', 'Alasan pembatalan harus diisi', 400);
+    const scopedOrder = await getScopedLifecycleOrder(req);
     const order = await transitionOrderStatus({
-      workspaceId: req.me.workspaceId, orderId: req.params.id, newStatus: 'cancelled', actor: req.me?.name || 'admin', reason,
+      workspaceId: req.me.workspaceId, orderId: req.params.id, newStatus: 'cancelled', actor: req.me, reason, outletId: lifecycleOutletId(req, scopedOrder),
     });
     try {
       const msg = `Maaf, pesanan Anda dibatalkan.\nAlasan: ${reason}\n\nSilakan hubungi kami jika ada pertanyaan.`;
@@ -107,8 +121,9 @@ router.post('/:id/cancel', authorizePermission('orders', 'manage_status'), async
   try {
     const { reason } = req.body;
     if (!reason?.trim()) throw new AppError('VALIDATION', 'Alasan pembatalan harus diisi', 400);
+    const scopedOrder = await getScopedLifecycleOrder(req);
     const order = await transitionOrderStatus({
-      workspaceId: req.me.workspaceId, orderId: req.params.id, newStatus: 'cancelled', actor: req.me?.name || 'admin', reason,
+      workspaceId: req.me.workspaceId, orderId: req.params.id, newStatus: 'cancelled', actor: req.me, reason, outletId: lifecycleOutletId(req, scopedOrder),
     });
     res.json({ data: order });
   } catch (err) { next(err); }
@@ -116,35 +131,40 @@ router.post('/:id/cancel', authorizePermission('orders', 'manage_status'), async
 
 router.post('/:id/accept', authorizePermission('orders', 'manage_status'), async (req, res, next) => {
   try {
-    const order = await approveOrder({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: req.body?.outletId || req.query?.outletId, userId: req.me.id });
+    const scopedOrder = await getScopedLifecycleOrder(req);
+    const order = await approveOrder({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: lifecycleOutletId(req, scopedOrder), userId: req.me.id });
     res.json({ data: order });
   } catch (err) { next(err); }
 });
 
 router.post('/:id/reject', authorizePermission('orders', 'manage_status'), async (req, res, next) => {
   try {
-    const order = await rejectOrder({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: req.body?.outletId || req.query?.outletId, userId: req.me.id, reason: req.body?.reason });
+    const scopedOrder = await getScopedLifecycleOrder(req);
+    const order = await rejectOrder({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: lifecycleOutletId(req, scopedOrder), userId: req.me.id, reason: req.body?.reason });
     res.json({ data: order });
   } catch (err) { next(err); }
 });
 
 router.post('/:id/start-preparing', authorizePermission('orders', 'manage_status'), async (req, res, next) => {
   try {
-    const order = await startPreparing({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: req.body?.outletId || req.query?.outletId, userId: req.me.id });
+    const scopedOrder = await getScopedLifecycleOrder(req);
+    const order = await startPreparing({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: lifecycleOutletId(req, scopedOrder), userId: req.me.id });
     res.json({ data: order });
   } catch (err) { next(err); }
 });
 
 router.post('/:id/mark-ready', authorizePermission('orders', 'manage_status'), async (req, res, next) => {
   try {
-    const order = await markReady({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: req.body?.outletId || req.query?.outletId, userId: req.me.id });
+    const scopedOrder = await getScopedLifecycleOrder(req);
+    const order = await markReady({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: lifecycleOutletId(req, scopedOrder), userId: req.me.id });
     res.json({ data: order });
   } catch (err) { next(err); }
 });
 
 router.post('/:id/complete', authorizePermission('orders', 'manage_status'), async (req, res, next) => {
   try {
-    const order = await completeOrder({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: req.body?.outletId || req.query?.outletId, userId: req.me.id });
+    const scopedOrder = await getScopedLifecycleOrder(req);
+    const order = await completeOrder({ workspaceId: req.me.workspaceId, orderId: req.params.id, outletId: lifecycleOutletId(req, scopedOrder), userId: req.me.id });
     res.json({ data: order });
   } catch (err) { next(err); }
 });

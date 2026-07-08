@@ -5,6 +5,7 @@ import { buildOutletScopedQuery, assertOutletAccess, canAccessAllOutlets } from 
 import { AppError } from '../utils/errors.js';
 import { sendOrderCreatedPush } from './web-push.service.js';
 import { broadcastToWorkspace } from './realtime.service.js';
+import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
 import {
   OrderStatus, PaymentStatus, FulfillmentStatus, isValidOrderTransition, ORDER_ERRORS, ActorType,
 } from '../orders/order-types.js';
@@ -73,14 +74,17 @@ export async function createOrderFromCheckout({ workspaceId, checkout, user }) {
     channel: checkout.channel || 'online_store',
     publicOrderToken: generatePublicOrderToken(),
     qrSessionId: checkout.qrSessionId || null,
+    qrLocationId: checkout.qrLocationId || checkout.metadata?.qrLocation?.id || checkout.metadata?.qrLocationId || null,
     tableId: checkout.tableId || null,
     qrLocationLabel: checkout.qrLocationLabel || null,
     fulfillmentType: 'pickup',
     status: OrderStatus.PENDING_PAYMENT,
     paymentStatus: PaymentStatus.UNPAID,
     fulfillmentStatus: FulfillmentStatus.NOT_STARTED,
+    metadata: checkout.metadata || {},
   });
   notifyOrderCreated({ workspaceId, outletId: order.outletId, order });
+  await logOrderAudit({ workspaceId, outletId: order.outletId, orderId: order.id, userId: user?.id, action: 'order.created', details: { channel: order.channel, paymentStatus: order.paymentStatus, fulfillmentStatus: order.fulfillmentStatus } });
   return order;
 }
 
@@ -127,7 +131,24 @@ export async function createOrderFromAI({ chat, agent, orderData, paymentProofUr
     timeline: [{ type: 'order:created', actor: 'ai', note: 'Legacy order from AI', timestamp: new Date() }],
   });
   notifyOrderCreated({ workspaceId, outletId: order.outletId, order });
+  await logOrderAudit({ workspaceId, outletId: order.outletId, orderId: order.id, userId: null, action: 'order.created', details: { channel: order.channel || order.source, paymentStatus: order.paymentStatus, fulfillmentStatus: order.fulfillmentStatus } });
   return order;
+}
+
+async function logOrderAudit({ workspaceId, outletId, orderId, userId, action, details = {} }) {
+  try {
+    await auditLogsRepository.log({
+      workspaceId,
+      outletId,
+      actorId: userId || null,
+      action,
+      resourceType: 'order',
+      resourceId: orderId,
+      details,
+    });
+  } catch (err) {
+    console.error(`[OrderAudit] Failed to record ${action}:`, err.message);
+  }
 }
 
 function notifyOrderCreated({ workspaceId, outletId, order }) {
@@ -236,6 +257,8 @@ export async function approveOrder({ workspaceId, orderId, outletId, userId }) {
     metadata: { outletId, fromStatus: OrderStatus.AWAITING_OUTLET_APPROVAL, toStatus: OrderStatus.APPROVED },
   });
 
+  await logOrderAudit({ workspaceId, outletId: updated.outletId, orderId, userId, action: 'order.accepted', details: { fromStatus: FulfillmentStatus.AWAITING_ACCEPTANCE, toStatus: FulfillmentStatus.ACCEPTED } });
+
   notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated });
 
   return updated;
@@ -264,6 +287,8 @@ export async function rejectOrder({ workspaceId, orderId, outletId, userId, reas
     actorUserId: userId,
     metadata: { outletId, reason, fromStatus: OrderStatus.AWAITING_OUTLET_APPROVAL, toStatus: OrderStatus.REJECTED },
   });
+
+  await logOrderAudit({ workspaceId, outletId: updated.outletId, orderId, userId, action: 'order.cancelled', details: { reason, fromStatus: FulfillmentStatus.AWAITING_ACCEPTANCE, toStatus: FulfillmentStatus.CANCELLED } });
 
   notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated });
 
@@ -301,6 +326,12 @@ async function transitionOrderFulfillment({ workspaceId, orderId, outletId, user
     orderId, workspaceId, eventType, actorType: ActorType.HUMAN_AGENT, actorUserId: userId,
     metadata: { outletId, fromStatus: expected, toStatus: next },
   });
+  const auditActionByStatus = {
+    [FulfillmentStatus.PREPARING]: 'order.preparing',
+    [FulfillmentStatus.READY]: 'order.ready',
+    [FulfillmentStatus.COMPLETED]: 'order.completed',
+  };
+  await logOrderAudit({ workspaceId, outletId: updated.outletId, orderId, userId, action: auditActionByStatus[next] || eventType.replace(':', '.'), details: { fromStatus: expected, toStatus: next } });
   notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated });
   return updated;
 }
@@ -324,9 +355,7 @@ export async function updateOrderForUser({ user, orderId, update }) {
 }
 
 export async function deleteOrderForUser({ user, orderId }) {
-  const query = await buildOrderTenantQuery(user);
-  query.orderId = orderId;
-  return ordersRepository.deleteOne(query);
+  throw new AppError('ORDER_DELETE_DISABLED', 'Order deletion is disabled. Cancel the order with a reason instead.', 405);
 }
 
 const STATUS_MESSAGES = {
@@ -356,15 +385,19 @@ const LEGACY_TO_FULFILLMENT = {
   rejected: FulfillmentStatus.CANCELLED,
 };
 
-export async function transitionOrderStatus({ workspaceId, orderId, newStatus, actor, reason }) {
+export async function transitionOrderStatus({ workspaceId, orderId, newStatus, actor, reason, outletId }) {
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
   if (!order) throw new AppError('NOT_FOUND', 'Order not found', 404);
+  if (outletId && order.outletId !== outletId) throw new AppError(ORDER_ERRORS.ORDER_NOT_FOUND.code, 'Order not found for outlet', 404);
   const currentStatus = LEGACY_TO_NEW[order.status] || order.status;
   const targetStatus = LEGACY_TO_NEW[newStatus] || newStatus;
   if (!isValidOrderTransition(currentStatus, targetStatus)) {
     throw new AppError('INVALID_TRANSITION', `Cannot transition from ${order.status} to ${newStatus}`, 409);
   }
   const fulfillmentStatus = LEGACY_TO_FULFILLMENT[newStatus] || LEGACY_TO_FULFILLMENT[targetStatus];
+  if (fulfillmentStatus === FulfillmentStatus.CANCELLED && !reason?.trim()) {
+    throw new AppError('VALIDATION', 'Reason is required for order cancellation', 400);
+  }
   if (fulfillmentStatus && fulfillmentStatus !== FulfillmentStatus.CANCELLED && order.paymentStatus !== PaymentStatus.PAID) {
     throw new AppError(ORDER_ERRORS.ORDER_PAYMENT_NOT_PAID.code, 'Payment not yet paid', ORDER_ERRORS.ORDER_PAYMENT_NOT_PAID.status);
   }
@@ -379,6 +412,15 @@ export async function transitionOrderStatus({ workspaceId, orderId, newStatus, a
     },
   });
   if (!updated) throw new AppError('CONFLICT', 'Order status changed concurrently', 409);
+
+  await logOrderAudit({
+    workspaceId,
+    outletId: updated.outletId,
+    orderId,
+    userId: actor?.id || null,
+    action: ['cancelled', OrderStatus.CANCELLED].includes(newStatus) ? 'order.cancelled' : `order.${String(newStatus).replace(/_/g, '.')}`,
+    details: { fromStatus: order.status, toStatus: newStatus, reason: reason || null },
+  });
 
   notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated });
 

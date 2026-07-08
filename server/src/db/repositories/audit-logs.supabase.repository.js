@@ -2,6 +2,7 @@ import { getSupabaseServiceClient } from '../supabase.js';
 import { mapRows } from '../supabase-mapper.js';
 import { extractData, extractSingle } from '../supabase-errors.js';
 import { requireWorkspaceId, applyPagination } from '../supabase-query.js';
+import { redactSensitiveDetails } from '../../utils/audit-redaction.js';
 
 const TABLE = 'audit_logs';
 
@@ -16,7 +17,7 @@ export const auditLogsRepository = {
       action,
       resource_type: resourceType,
       resource_id: resourceId || null,
-      details: details || {},
+      details: redactSensitiveDetails(details || {}),
       request_id: requestId || null,
       ip_address: ipAddress || null,
       user_agent: userAgent || null,

@@ -133,7 +133,7 @@ describe('checkout flow (Supabase integration)', () => {
 
     const order = await createOrderFromCheckout({ workspaceId: wsId, checkout: confirmed });
     assert.ok(order, 'Order created');
-    assert.strictEqual(order.status, 'new', 'Order is new');
+    assert.strictEqual(order.status, 'PENDING_PAYMENT', 'Order is pending payment');
     assert.ok(order.orderNumber, 'Order has number');
   });
 

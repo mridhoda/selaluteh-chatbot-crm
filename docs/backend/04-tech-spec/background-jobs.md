@@ -7,6 +7,8 @@ Generated: 2026-06-11
 
 # Background Jobs
 
+> Detailed QR Store worker blueprint lives in `03.6.4-background-workers-scheduler.md`. This document remains the compact MVP/background-jobs overview for the broader backend.
+
 ## Why Background Jobs Are Needed
 
 Webhook endpoints should respond quickly. AI calls, retries, file downloads, payment reconciliation, and notifications should not block HTTP webhook response too long.

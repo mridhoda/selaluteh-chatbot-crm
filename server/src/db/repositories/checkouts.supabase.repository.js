@@ -102,6 +102,49 @@ export const checkoutsSupabaseRepository = {
     return this.findById({ workspaceId: data.workspaceId, checkoutId: checkout.id });
   },
 
+  async createCheckoutSession(data) {
+    return this.create(data);
+  },
+
+  async createCheckoutItems({ workspaceId, checkoutSessionId, items }) {
+    requireWorkspaceId(workspaceId);
+    if (!Array.isArray(items) || items.length === 0) return [];
+    const client = getSupabaseServiceClient();
+    const result = await client.from(ITEMS_TABLE).insert(items.map((item) => ({
+      workspace_id: workspaceId,
+      checkout_id: checkoutSessionId,
+      product_id: item.productId,
+      variant_id: item.variantId || null,
+      product_name_snapshot: item.productNameSnapshot || item.name || '',
+      unit_price: item.unitPrice ?? item.effectivePrice ?? 0,
+      quantity: item.quantity,
+      subtotal_amount: item.subtotalAmount ?? item.subtotal ?? (item.unitPrice ?? item.effectivePrice ?? 0) * item.quantity,
+      metadata: item.metadata || {},
+    }))).select();
+    return mapRows(extractData(result, 'checkouts.createCheckoutItems') ?? []);
+  },
+
+  async markCheckoutConverted({ workspaceId, checkoutSessionId, orderId }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client.from(TABLE)
+      .update({ status: 'converted', order_id: orderId })
+      .eq('workspace_id', workspaceId)
+      .eq('id', checkoutSessionId)
+      .select('*, checkout_items(*)')
+      .maybeSingle();
+    const row = extractSingle(result, 'checkouts.markCheckoutConverted');
+    return row ? mapCheckout(row) : null;
+  },
+
+  async markCheckoutExpired({ workspaceId, checkoutSessionId }) {
+    return this.updateStatus({ workspaceId, checkoutId: checkoutSessionId, status: 'expired' });
+  },
+
+  async findCheckoutById({ workspaceId, checkoutSessionId }) {
+    return this.findById({ workspaceId, checkoutId: checkoutSessionId });
+  },
+
   async updateStatus({ workspaceId, checkoutId, status }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();

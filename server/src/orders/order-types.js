@@ -28,6 +28,57 @@ export const FulfillmentType = {
   pickup: 'pickup',
 };
 
+export const PublicOrderChannel = {
+  ONLINE_STORE: 'online_store',
+  QR_STORE: 'qr_store',
+};
+
+export const RuntimeFulfillmentType = {
+  PICKUP: 'pickup',
+  DINE_IN: 'dine_in',
+  TAKEAWAY: 'takeaway',
+};
+
+export const RuntimeQrLocationType = {
+  TABLE: 'table',
+  COUNTER: 'counter',
+  PICKUP_AREA: 'pickup_area',
+  TAKEAWAY_AREA: 'takeaway_area',
+  GENERAL_STORE: 'general_store',
+  PICKUP_LEGACY: 'pickup',
+  AREA_LEGACY: 'area',
+  ROOM_LEGACY: 'room',
+  OTHER_LEGACY: 'other',
+};
+
+export const RuntimeQrStatus = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+  EXPIRED: 'expired',
+  REVOKED: 'revoked',
+  ARCHIVED: 'archived',
+};
+
+export const RuntimeQrSessionStatus = {
+  ACTIVE: 'active',
+  EXPIRED: 'expired',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+};
+
+export const RuntimePaymentProviderCode = {
+  BAYARGG: 'bayargg',
+  XENDIT: 'xendit',
+  DOKU: 'doku',
+  MANUAL: 'manual',
+};
+
+export const RuntimePaymentProviderMode = {
+  SANDBOX: 'sandbox',
+  TEST: 'test',
+  PRODUCTION: 'production',
+};
+
 export const PaymentStatus = {
   UNPAID: 'unpaid',
   PENDING: 'pending',
@@ -37,6 +88,7 @@ export const PaymentStatus = {
   EXPIRED: 'expired',
   REFUNDED: 'refunded',
   CANCELLED: 'cancelled',
+  MANUAL_REVIEW: 'manual_review',
 };
 
 export const FulfillmentStatus = {
@@ -98,12 +150,13 @@ export const ORDER_TRANSITIONS = {
 export const PAYMENT_TRANSITIONS = {
   [PaymentStatus.UNPAID]: [PaymentStatus.PENDING, PaymentStatus.CANCELLED],
   [PaymentStatus.PENDING]: [PaymentStatus.PROCESSING, PaymentStatus.PAID, PaymentStatus.FAILED, PaymentStatus.EXPIRED, PaymentStatus.CANCELLED],
-  [PaymentStatus.PROCESSING]: [PaymentStatus.PAID, PaymentStatus.FAILED, PaymentStatus.EXPIRED],
-  [PaymentStatus.PAID]: [PaymentStatus.REFUNDED],
+  [PaymentStatus.PROCESSING]: [PaymentStatus.PAID, PaymentStatus.FAILED, PaymentStatus.MANUAL_REVIEW],
+  [PaymentStatus.PAID]: [PaymentStatus.REFUNDED, PaymentStatus.MANUAL_REVIEW],
   [PaymentStatus.FAILED]: [],
   [PaymentStatus.EXPIRED]: [],
   [PaymentStatus.REFUNDED]: [],
   [PaymentStatus.CANCELLED]: [],
+  [PaymentStatus.MANUAL_REVIEW]: [PaymentStatus.PAID, PaymentStatus.FAILED, PaymentStatus.REFUNDED, PaymentStatus.CANCELLED],
 };
 
 export const FULFILLMENT_TRANSITIONS = {

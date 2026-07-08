@@ -1,5 +1,7 @@
 # Production Readiness
 
+For alpha-specific SELKOP Online Store/QR Store readiness, see `docs/backend/12-devops/alpha-readiness-checklist.md`. Phase 4 alpha readiness is not production readiness: BayarGG live credentials remain deferred, local command validation is blocked in the current documentation pass, public route rate limiting is in-memory alpha-only, and background workers run in-process.
+
 ## Required Before Production
 
 ### Security

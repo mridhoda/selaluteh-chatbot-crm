@@ -537,6 +537,81 @@ delivery/shipping
 - [x] Update affected order, payment, checkout, API, testing, implementation-status, progress-log, and current-task documentation.
 - [x] Run targeted order/payment tests and final `npm run specs:check`.
 
+# ORD-QR-P2. Finalize Online QR Store Backend API Contract
+
+- [x] Activate task pointer and run baseline `npm run specs:check`.
+- [x] Add `/api/v1/public`, `/api/v1/admin/orders`, and `/api/v1/webhooks` aliases without breaking existing routes.
+- [x] Implement public storefront, QR context, cart validation, checkout, payment status, and public order status contracts.
+- [x] Ensure checkout recomputes totals server-side, locks QR outlet context, preserves pickup-only scope, and uses idempotency.
+- [x] Add admin order alias responses with separated payment/fulfillment/public statuses and server-derived `allowed_actions`.
+- [x] Add or update route, service, idempotency, payment-status, QR, public-order, and admin authorization tests.
+- [x] Update affected API, order, payment, checkout, security, testing, implementation-status, progress-log, and current-task documentation.
+- [x] Run targeted validation and final `npm run specs:check`.
+
+# ORD-QR-P3. Design Online QR Store Database Schema
+
+- [x] Activate task pointer and run baseline `npm run specs:check`.
+- [x] Inspect existing commerce, payment, QR, settings, and channel migrations before adding Phase 3 schema.
+- [x] Document Phase 3 logical-domain to physical-runtime table mapping.
+- [x] Add an idempotent, non-destructive migration for storefronts, storefront outlets, QR locations, QR codes, QR session extensions, and provider-agnostic payment settings only where missing.
+- [x] Add repository/service lookups for storefront and QR code/location storage with existing metadata and `qr_order_sessions` compatibility fallback.
+- [x] Preserve Phase 2 public/admin/payment API response shapes, pickup-only runtime guards, checkout idempotency, and configurable provider behavior.
+- [x] Add or update migration/schema, public storefront, QR/session, payment config, and security regression tests.
+- [x] Update affected database, relationship, index, RLS, migration, API, security, testing, implementation-status, progress-log, and current-task documentation.
+- [x] Run targeted validation and final `npm run specs:check`.
+
+# ORD-QR-P3.1. Lock Online QR Store Enum and Runtime Mapping
+
+- [x] Activate task pointer and run baseline `npm run specs:check`.
+- [x] Document Phase 3.1 enum/table decisions as runtime mapping without adding duplicate greenfield tables.
+- [x] Add additive Phase 3.1 migration hardening for QR locations/codes/sessions only where safe.
+- [x] Fix QR code vs QR order session semantics so checkout never uses `qr_codes.id` as `orders.qr_session_id`.
+- [x] Preserve public storefront response shape while carrying internal storefront context for checkout metadata.
+- [x] Keep payment provider settings secret-safe and configurable without making normalized settings the credential authority.
+- [x] Add seed/application strategy for storefronts, storefront outlets, QR locations, and QR codes.
+- [x] Add or update enum, migration, public storefront, QR/session, and payment provider regression tests.
+- [x] Update affected database, API, payment, security, testing, implementation-status, progress-log, and current-task documentation.
+- [x] Run targeted validation and final `npm run specs:check`.
+
+# ORD-QR-P3.2. Reconcile Online QR Store Detail Table Schema
+
+- [x] Activate task pointer and run baseline `npm run specs:check`.
+- [x] Reconcile Phase 3.2 logical table names with existing runtime physical tables without adding duplicate greenfield tables.
+- [x] Add additive schema hardening for Phase 3.2 detail fields only where safe for current runtime.
+- [x] Preserve pickup-only checkout behavior, public API response compatibility, and QR outlet locking semantics.
+- [x] Keep payment providers configurable and payment secrets out of normalized provider settings.
+- [x] Add or update migration/schema and runtime mapping regression tests.
+- [x] Update database mapping, implementation status, progress log, and current-task documentation.
+- [x] Run targeted validation and final `npm run specs:check`.
+
+# ORD-QR-P3.3. Harden Online QR Store Indexes and Integrity Rules
+
+- [x] Activate task pointer and run baseline `npm run specs:check`.
+- [x] Reconcile Phase 3.3 index/constraint plan with current runtime physical tables.
+- [x] Add additive indexes and partial unique indexes for orders, QR, payment, webhook, audit, and idempotency paths where safe.
+- [x] Add safe check constraints for order/payment/fulfillment/channel/amount integrity only when compatible with existing data.
+- [x] Reconcile payment provider settings uniqueness to workspace/provider/mode and one active provider per workspace/mode.
+- [x] Add runtime `payment_events` idempotency/hash indexes for actual webhook processing paths.
+- [x] Add `manual_review` payment integrity state for mismatch/expiry handling.
+- [x] Preserve service-layer authority for paid-only fulfillment, backend totals, QR outlet lock, and public token secrecy.
+- [x] Add or update migration/schema integrity regression tests.
+- [x] Update database integrity mapping, implementation status, progress log, and current-task documentation.
+- [x] Run targeted validation and final `npm run specs:check`.
+
+# ORD-QR-P3.4. Implement Security and Threat Model Guardrails
+
+- [x] Apply public route rate limiting for QR lookup, cart validation, checkout, payment polling, and public order lookup.
+- [x] Keep public order response customer-safe with masked phone and no raw provider/audit/internal data.
+- [x] Require public checkout idempotency key, customer name, and customer phone before order/payment side effects.
+- [x] Keep payment `paid` authority limited to verified backend/provider paths.
+- [x] Verify BayarGG webhook signature, duplicate provider event handling, provider reference, amount, currency, and expiry before paid transition.
+- [x] Move BayarGG amount/currency/expiry mismatches to `manual_review`.
+- [x] Enforce paid-only admin fulfillment transitions and cancellation reason.
+- [x] Disable order hard delete in route, service, and repository layers.
+- [x] Add non-blocking audit logs for order lifecycle and BayarGG payment events.
+- [x] Add/update targeted security, service, route, and migration tests.
+- [x] Update docs and run final `npm run specs:check`.
+
 # 36. Final Validation
 
 Commands:

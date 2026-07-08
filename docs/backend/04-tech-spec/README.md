@@ -60,17 +60,21 @@ Existing Chatbot CRM
 2. `architecture.md`
 3. `folder-structure.md`
 4. `recommended-scalable-structure.md`
-5. `database-access.md`
-6. `ai-pipeline.md`
-7. `background-jobs.md`
-8. `storage-strategy.md`
-9. `environment-config.md`
-10. `observability.md`
-11. `deployment.md`
-12. `runbook.md`
-13. `coding-rules.md`
-14. `decision-log.md`
-15. `rendering-export.md`
+5. `03.6.1-service-contracts.md`
+6. `03.6.2-repository-architecture.md`
+7. `03.6.3-external-provider-architecture.md`
+8. `03.6.4-background-workers-scheduler.md`
+9. `database-access.md`
+10. `ai-pipeline.md`
+11. `background-jobs.md`
+12. `storage-strategy.md`
+13. `environment-config.md`
+14. `observability.md`
+15. `deployment.md`
+16. `runbook.md`
+17. `coding-rules.md`
+18. `decision-log.md`
+19. `rendering-export.md`
 
 ## File Map
 
@@ -80,6 +84,10 @@ Existing Chatbot CRM
 | `tech-stack.md` | Stack teknologi backend |
 | `folder-structure.md` | Struktur folder backend yang direkomendasikan |
 | `recommended-scalable-structure.md` | Struktur scalable setelah MVP |
+| `03.6.1-service-contracts.md` | Kontrak Application Service QR Store, DTO, result/error object, authorization, idempotency, transaction, dan ownership matrix |
+| `03.6.2-repository-architecture.md` | Arsitektur repository QR Store, aggregate boundaries, workspace scoping, transaction awareness, locking, idempotency, dan runtime implementation status |
+| `03.6.3-external-provider-architecture.md` | Arsitektur external provider, payment adapter registry, provider resolver, capability matrix, webhook verification, reconciliation, dan provider switching |
+| `03.6.4-background-workers-scheduler.md` | Arsitektur background workers, scheduler, queue, retry, dead letter, locking, observability, dan worker ownership matrix |
 | `database-access.md` | Repository layer dan data access boundary |
 | `ai-pipeline.md` | Desain AI assistant, tool/action flow, guardrails, dan prompt boundary |
 | `background-jobs.md` | Queue, workers, webhook processing, retry, scheduler |

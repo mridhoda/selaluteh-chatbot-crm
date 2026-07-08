@@ -4,8 +4,10 @@ import { ordersRepository, paymentsRepository } from '../db/repositories/index.j
 import { assertOutletAccess, buildOutletScopedQuery } from './access-control.service.js';
 import { notifyOrderUpdatedRealtime, notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage } from './order.service.js';
 import { getPaymentRuntimeConfig } from './settings.service.js';
+import { resolvePaymentProvider, resolvePaymentAdapter } from './payment-provider-resolver.service.js';
 import { assertPaymentProviderAuthority, assertPaymentSnapshot } from '../ai/security/payment-order-guardrails.js';
 import { FulfillmentStatus, OrderStatus, PaymentStatus } from '../orders/order-types.js';
+import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
 
 const TERMINAL_PAID_STATUSES = new Set(['paid', 'refunded', 'partially_refunded']);
 const ACTIVE_SESSION_STATUSES = new Set(['pending', 'created']);
@@ -31,6 +33,23 @@ async function markOrderPaidAwaitingAcceptance({ workspaceId, orderId, paidAt })
 function resolveEntityId(value) {
   if (!value || typeof value !== 'object') return value || null;
   return value.id || value._id || null;
+}
+
+async function logPaymentAudit({ workspaceId, outletId, paymentId, orderId, action, details = {}, deps = {} }) {
+  const repo = deps.auditLogsRepository || auditLogsRepository;
+  try {
+    await repo.log({
+      workspaceId,
+      outletId,
+      actorId: null,
+      action,
+      resourceType: 'payment',
+      resourceId: paymentId,
+      details: { orderId, ...details },
+    });
+  } catch (err) {
+    console.error(`[PaymentAudit] Failed to record ${action}:`, err.message);
+  }
 }
 
 export async function createPayment({ user, workspaceId, outletId, orderId, customer, amount, currency = 'IDR', paymentMethod = null, provider = null }) {
@@ -62,14 +81,14 @@ export async function createPayment({ user, workspaceId, outletId, orderId, cust
 
   if (activeProvider !== 'manual') {
     try {
-      const adapter = await loadPaymentAdapter(activeProvider);
+      const { adapter, providerConfig } = await resolvePaymentProvider({ workspaceId, provider: activeProvider, capability: 'statusQuery' });
       const result = await adapter.createPayment({
         orderId: orderId.toString(),
         merchantReference,
         amount: requestedAmount,
         currency,
         customer: customer || { name: '', email: '', phone: '' },
-      }, activeProvider === 'bayargg' ? runtimeConfig.bayargg : undefined);
+      }, providerConfig);
       providerTransactionId = result.providerTransactionId;
       paymentUrl = result.paymentUrl;
     } catch (err) {
@@ -101,6 +120,14 @@ export async function createPayment({ user, workspaceId, outletId, orderId, cust
   const updatedOrder = await ordersRepository.updateOne({ workspaceId, orderId, updates: { payment_status: 'pending' } });
   notifyPaymentUpdatedRealtime({ workspaceId, outletId: payment.outletId, payment, order: updatedOrder });
   notifyOrderUpdatedRealtime({ workspaceId, outletId: updatedOrder?.outletId || payment.outletId, order: updatedOrder });
+  await logPaymentAudit({
+    workspaceId,
+    outletId: payment.outletId,
+    paymentId: payment.id,
+    orderId,
+    action: 'payment.created',
+    details: { provider: activeProvider, status: payment.status, amount: payment.amount, currency: payment.currency },
+  });
 
   return payment;
 }
@@ -155,7 +182,7 @@ export async function createXenditPaymentSessionForOrder({ user, workspaceId, or
     throw new AppError('INVALID_AMOUNT', 'Amount must be greater than zero for Xendit', 400);
   }
 
-  const adapter = await loadPaymentAdapter('xendit');
+  const { adapter } = await resolvePaymentAdapter('xendit');
   const providerSession = await adapter.createPaymentSession({
     referenceId,
     orderId: order.id,
@@ -205,12 +232,27 @@ export async function createXenditPaymentSessionForOrder({ user, workspaceId, or
   const updatedOrder = await ordersRepository.updateOne({ workspaceId, orderId, updates: { payment_status: 'pending' } });
   notifyPaymentUpdatedRealtime({ workspaceId, outletId: payment.outletId, payment, order: updatedOrder });
   notifyOrderUpdatedRealtime({ workspaceId, outletId: updatedOrder?.outletId || payment.outletId, order: updatedOrder });
+  await logPaymentAudit({
+    workspaceId,
+    outletId: payment.outletId,
+    paymentId: payment.id,
+    orderId,
+    action: 'payment.created',
+    details: { provider: 'xendit', status: payment.status, amount: payment.amount, currency: payment.currency },
+  });
   return toPaymentSessionResponse(payment);
 }
 
-export async function createPaymentSessionForOrder({ user, workspaceId, orderId, customer = {}, idempotencyKey, provider }) {
-  const runtimeConfig = await getPaymentRuntimeConfig({ workspaceId });
-  const activeProvider = provider || runtimeConfig.provider;
+export async function createPaymentSessionForOrder({ user, workspaceId, orderId, customer = {}, idempotencyKey, provider }, deps = {}) {
+  const ordersRepo = deps.ordersRepository || ordersRepository;
+  const paymentsRepo = deps.paymentsRepository || paymentsRepository;
+  const resolveProvider = deps.resolvePaymentProvider || resolvePaymentProvider;
+  const assertAccess = deps.assertOutletAccess || assertOutletAccess;
+  const notifyPaymentUpdated = deps.notifyPaymentUpdatedRealtime || notifyPaymentUpdatedRealtime;
+  const notifyOrderUpdated = deps.notifyOrderUpdatedRealtime || notifyOrderUpdatedRealtime;
+  const resolvedProvider = await resolveProvider({ workspaceId, provider, capability: 'statusQuery' });
+  const runtimeConfig = resolvedProvider.runtimeConfig;
+  const activeProvider = resolvedProvider.provider;
   if (activeProvider === 'xendit') {
     return createXenditPaymentSessionForOrder({ user, workspaceId, orderId, customer, idempotencyKey });
   }
@@ -221,20 +263,20 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
     throw new AppError('PAYMENT_PROVIDER_NOT_CONFIGURED', `${activeProvider.toUpperCase()} credentials are not configured in Settings`, 409);
   }
 
-  const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
+  const order = await ordersRepo.workspaceFindById({ workspaceId, orderId });
   if (!order) throw new AppError('NOT_FOUND', 'Order not found', 404);
-  if (user) await assertOutletAccess(user, order.outletId);
+  if (user) await assertAccess(user, order.outletId);
 
   if (order.paymentStatus === 'paid' || order.payment_status === 'paid') {
     throw new AppError('PAYMENT_ALREADY_PAID', 'Order is already paid', 409);
   }
 
   if (idempotencyKey) {
-    const existingByKey = await paymentsRepository.findByIdempotencyKey({ workspaceId, orderId, idempotencyKey });
+    const existingByKey = await paymentsRepo.findByIdempotencyKey({ workspaceId, orderId, idempotencyKey });
     if (existingByKey) return toPaymentSessionResponse(existingByKey);
   }
 
-  const reusable = await paymentsRepository.findReusableAttempt({ workspaceId, orderId });
+  const reusable = await paymentsRepo.findReusableAttempt({ workspaceId, orderId });
   if (reusable) {
     if (TERMINAL_PAID_STATUSES.has(reusable.status)) {
       throw new AppError('PAYMENT_ALREADY_PAID', 'Payment is already paid', 409);
@@ -242,7 +284,7 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
     if (ACTIVE_SESSION_STATUSES.has(reusable.status) && reusable.paymentUrl) return toPaymentSessionResponse(reusable);
   }
 
-  const existingAttempts = await paymentsRepository.count({ workspaceId, orderId });
+  const existingAttempts = await paymentsRepo.count({ workspaceId, orderId });
   const attemptNumber = existingAttempts + 1;
   const referenceId = buildPaymentReference({ order, attemptNumber, provider: activeProvider });
   const paymentAmount = order.totals?.total || order.totalAmount || 0;
@@ -250,7 +292,7 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
     throw new AppError('INVALID_AMOUNT', `Amount must be greater than zero for ${activeProvider.toUpperCase()}`, 400);
   }
 
-  const adapter = await loadPaymentAdapter(activeProvider);
+  const { adapter, providerConfig } = resolvedProvider;
   const providerSession = await adapter.createPaymentSession({
     referenceId,
     orderId: order.id,
@@ -270,9 +312,9 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
       order_id: order.id,
       attempt: String(attemptNumber),
     },
-  }, runtimeConfig[activeProvider]);
+  }, providerConfig);
 
-  const payment = await paymentsRepository.create({
+  const payment = await paymentsRepo.create({
     workspaceId,
     outletId: order.outletId,
     orderId,
@@ -299,9 +341,18 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
     },
   });
 
-  const updatedOrder = await ordersRepository.updateOne({ workspaceId, orderId, updates: { payment_status: 'pending' } });
-  notifyPaymentUpdatedRealtime({ workspaceId, outletId: payment.outletId, payment, order: updatedOrder });
-  notifyOrderUpdatedRealtime({ workspaceId, outletId: updatedOrder?.outletId || payment.outletId, order: updatedOrder });
+  const updatedOrder = await ordersRepo.updateOne({ workspaceId, orderId, updates: { payment_status: 'pending' } });
+  notifyPaymentUpdated({ workspaceId, outletId: payment.outletId, payment, order: updatedOrder });
+  notifyOrderUpdated({ workspaceId, outletId: updatedOrder?.outletId || payment.outletId, order: updatedOrder });
+  await logPaymentAudit({
+    workspaceId,
+    outletId: payment.outletId,
+    paymentId: payment.id,
+    orderId,
+    action: 'payment.created',
+    details: { provider: activeProvider, status: payment.status, amount: payment.amount, currency: payment.currency },
+    deps,
+  });
   return toPaymentSessionResponse(payment);
 }
 
@@ -311,9 +362,8 @@ export async function refreshPaymentSession({ user, workspaceId, paymentId }) {
   if (!['xendit', 'bayargg'].includes(payment.provider) || !payment.providerTransactionId) {
     throw new AppError('NO_PROVIDER_TRANSACTION', 'No provider payment session to refresh', 400);
   }
-  const adapter = await loadPaymentAdapter(payment.provider);
-  const runtimeConfig = payment.provider === 'bayargg' ? await getPaymentRuntimeConfig({ workspaceId }) : null;
-  const providerSession = await adapter.getPaymentSession(payment.providerTransactionId, runtimeConfig?.bayargg);
+  const { adapter, providerConfig } = await resolvePaymentProvider({ workspaceId, provider: payment.provider, capability: 'statusQuery' });
+  const providerSession = await adapter.getPaymentSession(payment.providerTransactionId, providerConfig);
   await reconcileProviderSession({ payment, providerSession });
   const refreshed = await paymentsRepository.findById({ workspaceId, paymentId });
   return toPaymentSessionResponse(refreshed);
@@ -457,9 +507,8 @@ export async function syncPaymentWithProvider({ workspaceId, paymentId }) {
     throw new AppError('NO_PROVIDER_TRANSACTION', 'No provider transaction to sync', 400);
   }
 
-  const adapter = await loadPaymentAdapter(payment.provider);
-  const runtimeConfig = ['bayargg', 'doku'].includes(payment.provider) ? await getPaymentRuntimeConfig({ workspaceId }) : null;
-  const result = await adapter.getPayment(payment.providerTransactionId, runtimeConfig?.[payment.provider]);
+  const { adapter, providerConfig } = await resolvePaymentProvider({ workspaceId, provider: payment.provider, capability: 'statusQuery' });
+  const result = await adapter.getPayment(payment.providerTransactionId, providerConfig);
 
   if (result.status !== payment.status && result.status === 'paid') {
     await processPaidPayment({ payment, providerEvent: result });
@@ -556,17 +605,4 @@ function buildDokuWebhookUrl() {
 function buildBayarGgWebhookUrl() {
   const base = env.publicBaseUrl || env.corsOrigin?.split(',')?.[0] || 'http://localhost:5000';
   return `${base.replace(/\/$/, '')}/webhook/bayargg`;
-}
-
-async function loadPaymentAdapter(provider) {
-  if (provider === 'xendit') {
-    return import('../integrations/payments/xendit-client.js');
-  }
-  if (provider === 'doku') {
-    return import('../integrations/payments/doku-client.js');
-  }
-  if (provider === 'bayargg') {
-    return import('../integrations/payments/bayargg-client.js');
-  }
-  throw new Error(`Unknown or disabled payment provider: ${provider}`);
 }

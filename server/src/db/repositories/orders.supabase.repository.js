@@ -22,6 +22,7 @@ import { derivePublicOrderStatus, getOrderCapabilities, FulfillmentStatus } from
 const TABLE = 'orders';
 const ITEMS_TABLE = 'order_items';
 const EVENTS_TABLE = 'order_events';
+const OPTIONAL_SCHEMA_ERRORS = new Set(['42703', 'PGRST204']);
 
 function mapOrder(row) {
   if (!row) return null;
@@ -114,8 +115,13 @@ export const ordersSupabaseRepository = {
       metadata: data.metadata || {},
       order_number: data.orderNumber ?? undefined,
     };
+    if (data.qrLocationId) insert.qr_location_id = data.qrLocationId;
 
-    const result = await client.from(TABLE).insert(insert).select().single();
+    let result = await client.from(TABLE).insert(insert).select().single();
+    if (result.error && data.qrLocationId && OPTIONAL_SCHEMA_ERRORS.has(result.error.code)) {
+      delete insert.qr_location_id;
+      result = await client.from(TABLE).insert(insert).select().single();
+    }
     const order = mapRow(extractSingle(result, 'orders.create'));
     if (Array.isArray(data.items) && data.items.length > 0) {
       await client.from(ITEMS_TABLE).insert(data.items.map((item) => ({
@@ -311,12 +317,10 @@ export const ordersSupabaseRepository = {
   },
 
   async deleteOne({ workspaceId, orderId, outletId, outletIds }) {
-    requireWorkspaceId(workspaceId);
-    const client = getSupabaseServiceClient();
-    let q = client.from(TABLE).delete().eq('workspace_id', workspaceId).eq('id', orderId);
-    if (outletId) q = q.eq('outlet_id', outletId);
-    else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
-    await q;
+    const err = new Error('Order hard delete is disabled. Cancel the order with a reason instead.');
+    err.code = 'ORDER_DELETE_DISABLED';
+    err.status = 405;
+    throw err;
   },
 
   /**

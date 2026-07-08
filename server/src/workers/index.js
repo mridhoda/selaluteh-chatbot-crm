@@ -1,15 +1,20 @@
-export { startNotificationWorker, stopNotificationWorker, processPendingNotifications } from './notification.worker.js';
-export { start as startCartExpiry } from './cart-expiry.worker.js';
-export { start as startCheckoutCleanup } from './checkout-cleanup.worker.js';
-export { start as startPaymentReconciliation } from './payment-reconciliation.worker.js';
+import { startNotificationWorker, stopNotificationWorker, processPendingNotifications } from './notification.worker.js';
+import { start as startCartExpiry } from './cart-expiry.worker.js';
+import { start as startCheckoutCleanup } from './checkout-cleanup.worker.js';
+import { start as startPaymentReconciliation } from './payment-reconciliation.worker.js';
+import { start as startQrSessionExpiry } from './qr-session-expiry.worker.js';
+
+export { startNotificationWorker, stopNotificationWorker, processPendingNotifications };
+export { startCartExpiry, startCheckoutCleanup, startPaymentReconciliation, startQrSessionExpiry };
 
 const timers = {};
 
 export function startWorkers(options = {}) {
-  const { enableCartExpiry = true, enableCheckoutCleanup = true, enablePaymentRecon = false, enableNotifications = false } = options;
+  const { enableCartExpiry = true, enableCheckoutCleanup = true, enableQrSessionExpiry = true, enablePaymentRecon = false, enableNotifications = false } = options;
 
   if (enableCartExpiry) timers.cartExpiry = startCartExpiry();
   if (enableCheckoutCleanup) timers.checkoutCleanup = startCheckoutCleanup();
+  if (enableQrSessionExpiry) timers.qrSessionExpiry = startQrSessionExpiry();
   if (enablePaymentRecon) timers.paymentRecon = startPaymentReconciliation();
   if (enableNotifications) timers.notifications = startNotificationWorker();
 

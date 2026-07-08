@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import productsRouter from '../../../src/routes/products.js';
 import outletsRouter from '../../../src/routes/outlets.js';
 import ordersRouter from '../../../src/routes/orders.js';
+import adminOrdersRouter from '../../../src/routes/admin-orders.js';
+import publicStoreRouter from '../../../src/routes/public-store.js';
 import paymentsRouter from '../../../src/routes/payments.js';
 import workspaceSettingsRouter from '../../../src/routes/workspace-settings.js';
 import platformsRouter from '../../../src/routes/platforms.js';
@@ -12,6 +14,16 @@ function getRouteMiddlewares(router, method, routePath) {
   const layer = router.stack.find((entry) => entry.route && entry.route.path === routePath && entry.route.methods[method]);
   assert.ok(layer, `route ${method.toUpperCase()} ${routePath} exists`);
   return layer.route.stack.map((stack) => stack.handle).filter((fn) => fn.permission);
+}
+
+function getRouteLayer(router, method, routePath) {
+  const layer = router.stack.find((entry) => entry.route && entry.route.path === routePath && entry.route.methods[method]);
+  assert.ok(layer, `route ${method.toUpperCase()} ${routePath} exists`);
+  return layer;
+}
+
+function getPermissionMiddlewares(router, method, routePath) {
+  return getRouteLayer(router, method, routePath).route.stack.map((stack) => stack.handle).filter((fn) => fn.permission);
 }
 
 describe('critical route authorization coverage', () => {
@@ -34,6 +46,30 @@ describe('critical route authorization coverage', () => {
     assert.ok(getRouteMiddlewares(ordersRouter, 'post', '/:id/complete').length > 0);
     assert.ok(getRouteMiddlewares(ordersRouter, 'post', '/:id/cancel').length > 0);
     assert.ok(getRouteMiddlewares(ordersRouter, 'delete', '/:id').length > 0);
+  });
+
+  it('protects Phase 2 admin order aliases', () => {
+    assert.ok(getPermissionMiddlewares(adminOrdersRouter, 'get', '/').length > 0);
+    assert.ok(getPermissionMiddlewares(adminOrdersRouter, 'get', '/:orderId').length > 0);
+    assert.ok(getPermissionMiddlewares(adminOrdersRouter, 'post', '/:orderId/accept').length > 0);
+    assert.ok(getPermissionMiddlewares(adminOrdersRouter, 'post', '/:orderId/prepare').length > 0);
+    assert.ok(getPermissionMiddlewares(adminOrdersRouter, 'post', '/:orderId/ready').length > 0);
+    assert.ok(getPermissionMiddlewares(adminOrdersRouter, 'post', '/:orderId/complete').length > 0);
+    assert.ok(getPermissionMiddlewares(adminOrdersRouter, 'post', '/:orderId/cancel').length > 0);
+  });
+
+  it('keeps Phase 2 public store routes intentionally unauthenticated', () => {
+    const routes = [
+      ['get', '/stores/:storefrontSlug'],
+      ['get', '/qr/:qrToken'],
+      ['post', '/carts/validate'],
+      ['post', '/checkout'],
+      ['get', '/payments/:paymentId/status'],
+      ['get', '/orders/:publicOrderToken'],
+    ];
+    for (const [method, path] of routes) {
+      assert.equal(getPermissionMiddlewares(publicStoreRouter, method, path).length, 0, `${method.toUpperCase()} ${path} should not require admin permission middleware`);
+    }
   });
 
   it('protects payments critical routes', () => {

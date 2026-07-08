@@ -17,6 +17,27 @@ Supabase Auth deferred
 
 All migration phases (Phase 0 through Phase 11) have been fully executed and verified. MongoDB/Mongoose has been completely removed from the project.
 
+## Online/QR Store Phase 3 Additive Schema
+
+Migration `038_online_qr_store_schema_phase3.sql` adds storefront, QR location/code, and provider-agnostic payment configuration tables on top of the existing Supabase runtime.
+
+Migrations `039_online_qr_store_phase31_hardening.sql` and `040_online_qr_store_phase32_detail_schema.sql` harden Phase 3.1/3.2 fields additively. They intentionally reconcile the greenfield plan to existing runtime tables instead of creating duplicate physical authority.
+
+Migration `041_online_qr_store_phase33_integrity.sql` adds Phase 3.3 indexes, partial unique indexes, and `NOT VALID` check constraints. It keeps integrity rollout additive and avoids blocking deployment on legacy data that may need later cleanup. The latest hardening also replaces legacy one-active-provider-per-workspace uniqueness with one-active-provider-per-workspace/mode, adds workspace/provider/mode uniqueness, and adds runtime `payment_events` indexes for provider-event and raw-payload idempotency checks.
+
+Rules:
+
+- Keep `qr_order_sessions`, `product_outlet_availability`, and `order_idempotency_records` as existing physical runtime tables.
+- Do not rename, drop, or replace existing commerce/payment tables.
+- Use `storefronts` and `storefront_outlets` first when seeded; fallback to workspace/settings metadata remains supported.
+- Use `qr_codes` first when seeded; fallback to existing `qr_order_sessions.qr_token_hash` remains supported.
+- Keep provider credentials in existing encrypted workspace settings until normalized credential migration is explicitly implemented and verified.
+- Keep Phase 3.2 greenfield tables deferred where existing runtime concepts already exist: `qr_order_sessions`, `product_outlet_availability`, `checkouts`, `order_idempotency_records`, existing payment tables, and existing auth/permission tables.
+- Treat integer minor-unit money conversion as a future coordinated migration, not an implicit additive column tweak.
+- Keep Phase 3.3 check constraints `NOT VALID` until production data is audited and any legacy invalid rows are remediated.
+- Keep `manual_review` as the alpha-safe status for payment amount/currency/expiry mismatches; do not transition those orders to paid automatically.
+- Rollback is operational: leave additive tables unused and rely on existing fallbacks.
+
 ## Phase 0 — Supabase Foundation
 
 - Add/verify Supabase client setup.

@@ -14,38 +14,84 @@ export async function getPublicOrderByToken(publicOrderToken) {
 
   const customer = order.customerSnapshot || {};
   const paymentUrlAllowed = ['unpaid', 'pending', 'processing'].includes(String(order.paymentStatus || '').toLowerCase());
+  const publicStatus = derivePublicOrderStatus(order);
+  const amounts = {
+    subtotal_amount: Number(order.subtotalAmount || order.totals?.subtotal || 0),
+    discount_amount: Number(order.discountAmount || order.totals?.discount || 0),
+    service_fee_amount: 0,
+    tax_amount: 0,
+    total_amount: Number(order.totalAmount || order.totals?.total || 0),
+    currency: order.currency || order.totals?.currency || 'IDR',
+  };
+  const timeline = buildPublicTimeline({ order, publicStatus });
+
   return {
-    id: order.publicOrderToken,
+    order_number: order.orderNumber,
     orderNumber: order.orderNumber,
     channel: order.channel || order.source || 'online_store',
-    publicOrderStatus: derivePublicOrderStatus(order),
+    public_order_status: publicStatus,
+    publicOrderStatus: publicStatus,
+    payment_status: order.paymentStatus,
     paymentStatus: order.paymentStatus,
+    fulfillment_status: order.fulfillmentStatus,
     fulfillmentStatus: order.fulfillmentStatus,
+    fulfillment_type: order.fulfillmentType || 'pickup',
     fulfillmentType: order.fulfillmentType || 'pickup',
     outlet: {
       name: order.outlet?.name || order.outletNameSnapshot || null,
       code: order.outlet?.code || null,
+      address: order.outlet?.address || null,
     },
-    qr: {
-      tableId: order.tableId || null,
-      locationLabel: order.qrLocationLabel || null,
+    qr_context: {
+      location_label: order.qrLocationLabel || null,
     },
     customer: {
       name: customer.name || customer.contactName || order.customerNameSnapshot || null,
       phone: maskPhone(customer.phone || order.customerPhoneSnapshot),
     },
-    totals: order.totals,
+    amounts,
     items: (order.items || []).map((item) => ({
       name: item.productNameSnapshot || item.name,
       quantity: item.quantity,
+      modifiers: (item.metadata?.modifiers || []).map((modifier) => modifier.option_name || modifier.optionName || modifier.name || modifier.option_id || modifier.optionId).filter(Boolean),
+      line_total: item.subtotalAmount || item.subtotal,
       subtotal: item.subtotalAmount || item.subtotal,
     })),
     payment: {
       status: order.paymentStatus,
+      payment_url: paymentUrlAllowed ? order.paymentUrl || order.paymentLink || null : null,
       paymentUrl: paymentUrlAllowed ? order.paymentUrl || order.paymentLink || null : null,
+      paid_at: order.paidAt || null,
       paidAt: order.paidAt || null,
     },
+    timeline,
+    created_at: order.createdAt,
     createdAt: order.createdAt,
+    updated_at: order.updatedAt,
     updatedAt: order.updatedAt,
   };
+}
+
+export const publicOrderInternals = {
+  maskPhone,
+};
+
+function buildPublicTimeline({ order, publicStatus }) {
+  const createdAt = order.createdAt || null;
+  const paidAt = order.paidAt || null;
+  const preparingAt = order.preparingAt || null;
+  const readyAt = order.readyAt || null;
+  const completedAt = order.completedAt || null;
+  const statuses = [
+    { status: 'payment_pending', label: 'Menunggu Pembayaran', timestamp: createdAt },
+    { status: 'order_received', label: 'Pesanan Diterima', timestamp: paidAt || order.approvedAt || null },
+    { status: 'preparing', label: 'Pesanan Sedang Dibuat', timestamp: preparingAt },
+    { status: 'ready', label: 'Pesanan Siap Diambil', timestamp: readyAt },
+    { status: 'completed', label: 'Pesanan Selesai', timestamp: completedAt },
+  ];
+  const orderIndex = statuses.findIndex((entry) => entry.status === publicStatus);
+  return statuses.map((entry, index) => ({
+    ...entry,
+    completed: Boolean(entry.timestamp) || (orderIndex >= 0 && index <= orderIndex),
+  })).filter((entry) => entry.completed || ['payment_pending', 'order_received', 'preparing', 'ready', 'completed'].includes(entry.status));
 }

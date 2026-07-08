@@ -22,6 +22,13 @@ export const paymentsSupabaseRepository = {
     return row ? mapRow(row) : null;
   },
 
+  async findByIdGlobal({ paymentId }) {
+    const client = getSupabaseServiceClient();
+    const result = await client.from(TABLE).select('*').eq('id', paymentId).maybeSingle();
+    const row = extractSingle(result, 'payments.findByIdGlobal');
+    return row ? mapRow(row) : null;
+  },
+
   async findByOrder({ workspaceId, orderId }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
@@ -101,6 +108,38 @@ export const paymentsSupabaseRepository = {
     q = applyPagination(q, { page, limit });
     const result = await q;
     return mapRows(extractData(result, 'payments.list') ?? []);
+  },
+
+  async findDueForExpiry({ workspaceId, now = new Date(), limit = 100 }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .in('status', ['pending', 'processing'])
+      .not('expires_at', 'is', null)
+      .lte('expires_at', new Date(now).toISOString())
+      .order('expires_at', { ascending: true })
+      .limit(limit);
+    return mapRows(extractData(result, 'payments.findDueForExpiry') ?? []);
+  },
+
+  async findPendingForReconciliation({ workspaceId, olderThan, provider = null, limit = 50 }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    let q = client
+      .from(TABLE)
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .in('status', ['pending', 'processing'])
+      .not('provider_transaction_id', 'is', null)
+      .lt('created_at', new Date(olderThan).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (provider) q = q.eq('provider', provider);
+    const result = await q;
+    return mapRows(extractData(result, 'payments.findPendingForReconciliation') ?? []);
   },
 
   async count({ workspaceId, orderId, status, reconciliationStatus, provider, outletId, outletIds }) {

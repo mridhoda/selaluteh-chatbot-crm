@@ -81,13 +81,22 @@ Recommended:
 
 ## POST `/webhook/payments/:provider`
 
+Compatible mounts:
+
+```http
+POST /webhook/payments/:provider
+POST /api/webhooks/payments/:provider
+POST /api/v1/webhooks/payments/:provider
+```
+
 Receive payment gateway webhook.
 
 Provider examples:
 
 ```txt
-midtrans
 xendit
+bayargg
+doku
 ```
 
 ### Request
@@ -108,8 +117,13 @@ Provider-specific payload.
 - Store raw event in `webhook_events`.
 - Store normalized provider event in `payment_events`.
 - Update payment/order status idempotently.
+- For BayarGG, verify signature with the configured webhook secret, match provider transaction/reference, validate amount and currency, reject expired payments into `manual_review`, and update payment/order only after all checks pass.
+- Duplicate provider events return safe no-op responses.
+- Current SELKOP alpha limitation: no real BayarGG settings/credential row exists, so BayarGG live webhook verification is deferred. Mocked implementation coverage exists, but local executable validation is blocked in the current session.
 
 ## POST `/api/webhooks/xendit/payment-sessions`
+
+The same router is also mounted under `/api/v1/webhooks/xendit/payment-sessions` and `/api/v1/webhooks/payments/xendit/payment-sessions` for Phase 2 API grouping.
 
 Receive Xendit Test Mode Payment Session status webhooks.
 
@@ -157,6 +171,12 @@ receive webhook
 ```
 
 No raw Xendit secret, callback token, Authorization header, or full provider response is returned.
+
+## Alpha Validation Status
+
+- Telegram and Meta/WhatsApp webhook regression files are identified in `server/test/e2e/telegram-webhook-v1.e2e.test.js`, `server/test/e2e/telegram-marketplace.e2e.test.js`, `server/test/e2e/ai/button-commerce-regression.test.js`, `server/test/integration/webhooks/webhook-idempotency.integration.test.js`, and `server/test/security/webhook-abuse.test.js`.
+- Xendit and BayarGG payment webhook/session coverage is identified in the payment integration/e2e tests listed in `specs/backlog/qr-store-backend/tasks.md` section 11.
+- Command execution is blocked in the current session, so these files are documented as regression coverage, not as freshly passing validation.
 
 ## Webhook Event Table Usage
 

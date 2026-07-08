@@ -43,6 +43,8 @@ Telegram-first single-merchant marketplace
 | File | Purpose |
 |---|---|
 | `domain-rules.md` | Prinsip domain utama dan boundary bisnis |
+| `03.5-qr-domain-architecture.md` | Blueprint business domain QR Store, QR scope, session, storefront/outlet resolution, checkout flow, invariants, dan checklist implementasi |
+| `03.5.1-domain-events-state-machines.md` | Kontrak domain events, state machines, allowed transitions, retry, idempotency, payload contracts, dan event ownership matrix |
 | `workspace-tenant-rules.md` | Aturan workspace, tenant isolation, ownership |
 | `permissions.md` | Role, permission, dan akses fitur |
 | `product-catalog-rules.md` | Product, category, variant, visibility, stock rules |

@@ -1,0 +1,2187 @@
+openapi: 3.1.0
+info:
+  title: SELKOP Online & QR Store API
+  version: 1.0.0-alpha
+  description: API contract for SELKOP Online Store, QR Store, Admin Dashboard, and Payment Webhooks.
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local development
+  - url: https://sandbox-api.selkop.com/api/v1
+    description: Sandbox
+  - url: https://api.selkop.com/api/v1
+    description: Production
+tags:
+  - name: Public Storefront
+  - name: Public QR
+  - name: Public Cart
+  - name: Public Checkout
+  - name: Public Payment
+  - name: Public Order
+  - name: Admin Orders
+  - name: Admin Products
+  - name: Admin QR
+  - name: Admin Settings
+  - name: Webhooks
+  - name: Internal
+paths:
+  /public/stores/{storefrontSlug}:
+    get:
+      tags:
+        - Public Storefront
+      operationId: getPublicStorefront
+      summary: Get public storefront
+      description: Loads storefront metadata, active outlets, and customer-safe menu data.
+      parameters:
+        - $ref: '#/components/parameters/StorefrontSlug'
+        - name: outlet_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Optional outlet filter for outlet-aware menu availability.
+      responses:
+        '200':
+          description: Public storefront loaded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontResponse'
+              examples:
+                success:
+                  value:
+                    storefront:
+                      id: 01900000-0000-7000-8000-000000000001
+                      slug: selkop
+                      name: SELKOP
+                      brandline: Born Local For Everyone
+                      ordering_enabled: true
+                    outlets:
+                      - id: 01900000-0000-7000-8000-000000000010
+                        name: SELKOP Samarinda
+                        is_open: true
+                    menu:
+                      categories: []
+                      products: []
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /public/storefronts/{storefrontSlug}:
+    get:
+      tags:
+        - Public Storefront
+      operationId: getPublicStorefrontAlias
+      summary: Get public storefront alias
+      description: Explicit storefront alias for storefront loading. Runtime alpha also supports `/public/stores/{storefrontSlug}` under the same server prefix.
+      parameters:
+        - $ref: '#/components/parameters/StorefrontSlug'
+      responses:
+        '200':
+          description: Public storefront loaded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /public/qr/{qrToken}:
+    get:
+      tags:
+        - Public QR
+      operationId: getPublicQRCode
+      summary: Resolve public QR code
+      description: Resolves QR token, validates state, creates or refreshes QR session, and returns store context.
+      parameters:
+        - $ref: '#/components/parameters/QrToken'
+      responses:
+        '200':
+          description: QR context resolved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QRResolveResponse'
+              examples:
+                universal:
+                  $ref: '#/components/examples/UniversalQRResponse'
+                outlet:
+                  $ref: '#/components/examples/OutletQRResponse'
+                location:
+                  $ref: '#/components/examples/LocationQRResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/QRInvalid'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /public/carts/validate:
+    post:
+      tags:
+        - Public Cart
+      operationId: validatePublicCart
+      summary: Validate public cart
+      description: Validates cart selections, product availability, outlet compatibility, modifiers, and backend-authoritative totals.
+      security:
+        - QrSessionToken: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartValidateRequest'
+            examples:
+              cart:
+                $ref: '#/components/examples/CartValidateRequest'
+      responses:
+        '200':
+          description: Cart validation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartValidateResponse'
+              examples:
+                valid:
+                  $ref: '#/components/examples/CartValidateResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /public/checkout:
+    post:
+      tags:
+        - Public Checkout
+      operationId: createPublicCheckout
+      summary: Create public checkout
+      description: Validates cart, creates immutable order snapshot and payment attempt, then returns payment and public order tracking data.
+      security:
+        - IdempotencyKey: []
+        - QrSessionToken: []
+        - IdempotencyKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+            examples:
+              checkout:
+                $ref: '#/components/examples/CheckoutRequest'
+      responses:
+        '201':
+          description: Checkout created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutResponse'
+              examples:
+                created:
+                  $ref: '#/components/examples/CheckoutResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          $ref: '#/components/responses/PaymentProviderError'
+  /public/payments/{paymentId}/status:
+    get:
+      tags:
+        - Public Payment
+      operationId: getPublicPaymentStatus
+      summary: Get public payment status
+      description: Read-only payment status endpoint for frontend polling. It cannot mark payment as paid.
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: Public payment status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentStatusResponse'
+              examples:
+                pending:
+                  $ref: '#/components/examples/PaymentPendingResponse'
+                paid:
+                  $ref: '#/components/examples/PaymentPaidResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /public/orders/{publicOrderToken}:
+    get:
+      tags:
+        - Public Order
+      operationId: getPublicOrder
+      summary: Get public order status
+      description: Returns customer-safe order status by opaque public order token.
+      parameters:
+        - $ref: '#/components/parameters/PublicOrderToken'
+      responses:
+        '200':
+          description: Public order status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicOrderEnvelope'
+              examples:
+                order:
+                  $ref: '#/components/examples/PublicOrderResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /admin/orders:
+    get:
+      tags:
+        - Admin Orders
+      operationId: listAdminOrders
+      summary: List admin orders
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: outlet_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: payment_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/PaymentStatus'
+        - name: fulfillment_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/FulfillmentStatus'
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Admin order list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/orders/{orderId}:
+    get:
+      tags:
+        - Admin Orders
+      operationId: getAdminOrder
+      summary: Get admin order detail
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Admin order detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderDetailResponse'
+              examples:
+                detail:
+                  $ref: '#/components/examples/AdminOrderDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /admin/orders/{orderId}/accept:
+    post:
+      tags:
+        - Admin Orders
+      operationId: acceptAdminOrder
+      summary: Accept admin order
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        $ref: '#/components/requestBodies/AdminOrderActionRequestBody'
+      responses:
+        '200':
+          $ref: '#/components/responses/AdminOrderActionSuccess'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/OrderInvalidTransition'
+  /admin/orders/{orderId}/prepare:
+    post:
+      tags:
+        - Admin Orders
+      operationId: prepareAdminOrder
+      summary: Mark admin order preparing
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        $ref: '#/components/requestBodies/AdminOrderActionRequestBody'
+      responses:
+        '200':
+          $ref: '#/components/responses/AdminOrderActionSuccess'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/OrderInvalidTransition'
+  /admin/orders/{orderId}/ready:
+    post:
+      tags:
+        - Admin Orders
+      operationId: readyAdminOrder
+      summary: Mark admin order ready
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        $ref: '#/components/requestBodies/AdminOrderActionRequestBody'
+      responses:
+        '200':
+          $ref: '#/components/responses/AdminOrderActionSuccess'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/OrderInvalidTransition'
+  /admin/orders/{orderId}/complete:
+    post:
+      tags:
+        - Admin Orders
+      operationId: completeAdminOrder
+      summary: Complete admin order
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        $ref: '#/components/requestBodies/AdminOrderActionRequestBody'
+      responses:
+        '200':
+          $ref: '#/components/responses/AdminOrderActionSuccess'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/OrderInvalidTransition'
+  /admin/orders/{orderId}/cancel:
+    post:
+      tags:
+        - Admin Orders
+      operationId: cancelAdminOrder
+      summary: Cancel admin order
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCancelOrderRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/AdminOrderActionSuccess'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/OrderInvalidTransition'
+  /admin/products/{productId}/availability:
+    get:
+      tags:
+        - Admin Products
+      operationId: getAdminProductAvailability
+      summary: Get admin product availability
+      description: Target `/api/v1` contract. Runtime alpha also exposes `/api/products/{productId}/outlet-availability`.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Product outlet availability rows.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductAvailabilityResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - Admin Products
+      operationId: updateAdminProductAvailability
+      summary: Update admin product availability
+      description: Target `/api/v1` contract. Runtime alpha currently updates via `PUT /api/products/{productId}/outlet-availability`.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductAvailabilityRequest'
+      responses:
+        '200':
+          description: Product availability updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductAvailabilityResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/qr-codes:
+    get:
+      tags:
+        - Admin QR
+      operationId: listAdminQRCodes
+      summary: List admin QR codes
+      description: Target contract for QR management.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: QR code list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminQRCodeListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - Admin QR
+      operationId: createAdminQRCode
+      summary: Create admin QR code
+      description: Target contract for QR management.
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQRCodeRequest'
+      responses:
+        '201':
+          description: QR code created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminQRCodeResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/qr-codes/{qrCodeId}:
+    get:
+      tags:
+        - Admin QR
+      operationId: getAdminQRCode
+      summary: Get admin QR code detail
+      description: Target contract for QR management.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QrCodeId'
+      responses:
+        '200':
+          description: QR code detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminQRCodeResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /admin/qr-codes/{qrCodeId}/activate:
+    post:
+      tags:
+        - Admin QR
+      operationId: activateAdminQRCode
+      summary: Activate admin QR code
+      description: Target contract for QR management.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QrCodeId'
+      responses:
+        '200':
+          $ref: '#/components/responses/AdminQRCodeActionSuccess'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/qr-codes/{qrCodeId}/disable:
+    post:
+      tags:
+        - Admin QR
+      operationId: disableAdminQRCode
+      summary: Disable admin QR code
+      description: Target contract for QR management.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QrCodeId'
+      responses:
+        '200':
+          $ref: '#/components/responses/AdminQRCodeActionSuccess'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/qr-codes/{qrCodeId}/revoke:
+    post:
+      tags:
+        - Admin QR
+      operationId: revokeAdminQRCode
+      summary: Revoke admin QR code
+      description: Target contract for QR management.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/QrCodeId'
+      responses:
+        '200':
+          $ref: '#/components/responses/AdminQRCodeActionSuccess'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /admin/settings/payment-providers:
+    get:
+      tags:
+        - Admin Settings
+      operationId: listAdminPaymentProviders
+      summary: List payment provider settings
+      description: Target provider-agnostic contract for payment provider settings.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: mode
+          in: query
+          schema:
+            $ref: '#/components/schemas/ProviderMode'
+      responses:
+        '200':
+          description: Payment provider settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentProviderSettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/settings/payment-providers/{providerCode}/activate:
+    post:
+      tags:
+        - Admin Settings
+      operationId: activateAdminPaymentProvider
+      summary: Activate payment provider
+      description: Target provider-agnostic contract. Requires settings payment manage permission and audit logging.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProviderCode'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivatePaymentProviderRequest'
+      responses:
+        '200':
+          description: Provider activated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentProviderSettingResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/settings/payment-providers/{providerCode}/configure:
+    post:
+      tags:
+        - Admin Settings
+      operationId: configureAdminPaymentProvider
+      summary: Configure payment provider
+      description: Target provider-agnostic contract. Secret values must not be returned in response.
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProviderCode'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurePaymentProviderRequest'
+      responses:
+        '200':
+          description: Provider configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentProviderSettingResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /webhooks/payments/{providerCode}:
+    post:
+      tags:
+        - Webhooks
+      operationId: receivePaymentWebhook
+      summary: Receive payment provider webhook
+      description: Receives payment provider webhook, verifies signature/token, stores event, and processes transition idempotently.
+      security:
+        - ProviderWebhookSignature: []
+        - XenditCallbackToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProviderCode'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Webhook accepted or duplicate safely ignored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookAcceptedResponse'
+              examples:
+                accepted:
+                  $ref: '#/components/examples/WebhookAcceptedResponse'
+        '401':
+          description: Invalid webhook signature or token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidSignature:
+                  $ref: '#/components/examples/WebhookInvalidSignatureResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+components:
+  securitySchemes:
+    QrSessionToken:
+      type: apiKey
+      in: header
+      name: X-QR-Session-Token
+    IdempotencyKey:
+      type: apiKey
+      in: header
+      name: Idempotency-Key
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ProviderWebhookSignature:
+      type: apiKey
+      in: header
+      name: X-Provider-Signature
+    XenditCallbackToken:
+      type: apiKey
+      in: header
+      name: x-callback-token
+  parameters:
+    StorefrontSlug:
+      name: storefrontSlug
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+      example: selkop
+    QrToken:
+      name: qrToken
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 16
+      example: qr_opaque_token
+    PaymentId:
+      name: paymentId
+      in: path
+      required: true
+      schema:
+        type: string
+      example: pay_019000000000
+    PublicOrderToken:
+      name: publicOrderToken
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 8
+      example: po_019000000000
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: string
+      example: ord_019000000000
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      schema:
+        type: string
+      example: prod_019000000000
+    QrCodeId:
+      name: qrCodeId
+      in: path
+      required: true
+      schema:
+        type: string
+      example: qr_code_019000000000
+    ProviderCode:
+      name: providerCode
+      in: path
+      required: true
+      schema:
+        type: string
+        enum:
+          - bayargg
+          - xendit
+          - doku
+          - midtrans
+          - manual
+      example: bayargg
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  requestBodies:
+    AdminOrderActionRequestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminOrderActionRequest'
+  responses:
+    ValidationError:
+      description: Request validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            validation:
+              value:
+                success: false
+                error:
+                  code: VALIDATION_ERROR
+                  message: Invalid request payload.
+                  details: {}
+                meta:
+                  request_id: req_01HXABC123
+    Unauthorized:
+      description: Authentication required or invalid credentials.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Authenticated actor does not have permission.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Resource conflict or invalid state.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    RateLimited:
+      description: Rate limit exceeded.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    QRInvalid:
+      description: QR token is expired, revoked, disabled, or incompatible with current ordering state.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    IdempotencyConflict:
+      description: Same idempotency key was reused with different payload.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    PaymentProviderError:
+      description: Payment provider failed or is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    OrderInvalidTransition:
+      description: Order action is not allowed from current state.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    AdminOrderActionSuccess:
+      description: Admin order action applied idempotently.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminOrderDetailResponse'
+    AdminQRCodeActionSuccess:
+      description: QR code action applied.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminQRCodeResponse'
+  schemas:
+    SuccessResponse:
+      type: object
+      required:
+        - success
+        - data
+        - meta
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          type: object
+          additionalProperties: true
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          const: false
+        error:
+          $ref: '#/components/schemas/ErrorObject'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+    ErrorObject:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+    ResponseMeta:
+      type: object
+      properties:
+        request_id:
+          type: string
+          example: req_01HXABC123
+        timestamp:
+          type: string
+          format: date-time
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+          description: Runtime alpha alias for page_size.
+        total:
+          type: integer
+          minimum: 0
+        total_pages:
+          type: integer
+          minimum: 0
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - AUTHENTICATION_REQUIRED
+        - FORBIDDEN
+        - NOT_FOUND
+        - CONFLICT
+        - RATE_LIMITED
+        - PAYMENT_PROVIDER_ERROR
+        - PAYMENT_WEBHOOK_INVALID
+        - QR_EXPIRED
+        - QR_REVOKED
+        - QR_NOT_FOUND
+        - QR_OUTLET_MISMATCH
+        - QR_LOCATION_MISMATCH
+        - PRODUCT_UNAVAILABLE
+        - CHECKOUT_EXPIRED
+        - IDEMPOTENCY_CONFLICT
+        - ORDER_INVALID_TRANSITION
+        - ORDERING_DISABLED
+        - OUTLET_CLOSED
+    OrderChannel:
+      type: string
+      enum:
+        - online_store
+        - qr_store
+    FulfillmentType:
+      type: string
+      enum:
+        - pickup
+        - dine_in
+        - takeaway
+    PaymentStatus:
+      type: string
+      enum:
+        - unpaid
+        - pending
+        - processing
+        - paid
+        - failed
+        - expired
+        - refunded
+        - cancelled
+        - manual_review
+    FulfillmentStatus:
+      type: string
+      enum:
+        - not_started
+        - awaiting_acceptance
+        - accepted
+        - preparing
+        - ready
+        - completed
+        - cancelled
+    PublicOrderStatus:
+      type: string
+      enum:
+        - payment_pending
+        - payment_processing
+        - payment_failed
+        - payment_expired
+        - order_received
+        - accepted
+        - preparing
+        - ready
+        - completed
+        - cancelled
+    QRScope:
+      type: string
+      enum:
+        - universal
+        - outlet
+        - location
+    PaymentMethodType:
+      type: string
+      enum:
+        - qris
+        - virtual_account
+        - ewallet
+        - bank_transfer
+        - card
+        - manual
+    ProviderMode:
+      type: string
+      enum:
+        - sandbox
+        - production
+    StorefrontResponse:
+      type: object
+      required:
+        - storefront
+        - outlets
+        - menu
+      properties:
+        storefront:
+          $ref: '#/components/schemas/StorefrontPublic'
+        outlets:
+          type: array
+          items:
+            $ref: '#/components/schemas/OutletPublic'
+        menu:
+          $ref: '#/components/schemas/PublicMenu'
+    StorefrontPublic:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        brandline:
+          type:
+            - string
+            - 'null'
+        ordering_enabled:
+          type: boolean
+    OutletPublic:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        code:
+          type:
+            - string
+            - 'null'
+        address:
+          type:
+            - string
+            - 'null'
+        is_open:
+          type: boolean
+    PublicMenu:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryPublic'
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductPublic'
+    CategoryPublic:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        sort_order:
+          type: integer
+    ProductPublic:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type:
+            - string
+            - 'null'
+        price_amount:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+          example: IDR
+        is_available:
+          type: boolean
+        category_id:
+          type:
+            - string
+            - 'null'
+        modifier_groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModifierGroupPublic'
+    ModifierGroupPublic:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        min_selected:
+          type: integer
+          minimum: 0
+        max_selected:
+          type: integer
+          minimum: 0
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModifierOptionPublic'
+    ModifierOptionPublic:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price_delta_amount:
+          type: integer
+    QRResolveResponse:
+      oneOf:
+        - $ref: '#/components/schemas/UniversalQRResponse'
+        - $ref: '#/components/schemas/OutletQRResponse'
+        - $ref: '#/components/schemas/LocationQRResponse'
+      discriminator:
+        propertyName: qr_scope
+    QRBaseResponse:
+      type: object
+      required:
+        - qr_scope
+        - qr_session_token
+        - storefront
+      properties:
+        qr_scope:
+          $ref: '#/components/schemas/QRScope'
+        qr_session_token:
+          type: string
+        expires_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        storefront:
+          $ref: '#/components/schemas/StorefrontPublic'
+        menu:
+          $ref: '#/components/schemas/PublicMenu'
+    UniversalQRResponse:
+      allOf:
+        - $ref: '#/components/schemas/QRBaseResponse'
+        - type: object
+          required:
+            - allow_outlet_selection
+            - outlets
+          properties:
+            qr_scope:
+              const: universal
+            allow_outlet_selection:
+              type: boolean
+              const: true
+            outlets:
+              type: array
+              items:
+                $ref: '#/components/schemas/OutletPublic'
+    OutletQRResponse:
+      allOf:
+        - $ref: '#/components/schemas/QRBaseResponse'
+        - type: object
+          required:
+            - allow_outlet_selection
+            - locked_outlet
+          properties:
+            qr_scope:
+              const: outlet
+            allow_outlet_selection:
+              type: boolean
+              const: false
+            locked_outlet:
+              $ref: '#/components/schemas/OutletPublic'
+    LocationQRResponse:
+      allOf:
+        - $ref: '#/components/schemas/QRBaseResponse'
+        - type: object
+          required:
+            - allow_outlet_selection
+            - locked_outlet
+            - locked_location
+            - fulfillment_type
+          properties:
+            qr_scope:
+              const: location
+            allow_outlet_selection:
+              type: boolean
+              const: false
+            locked_outlet:
+              $ref: '#/components/schemas/OutletPublic'
+            locked_location:
+              $ref: '#/components/schemas/QRLocationPublic'
+            fulfillment_type:
+              $ref: '#/components/schemas/FulfillmentType'
+    QRLocationPublic:
+      type: object
+      properties:
+        id:
+          type:
+            - string
+            - 'null'
+        label:
+          type: string
+        table_id:
+          type:
+            - string
+            - 'null'
+    CartValidateRequest:
+      type: object
+      required:
+        - channel
+        - fulfillment_type
+        - items
+      properties:
+        channel:
+          $ref: '#/components/schemas/OrderChannel'
+        storefront_slug:
+          type:
+            - string
+            - 'null'
+        qr_session_token:
+          type:
+            - string
+            - 'null'
+        qr_token:
+          type:
+            - string
+            - 'null'
+        outlet_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        fulfillment_type:
+          $ref: '#/components/schemas/FulfillmentType'
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CartItemInput'
+    CartItemInput:
+      type: object
+      required:
+        - product_id
+        - quantity
+      properties:
+        product_id:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        modifier_option_ids:
+          type: array
+          items:
+            type: string
+        note:
+          type:
+            - string
+            - 'null'
+          maxLength: 300
+    CartValidateResponse:
+      type: object
+      required:
+        - valid
+        - cart_snapshot
+      properties:
+        valid:
+          type: boolean
+        cart_snapshot:
+          $ref: '#/components/schemas/CartSnapshot'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorObject'
+        warnings:
+          type: array
+          items:
+            type: string
+    CartSnapshot:
+      type: object
+      required:
+        - currency
+        - subtotal_amount
+        - total_amount
+        - items
+      properties:
+        currency:
+          type: string
+          example: IDR
+        subtotal_amount:
+          type: integer
+          minimum: 0
+        discount_amount:
+          type: integer
+          minimum: 0
+        service_fee_amount:
+          type: integer
+          minimum: 0
+        tax_amount:
+          type: integer
+          minimum: 0
+        total_amount:
+          type: integer
+          minimum: 0
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartValidatedItem'
+    CartValidatedItem:
+      type: object
+      properties:
+        product_id:
+          type: string
+        name:
+          type: string
+        quantity:
+          type: integer
+        unit_price_amount:
+          type: integer
+        line_total_amount:
+          type: integer
+        is_available:
+          type: boolean
+    CheckoutRequest:
+      type: object
+      required:
+        - channel
+        - fulfillment_type
+        - customer
+        - items
+        - payment_method_type
+      properties:
+        channel:
+          $ref: '#/components/schemas/OrderChannel'
+        storefront_slug:
+          type:
+            - string
+            - 'null'
+        qr_session_token:
+          type:
+            - string
+            - 'null'
+        qr_token:
+          type:
+            - string
+            - 'null'
+        outlet_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        qr_location_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        fulfillment_type:
+          $ref: '#/components/schemas/FulfillmentType'
+        customer:
+          $ref: '#/components/schemas/CheckoutCustomer'
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CartItemInput'
+        payment_method_type:
+          $ref: '#/components/schemas/PaymentMethodType'
+        customer_note:
+          type:
+            - string
+            - 'null'
+          maxLength: 500
+    CheckoutCustomer:
+      type: object
+      required:
+        - name
+        - phone
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        phone:
+          type: string
+          minLength: 5
+          maxLength: 32
+    CheckoutResponse:
+      type: object
+      required:
+        - order
+        - payment
+      properties:
+        checkout_id:
+          type:
+            - string
+            - 'null'
+        order:
+          $ref: '#/components/schemas/CheckoutOrderSummary'
+        payment:
+          $ref: '#/components/schemas/CheckoutPaymentSummary'
+        next:
+          $ref: '#/components/schemas/CheckoutNextLinks'
+    CheckoutOrderSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        public_order_token:
+          type: string
+        order_number:
+          type: string
+        payment_status:
+          $ref: '#/components/schemas/PaymentStatus'
+        fulfillment_status:
+          $ref: '#/components/schemas/FulfillmentStatus'
+        public_order_status:
+          $ref: '#/components/schemas/PublicOrderStatus'
+        total_amount:
+          type: integer
+        currency:
+          type: string
+    CheckoutPaymentSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        payment_id:
+          type: string
+          description: Runtime alias for id in some clients.
+        provider:
+          type:
+            - string
+            - 'null'
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        method_type:
+          $ref: '#/components/schemas/PaymentMethodType'
+        payment_url:
+          type:
+            - string
+            - 'null'
+          format: uri
+        qr_string:
+          type:
+            - string
+            - 'null'
+        expires_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    CheckoutNextLinks:
+      type: object
+      properties:
+        payment_pending_url:
+          type: string
+        public_order_url:
+          type: string
+    PaymentStatusResponse:
+      type: object
+      properties:
+        payment:
+          $ref: '#/components/schemas/PublicPayment'
+        order:
+          $ref: '#/components/schemas/PublicOrderSummary'
+    PublicPayment:
+      type: object
+      properties:
+        id:
+          type: string
+        payment_id:
+          type: string
+        provider:
+          type:
+            - string
+            - 'null'
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        amount:
+          type: integer
+        currency:
+          type: string
+          example: IDR
+        payment_url:
+          type:
+            - string
+            - 'null'
+          format: uri
+        expires_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    PublicOrderSummary:
+      type: object
+      properties:
+        public_order_token:
+          type: string
+        public_order_status:
+          $ref: '#/components/schemas/PublicOrderStatus'
+    PublicOrderEnvelope:
+      type: object
+      properties:
+        order:
+          $ref: '#/components/schemas/PublicOrderResponse'
+    PublicOrderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        order_number:
+          type: string
+        orderNumber:
+          type: string
+          description: Runtime camelCase alias.
+        channel:
+          $ref: '#/components/schemas/OrderChannel'
+        public_order_status:
+          $ref: '#/components/schemas/PublicOrderStatus'
+        publicOrderStatus:
+          $ref: '#/components/schemas/PublicOrderStatus'
+        payment_status:
+          $ref: '#/components/schemas/PaymentStatus'
+        paymentStatus:
+          $ref: '#/components/schemas/PaymentStatus'
+        fulfillment_status:
+          $ref: '#/components/schemas/FulfillmentStatus'
+        fulfillmentStatus:
+          $ref: '#/components/schemas/FulfillmentStatus'
+        fulfillment_type:
+          $ref: '#/components/schemas/FulfillmentType'
+        outlet:
+          $ref: '#/components/schemas/PublicOutletSnapshot'
+        customer:
+          $ref: '#/components/schemas/PublicCustomerSnapshot'
+        amounts:
+          $ref: '#/components/schemas/CartSnapshot'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicOrderItem'
+        payment:
+          $ref: '#/components/schemas/PublicPayment'
+    PublicOutletSnapshot:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type:
+            - string
+            - 'null'
+    PublicCustomerSnapshot:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+          description: Masked phone only.
+          example: 62******123
+    PublicOrderItem:
+      type: object
+      properties:
+        name:
+          type: string
+        quantity:
+          type: integer
+        modifiers:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        note:
+          type:
+            - string
+            - 'null'
+        line_total:
+          type: integer
+    AdminOrderListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminOrder'
+        pagination:
+          $ref: '#/components/schemas/PaginationMeta'
+    AdminOrderDetailResponse:
+      type: object
+      properties:
+        order:
+          $ref: '#/components/schemas/AdminOrder'
+    AdminOrder:
+      type: object
+      properties:
+        id:
+          type: string
+        order_number:
+          type: string
+        channel:
+          $ref: '#/components/schemas/OrderChannel'
+        outlet:
+          $ref: '#/components/schemas/AdminOrderOutlet'
+        qr_context:
+          type: object
+          additionalProperties: true
+        customer:
+          type: object
+          properties:
+            name:
+              type:
+                - string
+                - 'null'
+            phone:
+              type:
+                - string
+                - 'null'
+        payment_status:
+          $ref: '#/components/schemas/PaymentStatus'
+        fulfillment_status:
+          $ref: '#/components/schemas/FulfillmentStatus'
+        fulfillment_type:
+          $ref: '#/components/schemas/FulfillmentType'
+        public_order_status:
+          $ref: '#/components/schemas/PublicOrderStatus'
+        total_amount:
+          type: integer
+        currency:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicOrderItem'
+        customer_note:
+          type:
+            - string
+            - 'null'
+        status_history:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        allowed_actions:
+          type: array
+          items:
+            type: string
+            enum:
+              - accept_order
+              - mark_preparing
+              - mark_ready
+              - mark_completed
+              - cancel_order
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        updated_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    AdminOrderOutlet:
+      type: object
+      properties:
+        id:
+          type:
+            - string
+            - 'null'
+        name:
+          type:
+            - string
+            - 'null'
+        address:
+          type:
+            - string
+            - 'null'
+    AdminOrderActionRequest:
+      type: object
+      properties:
+        outletId:
+          type: string
+        outlet_id:
+          type: string
+    AdminCancelOrderRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          minLength: 3
+        outletId:
+          type: string
+        outlet_id:
+          type: string
+    ProductAvailabilityResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductAvailabilityRow'
+    ProductAvailabilityRow:
+      type: object
+      properties:
+        outlet_id:
+          type: string
+        is_available:
+          type: boolean
+        sold_out_until:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        availability_note:
+          type:
+            - string
+            - 'null'
+    UpdateProductAvailabilityRequest:
+      type: object
+      required:
+        - outlets
+      properties:
+        outlets:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/UpdateProductAvailabilityOutlet'
+    UpdateProductAvailabilityOutlet:
+      type: object
+      required:
+        - outlet_id
+        - is_available
+      properties:
+        outlet_id:
+          type: string
+          format: uuid
+        is_available:
+          type: boolean
+        sold_out_until:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        availability_note:
+          type:
+            - string
+            - 'null'
+    QRCodeStatus:
+      type: string
+      enum:
+        - active
+        - disabled
+        - revoked
+        - expired
+    AdminQRCodeListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminQRCode'
+        pagination:
+          $ref: '#/components/schemas/PaginationMeta'
+    AdminQRCodeResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminQRCode'
+    AdminQRCode:
+      type: object
+      properties:
+        id:
+          type: string
+        scope:
+          $ref: '#/components/schemas/QRScope'
+        status:
+          $ref: '#/components/schemas/QRCodeStatus'
+        outlet_id:
+          type:
+            - string
+            - 'null'
+        qr_location_id:
+          type:
+            - string
+            - 'null'
+        source_type:
+          type:
+            - string
+            - 'null'
+        source_label:
+          type:
+            - string
+            - 'null'
+        default_fulfillment_type:
+          $ref: '#/components/schemas/FulfillmentType'
+        created_at:
+          type: string
+          format: date-time
+    CreateQRCodeRequest:
+      type: object
+      required:
+        - scope
+      properties:
+        scope:
+          $ref: '#/components/schemas/QRScope'
+        outlet_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        qr_location_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        source_type:
+          type:
+            - string
+            - 'null'
+        source_label:
+          type:
+            - string
+            - 'null'
+        default_fulfillment_type:
+          $ref: '#/components/schemas/FulfillmentType'
+    PaymentProviderSettingsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentProviderSetting'
+    PaymentProviderSettingResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/PaymentProviderSetting'
+    PaymentProviderSetting:
+      type: object
+      properties:
+        provider_code:
+          type: string
+          example: bayargg
+        mode:
+          $ref: '#/components/schemas/ProviderMode'
+        is_active:
+          type: boolean
+        enabled_methods:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentMethodType'
+        configured:
+          type: boolean
+          description: Boolean only; no secret value is returned.
+    ActivatePaymentProviderRequest:
+      type: object
+      required:
+        - mode
+      properties:
+        mode:
+          $ref: '#/components/schemas/ProviderMode'
+        enabled_methods:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentMethodType'
+    ConfigurePaymentProviderRequest:
+      type: object
+      required:
+        - mode
+        - config
+      properties:
+        mode:
+          $ref: '#/components/schemas/ProviderMode'
+        enabled_methods:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentMethodType'
+        config:
+          type: object
+          additionalProperties: true
+          description: Provider-agnostic config. Secret values are write-only and never returned.
+    WebhookAcceptedResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        received:
+          type: boolean
+          example: true
+        processed:
+          type: boolean
+          description: Present when runtime processes synchronously.
+        event_id:
+          type:
+            - string
+            - 'null'
+        event:
+          type: object
+          additionalProperties: true
+  examples:
+    UniversalQRResponse:
+      value:
+        qr_scope: universal
+        allow_outlet_selection: true
+        qr_session_token: qrs_opaque_token
+        storefront:
+          id: ws_019
+          slug: selkop
+          name: SELKOP
+          brandline: Born Local For Everyone
+          ordering_enabled: true
+        outlets:
+          - id: out_019
+            name: SELKOP Samarinda
+            is_open: true
+        menu:
+          categories: []
+          products: []
+    OutletQRResponse:
+      value:
+        qr_scope: outlet
+        allow_outlet_selection: false
+        qr_session_token: qrs_opaque_token
+        storefront:
+          id: ws_019
+          slug: selkop
+          name: SELKOP
+          ordering_enabled: true
+        locked_outlet:
+          id: out_019
+          name: SELKOP Samarinda
+          is_open: true
+        menu:
+          categories: []
+          products: []
+    LocationQRResponse:
+      value:
+        qr_scope: location
+        allow_outlet_selection: false
+        qr_session_token: qrs_opaque_token
+        fulfillment_type: dine_in
+        storefront:
+          id: ws_019
+          slug: selkop
+          name: SELKOP
+          ordering_enabled: true
+        locked_outlet:
+          id: out_019
+          name: SELKOP Samarinda
+          is_open: true
+        locked_location:
+          id: loc_019
+          label: Meja 07
+          table_id: T07
+        menu:
+          categories: []
+          products: []
+    CartValidateRequest:
+      value:
+        channel: qr_store
+        qr_session_token: qrs_opaque_token
+        outlet_id: 01900000-0000-7000-8000-000000000010
+        fulfillment_type: pickup
+        items:
+          - product_id: prod_tea_original
+            quantity: 2
+            modifier_option_ids: []
+            note: Less sugar
+    CartValidateResponse:
+      value:
+        valid: true
+        cart_snapshot:
+          currency: IDR
+          subtotal_amount: 42000
+          discount_amount: 0
+          service_fee_amount: 0
+          tax_amount: 0
+          total_amount: 42000
+          items:
+            - product_id: prod_tea_original
+              name: Es Teh Original
+              quantity: 2
+              unit_price_amount: 21000
+              line_total_amount: 42000
+              is_available: true
+        errors: []
+        warnings: []
+    CheckoutRequest:
+      value:
+        channel: qr_store
+        qr_session_token: qrs_opaque_token
+        outlet_id: 01900000-0000-7000-8000-000000000010
+        fulfillment_type: pickup
+        customer:
+          name: Customer
+          phone: '628123456789'
+        items:
+          - product_id: prod_tea_original
+            quantity: 2
+        payment_method_type: qris
+    CheckoutResponse:
+      value:
+        checkout_id: chk_019
+        order:
+          id: ord_019
+          public_order_token: po_019
+          order_number: SLK-000123
+          payment_status: pending
+          fulfillment_status: not_started
+          public_order_status: payment_pending
+          total_amount: 42000
+          currency: IDR
+        payment:
+          id: pay_019
+          payment_id: pay_019
+          provider: bayargg
+          status: pending
+          method_type: qris
+          payment_url: https://pay.example/019
+          qr_string: '000201010212...'
+          expires_at: '2026-07-07T03:00:00.000Z'
+        next:
+          payment_pending_url: /payment/pending/pay_019
+          public_order_url: /order/po_019
+    PaymentPendingResponse:
+      value:
+        payment:
+          id: pay_019
+          provider: bayargg
+          status: pending
+          amount: 42000
+          currency: IDR
+          payment_url: https://pay.example/019
+          expires_at: '2026-07-07T03:00:00.000Z'
+        order:
+          public_order_token: po_019
+          public_order_status: payment_pending
+    PaymentPaidResponse:
+      value:
+        payment:
+          id: pay_019
+          provider: bayargg
+          status: paid
+          amount: 42000
+          currency: IDR
+          payment_url: null
+          expires_at: null
+        order:
+          public_order_token: po_019
+          public_order_status: order_received
+    PublicOrderResponse:
+      value:
+        order:
+          id: po_019
+          order_number: SLK-000123
+          channel: qr_store
+          public_order_status: order_received
+          payment_status: paid
+          fulfillment_status: awaiting_acceptance
+          fulfillment_type: pickup
+          outlet:
+            name: SELKOP Samarinda
+            code: SMR
+          customer:
+            name: Customer
+            phone: 62******789
+          amounts:
+            currency: IDR
+            subtotal_amount: 42000
+            discount_amount: 0
+            service_fee_amount: 0
+            tax_amount: 0
+            total_amount: 42000
+            items: []
+          items: []
+          payment:
+            id: pay_019
+            status: paid
+            amount: 42000
+            currency: IDR
+            payment_url: null
+    AdminOrderDetailResponse:
+      value:
+        order:
+          id: ord_019
+          order_number: SLK-000123
+          channel: qr_store
+          outlet:
+            id: out_019
+            name: SELKOP Samarinda
+            address: null
+          customer:
+            name: Customer
+            phone: '628123456789'
+          payment_status: paid
+          fulfillment_status: preparing
+          fulfillment_type: pickup
+          public_order_status: preparing
+          total_amount: 42000
+          currency: IDR
+          items: []
+          allowed_actions:
+            - mark_ready
+            - cancel_order
+    WebhookAcceptedResponse:
+      value:
+        success: true
+        received: true
+        event_id: evt_019
+    WebhookInvalidSignatureResponse:
+      value:
+        success: false
+        error:
+          code: PAYMENT_WEBHOOK_INVALID
+          message: Invalid webhook signature.
+          details: {}
+        meta:
+          request_id: req_01HXABC123

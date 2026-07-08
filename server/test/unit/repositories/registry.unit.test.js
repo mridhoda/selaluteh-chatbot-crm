@@ -27,13 +27,23 @@ const expectedExports = [
   'cartsSupabaseRepository',
   'checkoutsRepository',
   'checkoutsSupabaseRepository',
+  'idempotencyRepository',
   'ordersRepository',
   'ordersSupabaseRepository',
+  'qrSessionRepository',
+  'storefrontRepository',
   'paymentsRepository',
   'paymentsSupabaseRepository',
   'paymentEventsRepository',
+  'paymentProviderSettingsRepository',
   'webhookEventsRepository',
   'webhookEventsSupabaseRepository',
+  'catalogRepository',
+  'outletRepository',
+  'adminUserRepository',
+  'auditLogRepository',
+  'auditLogsRepository',
+  'analyticsRepository',
   'aiActionsRepository',
   'aiActionsSupabaseRepository',
   'agentsRepository',
@@ -55,5 +65,9 @@ describe('repository registry', () => {
     assert.equal(repositories.ordersRepository, repositories.ordersSupabaseRepository);
     assert.equal(repositories.paymentsRepository, repositories.paymentsSupabaseRepository);
     assert.equal(repositories.webhookEventsRepository, repositories.webhookEventsSupabaseRepository);
+    assert.equal(repositories.catalogRepository, repositories.productsSupabaseRepository);
+    assert.equal(repositories.outletRepository, repositories.outletsSupabaseRepository);
+    assert.equal(repositories.qrSessionRepository, repositories.qrOrderSessionsRepository);
+    assert.equal(repositories.storefrontRepository, repositories.storefrontsRepository);
   });
 });

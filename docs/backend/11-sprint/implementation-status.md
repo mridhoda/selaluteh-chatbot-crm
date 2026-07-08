@@ -58,6 +58,192 @@
 | Canonical outlet location backfill from outlet metadata | Implemented + applied |
 | SelaluKopi Google Maps nearest-outlet reply | Fixed + verified |
 | AI Agents platform id/key frontend fix | Implemented |
+| Online QR Store Phase 3 schema mapping | Implemented |
+| Storefronts/storefront outlets schema | Implemented, migration not live-applied |
+| QR locations/QR codes schema | Implemented, migration not live-applied |
+| Provider-agnostic payment settings schema | Implemented, runtime credential fallback preserved |
+| Public storefront table-backed slug lookup | Implemented with metadata fallback |
+| Online QR Store Phase 3.1 runtime enum mapping | Implemented |
+| QR code/session semantic split | Implemented |
+| Phase 3.1 additive QR schema hardening | Implemented, migration not live-applied |
+| Online QR Store seed/application strategy | Documented |
+| Online QR Store Phase 3.2 detail schema reconciliation | Implemented, migration not live-applied |
+| Phase 3.2 duplicate greenfield table avoidance | Implemented |
+| Online QR Store Phase 3.3 indexes and integrity hardening | Implemented, migration not live-applied |
+| Phase 3.3 payment provider per-mode uniqueness | Implemented, migration not live-applied |
+| Phase 3.3 runtime payment_events idempotency/hash indexes | Implemented, migration not live-applied |
+| Phase 3.3 manual_review payment integrity | Implemented |
+| Online QR Store Phase 3.4 public route rate limiting | Implemented |
+| Online QR Store Phase 3.4 public order response safety | Implemented |
+| Online QR Store Phase 3.4 BayarGG mismatch manual review | Implemented, not live-verified |
+| Online QR Store Phase 3.4 order/payment audit logging | Implemented |
+| Public checkout customer name/phone requirement | Implemented |
+| Operational order hard-delete block | Implemented in route/service/repository |
+| QR Store Backend backlog spec hygiene task 0.1 | Completed with specs validation limitation |
+| QR Store Backend spec authority task 0.2 | Completed; user approved follow-up/continuation and bypassed authority blocker |
+| QR Store Backend Phase 3.x capability/gap map task 0.3 | Completed; evidence documented in `specs/backlog/qr-store-backend/audit-evidence.md` |
+| QR Store Backend backlog checkpoint task 0.4 | Pending `npm run specs:check` and spec index validation |
+| QR Store Backend Online Store audit task 1.1 | Completed as documentation-only audit; runtime paths mapped with gaps/risks and baseline tests |
+| QR Store Backend QR runtime audit task 1.2 | Completed as documentation-only audit; true Universal QR remains implementation gap |
+| QR Store Backend marketplace preservation audit task 1.3 | Completed as documentation-only audit; WhatsApp/Telegram/AI paths and regression baselines mapped |
+| QR Store Backend product/availability/modifier audit task 1.4 | Completed as documentation-only audit; full modifier validation/pricing remains implementation gap |
+| QR Store Backend checkout/order/payment lifecycle audit task 1.5 | Completed as documentation-only audit; transactional public checkout/idempotency and live BayarGG verification remain gaps |
+| QR Store Backend admin lifecycle/permissions audit task 1.6 | Completed as documentation-only audit; `orders.manage_status` versus per-action permission split remains gap |
+| QR Store Backend docs versus runtime audit task 1.7 | Completed as documentation-only audit; stale docs marked in audit evidence before runtime edits |
+| QR Store Backend audit checkpoint task 1.8 | Completed as documentation-only checkpoint; gap list and baseline tests identified |
+| QR Store Backend migration readiness task 2.1 | Completed; target-aware reconciliation migration `042` applied through Supabase MCP and post-apply checks passed |
+| QR Store Backend real storefront seed task 2.2 | Completed; SELKOP storefront/mappings are active and pickup order-ready, target outlets are `OPEN`/accepting pickup orders, and active product outlet availability is seeded for both requested outlets |
+| QR Store Backend real QR seed task 2.3 | Completed; outlet/location/table QR data remains seeded and true Universal QR is now verified with nullable target, universal scope/type, random public code, and hashed token storage |
+| QR Store Backend BayarGG provider settings validation task 2.4 | Approved deferral / blocked by real credentials; BayarGG provider catalog row exists and plaintext secret columns are absent, but no real provider settings row exists to validate credentials; do not create fake credentials |
+| QR Store Backend post-seed uniqueness validation task 2.5 | Completed; required unique indexes exist and duplicate groups are zero |
+| QR Store Backend database checkpoint task 2.6 | Completed with approved BayarGG credential/live-readiness deferral; migration/seed/index/advisor evidence documented, 2.4 remains incomplete, and Phase 4 P0 non-credential work may proceed |
+| QR Store Backend public storefront/menu tasks 3.1-3.4 | Implemented; customer-safe storefront/menu contract hardened, online outlets filtered to active/visible/orderable/pickup-enabled, unavailable selected outlets reject, public modifier validation/pricing added with backend-owned deltas and supported min/max metadata enforcement |
+| QR Store Backend public storefront/menu tasks 3.5-3.6 | Implemented tests but pending executable validation; targeted test execution was blocked by active command/tool policy in-session, and existing WhatsApp/AI product regression tests were not run |
+| QR Store Backend BayarGG provider/webhook tasks 6.1-6.5 | Implemented with mocked tests; active provider runtime requires configured settings, session response stays customer-safe, webhook verifies before mutation, validates provider transaction/reference/amount/currency/expiry, duplicate is no-op, and manual-review mismatch paths do not fulfill |
+| QR Store Backend BayarGG payment checkpoint task 6.6 | Runtime/test implementation ready with approved live-credential deferral; targeted tests blocked locally by command policy and live sandbox verification remains deferred until real credentials/settings exist |
+| QR Store Backend audit/security sections 8.1-8.5 | Implementation complete with validation blocked; audit coverage includes order lifecycle, payment created/webhook/paid/manual-review, and payment provider setting changes; audit/security metadata redaction is centralized |
+| QR Store Backend public security/rate limiting sections 9.1-9.5 | Implementation complete with validation blocked; public order response safety and all public rate-limit middleware confirmed, with in-memory limiter documented as alpha-only and edge/WAF recommended for production |
+| QR Store Backend background workers section 10.1-10.5 | Runtime/test implementation complete with targeted validation pending; payment expiry uses backend time and state guards, reconciliation uses provider resolver/status query and audit, QR cleanup expires/revokes sessions without deleting history |
+| QR Store Backend regression protection section 11.1-11.5 | Regression inventory complete with implementation/test coverage identified; WhatsApp/AI/cart/order/payment/admin/webhook guardrail files are documented, but executable validation is blocked and no new pass result is claimed |
+| QR Store Backend documentation and alpha readiness section 12.1-12.5 | Documentation complete with validation limitation; API/data/status/readiness docs now reflect migrations `042`/`043`/`044`, enabled SELKOP seed data, Universal QR seed, BayarGG credential/live deferral, alpha-only rate limiting, and in-process workers |
+| QR Store Backend final validation section 13 | Final status documented; Supabase MCP validations passed for target/migrations/seeds/index checks, local/spec/test command validation blocked, No-Go list recorded |
+
+## QR Store Backend Phase 4 Final Status — 2026-07-07
+
+| Area | Final Status | Evidence |
+|---|---|---|
+| Supabase migrations | MCP validated | Target-aware `042` applied and verified; `043` Universal QR verified present; `044` public checkout idempotency state applied and verified. |
+| Seed data | MCP validated | SELKOP storefront/outlets/orderability/product availability, outlet/location/table QR rows, and true Universal QR are seeded/verified with redacted identifiers. |
+| BayarGG | Approved deferral / No-Go for live paid alpha | Provider catalog exists, but no real SELKOP BayarGG settings/credential row exists; no fake credentials created; live session/webhook validation not claimed. |
+| Regression protection | Coverage inventoried, validation blocked | Existing and prior-wave test files for WhatsApp, AI, cart/order/payment, admin, and webhooks are documented in `specs/backlog/qr-store-backend/tasks.md` section 11. |
+| Documentation | Complete for alpha handoff | API/data/status/readiness docs updated, including new `docs/backend/12-devops/alpha-readiness-checklist.md`. |
+| Local validation | Blocked | Active command policy blocks shell/background execution; no new local test/spec pass result is claimed. |
+| Production readiness | Not claimed | Rate limiting is in-memory alpha-only, workers are in-process MVP timers, and pre-existing Supabase advisor warnings remain hardening items. |
+
+## QR Store Backend Backlog Spec Hygiene — 2026-07-07
+
+| Area | Status | Evidence |
+|---|---|---|
+| `requirements.md` wrapper cleanup | Complete | Removed only the `cat > requirements.md <<'EOF'` generator wrapper and closing `EOF`; document now starts with YAML frontmatter. |
+| `design.md` wrapper cleanup | Complete | Removed conversational copy/paste instructions and outer fenced wrapper while preserving legitimate internal Markdown/code fences. |
+| Backlog task status | Superseded by continuation entry | Cleanup checklist items were originally pending validation; task `0.1` is now completed with validation limitation, while checkpoint `0.4` remains pending specs check. |
+| Runtime code | Not changed | Documentation/spec hygiene only. |
+| Spec lifecycle validation | Blocked locally | `npm run specs:check` could not be started because shell-backed process execution is blocked in this session; `spec.yaml` remains in backlog status. |
+
+Superseded next task: `0.2` is complete by explicit user authority decision; tasks `1.1` through `1.8` are now complete documentation audits/checkpoint, and current next task is `2.1 Verify migrations 038 through 041`.
+
+## QR Store Backend Backlog Continuation — 2026-07-07
+
+| Area | Status | Evidence |
+|---|---|---|
+| Spec authority blocker | Resolved by explicit user instruction | User approved continuing the backlog as a Phase 3.x follow-up/continuation and asked to ignore the authority blocker. |
+| Spec lifecycle location | Backlog retained | `specs/backlog/qr-store-backend/spec.yaml` remains `status: backlog`; no active move was performed. |
+| Task `0.1` | Completed with validation limitation | `requirements.md` and `design.md` are normalized docs; specs check was not executed in this wave. |
+| Task `0.2` | Completed | Decision recorded in `docs/backend/09-ai-context/current-task.md`. |
+| Task `0.3` | Completed | `specs/backlog/qr-store-backend/audit-evidence.md` maps Phase 3.x capabilities and gaps using supplied runtime/test file evidence. |
+| Task `0.4` | Pending validation | `npm run specs:check` and spec index sync/check were not executed, so no pass is claimed. |
+| Runtime code | Not changed | Documentation/spec update only. |
+
+Current status: task `2.1 Verify migrations 038 through 041` is complete through target-aware reconciliation. Section 2 was continued through `2.6`; tasks `2.2`, `2.3`, and `2.5` are complete. User explicitly selected **Defer BayarGG**, so task `2.4` remains incomplete/blocked by missing real BayarGG credential/reference evidence, while checkpoint `2.6` is complete with approved deferral as documented in `specs/backlog/qr-store-backend/database-readiness.md`.
+
+Next task: proceed to Phase 4 P0 non-credential work, starting with task `3.1 Confirm public storefront contract`. Do not claim BayarGG live readiness or real paid-alpha payment readiness until task `2.4` is resolved with real credentials and provider/live verification.
+
+## QR Store Backend Tasks 2.2-2.6 Supabase Seed/Validation — 2026-07-07
+
+| Area | Status | Evidence |
+|---|---|---|
+| Target identification | Passed | Used Supabase MCP on `marketplace-chatbot-Project` (`hxel...ioff`, redacted). |
+| SELKOP source data | Blocker found | `SelaluKopi Demo` has `SELKOP Samarinda` and `SELKOP Tenggarong`, but both are `operational_status=DRAFT`, `accepts_orders=false`, and have `0` product availability rows. |
+| Storefront seed | Partial | Seeded/upserted storefront slug `selkop`, name `SELKOP Online Store`, and two visible active outlet mappings. Ordering disabled intentionally. |
+| QR seed | Partial | Seeded/upserted `4` active QR locations and `6` active outlet/location/table QR codes. Public codes/tokens not printed; only last-8 public-code suffixes are recorded in `database-readiness.md`. |
+| Universal QR | Local implementation ready / pending apply | Local migration `043_universal_qr_scope.sql` and runtime changes support nullable QR outlet target, universal scope/type, selected outlet validation, outlet/location override rejection, and structured QR location snapshots. Supabase target was not changed in this wave. |
+| BayarGG settings | Approved deferral / blocked by real credentials | BayarGG provider row exists; no `payment_provider_settings` rows exist; no fake credentials were created or should be created. Real credential/live verification remains incomplete. |
+| Plaintext secret columns | Passed | No forbidden plaintext provider setting columns named `secret_key`, `server_key`, `webhook_secret`, `api_key`, or `private_key`. |
+| Post-seed uniqueness | Passed | Required unique indexes exist and duplicate groups are `0` for orders, payments, payment events, idempotency, and QR uniqueness checks. |
+| Advisors | Reviewed | Security advisor reports broad pre-existing RLS/function warnings; newly reconciled Phase 3 tables have RLS enabled with one policy each. Performance output was reviewed but too large to inline. |
+
+Next task: proceed to Phase 4 P0 non-credential work, starting with task `3.1 Confirm public storefront contract`. BayarGG settings/live verification remains deferred until real credentials are provided by an authorized operator.
+
+## QR Store Backend Task 2.1 MCP Apply Complete — 2026-07-07
+
+| Area | Status | Evidence |
+|---|---|---|
+| Target identification | Passed | Re-confirmed active Supabase target `marketplace-chatbot-Project` (`hxel...ioff`, redacted). |
+| Migration content review | Passed | `042` is additive/guarded, avoids blind `038` through `041` replay, has no data drops, and only removes old named provider-setting uniqueness objects that conflict with per-mode settings. |
+| MCP apply | Passed | Supabase MCP `apply_migration` returned `success: true` for `online_qr_store_target_reconciliation`. |
+| Required tables | Passed | `storefronts`, `storefront_outlets`, `qr_locations`, `qr_codes`, `payment_providers`, `payment_status_history`, and `security_events` exist. |
+| UUID support | Passed | `gen_random_uuid()` exists and returns a UUID. |
+| Provider-setting uniqueness | Passed | Old `payment_provider_settings_unique` and `uq_payment_provider_settings_workspace_provider` are absent; unique per-mode indexes exist with columns `{workspace_id,mode}` and `{workspace_id,provider,mode}`. |
+| `041` constraints | Passed | All expected `NOT VALID` constraints exist on `orders`, `payments`, and `order_items` with `convalidated = false`. |
+| Duplicate table avoidance | Passed | `qr_sessions`, `product_availability`, `checkout_sessions`, `idempotency_keys`, and `admin_users` do not exist. |
+
+## QR Store Backend Task 2.1 Target Reconciliation — 2026-07-07
+
+| Area | Status | Evidence |
+|---|---|---|
+| Reconciliation migration | Prepared locally | `server/src/db/migrations/042_online_qr_store_target_reconciliation.sql` creates missing Phase 3 objects, uses `payment_provider_settings.provider`, avoids `provider_code`, and avoids duplicate greenfield tables. |
+| Provider-setting uniqueness | Prepared locally | Migration `042` drops only old named uniqueness objects that block per-mode settings and ensures `(workspace_id, mode)` active uniqueness plus `(workspace_id, provider, mode)` uniqueness. |
+| Integrity constraints | Prepared locally | Migration `042` adds guarded `NOT VALID` constraints from `041` where compatible with runtime tables. |
+| Contract tests | Updated | `server/test/unit/migrations/phase3-online-qr-store-schema.test.js` now asserts provider-column reconciliation, guarded uniqueness cleanup, no greenfield duplicates, and `NOT VALID` constraints. |
+| Target apply | Not run | No safe dry-run mechanism was available in this wave; apply still needs Supabase MCP/operator confirmation. |
+
+Next action: apply `042` through Supabase MCP `apply_migration` after confirming the target project, then verify missing objects, per-mode indexes, absence of old uniqueness, and `NOT VALID` constraints.
+
+## QR Store Backend Task 2.1 Migration Readiness Blocked — 2026-07-07
+
+| Area | Status | Evidence |
+|---|---|---|
+| Local migration inspection | Complete | Inspected `038_online_qr_store_schema_phase3.sql`, `039_online_qr_store_phase31_hardening.sql`, `040_online_qr_store_phase32_detail_schema.sql`, and `041_online_qr_store_phase33_integrity.sql`. |
+| Expected apply order | Documented | `038` before `039`, `040`, and `041`; `041` depends on prior provider/QR/detail schema and changes provider-setting uniqueness. |
+| Required extension check | Pending target execution | `gen_random_uuid()` is used by `038` and `040`; target database must expose it, typically through `pgcrypto`. No target SQL output is claimed. |
+| `NOT VALID` constraints | Pending target execution | Migration `041` defines guarded `NOT VALID` checks for orders, payments, and order items; presence/`convalidated=false` must be verified after apply. |
+| Provider-setting uniqueness | Pending target execution | `041` must drop legacy one-active-per-workspace/provider uniqueness and create per-mode uniqueness; duplicate data preflight must be run on target. |
+| Task status | Blocked / pending environment | `specs/backlog/qr-store-backend/tasks.md` marks `2.1` blocked/pending environment and keeps all verification checklist items unchecked. |
+| Runtime code | Not changed | Documentation-only work. |
+
+## QR Store Backend Task 2.1 Supabase MCP Verification — 2026-07-07
+
+| Area | Status | Evidence |
+|---|---|---|
+| Target identification | Complete | Supabase MCP exposed one active target, `marketplace-chatbot-Project` (`hxel...ioff`, redacted), matching repository project references. Secrets were not printed. |
+| Migration ledger | Checked | `supabase_migrations.schema_migrations` exists; exact local names `038_online_qr_store_schema_phase3`, `039_online_qr_store_phase31_hardening`, `040_online_qr_store_phase32_detail_schema`, and `041_online_qr_store_phase33_integrity` are absent. Later `qr_order_alpha_*` migrations are present. |
+| Required extension | Passed | Read-only SQL confirmed `pgcrypto` `1.3`, `uuid-ossp` `1.1`, and `gen_random_uuid()`. |
+| Object/index state | Blocked | `storefronts`, `storefront_outlets`, `qr_locations`, `qr_codes`, `payment_providers`, `payment_status_history`, and `security_events` are absent; only partial provider-setting indexes exist. |
+| `NOT VALID` constraints | Blocked | All expected `041` constraints are absent, so acceptance cannot be claimed. |
+| Provider-setting uniqueness | Blocked | No row-level duplicate conflicts found, but old `(workspace_id, provider)` uniqueness remains while the target uses `provider`, not local `provider_code`. |
+| Apply decision | Not applied | Direct apply of local `038` through `041` is unsafe against the drifted target schema. |
+| Specs check | Blocked locally | `npm run specs:check` was attempted through the available background process tool, but shell-backed command execution is denied by active permissions. |
+
+Next action: prepare a target-aware additive reconciliation migration and re-run Supabase MCP verification before starting `2.2` seed work.
+
+## QR Store Backend Tasks 1.3-1.8 Audit Completion — 2026-07-07
+
+| Area | Status | Evidence |
+|---|---|---|
+| Task `1.3` marketplace preservation | Complete | Freshly inspected `server/src/routes/webhooks/meta.js`, `server/src/services/telegram-commerce.service.js`, `server/src/services/ai.service.js`, shared cart/checkout/order paths, and marketplace regression tests. |
+| Task `1.4` product/availability/modifiers | Complete | Freshly inspected product service/repository, `product_outlet_availability`, inventory behavior, cart/checkout modifier carry-through, and public cart modifier validation/pricing gap. |
+| Task `1.5` checkout/order/payment | Complete | Freshly inspected public checkout idempotency, order snapshot creation, payment session creation, BayarGG webhook paid/manual-review transition, and fulfillment guards. |
+| Task `1.6` admin lifecycle/permissions | Complete | Freshly inspected admin list/detail scoping, outlet access, cancel reason enforcement, hard-delete blocking, and coarse `orders.manage_status` permissions. |
+| Task `1.7` docs versus runtime | Complete | Compared API/data docs to runtime/migrations and marked stale provider/table/permission/QR response docs in audit evidence before runtime edits. |
+| Task `1.8` checkpoint | Complete | `specs/backlog/qr-store-backend/audit-evidence.md` includes dedicated sections, file-referenced gap list, and baseline tests. |
+| Runtime code | Not changed | Documentation/spec update only. |
+| Validation | Not executed in this wave | Tests and `npm run specs:check` were not run; no pass/fail output is claimed. |
+
+Next task: `2.1 Verify migrations 038 through 041`.
+
+## QR Store Backend Task 1.1 Online Store Audit — 2026-07-07
+
+| Area | Status | Evidence |
+|---|---|---|
+| Route audit | Complete | Freshly inspected `server/src/routes/public-store.js` public storefront, cart validation, checkout, payment status, and public order tracking route delegation/rate-limit wiring. |
+| Service audit | Complete | Freshly inspected `server/src/services/public-storefront.service.js` storefront resolution, outlet selection, menu mapping, cart validation, checkout/idempotency, and payment status behavior. |
+| Repository audit | Complete | Freshly inspected `server/src/db/repositories/storefronts.supabase.repository.js` active storefront/outlet mapping queries and availability helper. |
+| Public order support audit | Complete | Inspected `server/src/services/public-order.service.js` and public token lookup behavior for customer-safe order tracking context. |
+| Evidence document | Updated | Added dedicated `1.1 Online Store Audit` section to `specs/backlog/qr-store-backend/audit-evidence.md` with file references, capabilities, gaps/risks, and baseline tests. |
+| Task status | Complete | Updated `specs/backlog/qr-store-backend/tasks.md` task `1.1` checklist/status. Checkpoint `1.8` was completed later after tasks `1.3` through `1.7`. |
+| Runtime code | Not changed | Research and documentation update only. |
+
+Next task superseded by later audit completion: `2.1 Verify migrations 038 through 041`.
 
 ## Baseline — 2026-06-17 Task 0.1
 
@@ -506,3 +692,61 @@ Additional canonicalization note:
 | Order security tests | Passed: 9 pass, 0 fail. |
 | Order property tests | Passed: 10 pass, 0 fail. |
 | Order resilience tests | Passed: 7 pass, 0 fail. |
+
+## QR/Online Store Backend API Contract Phase 2 — 2026-07-07
+
+| Module | Status | Evidence |
+|---|---|---|
+| Task activation | Complete | `current-task.md` activated `selaluteh-cart-order-lifecycle` / `ORD-QR-P2`; baseline `npm run specs:check` passed with 15 specs validated. |
+| `/api/v1` route aliases | Implemented | Added `/api/v1/public`, `/api/v1/admin/orders`, and `/api/v1/webhooks` mounts while preserving `/api/public`, `/orders`, `/webhook`, and `/api/webhooks`. |
+| Public storefront/menu | Implemented | `GET /api/v1/public/stores/:storefrontSlug` resolves active storefront settings and returns orderable outlets plus outlet-aware customer menu. |
+| QR context contract | Implemented | `GET /api/v1/public/qr/:qrToken` returns Phase 2 envelope with `qr_session`, locked outlet, pickup QR context, and menu; legacy `/api/public/qr/:qrToken` remains compatible. |
+| Public cart validation | Implemented | `POST /api/v1/public/carts/validate` derives outlet context, rejects non-pickup fulfillment, recomputes item totals server-side, and ignores client totals/status fields. |
+| Public checkout | Implemented | `POST /api/v1/public/checkout` requires `Idempotency-Key`, revalidates cart, creates public order snapshot, creates payment session from workspace runtime provider, and stores `order_idempotency_records`. |
+| Public payment status | Implemented | `GET /api/v1/public/payments/:paymentId/status` returns customer-safe payment/order status without raw provider payload or internal workspace details. |
+| Admin order aliases | Implemented | `server/src/routes/admin-orders.js` exposes Phase 2 list/detail/accept/prepare/ready/complete/cancel with `allowed_actions`. |
+| Documentation/tests | Updated | Public storefront, orders, payments, and webhook API docs updated; route authorization and public storefront helper tests added. |
+
+| Test / Validation | Result |
+|---|---|
+| Baseline specs check | Passed: 15 specs validated. |
+| Route authorization tests | Passed: 9 pass, 0 fail. |
+| Public storefront helper tests | Passed: 3 pass, 0 fail. |
+| Syntax checks | Passed for `public-storefront.service.js` and `admin-orders.js`. |
+| Order security/property/resilience regression | Passed: 26 pass, 0 fail. |
+| Payment targeted integration contracts | Passed: 5 pass, 0 fail. |
+| Final specs check | Passed: 15 specs validated. |
+
+## QR Store Backend Phase 4 Section 7 Admin Lifecycle — 2026-07-07
+
+| Module | Status | Evidence |
+|---|---|---|
+| Lifecycle states | Confirmed | Runtime keeps unpaid orders at `payment_status=unpaid` / `fulfillment_status=not_started`; verified paid paths move to `awaiting_acceptance`; admin fulfillment transitions progress through `accepted -> preparing -> ready -> completed`. |
+| Paid-only fulfillment | Implemented | `approveOrder`, `startPreparing`, `markReady`, and `completeOrder` require `payment_status=paid`; generic cancellation requires a reason. |
+| Admin permissions | Preserved with documented deferral | `orders.manage_status` remains the single lifecycle permission because per-action split was not explicitly approved; split to `orders.accept/prepare/ready/complete/cancel` is deferred. |
+| Allowed actions | Hardened | Admin order aliases return `allowed_actions` only when order capabilities and `orders.manage_status` permission both allow the action. |
+| Outlet scope | Hardened | Admin/order lifecycle routes resolve orders through existing user outlet scope before mutation and pass resolved outlet scope to accept/prepare/ready/complete/cancel/status transitions; cross-outlet transition requests are denied before mutation. |
+| Tests | Added, execution blocked | Security tests cover unpaid fulfillment denial, cancel reason, cross-outlet prepare/cancel denial, hard-delete blocking, and allowed-actions consistency. Targeted command was blocked by active command policy before Node started. |
+
+| Test / Validation | Result |
+|---|---|
+| Targeted lifecycle/security tests | Blocked before Node started: `NODE_ENV=test node --test "test/security/orders/cart-order-security.test.js" "test/unit/routes/authorization-routes.test.js"`. |
+| Static review | Completed against route/service/repository contracts. |
+
+## QR/Online Store Backend Phase 4.5 Public Checkout Idempotency — 2026-07-07
+
+| Module | Status | Evidence |
+|---|---|---|
+| Required fields | Implemented locally | Public checkout enforces `Idempotency-Key`, `customer.name`, `customer.phone`, non-empty items via cart validation, and pickup-only fulfillment. |
+| Idempotency claim | Implemented locally | `order_idempotency_records` claim is inserted before order/payment side effects, request hash is stored, same key/hash replays completed responses, same key/different hash conflicts, and in-flight duplicates return a safe processing response. |
+| Backend totals | Preserved | Public cart validation continues to rebuild unit price, modifier totals, line totals, subtotal, fees/tax/discount/default total, and immutable order snapshots from backend data. |
+| Payment failure recovery | Implemented locally | Payment creation failure after order creation marks idempotency failed with sanitized `error_snapshot`/`resource_id` and returns a safe retryable 503 with operational recovery guidance. |
+| Schema | Applied and verified on Supabase target | Added guarded migration `044_public_checkout_idempotency_state.sql` for `status`, `error_snapshot`, status check, and public checkout status index; MCP applied it as `public_checkout_idempotency_state` on `marketplace-chatbot-Project` (`hxel...ioff`, redacted) with result `success: true`. |
+| Tests | Added, not executed | Focused unit tests cover missing idempotency/name/phone, same key same payload, same key different payload, concurrent duplicate processing response, and provider failure recovery metadata. Execution was blocked by active command policy before Node started. |
+
+| Supabase Verification | Result |
+|---|---|
+| Migration ledger | `public_checkout_idempotency_state` exists with version `20260707075151`. |
+| Columns | `order_idempotency_records.status` exists as `text not null default 'completed'`; `error_snapshot` exists as nullable `jsonb`. |
+| Constraint/indexes | `order_idempotency_records_status_check` exists as `NOT VALID`; `order_idempotency_records_public_checkout_status_idx` exists; existing unique index `order_idempotency_records_public_checkout_unique_idx` remains present. |
+| Scope note | Section 8 was not run in this task. |

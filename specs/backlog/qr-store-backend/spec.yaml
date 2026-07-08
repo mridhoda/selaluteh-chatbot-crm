@@ -1,0 +1,99 @@
+schema_version: 2
+spec_version: 1.0.0
+id: qr-store-backend
+title: SELKOP Phase 4 Existing Backend Audit & Implementation Adaptation
+description: Brownfield backend adaptation plan for SELKOP Online Store and QR Store on top of the existing CRM, marketplace, cart, order, payment, admin, and AI-assisted commerce backend.
+type: feature
+workflow: requirements-first
+status: backlog
+workflow_state: draft
+priority: high
+created_at: '2026-07-07'
+updated_at: '2026-07-07'
+lifecycle:
+  config: specs/specs.config.yaml
+  folder_strategy: status-based
+  current_bucket: backlog
+  current_path: specs/backlog/qr-store-backend
+  move_entire_spec_directory: true
+  repository_root_relative_paths: true
+  status_controls_physical_folder: true
+  workflow_state_controls_internal_progress: true
+  automation:
+    script: scripts/specs/sync-spec-folders.mjs
+    check_command: npm run specs:check
+    sync_command: npm run specs:sync
+    dry_run_command: npm run specs:sync:dry
+    automatic_on_file_save: false
+    automatic_local_folder_move: false
+    manual_sync_required_after_status_change: true
+    ci_check_only: true
+    ci_must_not_move_or_commit_files: true
+    index_path: specs/SPECS-INDEX.md
+  completion_requirements:
+    - all-required-tasks-completed
+    - definition-of-done-passed
+    - critical-tests-passed
+    - documentation-updated
+    - implementation-status-updated
+    - progress-log-updated
+    - current-task-pointer-updated
+    - specs-check-passed
+spec_registry:
+  root: specs
+  config: specs/specs.config.yaml
+  index: specs/SPECS-INDEX.md
+  template: specs/_templates/feature
+  buckets:
+    backlog: specs/backlog
+    active: specs/active
+    completed: specs/completed
+  required_files:
+    - spec.yaml
+    - requirements.md
+    - design.md
+    - tasks.md
+product:
+  name: SELKOP Online Store and QR Store
+  project_context: Foodinesia / SELKOP / SelaluTeh Chatbot CRM
+  area: backend
+  stage: phase-4-brownfield-adaptation
+  existing_product: chatbot-crm-with-channel-commerce
+  target_product: chatbot-crm-with-online-and-qr-store
+scope:
+  included:
+    - existing-backend-audit
+    - online-store
+    - qr-store
+    - universal-qr
+    - outlet-qr
+    - location-table-qr
+    - public-no-login-checkout
+    - bayargg-configurable-payment-provider
+    - payment-webhook-hardening
+    - admin-order-lifecycle
+    - audit-log
+    - security-events
+    - background-workers
+    - regression-testing
+    - alpha-readiness
+  deferred:
+    - full-transactional-checkout-idempotency-locking
+    - full-modifier-pricing-validation-if-existing-model-is-incomplete
+    - distributed-rate-limiting
+    - live-provider-verification-with-real-credentials
+    - production-waf-tuning
+  excluded:
+    - greenfield-backend-rewrite
+    - replacing-existing-whatsapp-marketplace-flow
+    - replacing-existing-ai-commerce-flow
+    - enterprise-sso
+    - advanced-fraud-ml
+    - full-accounting-ledger
+documents:
+  requirements: requirements.md
+  design: design.md
+  tasks: tasks.md
+  current_task: docs/backend/09-ai-context/current-task.md
+  implementation_status: docs/backend/11-sprint/implementation-status.md
+  progress_log: docs/backend/11-sprint/progress-log.md

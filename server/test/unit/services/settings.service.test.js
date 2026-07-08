@@ -39,6 +39,8 @@ describe('settings.service', () => {
       assert.ok(isSecretKey('xendit_secret_key'));
       assert.ok(isSecretKey('midtrans_server_key'));
       assert.ok(isSecretKey('xendit_webhook_token'));
+      assert.ok(isSecretKey('bayargg_api_key'));
+      assert.ok(isSecretKey('bayargg_webhook_secret'));
       assert.ok(!isSecretKey('business_display_name'));
       assert.ok(!isSecretKey('timezone'));
     });

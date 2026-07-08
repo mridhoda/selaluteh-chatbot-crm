@@ -59,6 +59,23 @@ Check:
 - status transition allowed
 - notification sent
 
+## Background Payment/QR Workers
+
+Payment expiry/reconciliation and QR cleanup run in-process for MVP:
+
+- `payment-reconciliation.worker.js` expires due `pending`/`processing` payments using backend `expires_at` and service-layer state transitions.
+- The same worker reconciles `missing_webhook` and old pending provider payments through provider status query where the active provider supports it.
+- `qr-session-expiry.worker.js` expires old QR order sessions through `expireQrSessions()` without deleting rows.
+
+Operational checks:
+
+- Confirm server logs include `[PaymentExpiry]`, `[ReconWorker]`, or `[QrSessionExpiry]` activity without credential values.
+- Confirm paid payments are never selected by expiry: only `pending` and `processing` are expirable.
+- Confirm `reconciliation_audit` receives system audit rows for provider reconciliation attempts.
+- Confirm QR sessions are marked `session_status='expired'`, `is_active=false`, and keep order/session history rows.
+
+BayarGG note: real BayarGG credentials remain deferred. Reconciliation supports BayarGG status query through configured provider settings, but an unconfigured workspace must fail safe with `BAYARGG_NOT_CONFIGURED`/provider configuration errors and no paid mutation.
+
 ## Debug AI Reply
 
 Check:

@@ -1,7 +1,9 @@
 import { paymentsSupabaseRepository as paymentsRepository, ordersSupabaseRepository as ordersRepository } from '../db/repositories/index.js';
+import { getSupabaseServiceClient } from '../db/supabase.js';
 import { notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage } from './order.service.js';
 import { AppError } from '../utils/errors.js';
 import { FulfillmentStatus, OrderStatus, PaymentStatus } from '../orders/order-types.js';
+import { resolvePaymentProvider } from './payment-provider-resolver.service.js';
 
 function paidOrderUpdates(paidAt = new Date().toISOString()) {
   return {
@@ -12,13 +14,14 @@ function paidOrderUpdates(paidAt = new Date().toISOString()) {
   };
 }
 
-async function markOrderPaidAwaitingAcceptance({ workspaceId, orderId, paidAt }) {
-  const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
+async function markOrderPaidAwaitingAcceptance({ workspaceId, orderId, paidAt }, deps = {}) {
+  const ordersRepo = deps.ordersRepository || ordersRepository;
+  const order = await ordersRepo.workspaceFindById({ workspaceId, orderId });
   const fulfillmentStatus = order?.fulfillmentStatus || order?.fulfillment_status;
   if (order?.paymentStatus === PaymentStatus.PAID && ![FulfillmentStatus.NOT_STARTED, FulfillmentStatus.AWAITING_ACCEPTANCE, 'unfulfilled', null, undefined].includes(fulfillmentStatus)) {
     return order;
   }
-  return ordersRepository.updateOne({ workspaceId, orderId, updates: paidOrderUpdates(paidAt) });
+  return ordersRepo.updateOne({ workspaceId, orderId, updates: paidOrderUpdates(paidAt) });
 }
 
 export function determineReconciliationStatus({ payment, order, providerStatus }) {
@@ -96,33 +99,41 @@ export async function getNeedsAttentionPayments({ workspaceId, page, limit }) {
   return { data, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
 }
 
-export async function retryPaymentProcessing({ workspaceId, paymentId }) {
-  const payment = await paymentsRepository.findById({ workspaceId, paymentId });
+export async function retryPaymentProcessing({ workspaceId, paymentId }, deps = {}) {
+  const paymentsRepo = deps.paymentsRepository || paymentsRepository;
+  const payment = await paymentsRepo.findById({ workspaceId, paymentId });
   if (!payment) throw new AppError('NOT_FOUND', 'Payment not found', 404);
 
   if (payment.reconciliationStatus === 'missing_webhook' && payment.providerTransactionId) {
-    const adapter = await loadPaymentAdapter(payment.provider);
-    const result = await adapter.getPayment(payment.providerTransactionId);
+    const { adapter, providerConfig } = await resolveStatusQueryAdapter({ workspaceId, provider: payment.provider }, deps);
+    const result = await adapter.getPayment(payment.providerTransactionId, providerConfig);
     if (result.status === 'paid' && payment.status !== 'paid') {
-      await processPaidPaymentFromReconciliation({ payment, providerEvent: result });
+      await processPaidPaymentFromReconciliation({ payment, providerEvent: result }, deps);
     }
   }
 
-  return paymentsRepository.findById({ workspaceId, paymentId });
+  return paymentsRepo.findById({ workspaceId, paymentId });
 }
 
-async function processPaidPaymentFromReconciliation({ payment, providerEvent }) {
-  const updated = await paymentsRepository.atomicStatusUpdate({
+async function processPaidPaymentFromReconciliation({ payment, providerEvent }, deps = {}) {
+  const paymentsRepo = deps.paymentsRepository || paymentsRepository;
+  const notifyPaymentUpdated = deps.notifyPaymentUpdatedRealtime || notifyPaymentUpdatedRealtime;
+  const notifyPaidOrder = deps.notifyPaidOrderRealtime || notifyPaidOrderRealtime;
+  const sendStatusMessage = deps.sendOrderStatusMessage || sendOrderStatusMessage;
+  const updated = await paymentsRepo.transitionStatus({
+    workspaceId: payment.workspaceId,
     paymentId: payment.id,
-    expectedStatus: 'pending',
+    fromStatuses: ['pending', 'processing'],
     newStatus: 'paid',
+    updates: { paid_at: providerEvent.paidAt ? new Date(providerEvent.paidAt).toISOString() : new Date().toISOString() },
   });
-  if (!updated) return;
+  if (!updated) return { updated: false, reason: 'state_conflict' };
 
   const feeAmount = providerEvent.feeAmount !== undefined ? providerEvent.feeAmount : 0;
   const netAmount = providerEvent.netAmount !== undefined ? providerEvent.netAmount : (payment.amount - feeAmount);
 
-  await paymentsRepository.addEvent({
+  await paymentsRepo.addEvent({
+    workspaceId: payment.workspaceId,
     paymentId: payment.id,
     event: {
       providerEventId: providerEvent.providerTransactionId,
@@ -137,27 +148,35 @@ async function processPaidPaymentFromReconciliation({ payment, providerEvent }) 
     },
   });
 
-  const updatedOrder = await markOrderPaidAwaitingAcceptance({ workspaceId: payment.workspaceId, orderId: payment.orderId });
+  const orderBefore = payment.orderId ? await (deps.ordersRepository || ordersRepository).workspaceFindById({ workspaceId: payment.workspaceId, orderId: payment.orderId }) : null;
+  const wasAlreadyPaid = orderBefore?.paymentStatus === PaymentStatus.PAID || orderBefore?.payment_status === PaymentStatus.PAID;
+  const updatedOrder = await markOrderPaidAwaitingAcceptance({ workspaceId: payment.workspaceId, orderId: payment.orderId, paidAt: providerEvent.paidAt }, deps);
 
   if (updatedOrder) {
-    notifyPaymentUpdatedRealtime({ workspaceId: payment.workspaceId, outletId: updated?.outletId || updatedOrder.outletId, payment: updated, order: updatedOrder });
-    notifyPaidOrderRealtime({ workspaceId: payment.workspaceId, outletId: updatedOrder.outletId, order: updatedOrder });
-    try {
-      await sendOrderStatusMessage({
-        order: updatedOrder,
-        from: 'ai',
-        messageText: `Pembayaran pesanan ${updatedOrder.orderNumber || ''} sudah kami terima.\n\nPesanan sudah masuk ke outlet dan menunggu diterima oleh staff.\n\nKami akan memberi tahu saat pesanan siap diambil.`,
-      });
-    } catch (err) {
-      console.error('[PaymentReconciliation] Failed to send paid notification:', err.message);
+    notifyPaymentUpdated({ workspaceId: payment.workspaceId, outletId: updated?.outletId || updatedOrder.outletId, payment: updated, order: updatedOrder });
+    if (!wasAlreadyPaid) {
+      notifyPaidOrder({ workspaceId: payment.workspaceId, outletId: updatedOrder.outletId, order: updatedOrder });
+      try {
+        await sendStatusMessage({
+          order: updatedOrder,
+          from: 'ai',
+          messageText: `Pembayaran pesanan ${updatedOrder.orderNumber || ''} sudah kami terima.\n\nPesanan sudah masuk ke outlet dan menunggu diterima oleh staff.\n\nKami akan memberi tahu saat pesanan siap diambil.`,
+        });
+      } catch (err) {
+        console.error('[PaymentReconciliation] Failed to send paid notification:', err.message);
+      }
     }
   }
+  return { updated: true, payment: updated, order: updatedOrder, paidNotificationSent: Boolean(updatedOrder && !wasAlreadyPaid) };
 }
 
-async function loadPaymentAdapter(provider) {
-  if (provider === 'xendit') return import('../integrations/payments/xendit-client.js');
-  if (provider === 'doku') return import('../integrations/payments/doku-client.js');
-  throw new AppError('UNKNOWN_PROVIDER', `Unknown payment provider: ${provider}`, 400);
+async function resolveStatusQueryAdapter({ workspaceId, provider }, deps = {}) {
+  const resolver = deps.resolvePaymentProvider || resolvePaymentProvider;
+  const resolved = await resolver({ workspaceId, provider, capability: 'statusQuery' });
+  if (!resolved.capabilities?.supportsStatusQuery || !resolved.adapter?.getPayment) {
+    throw new AppError('PAYMENT_PROVIDER_STATUS_QUERY_UNSUPPORTED', `${provider} does not support payment status reconciliation`, 400);
+  }
+  return resolved;
 }
 
 export async function detectMissingWebhooks({ workspaceId, limit = 50 }) {
@@ -175,8 +194,9 @@ export async function detectMissingWebhooks({ workspaceId, limit = 50 }) {
   return { data, meta: { total, page: 1, limit } };
 }
 
-export async function reconcileMissingWebhook({ workspaceId, paymentId }) {
-  const payment = await paymentsRepository.findById({ workspaceId, paymentId });
+export async function reconcileMissingWebhook({ workspaceId, paymentId }, deps = {}) {
+  const paymentsRepo = deps.paymentsRepository || paymentsRepository;
+  const payment = await paymentsRepo.findById({ workspaceId, paymentId });
   if (!payment) throw new AppError('NOT_FOUND', 'Payment not found', 404);
   if (payment.reconciliationStatus !== 'missing_webhook') {
     return payment;
@@ -186,20 +206,53 @@ export async function reconcileMissingWebhook({ workspaceId, paymentId }) {
     throw new AppError('MISSING_TRANSACTION', 'No provider transaction ID for this payment', 400);
   }
 
-  const adapter = await loadPaymentAdapter(payment.provider);
-  const result = await adapter.getPayment(payment.providerTransactionId);
+  const { adapter, providerConfig } = await resolveStatusQueryAdapter({ workspaceId, provider: payment.provider }, deps);
+  const result = await adapter.getPayment(payment.providerTransactionId, providerConfig);
 
   if (result.status === 'paid' && payment.status !== 'paid') {
-    await processPaidPaymentFromReconciliation({ payment, providerEvent: result });
+    await processPaidPaymentFromReconciliation({ payment, providerEvent: result }, deps);
   }
 
-  const updated = await paymentsRepository.findById({ workspaceId, paymentId });
-  await reconcilePaymentAudit({ workspaceId, paymentId, oldStatus: 'missing_webhook', newStatus: updated.reconciliationStatus, providerStatus: result.status });
-  return updated;
+  const updated = await paymentsRepo.findById({ workspaceId, paymentId });
+  const order = updated?.orderId ? await (deps.ordersRepository || ordersRepository).workspaceFindById({ workspaceId, orderId: updated.orderId }) : null;
+  const recStatus = determineReconciliationStatus({ payment: updated, order, providerStatus: result.status });
+  const finalPayment = recStatus !== updated.reconciliationStatus
+    ? await paymentsRepo.updatePayment({ workspaceId, paymentId, updates: { reconciliation_status: recStatus } })
+    : updated;
+  await reconcilePaymentAudit({ workspaceId, paymentId, oldStatus: 'missing_webhook', newStatus: finalPayment.reconciliationStatus, providerStatus: result.status, order }, deps);
+  return finalPayment;
 }
 
-export async function reconcilePaymentAudit({ workspaceId, paymentId, oldStatus, newStatus, providerStatus, order }) {
-  const client = getSupabaseServiceClient();
+export async function reconcilePendingProviderPayment({ workspaceId, paymentId }, deps = {}) {
+  const paymentsRepo = deps.paymentsRepository || paymentsRepository;
+  const payment = await paymentsRepo.findById({ workspaceId, paymentId });
+  if (!payment) throw new AppError('NOT_FOUND', 'Payment not found', 404);
+  if (!['pending', 'processing'].includes(payment.status)) return { reconciled: false, reason: 'not_pending', payment };
+  if (!payment.providerTransactionId) return { reconciled: false, reason: 'missing_transaction', payment };
+
+  const { adapter, providerConfig } = await resolveStatusQueryAdapter({ workspaceId, provider: payment.provider }, deps);
+  const result = await adapter.getPayment(payment.providerTransactionId, providerConfig);
+  let updatedPayment = payment;
+  let paidResult = null;
+
+  if (result.status === 'paid') {
+    paidResult = await processPaidPaymentFromReconciliation({ payment, providerEvent: result }, deps);
+    updatedPayment = await paymentsRepo.findById({ workspaceId, paymentId });
+  } else if (result.status === 'expired') {
+    updatedPayment = await paymentsRepo.updatePayment({ workspaceId, paymentId, updates: { reconciliation_status: 'pending' } }) || payment;
+  }
+
+  const order = updatedPayment?.orderId ? await (deps.ordersRepository || ordersRepository).workspaceFindById({ workspaceId, orderId: updatedPayment.orderId }) : null;
+  const recStatus = determineReconciliationStatus({ payment: updatedPayment, order, providerStatus: result.status });
+  if (recStatus !== updatedPayment.reconciliationStatus) {
+    updatedPayment = await paymentsRepo.updatePayment({ workspaceId, paymentId, updates: { reconciliation_status: recStatus } }) || updatedPayment;
+  }
+  await reconcilePaymentAudit({ workspaceId, paymentId, oldStatus: payment.reconciliationStatus, newStatus: updatedPayment.reconciliationStatus, providerStatus: result.status, order }, deps);
+  return { reconciled: true, providerStatus: result.status, payment: updatedPayment, order, paidNotificationSent: paidResult?.paidNotificationSent === true };
+}
+
+export async function reconcilePaymentAudit({ workspaceId, paymentId, oldStatus, newStatus, providerStatus, order }, deps = {}) {
+  const client = (deps.getSupabaseServiceClient || getSupabaseServiceClient)();
   const auditLog = {
     workspace_id: workspaceId,
     payment_id: paymentId,

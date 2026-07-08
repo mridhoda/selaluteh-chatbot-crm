@@ -1,6 +1,7 @@
-import { workspacesSupabaseRepository } from '../db/repositories/index.js';
+import { paymentProviderSettingsRepository, workspacesSupabaseRepository } from '../db/repositories/index.js';
 import { AppError } from '../utils/errors.js';
 import { decrypt, encrypt } from '../utils/encryption.js';
+import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
 
 const SETTINGS_NS = 'app_settings';
 const SECRET_FLAG_SUFFIX = '_configured';
@@ -110,6 +111,7 @@ export async function updateCategorySettings({ workspaceId, category, updates })
   const db = await getDbSettings(workspaceId);
   const metadata = { ...(db?.metadata ?? {}) };
   const ns = { ...(metadata[SETTINGS_NS] ?? {}) };
+  const previousPaymentProvider = ns.provider || null;
   const topLevelUpdates = {};
 
   for (const [key, value] of Object.entries(updates)) {
@@ -131,15 +133,43 @@ export async function updateCategorySettings({ workspaceId, category, updates })
   metadata[SETTINGS_NS] = ns;
   await workspacesSupabaseRepository.upsertSettings(workspaceId, { metadata, ...topLevelUpdates });
 
+  if (category === 'payment' && Object.hasOwn(updates, 'provider') && updates.provider !== previousPaymentProvider) {
+    try {
+      await auditLogsRepository.log({
+        workspaceId,
+        outletId: null,
+        actorId: null,
+        action: 'settings.payment_provider_changed',
+        resourceType: 'workspace_settings',
+        resourceId: workspaceId,
+        details: {
+          fromProvider: previousPaymentProvider,
+          toProvider: updates.provider || null,
+          changedKeys: Object.keys(updates),
+        },
+      });
+    } catch (err) {
+      console.error('[SettingsAudit] Failed to record settings.payment_provider_changed:', err.message);
+    }
+  }
+
   return getEffectiveSettings({ workspaceId, category });
 }
 
-export async function getPaymentRuntimeConfig({ workspaceId }) {
+function normalizePaymentMode(mode) {
+  if (mode === 'production' || mode === 'sandbox' || mode === 'test') return mode;
+  if (mode === 'live') return 'production';
+  return 'test';
+}
+
+export async function getPaymentRuntimeConfig({ workspaceId, mode } = {}) {
   const db = await getDbSettings(workspaceId);
   const metadata = db?.metadata ?? {};
   const ns = metadata[SETTINGS_NS] ?? {};
-  const provider = ns.provider || 'manual';
-  const environment = ns.environment || ns.xendit_mode || 'test';
+  const requestedMode = normalizePaymentMode(mode || ns.environment || ns.xendit_mode || 'test');
+  const normalized = await paymentProviderSettingsRepository.findActiveByWorkspace({ workspaceId, mode: requestedMode });
+  const provider = normalized?.providerCode || normalized?.provider || ns.provider || 'manual';
+  const environment = normalized?.mode || requestedMode;
   const paymentMethods = Array.isArray(ns.payment_methods) ? ns.payment_methods : [];
 
   return {

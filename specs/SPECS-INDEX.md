@@ -4,6 +4,7 @@
 
 | Status | Workflow | Priority | ID | Spec | Path |
 |---|---|---|---|---|---|
+| backlog | draft | high | qr-store-backend | SELKOP Phase 4 Existing Backend Audit & Implementation Adaptation | `specs/backlog/qr-store-backend/spec.yaml` |
 | active | in_progress | high | selaluteh-ai-agent-architecture | SelaluTeh AI Agent Architecture | `specs/active/selaluteh-ai-agent-architecture/spec.yaml` |
 | active | in_progress | critical | selaluteh-ai-security-guardrails | SelaluTeh AI Security Guardrails and Tool Execution Boundary | `specs/active/selaluteh-ai-security-guardrails/spec.yaml` |
 | active | in_progress | high | auto-escalate-complaints | SelaluTeh Auto Escalate Complaints | `specs/active/auto-escalate-complaints/spec.yaml` |

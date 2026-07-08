@@ -44,16 +44,21 @@ export { cartsSupabaseRepository as cartsRepository } from './carts.supabase.rep
 // ─── 24.13 — Checkouts + CheckoutItems ───────────────────────────────────────
 export { checkoutsSupabaseRepository } from './checkouts.supabase.repository.js';
 export { checkoutsSupabaseRepository as checkoutsRepository } from './checkouts.supabase.repository.js';
+export { idempotencyRepository } from './idempotency.supabase.repository.js';
 
 // ─── 24.14 — Orders + OrderItems + OrderEvents ───────────────────────────────
 export { ordersSupabaseRepository } from './orders.supabase.repository.js';
 export { ordersSupabaseRepository as ordersRepository } from './orders.supabase.repository.js';
 export { qrOrderSessionsRepository } from './qr-order-sessions.supabase.repository.js';
+export { qrOrderSessionsRepository as qrSessionRepository } from './qr-order-sessions.supabase.repository.js';
+export { storefrontsRepository } from './storefronts.supabase.repository.js';
+export { storefrontsRepository as storefrontRepository } from './storefronts.supabase.repository.js';
 
 // ─── 24.15 — Payments + PaymentEvents ────────────────────────────────────────
 export { paymentsSupabaseRepository } from './payments.supabase.repository.js';
 export { paymentsSupabaseRepository as paymentsRepository } from './payments.supabase.repository.js';
 export { paymentsSupabaseRepository as paymentEventsRepository } from './payments.supabase.repository.js';
+export { paymentProviderSettingsRepository } from './payment-provider-settings.supabase.repository.js';
 
 // ─── 24.16 — Webhook Events ──────────────────────────────────────────────────
 export { webhookEventsSupabaseRepository } from './webhook-events.supabase.repository.js';
@@ -89,3 +94,14 @@ export { aiFeedbackRepository } from './ai-feedback.supabase.repository.js';
 // ─── Location Intelligence (Sections 9.3, 25.4) ─────────────────────────────
 export { outletLocationsRepository } from './outlet-locations.supabase.repository.js';
 export { outletManagementRepository } from './outlet-management.supabase.repository.js';
+
+// ─── Phase 3.6.2 — Aggregate Repository Aliases ─────────────────────────────
+export { productsSupabaseRepository as catalogRepository } from './products.supabase.repository.js';
+export { outletsSupabaseRepository as outletRepository } from './outlets.supabase.repository.js';
+export { paymentProviderSettingsRepository as paymentProviderSettingsSupabaseRepository } from './payment-provider-settings.supabase.repository.js';
+export { usersSupabaseRepository as adminUserRepository } from './users.repository.js';
+export { auditLogsRepository } from './audit-logs.supabase.repository.js';
+export { auditLogsRepository as auditLogRepository } from './audit-logs.supabase.repository.js';
+export { securityEventsRepository } from './security-events.supabase.repository.js';
+export { analyticsRepository } from './analytics.supabase.repository.js';
+export * from './repository-contract.js';
