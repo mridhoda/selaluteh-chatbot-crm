@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { publicStoreApi } from '../api/publicStoreApi'
+import { phase5ApiClient } from '../api/phase5ApiClient'
+import { sanitizePublicOrder } from '../utils/cartIntentModel'
 
 export function usePublicOrderStatus(publicOrderToken) {
   const [order, setOrder] = useState(null)
@@ -10,8 +11,8 @@ export function usePublicOrderStatus(publicOrderToken) {
     setError('')
     setLoading(true)
     try {
-      const result = await publicStoreApi.getPublicOrder(publicOrderToken)
-      setOrder(result)
+      const result = await phase5ApiClient.public.getPublicOrder(publicOrderToken)
+      setOrder(sanitizePublicOrder(result))
     } catch {
       setError('Pesanan tidak ditemukan atau token kedaluwarsa.')
     } finally {

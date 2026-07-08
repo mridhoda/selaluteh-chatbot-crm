@@ -1,32 +1,49 @@
-import { useEffect, useState } from 'react'
-import { publicStoreApi } from '../api/publicStoreApi'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { phase5ApiClient } from '../api/phase5ApiClient'
+import { getNextPaymentPollingDelay, normalizePaymentStatus, shouldStopPaymentPolling } from '../utils/cartIntentModel'
 
-export function usePaymentStatus(checkoutToken) {
+export function usePaymentStatus(paymentId, { poll = true, intervalMs = 5000, rateLimitedIntervalMs = 30000, maxPolls = 24 } = {}) {
   const [payment, setPayment] = useState(null)
   const [status, setStatus] = useState('pending')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [refreshCount, setRefreshCount] = useState(0)
+  const [pollCount, setPollCount] = useState(0)
+  const timerRef = useRef(null)
+  const pollCountRef = useRef(0)
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
+    if (!paymentId) return null
     setError('')
     setLoading(true)
     try {
-      const result = await publicStoreApi.getPaymentStatus(checkoutToken)
+      const result = normalizePaymentStatus(await phase5ApiClient.public.getPaymentStatus(paymentId))
       setPayment(result)
-      setRefreshCount((count) => count + 1)
-      setStatus(refreshCount >= 1 ? 'paid' : result.state)
+      pollCountRef.current += 1
+      setPollCount(pollCountRef.current)
+      setStatus(result.paymentStatus)
+      return result
     } catch {
       setError('Gagal mengecek status pembayaran.')
+      return null
     } finally {
       setLoading(false)
     }
-  }
+  }, [paymentId])
 
   useEffect(() => {
-    refresh()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkoutToken])
+    let mounted = true
+    async function tick() {
+      const result = await refresh()
+      const nextDelay = getNextPaymentPollingDelay(result?.paymentStatus, { intervalMs, rateLimitedIntervalMs })
+      if (!mounted || !poll || nextDelay === null || pollCountRef.current >= maxPolls) return
+      timerRef.current = window.setTimeout(tick, nextDelay)
+    }
+    tick()
+    return () => {
+      mounted = false
+      if (timerRef.current) window.clearTimeout(timerRef.current)
+    }
+  }, [intervalMs, maxPolls, poll, rateLimitedIntervalMs, refresh])
 
-  return { payment, status, loading, error, refresh }
+  return { payment, status, loading, error, refresh, pollCount, stopped: shouldStopPaymentPolling(status) || pollCount >= maxPolls }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { publicStoreApi } from '../api/publicStoreApi'
+import { phase5ApiClient } from '../api/phase5ApiClient'
+import { getSafePublicStoreError, normalizeStorefrontResponse } from '../utils/publicStoreModel'
 
 export function usePublicStorefront(storefrontSlug) {
   const [storefront, setStorefront] = useState(null)
@@ -15,16 +16,17 @@ export function usePublicStorefront(storefrontSlug) {
     setLoading(true)
     setError('')
 
-    publicStoreApi
+    phase5ApiClient.public
       .getStorefront(storefrontSlug)
       .then((result) => {
         if (!mounted) return
-        setStorefront(result.storefront)
-        setCategories(result.categories)
-        setProducts(result.products)
-        setSelectedCategoryId(result.categories[0]?.id || '')
+        const normalized = normalizeStorefrontResponse(result)
+        setStorefront(normalized.storefront)
+        setCategories(normalized.categories)
+        setProducts(normalized.products)
+        setSelectedCategoryId(normalized.categories[0]?.id || '')
       })
-      .catch(() => mounted && setError('Gagal memuat storefront.'))
+      .catch((error) => mounted && setError(getSafePublicStoreError(error, 'Storefront tidak ditemukan.')))
       .finally(() => mounted && setLoading(false))
 
     return () => {

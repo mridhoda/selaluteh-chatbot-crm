@@ -1,10 +1,11 @@
 import { useState } from 'react'
 
-export default function OutletPickupBadge({ outlets = [], selectedOutletId, onSelectOutlet }) {
+export default function OutletPickupBadge({ outlets = [], selectedOutletId, onSelectOutlet, locked = false, lockLabel = '', requireExplicitSelection = false }) {
   const [open, setOpen] = useState(false)
-  const selectedOutlet = outlets.find((outlet) => outlet.id === selectedOutletId) || outlets[0]
+  const selectedOutlet = outlets.find((outlet) => outlet.id === selectedOutletId) || (requireExplicitSelection ? null : outlets[0])
 
   const chooseOutlet = (outletId) => {
+    if (locked) return
     onSelectOutlet(outletId)
     setOpen(false)
   }
@@ -17,15 +18,16 @@ export default function OutletPickupBadge({ outlets = [], selectedOutletId, onSe
             <button
               type="button"
               className="flex h-12 min-w-0 flex-1 items-center justify-between rounded-xl border border-[var(--brand-200)] bg-white px-4 text-left transition focus:border-[var(--brand-400)] focus:outline-none focus:ring-4 focus:ring-[var(--brand-100)]"
-              onClick={() => setOpen(true)}
+              onClick={() => !locked && setOpen(true)}
               aria-haspopup="dialog"
+              aria-disabled={locked}
             >
               <span className="truncate text-base font-black text-gray-900">{selectedOutlet?.name || 'Pilih Outlet'}</span>
               <svg aria-hidden="true" className="h-5 w-5 shrink-0 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m6 9 6 6 6-6" />
               </svg>
             </button>
-            <span className="shrink-0 rounded-full bg-[var(--brand-50)] px-4 py-2 text-sm font-black text-[var(--brand-600)]">Pickup</span>
+            <span className="shrink-0 rounded-full bg-[var(--brand-50)] px-4 py-2 text-sm font-black text-[var(--brand-600)]">{locked ? 'QR Lock' : 'Pickup'}</span>
           </div>
           <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-gray-500">
             {selectedOutlet?.address && (
@@ -50,10 +52,11 @@ export default function OutletPickupBadge({ outlets = [], selectedOutletId, onSe
               </>
             )}
           </div>
+          {locked && lockLabel && <p className="mt-2 text-xs font-bold text-gray-500">{lockLabel}</p>}
         </div>
       </section>
 
-      {open && (
+      {open && !locked && (
         <div className="fixed inset-0 z-50 bg-black/20" role="dialog" aria-modal="true" aria-label="Pilih outlet pickup">
           <button type="button" className="absolute inset-0 h-full w-full cursor-default" aria-label="Tutup pilih outlet" onClick={() => setOpen(false)} />
           <div className="absolute bottom-0 left-1/2 w-full max-w-md -translate-x-1/2 rounded-t-[28px] bg-white shadow-2xl">

@@ -41,6 +41,7 @@ import ProductsPage from '../../products/pages/ProductsPage'
 import KitchenPage from '../../kitchen/pages/KitchenPage'
 import OutletsPage from '../../outlets/pages/OutletsPage'
 import PaymentsPage from '../../payments/pages/PaymentsPage'
+import Phase5AdminSettingsPage from '../../payments/pages/Phase5AdminSettingsPage'
 import SettingsPage from '../../settings/pages/SettingsPage'
 import ChatCenterPage from '../../chats/pages/ChatCenterPage'
 import ReportsPage from '../../reports/pages/ReportsPage'
@@ -1448,6 +1449,7 @@ export default function Dashboard() {
             <Route path='products' element={<ProtectedPage user={accessUser} resource='products'><ProductsPage /></ProtectedPage>} />
             <Route path='outlets' element={<ProtectedPage user={accessUser} resource='outlets'><OutletsPage /></ProtectedPage>} />
             <Route path='payments' element={<ProtectedPage user={accessUser} resource='payments'><PaymentsPage /></ProtectedPage>} />
+            <Route path='payments/settings' element={<ProtectedPage user={accessUser} resource='payments'><Phase5AdminSettingsPage /></ProtectedPage>} />
             <Route path='platforms' element={<ProtectedPage user={accessUser} resource='platforms'><Platforms /></ProtectedPage>} />
             <Route path='agents' element={<ProtectedPage user={accessUser} resource='ai' action='configure'><Agents /></ProtectedPage>} />
             <Route

@@ -13,6 +13,7 @@ import StoreSkeleton from '../components/StoreSkeleton'
 import { useGuestCart } from '../hooks/useGuestCart'
 import { usePublicStorefront } from '../hooks/usePublicStorefront'
 import PublicStoreLayout from '../layouts/PublicStoreLayout'
+import { getEligibleOutlets } from '../utils/publicStoreModel'
 
 export default function StorefrontPage() {
   const { storefrontSlug } = useParams()
@@ -21,10 +22,7 @@ export default function StorefrontPage() {
   const [cartOpen, setCartOpen] = useState(false)
   const [selectedOutletId, setSelectedOutletId] = useState('')
   const store = usePublicStorefront(storefrontSlug)
-  const outlets = useMemo(
-    () => store.storefront?.outlets || (store.storefront?.outlet ? [store.storefront.outlet] : []),
-    [store.storefront],
-  )
+  const outlets = useMemo(() => getEligibleOutlets({ outlets: store.storefront?.outlets || (store.storefront?.outlet ? [store.storefront.outlet] : []) }), [store.storefront])
   const selectedOutlet = outlets.find((outlet) => outlet.id === selectedOutletId) || outlets[0]
   const cart = useGuestCart({ storefront: store.storefront, products: store.products, outlet: selectedOutlet })
 
@@ -36,8 +34,10 @@ export default function StorefrontPage() {
   }, [outlets, storefrontSlug])
 
   const selectOutlet = (outletId) => {
+    if (!outlets.some((outlet) => outlet.id === outletId && outlet.isAvailable !== false)) return
     setSelectedOutletId(outletId)
     window.localStorage.setItem(`public-store-outlet:${storefrontSlug}`, outletId)
+    cart.clearCart()
   }
 
   if (store.loading) {
@@ -68,6 +68,20 @@ export default function StorefrontPage() {
     return (
       <PublicStoreLayout theme={store.storefront.theme}>
         <StoreErrorState title="Store belum aktif" description="Outlet belum menerima pesanan online saat ini." />
+      </PublicStoreLayout>
+    )
+  }
+
+  if (!outlets.length) {
+    return (
+      <PublicStoreLayout theme={store.storefront.theme}>
+        <StoreHeader
+          brandName={store.storefront.brandName || store.storefront.name}
+          logoUrl={store.storefront.theme.logoUrl}
+          cartCount={0}
+          onOpenCart={() => {}}
+        />
+        <StoreErrorState title="Outlet tidak tersedia" description="Belum ada outlet aktif untuk pemesanan online." />
       </PublicStoreLayout>
     )
   }

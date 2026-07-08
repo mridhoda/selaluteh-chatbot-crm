@@ -5,9 +5,9 @@ import PublicStoreLayout from '../layouts/PublicStoreLayout'
 import { formatCurrency } from '../utils/formatCurrency'
 
 export default function PaymentPendingPage() {
-  const { checkoutToken } = useParams()
+  const { paymentId } = useParams()
   const navigate = useNavigate()
-  const paymentStatus = usePaymentStatus(checkoutToken)
+  const paymentStatus = usePaymentStatus(paymentId)
 
   const [timeLeft, setTimeLeft] = useState(14 * 60 + 59)
 
@@ -28,11 +28,11 @@ export default function PaymentPendingPage() {
   }
 
   const handleOpenOrder = () => {
-    navigate(`/store/order/${paymentStatus.payment?.publicOrderToken || 'mock-public-order'}`)
+    if (paymentStatus.payment?.publicOrderToken) navigate(`/order/${paymentStatus.payment.publicOrderToken}`)
   }
 
-  const orderId = `#ST-${checkoutToken?.slice(0, 6).toUpperCase() || 'MOCK'}`
-  const totalTagihan = formatCurrency(paymentStatus.payment?.totals?.totalMinor || 28000)
+  const orderId = `#PAY-${paymentId?.slice(0, 6).toUpperCase() || 'PENDING'}`
+  const totalTagihan = paymentStatus.payment?.totals?.totalMinor ? formatCurrency(paymentStatus.payment.totals.totalMinor) : 'Menunggu backend'
 
   return (
     <PublicStoreLayout theme={{ primaryColor: 'var(--brand-500)', primarySoftColor: 'var(--brand-50)' }}>
@@ -118,10 +118,10 @@ export default function PaymentPendingPage() {
 
         {/* Title */}
         <h2 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 900, color: '#111827', textAlign: 'center' }}>
-          Menunggu Pembayaran
+          {paymentStatus.status === 'paid' ? 'Pembayaran Terkonfirmasi' : 'Menunggu Pembayaran'}
         </h2>
         <p style={{ margin: 0, fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>
-          Selesaikan pembayaran dalam waktu:
+          Status dibaca dari backend. Redirect gateway tidak dianggap lunas.
         </p>
 
         {/* Timer */}
@@ -194,6 +194,11 @@ export default function PaymentPendingPage() {
           </p>
         )}
 
+        <div style={{ marginBottom: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #e5e7eb', padding: '10px 12px', width: '100%', boxSizing: 'border-box', textAlign: 'center' }}>
+          <p style={{ margin: 0, fontSize: 11, color: '#6b7280', fontWeight: 800 }}>Status Pembayaran</p>
+          <p style={{ margin: '2px 0 0', fontSize: 14, color: '#111827', fontWeight: 900 }}>{paymentStatus.status}</p>
+        </div>
+
         {/* Info text */}
         <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', lineHeight: 1.6, margin: '0 0 24px', maxWidth: 280 }}>
           Silakan selesaikan pembayaran di gateway sebelum waktu habis agar pesanan diproses.
@@ -231,7 +236,7 @@ export default function PaymentPendingPage() {
 
           <button
             type="button"
-            onClick={paymentStatus.status === 'paid' ? handleOpenOrder : paymentStatus.refresh}
+             onClick={paymentStatus.payment?.publicOrderToken ? handleOpenOrder : paymentStatus.refresh}
             disabled={paymentStatus.loading}
             style={{
               width: '100%',
@@ -248,9 +253,9 @@ export default function PaymentPendingPage() {
               transition: 'background-color 0.15s',
             }}
           >
-            {paymentStatus.status === 'paid'
-              ? 'Lihat Status Pesanan'
-              : paymentStatus.loading
+             {paymentStatus.payment?.publicOrderToken
+               ? 'Lihat Status Pesanan'
+               : paymentStatus.loading
               ? 'Mengecek...'
               : 'Cek Status Pembayaran'}
           </button>

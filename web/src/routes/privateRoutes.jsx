@@ -10,6 +10,7 @@ import {
   CheckoutPage,
   OrderStatusPage,
   PaymentPendingPage,
+  QrStorePage,
   StorefrontPage,
 } from '../features/public-store'
 
@@ -23,8 +24,10 @@ export default function AppRoutes() {
       <Route path='/forgot-password' element={<ForgotPasswordPage />} />
       <Route path='/reset-password/:token' element={<ResetPasswordPage />} />
       <Route path='/store/:storefrontSlug' element={<StorefrontPage />} />
+      <Route path='/qr/:qrToken' element={<QrStorePage />} />
       <Route path='/store/:storefrontSlug/checkout' element={<CheckoutPage />} />
-      <Route path='/store/payment/pending/:checkoutToken' element={<PaymentPendingPage />} />
+      <Route path='/store/payment/pending/:paymentId' element={<PaymentPendingPage />} />
+      <Route path='/order/:publicOrderToken' element={<OrderStatusPage />} />
       <Route path='/store/order/:publicOrderToken' element={<OrderStatusPage />} />
       <Route path='/app/*' element={<DashboardLayout />} />
       <Route path='*' element={<Navigate to='/' />} />

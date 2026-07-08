@@ -1,10 +1,11 @@
 const DEFAULT_API_PORT = '5000'
 
 export function getApiBase() {
-  const configuredBase = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL
+  const env = import.meta.env || {}
+  const configuredBase = env.VITE_API_BASE || env.VITE_API_URL
   if (configuredBase) return configuredBase
 
-  if (import.meta.env.DEV && typeof window !== 'undefined' && window.location?.origin) {
+  if (env.DEV && typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin
   }
 

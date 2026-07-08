@@ -8,6 +8,7 @@ export const navigationGroups = [
       { label: 'Products', path: '/app/products', key: 'products', permission: { resource: 'products', action: 'read' } },
       { label: 'Outlets', path: '/app/outlets', key: 'outlets', permission: { resource: 'outlets', action: 'read' } },
       { label: 'Payments', path: '/app/payments', key: 'payments', permission: { resource: 'payments', action: 'read' } },
+      { label: 'QR/Payment Settings', path: '/app/payments/settings', key: 'qr-payment-settings', permission: { resource: 'payments', action: 'read' } },
     ],
   },
   {

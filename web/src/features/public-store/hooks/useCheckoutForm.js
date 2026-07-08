@@ -1,12 +1,14 @@
 import { useCallback, useState } from 'react'
-import { publicStoreApi } from '../api/publicStoreApi'
+import { phase5ApiClient } from '../api/phase5ApiClient'
+import { buildCheckoutPayload, createCheckoutAttempt, resetCheckoutAttempt } from '../utils/cartIntentModel'
 import { normalizePhone } from '../utils/normalizePhone'
 
-export function useCheckoutForm({ cart, onSuccess }) {
+export function useCheckoutForm({ intentItems = [], intentContext = {}, validatedCart, validateCart, onSuccess }) {
   const [values, setValues] = useState({ name: '', phone: '', note: '' })
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [attempt, setAttempt] = useState(null)
 
   const setField = useCallback((field, value) => {
     setValues((current) => ({ ...current, [field]: value }))
@@ -23,33 +25,45 @@ export function useCheckoutForm({ cart, onSuccess }) {
   }
 
   const submit = async () => {
+    if (submitting) return null
     setSubmitError('')
     const result = validate()
     if (!result.ok) return null
-    if (!cart?.items?.length) {
+    if (!intentItems.length) {
       setSubmitError('Keranjang masih kosong.')
       return null
     }
 
     setSubmitting(true)
     try {
-      const checkout = await publicStoreApi.checkout({
+      const backendCart = validatedCart?.valid ? validatedCart : await validateCart?.()
+      if (!backendCart?.valid) {
+        setSubmitError('Keranjang perlu divalidasi backend sebelum checkout.')
+        return null
+      }
+      const nextAttempt = createCheckoutAttempt({ existingAttempt: attempt })
+      setAttempt(nextAttempt)
+      const checkout = await phase5ApiClient.public.checkout(buildCheckoutPayload({
+        context: intentContext,
+        items: intentItems,
         customer: {
           name: values.name.trim(),
           phone: result.normalizedPhone,
           note: values.note.trim(),
         },
-        cart,
-      })
+      }), { idempotencyKey: nextAttempt.idempotencyKey })
       onSuccess?.(checkout)
+      setAttempt(null)
       return checkout
-    } catch {
-      setSubmitError('Checkout gagal dibuat. Coba lagi.')
+    } catch (error) {
+      setSubmitError(error.code === 'IDEMPOTENCY_CONFLICT' ? 'Percobaan checkout bentrok. Mulai percobaan baru.' : 'Checkout gagal dibuat. Coba lagi.')
       return null
     } finally {
       setSubmitting(false)
     }
   }
 
-  return { values, setField, errors, submitting, submitError, submit }
+  const newAttempt = useCallback(() => setAttempt(resetCheckoutAttempt()), [])
+
+  return { values, setField, errors, submitting, submitError, submit, attempt, newAttempt }
 }

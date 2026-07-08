@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import StoreErrorState from '../components/StoreErrorState'
 import StoreSkeleton from '../components/StoreSkeleton'
@@ -10,27 +10,28 @@ import { formatCurrency } from '../utils/formatCurrency'
 
 export default function CheckoutPage() {
   const { storefrontSlug } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const store = usePublicStorefront(storefrontSlug)
-  const selectedOutletId = typeof window !== 'undefined' ? window.localStorage.getItem(`public-store-outlet:${storefrontSlug}`) : ''
+  const queryOutletId = searchParams.get('outletId') || ''
+  const qrSessionToken = searchParams.get('qrSessionToken') || ''
+  const includeOutlet = searchParams.get('includeOutlet') !== 'false'
+  const selectedOutletId = queryOutletId || (typeof window !== 'undefined' ? window.localStorage.getItem(`public-store-outlet:${storefrontSlug}`) : '')
   const outlets = store.storefront?.outlets || (store.storefront?.outlet ? [store.storefront.outlet] : [])
   const selectedOutlet = outlets.find((outlet) => outlet.id === selectedOutletId) || outlets[0]
-  const cart = useGuestCart({ storefront: store.storefront, products: store.products, outlet: selectedOutlet })
+  const cart = useGuestCart({ storefront: store.storefront, products: store.products, outlet: selectedOutlet, qrSessionToken, includeOutlet })
   
   const form = useCheckoutForm({
-    cart: cart.cart,
-    onSuccess: (checkout) => navigate(`/store/payment/pending/${checkout.checkoutToken}`),
+    intentItems: cart.intentItems,
+    intentContext: cart.intentContext,
+    validatedCart: cart.validatedCart,
+    validateCart: cart.validateCart,
+    onSuccess: (checkout) => navigate(`/store/payment/pending/${checkout.paymentId || checkout.checkoutToken}`),
   })
   const { setField } = form
 
   // Auth States
-  const [currentUser, setCurrentUser] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const stored = window.localStorage.getItem(`public-store:user`)
-      return stored ? JSON.parse(stored) : null
-    }
-    return null
-  })
+  const [currentUser, setCurrentUser] = useState(null)
   
   const [showAuthSuggestion, setShowAuthSuggestion] = useState(false)
   const [authModalOpen, setAuthModalOpen] = useState(false)
@@ -79,9 +80,6 @@ export default function CheckoutPage() {
     }
 
     setCurrentUser(user)
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(`public-store:user`, JSON.stringify(user))
-    }
     setAuthModalOpen(false)
     setAuthError('')
     // Clear password fields
@@ -107,9 +105,6 @@ export default function CheckoutPage() {
     }
 
     setCurrentUser(user)
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(`public-store:user`, JSON.stringify(user))
-    }
     setAuthModalOpen(false)
     setAuthError('')
     // Clear password fields
@@ -118,9 +113,6 @@ export default function CheckoutPage() {
 
   const handleLogout = () => {
     setCurrentUser(null)
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(`public-store:user`)
-    }
     form.setField('name', '')
     form.setField('phone', '')
   }
@@ -306,6 +298,9 @@ export default function CheckoutPage() {
 
         <div className="bg-white p-4">
           <h3 className="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">Ringkasan Pesanan</h3>
+          <p className="mb-3 rounded-xl bg-orange-50 px-3 py-2 text-[11px] font-bold leading-5 text-orange-700">
+            Total di layar ini hanya estimasi. Total final selalu memakai hasil validasi backend sebelum checkout.
+          </p>
           <div className="space-y-3 mb-4">
             {cart.items.map((item) => (
               <div key={item.id} className="flex justify-between gap-3 text-sm">
@@ -330,9 +325,19 @@ export default function CheckoutPage() {
               <span className="font-semibold text-gray-800">{formatCurrency(cart.totals.serviceFeeMinor)}</span>
             </div>
             <div className="flex justify-between font-bold text-base text-gray-900 pt-2">
-              <span>Total</span>
+              <span>Total estimasi</span>
               <span className="text-[var(--brand-600)]">{formatCurrency(cart.totals.totalMinor)}</span>
             </div>
+            {cart.validatedCart?.valid && (
+              <div className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
+                Backend tervalidasi: {formatCurrency(cart.validatedCart.totals.totalMinor || 0)}
+              </div>
+            )}
+            {cart.validationStatus === 'invalid' && (
+              <div className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                Keranjang tidak valid. Periksa menu dan modifier yang dipilih.
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -341,7 +346,7 @@ export default function CheckoutPage() {
         <div className="max-w-md mx-auto">
           <button
             type="button"
-            onClick={form.submit}
+            onClick={() => form.submit()}
             disabled={form.submitting || !cart.items.length}
             className="w-full bg-[var(--brand-500)] text-white font-bold text-base py-3.5 rounded-full flex items-center justify-center gap-2 hover:bg-[var(--brand-600)] active:scale-[0.98] transition-all disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed"
           >
@@ -349,7 +354,25 @@ export default function CheckoutPage() {
             <span className="w-1.5 h-1.5 bg-white/40 rounded-full mx-1" />
             <span>{formatCurrency(cart.totals.totalMinor)}</span>
           </button>
-          <p className="text-center text-[10px] text-gray-400 mt-2">Dengan lanjut bayar, pesanan akan dibuat untuk pickup.</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={cart.validateCart}
+              disabled={cart.validationStatus === 'pending' || !cart.items.length}
+              className="rounded-full border border-gray-200 bg-white px-3 py-2 text-[11px] font-black text-gray-600 disabled:text-gray-300"
+            >
+              {cart.validationStatus === 'pending' ? 'Validasi...' : 'Validasi Backend'}
+            </button>
+            <button
+              type="button"
+              onClick={form.newAttempt}
+              disabled={form.submitting}
+              className="rounded-full border border-gray-200 bg-white px-3 py-2 text-[11px] font-black text-gray-600 disabled:text-gray-300"
+            >
+              Percobaan Baru
+            </button>
+          </div>
+          <p className="text-center text-[10px] text-gray-400 mt-2">Dengan lanjut bayar, pesanan akan dibuat untuk pickup. Redirect pembayaran tidak dianggap lunas.</p>
         </div>
       </div>
 

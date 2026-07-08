@@ -3,6 +3,7 @@ import ModifierGroup from './ModifierGroup'
 import QuantityStepper from './QuantityStepper'
 import { calculateItemPreviewTotal } from '../utils/calculateDisplayTotal'
 import { formatCurrency } from '../utils/formatCurrency'
+import { validateModifierSelection } from '../utils/publicStoreModel'
 
 export default function ProductModifierSheet({ product, open, onClose, onAdd }) {
   const [selectedOptionIds, setSelectedOptionIds] = useState([])
@@ -42,13 +43,7 @@ export default function ProductModifierSheet({ product, open, onClose, onAdd }) 
   }
 
   const submit = async () => {
-    const nextErrors = {}
-    product.modifierGroups.forEach((group) => {
-      const selectedCount = selectedOptionIds.filter((id) => group.options.some((option) => option.id === id)).length
-      if (group.isRequired && selectedCount < (group.minSelect || 1)) {
-        nextErrors[group.id] = `Pilih minimal ${group.minSelect || 1} opsi.`
-      }
-    })
+    const nextErrors = validateModifierSelection(product, selectedOptionIds)
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 

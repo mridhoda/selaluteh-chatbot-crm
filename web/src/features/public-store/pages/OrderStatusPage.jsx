@@ -7,6 +7,7 @@ import StoreErrorState from '../components/StoreErrorState'
 import StoreSkeleton from '../components/StoreSkeleton'
 import { usePublicOrderStatus } from '../hooks/usePublicOrderStatus'
 import PublicStoreLayout from '../layouts/PublicStoreLayout'
+import { toTimelineStatus } from '../utils/cartIntentModel'
 
 export default function OrderStatusPage() {
   const { publicOrderToken } = useParams()
@@ -30,9 +31,7 @@ export default function OrderStatusPage() {
     )
   }
 
-  const handleBackToMenu = () => {
-    navigate(`/store/selalu-kopi`)
-  }
+  const handleBackToMenu = () => navigate(`/store/selalu-kopi`)
 
   return (
     <PublicStoreLayout theme={{ primaryColor: 'var(--brand-500)', primarySoftColor: 'var(--brand-50)' }}>
@@ -60,13 +59,13 @@ export default function OrderStatusPage() {
               <path d="M20 6 9 17l-5-5" />
             </svg>
           </div>
-          <h2 className="text-xl font-black text-gray-900" style={{ lineHeight: 1.2, marginTop: 0 }}>Pembayaran Berhasil!</h2>
-          <p className="-mt-1.5 text-gray-500 text-sm leading-none mb-5">Terima kasih, pesanan kamu sudah kami terima.</p>
+          <h2 className="text-xl font-black text-gray-900" style={{ lineHeight: 1.2, marginTop: 0 }}>Status Pesanan</h2>
+          <p className="-mt-1.5 text-gray-500 text-sm leading-none mb-5">Halaman publik hanya menampilkan data aman dari backend.</p>
 
           <div className="flex items-center justify-center gap-4 w-full">
             <div className="bg-gray-50 rounded-xl p-3 flex-1 border border-gray-100">
               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Order ID</p>
-              <p className="font-extrabold text-gray-900 text-sm">#{order.orderNumber}</p>
+              <p className="font-extrabold text-gray-900 text-sm">#{order.orderNumberPublic}</p>
             </div>
             {order.queueNumber && (
               <div className="bg-[var(--brand-50)] rounded-xl p-3 flex-1 border border-[var(--brand-100)]">
@@ -78,7 +77,7 @@ export default function OrderStatusPage() {
         </div>
 
         <div className="bg-white mt-2 p-5 border-y border-gray-100">
-          <OrderStatusTimeline status={order.status} />
+          <OrderStatusTimeline status={toTimelineStatus(order.status)} />
         </div>
 
         <div className="bg-white mt-2 px-5 py-4 border-y border-gray-100 space-y-3">
@@ -93,6 +92,14 @@ export default function OrderStatusPage() {
               <p className="m-0 mt-0.5 text-gray-500 font-semibold leading-normal">{order.customer.phoneMasked}</p>
             </div>
           </div>
+          <div>
+            <h3 className="text-xs font-black text-gray-500 uppercase tracking-wider mb-0.5">Status Aman</h3>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs font-bold text-gray-600">
+              <p className="m-0">Payment: {order.paymentStatus}</p>
+              <p className="m-0 mt-1">Fulfillment: {order.fulfillmentStatus}</p>
+              {order.qrContext?.locationLabel && <p className="m-0 mt-1">QR: {order.qrContext.locationLabel}</p>}
+            </div>
+          </div>
         </div>
 
         <div className="bg-white mt-2 p-5 border-y border-gray-100">
@@ -101,7 +108,16 @@ export default function OrderStatusPage() {
         </div>
 
         <div className="p-4 space-y-3 mt-2 bg-white border-t border-gray-100">
-          <PublicInvoiceActions invoice={order.invoice} onBackToMenu={handleBackToMenu} />
+          {order.invoice && <PublicInvoiceActions invoice={order.invoice} onBackToMenu={handleBackToMenu} />}
+          {!order.invoice && (
+            <button
+              type="button"
+              className="w-full bg-white border border-gray-200 text-gray-700 font-bold text-sm py-3 rounded-full hover:bg-gray-50 transition-colors"
+              onClick={handleBackToMenu}
+            >
+              Kembali ke Menu
+            </button>
+          )}
           <button
             type="button"
             className="w-full bg-white border border-gray-200 text-gray-700 font-bold text-sm py-3 rounded-full hover:bg-gray-50 transition-colors"

@@ -42,6 +42,7 @@ const navigationIcons = {
   products: faCube,
   outlets: faStore,
   payments: faWallet,
+  'qr-payment-settings': faCog,
   chat: faComment,
   analytics: faChartLine,
   contacts: faAddressBook,
@@ -69,6 +70,7 @@ const activeNavigationKeys = new Set([
   'platforms',
   'agents',
   'access-control',
+  'qr-payment-settings',
 ])
 
 function getStoredWorkspace(user) {
