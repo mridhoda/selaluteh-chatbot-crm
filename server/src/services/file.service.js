@@ -5,7 +5,7 @@ import { getSupabaseServiceClient } from '../db/supabase.js';
 import { AppError } from '../utils/errors.js';
 
 const ALLOWED_MIMES = new Set([
-  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon',
   'application/pdf',
   'text/csv', 'text/plain',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -37,7 +37,7 @@ export function validateFile(mimeType, size, originalName = '') {
 
 export function sanitizeFilename(originalName) {
   const ext = path.extname(originalName || 'file').toLowerCase();
-  const safeExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.csv', '.txt', '.xlsx', '.xls'];
+  const safeExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico', '.pdf', '.csv', '.txt', '.xlsx', '.xls'];
   if (!safeExts.includes(ext)) {
     throw new AppError('INVALID_EXTENSION', `File extension ${ext} is not allowed`, 400);
   }
@@ -108,6 +108,14 @@ export async function getFile({ workspaceId, fileId }) {
   if (error) throw error;
   if (!data) throw new AppError('NOT_FOUND', 'File not found', 404);
   return data;
+}
+
+export async function resolvePublicManagedFile({ storedName }) {
+  const client = getSupabaseServiceClient();
+  const { data, error } = await client.from('files').select('*').eq('stored_name', storedName).maybeSingle();
+  if (error) throw error;
+  if (!data || data.metadata?.public !== true) return null;
+  return { file: data, absolutePath: path.resolve(data.relative_path) };
 }
 
 export async function resolveFileDownload({ workspaceId, fileId = null, storedName = null }) {

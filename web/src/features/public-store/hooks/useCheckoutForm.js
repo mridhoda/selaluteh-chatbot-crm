@@ -38,12 +38,12 @@ export function useCheckoutForm({ intentItems = [], intentContext = {}, validate
     try {
       const backendCart = validatedCart?.valid ? validatedCart : await validateCart?.()
       if (!backendCart?.valid) {
-        setSubmitError('Keranjang perlu divalidasi backend sebelum checkout.')
+        setSubmitError('Keranjang perlu diperiksa ulang sebelum checkout.')
         return null
       }
       const nextAttempt = createCheckoutAttempt({ existingAttempt: attempt })
       setAttempt(nextAttempt)
-      const checkout = await phase5ApiClient.public.checkout(buildCheckoutPayload({
+      const checkoutResponse = await phase5ApiClient.public.checkout(buildCheckoutPayload({
         context: intentContext,
         items: intentItems,
         customer: {
@@ -52,6 +52,12 @@ export function useCheckoutForm({ intentItems = [], intentContext = {}, validate
           note: values.note.trim(),
         },
       }), { idempotencyKey: nextAttempt.idempotencyKey })
+      const checkout = {
+        ...checkoutResponse,
+        paymentId: checkoutResponse.paymentId || checkoutResponse.payment?.id,
+        paymentUrl: checkoutResponse.paymentUrl || checkoutResponse.payment?.payment_url,
+        checkoutToken: checkoutResponse.checkoutToken || checkoutResponse.order?.public_order_token,
+      }
       onSuccess?.(checkout)
       setAttempt(null)
       return checkout

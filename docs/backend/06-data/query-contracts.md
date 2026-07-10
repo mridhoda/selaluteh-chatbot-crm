@@ -239,8 +239,44 @@ Rules:
 
 ```txt
 products.is_active = true
-product_outlet_availability.is_available = true
+product_outlet_availability.is_available = true when availability row exists
 stock_quantity > 0 only when stock_tracking = true
+include modifier_groups/options through product_modifier_groups
+```
+
+## Product Modifier Admin Query
+
+Used by Products -> Modifiers tab.
+
+```txt
+listModifierGroups({ workspaceId })
+```
+
+Includes:
+
+```txt
+modifier_groups
+modifier_options ordered by sort_order
+product_modifier_groups with linked product summary
+```
+
+Returned UI model:
+
+```txt
+id, name, code
+type                  # Optional | Required
+selectionRule         # Single-select | Multi-select (max N)
+minSelection
+maxSelection
+outletScope
+description
+tags
+options[]             # id, name, price/priceDelta, isActive
+productsCount
+categoriesCount
+requiredInCheckout
+status                # Active | Inactive
+linkedProducts[]
 ```
 
 ## Order Detail Query

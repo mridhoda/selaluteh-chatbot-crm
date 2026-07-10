@@ -1,12 +1,106 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { publicStorefrontInternals } from '../../../src/services/public-storefront.service.js';
-import { createPublicCheckout } from '../../../src/services/public-storefront.service.js';
+import {
+  createPublicCheckout,
+  loginPublicStoreCustomer,
+  registerPublicStoreCustomer,
+} from '../../../src/services/public-storefront.service.js';
 import { getPublicOrderByToken } from '../../../src/services/public-order.service.js';
 import { publicOrderInternals } from '../../../src/services/public-order.service.js';
-import { ordersRepository } from '../../../src/db/repositories/index.js';
+import {
+  contactsRepository,
+  ordersRepository,
+  storefrontsRepository,
+  workspacesRepository,
+} from '../../../src/db/repositories/index.js';
 
 describe('public storefront helpers', () => {
+  it('registers an online-store customer and returns only safe profile fields', async (t) => {
+    t.mock.method(storefrontsRepository, 'findActiveBySlug', async () => ({
+      id: 'storefront-1',
+      slug: 'selalu-kopi',
+      workspaceId: 'workspace-1',
+      orderingEnabled: true,
+    }));
+    t.mock.method(workspacesRepository, 'findById', async () => ({ id: 'workspace-1', status: 'active' }));
+    t.mock.method(workspacesRepository, 'getSettings', async () => null);
+    t.mock.method(contactsRepository, 'upsertPublicStoreCustomer', async (payload) => {
+      assert.deepEqual(payload, {
+        workspaceId: 'workspace-1',
+        name: 'Lori',
+        phone: '628123456789',
+        email: 'lori@example.com',
+        password: 'rahasia-123',
+        storefrontSlug: 'selalu-kopi',
+      });
+      return {
+        id: 'contact-1',
+        name: 'Lori',
+        phone: '628123456789',
+        email: 'lori@example.com',
+        tags: ['online_store', 'demo_customer'],
+        metadata: { demo_password: 'rahasia-123' },
+      };
+    });
+
+    const response = await registerPublicStoreCustomer({
+      storefrontSlug: 'selalu-kopi',
+      name: 'Lori',
+      phone: '628123456789',
+      email: 'Lori@Example.com',
+      password: 'rahasia-123',
+    });
+
+    assert.deepEqual(response.customer, {
+      id: 'contact-1',
+      name: 'Lori',
+      phone: '628123456789',
+      email: 'lori@example.com',
+      tags: ['online_store', 'demo_customer'],
+    });
+    assert.equal(JSON.stringify(response).includes('rahasia-123'), false);
+  });
+
+  it('rejects incomplete online-store registration before touching the repository', async () => {
+    await assert.rejects(
+      () => registerPublicStoreCustomer({ storefrontSlug: 'selalu-kopi', name: 'Lori', phone: '628123456789', email: '', password: 'secret' }),
+      (error) => error.code === 'CUSTOMER_EMAIL_REQUIRED' && error.status === 400,
+    );
+    await assert.rejects(
+      () => registerPublicStoreCustomer({ storefrontSlug: 'selalu-kopi', name: 'Lori', phone: '628123456789', email: 'lori@example.com', password: '' }),
+      (error) => error.code === 'CUSTOMER_PASSWORD_REQUIRED' && error.status === 400,
+    );
+  });
+
+  it('allows the newly registered online-store customer to log in', async (t) => {
+    t.mock.method(storefrontsRepository, 'findActiveBySlug', async () => ({
+      id: 'storefront-1',
+      slug: 'selalu-kopi',
+      workspaceId: 'workspace-1',
+      orderingEnabled: true,
+    }));
+    t.mock.method(workspacesRepository, 'findById', async () => ({ id: 'workspace-1', status: 'active' }));
+    t.mock.method(workspacesRepository, 'getSettings', async () => null);
+    t.mock.method(contactsRepository, 'findPublicStoreCustomerByEmail', async () => ({
+      id: 'contact-1',
+      name: 'Lori',
+      phone: '628123456789',
+      email: 'lori@example.com',
+      tags: ['online_store'],
+      metadata: { demo_password: 'rahasia-123' },
+    }));
+
+    const response = await loginPublicStoreCustomer({
+      storefrontSlug: 'selalu-kopi',
+      email: 'Lori@Example.com',
+      password: 'rahasia-123',
+    });
+
+    assert.equal(response.customer.id, 'contact-1');
+    assert.equal(response.customer.email, 'lori@example.com');
+  });
+
   it('hashes idempotency payloads deterministically', () => {
     const payload = { outletId: 'outlet-1', items: [{ product_id: 'prod-1', quantity: 2 }] };
     assert.equal(publicStorefrontInternals.stableHash(payload), publicStorefrontInternals.stableHash(payload));

@@ -28,7 +28,7 @@ export default function PublicStoreLayout({ theme, children }) {
   const combinedStyle = {
     ...getStorefrontThemeVars(theme),
     ...selkopThemeVars,
-    overflow: 'visible',
+    overflowX: 'hidden',
     backgroundColor: '#FEF9F0', // Cream Base
   }
 
@@ -111,9 +111,9 @@ export default function PublicStoreLayout({ theme, children }) {
         }
       `}</style>
       
-      <div 
-        className="mx-auto min-h-screen w-full max-w-md bg-[#FEF9F0]" 
-        style={{ overflow: 'visible', boxShadow: '0 0 0 1px rgba(15,23,42,0.04)' }}
+      <div
+        className="mx-auto min-h-screen w-full max-w-md min-w-0 overflow-x-hidden bg-[#FEF9F0]"
+        style={{ boxShadow: '0 0 0 1px rgba(15,23,42,0.04)' }}
       >
         {children}
       </div>

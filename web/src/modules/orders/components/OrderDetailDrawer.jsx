@@ -5,6 +5,7 @@ import OrderStatusBadge from './OrderStatusBadge'
 import OrderItemsList from './OrderItemsList'
 import OrderTimeline from './OrderTimeline'
 import OrderQuickActions from './OrderQuickActions'
+import OrderLifecycleActions from './OrderLifecycleActions'
 import {
   getReceiptEligibility,
   isAndroidUserAgent,
@@ -41,6 +42,18 @@ function ChannelIcon({ channel }) {
   }
   if (ch === 'instagram') {
     return <span className='text-[#E1306C] text-sm shrink-0'>📷</span>
+  }
+  if (['qr_store', 'qr', 'location_qr', 'location-qr', 'table_qr', 'table-qr', 'website', 'web', 'online', 'online_store', 'public_store', 'storefront'].includes(ch)) {
+    return (
+      <svg
+        viewBox='0 0 16 16'
+        className='w-4 h-4 fill-[#635bff] shrink-0'
+        aria-label='Online Store / QR Store'
+        xmlns='http://www.w3.org/2000/svg'
+      >
+        <path d='M1 1h6v6H1V1Zm2 2v2h2V3H3Zm6-2h6v6H9V1Zm2 2v2h2V3h-2ZM1 9h6v6H1V9Zm2 2v2h2v-2H3Zm7-2h2v2h-2V9Zm3 0h2v2h-2V9Zm-4 4h2v2H9v-2Zm4 0h2v2h-2v-2Zm-1-2h2v2h-2v-2Z' />
+      </svg>
+    )
   }
   // generic fallback
   return <span className='text-[var(--info-500)] text-sm shrink-0'>💬</span>
@@ -79,7 +92,8 @@ function formatPaymentMethod(raw) {
 export default function OrderDetailDrawer({
   order,
   onClose,
-  onStatusChange,
+  inFlightAction,
+  onSubmitAction,
   onCancelClick,
   onOpenChat,
   onResendPayment,
@@ -172,6 +186,10 @@ export default function OrderDetailDrawer({
     (order.channelSnapshot || '').toLowerCase() ||
     (order.source || '').toLowerCase() ||
     'whatsapp'
+  const qrMetaParts = order.qrLabel
+    ? String(order.qrLabel).split('·').map((part) => part.trim()).filter(Boolean)
+    : []
+  const headerMetaParts = [formattedDateTime, ...qrMetaParts]
   const receiptEligibility = getReceiptEligibility(order, 'CUSTOMER_RECEIPT')
   const isAndroidPrint = isAndroidUserAgent()
 
@@ -225,22 +243,22 @@ export default function OrderDetailDrawer({
             <FontAwesomeIcon icon={faChevronRight} />
           </button>
         </div>
-        <div className='text-[11px] text-[var(--text-muted)] mb-3'>
-          {formattedDateTime}
+        <div className='text-[11px] text-[var(--text-muted)] mb-3 flex flex-wrap items-center gap-x-1.5 gap-y-1'>
+          {headerMetaParts.map((part, index) => (
+            <React.Fragment key={`${part}-${index}`}>
+              {index > 0 && <span className='text-[var(--text-subtle)]'>•</span>}
+              <span>{part}</span>
+            </React.Fragment>
+          ))}
         </div>
 
-        {/* Outlet & Channel row — channel uses proper logo */}
+        {/* Outlet & channel */}
         <div className='flex justify-between items-center text-sm font-medium text-[var(--text-secondary)]'>
           <div className='flex items-center gap-2'>
-            <img
-              src={`https://ui-avatars.com/api/?name=${encodeURIComponent(order.outlet || 'Outlet')}&background=e1e6ef&color=26314d`}
-              className='w-6 h-6 rounded-full'
-              alt={order.outlet}
-            />
+            <span className='flex h-6 w-6 items-center justify-center rounded-full bg-[var(--surface-secondary)] text-xs'>🏪</span>
             <span>{order.outlet || 'Outlet'}</span>
           </div>
           <div className='flex items-center gap-1.5'>
-            {/* Channel / platform logo — resolved from channelSnapshot, channel, or source */}
             <ChannelIcon channel={resolvedChannel} />
             <span className='capitalize'>{resolvedChannel || 'WhatsApp'}</span>
           </div>
@@ -255,36 +273,16 @@ export default function OrderDetailDrawer({
             <span>👤</span>
             <span>Customer</span>
           </div>
-          <div className='flex justify-between items-center'>
-            <div>
-              <div className='font-bold text-[var(--text-primary)] text-sm leading-tight'>
+          <div className='flex justify-between items-center gap-3'>
+            <div className='min-w-0'>
+              <div className='font-bold text-[var(--text-primary)] text-sm leading-tight truncate'>
                 {order.contactId?.name || order.customerNameSnapshot || 'Unknown User'}
               </div>
-              {/* Phone number — shown if available; otherwise show user ID */}
               <div className='text-xs text-[var(--text-muted)] mt-1 leading-none'>
-                {customerPhone ? (
-                  <a
-                    href={`tel:${customerPhone}`}
-                    className='hover:text-[var(--brand-600)] hover:underline transition-colors duration-150'
-                  >
-                    {customerPhone}
-                  </a>
-                ) : customerUserId ? (
-                  <span
-                    className='inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-[10px] font-mono text-[var(--text-subtle)]'
-                    title='User ID'
-                  >
-                    <span className='text-[8px] opacity-60 uppercase font-bold tracking-wide'>ID</span>
-                    {String(customerUserId).length > 16
-                      ? `...${String(customerUserId).slice(-12)}`
-                      : customerUserId}
-                  </span>
-                ) : (
-                  <span className='italic text-[var(--text-subtle)]'>No contact info</span>
-                )}
+                {customerPhone ? <a href={`tel:${customerPhone}`} className='hover:text-[var(--brand-600)] hover:underline'>{customerPhone}</a> : <span className='italic'>No contact info</span>}
               </div>
             </div>
-            <div className='flex gap-2'>
+            <div className='flex gap-2 shrink-0'>
               {/* WhatsApp button — uses proper WA SVG icon */}
               <button
                 onClick={handleWhatsAppClick}
@@ -398,24 +396,22 @@ export default function OrderDetailDrawer({
           </div>
         </div>
 
-        {order.notes && (
-          <>
-            <hr
-              className='border-[var(--border-default)]'
-              style={{ margin: '8px 0' }}
-            />
-            {/* Notes Block */}
-            <div>
-              <div className='text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-2 mb-3'>
-                <span>📝</span>
-                <span>Order Notes</span>
-              </div>
-              <div className='text-sm text-[var(--text-secondary)] pl-1'>
-                {order.notes}
-              </div>
+        <>
+          <hr
+            className='border-[var(--border-default)]'
+            style={{ margin: '8px 0' }}
+          />
+          {/* Notes Block */}
+          <div>
+            <div className='text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-2 mb-3'>
+              <span>📝</span>
+              <span>Order Notes</span>
             </div>
-          </>
-        )}
+            <div className={`rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-secondary)] px-3 py-2 text-sm ${order.notes?.trim() ? 'text-[var(--text-secondary)]' : 'italic text-[var(--text-muted)]'}`}>
+              {order.notes?.trim() || 'Tidak ada catatan order.'}
+            </div>
+          </div>
+        </>
 
         <hr
           className='border-[var(--border-default)]'
@@ -492,14 +488,22 @@ export default function OrderDetailDrawer({
         <OrderTimeline timeline={order.timeline || []} />
       </div>
 
-      <footer className='shrink-0 sticky bottom-0 bg-[var(--surface-primary)] border-t border-[var(--border-subtle)] px-5 py-4'>
+      <footer className='shrink-0 sticky bottom-0 bg-[var(--surface-primary)] border-t border-[var(--border-subtle)] px-5 py-3 space-y-3'>
+        {/* Order Lifecycle Actions */}
+        <OrderLifecycleActions
+          order={order}
+          inFlightAction={inFlightAction}
+          onSubmitAction={onSubmitAction}
+          onCancelClick={onCancelClick}
+        />
+
         {/* Quick Actions Block */}
         <OrderQuickActions
           order={order}
-          onStatusChange={onStatusChange}
-          onCancelClick={onCancelClick}
           onOpenChat={onOpenChat}
           onResendPayment={onResendPayment}
+          onPrintReceipt={handlePrintReceipt}
+          isPrintDisabled={!receiptEligibility.eligible || printing}
         />
       </footer>
     </aside>

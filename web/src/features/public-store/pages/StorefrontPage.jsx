@@ -77,8 +77,10 @@ export default function StorefrontPage() {
       <PublicStoreLayout theme={store.storefront.theme}>
         <StoreHeader
           brandName={store.storefront.brandName || store.storefront.name}
+          subtitle={store.storefront.description || 'Online Store'}
           logoUrl={store.storefront.theme.logoUrl}
           cartCount={0}
+          storefrontSlug={store.storefront.slug}
           onOpenCart={() => {}}
         />
         <StoreErrorState title="Outlet tidak tersedia" description="Belum ada outlet aktif untuk pemesanan online." />
@@ -89,9 +91,11 @@ export default function StorefrontPage() {
   return (
     <PublicStoreLayout theme={store.storefront.theme}>
       <StoreHeader
-        brandName={store.storefront.brandName}
+        brandName={store.storefront.brandName || store.storefront.name}
+        subtitle={store.storefront.description || 'Online Store'}
         logoUrl={store.storefront.theme.logoUrl}
         cartCount={cart.cartCount}
+        storefrontSlug={store.storefront.slug}
         onOpenCart={() => setCartOpen(true)}
       />
       <OutletPickupBadge

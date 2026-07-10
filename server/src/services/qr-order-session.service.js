@@ -43,8 +43,12 @@ function toQrMenuProduct(product) {
 }
 
 function inferQrScope(contextRecord = {}) {
-  const rawScope = contextRecord.scope || contextRecord.qrType || contextRecord.metadata?.scope || contextRecord.metadata?.qr_type || contextRecord.metadata?.qrType;
-  if (['universal', 'outlet', 'location'].includes(rawScope)) return rawScope;
+  const rawScope = contextRecord.scope || contextRecord.qrType || contextRecord.qr_type || contextRecord.metadata?.scope || contextRecord.metadata?.qr_scope || contextRecord.metadata?.qrScope || contextRecord.metadata?.qr_type || contextRecord.metadata?.qrType;
+  const normalizedScope = String(rawScope || '').trim().toLowerCase();
+  if (['universal', 'outlet', 'location'].includes(normalizedScope)) return normalizedScope;
+  if (['universal_qr', 'global', 'any_outlet'].includes(normalizedScope)) return 'universal';
+  if (['outlet_qr', 'store', 'store_qr'].includes(normalizedScope)) return 'outlet';
+  if (['location_qr', 'table', 'table_qr'].includes(normalizedScope)) return 'location';
   if (contextRecord.qrLocation || contextRecord.qrLocationId || contextRecord.lockedLocationId) return 'location';
   return 'outlet';
 }

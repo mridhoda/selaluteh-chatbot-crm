@@ -67,6 +67,38 @@ export const storefrontsRepository = {
     return this.listActiveOutlets({ workspaceId, storefrontId });
   },
 
+  async findActiveByWorkspace({ workspaceId }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(STOREFRONTS_TABLE)
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (isMissingRelationError(result.error)) return null;
+    const row = extractSingle(result, 'storefronts.findActiveByWorkspace');
+    return row ? mapRow(row) : null;
+  },
+
+  async updateMetadata({ workspaceId, storefrontId, metadata, name }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const updates = { metadata };
+    if (name) updates.name = name;
+    const result = await client
+      .from(STOREFRONTS_TABLE)
+      .update(updates)
+      .eq('workspace_id', workspaceId)
+      .eq('id', storefrontId)
+      .select('*')
+      .single();
+    const row = extractSingle(result, 'storefronts.updateMetadata');
+    return row ? mapRow(row) : null;
+  },
+
   async isOutletAvailableForStorefront({ workspaceId, storefrontId, outletId }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();

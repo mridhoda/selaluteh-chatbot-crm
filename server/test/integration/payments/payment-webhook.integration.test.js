@@ -213,7 +213,7 @@ function buildBayarGgWebhookDeps({ calls = [], verifyResult, existingEvent = nul
         },
       };
     },
-    async markOrderPaidAwaitingAcceptance() {
+    async markOrderPaidPreparing() {
       calls.push('mark-order-paid');
       state.markOrderPaidCalls += 1;
       return { id: 'order-1', workspaceId: 'workspace-1', outletId: 'outlet-1', metadata: {} };

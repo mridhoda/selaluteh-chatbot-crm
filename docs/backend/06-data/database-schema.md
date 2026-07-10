@@ -378,6 +378,65 @@ created_at
 updated_at
 ```
 
+### modifier_groups
+
+Workspace-owned modifier group displayed in the Products admin `Modifiers` tab and reused by public storefront product detail.
+
+Suggested fields:
+
+```txt
+id
+workspace_id
+name
+code nullable                 # unique per workspace when present
+type                          # optional | required
+selection_type                # single | multi
+min_selection
+max_selection
+outlet_scope                  # all_outlets for initial implementation
+description nullable
+tags text[]
+status                        # active | inactive
+metadata
+created_at
+updated_at
+```
+
+### modifier_options
+
+Options inside a modifier group. `price_delta` is added to product unit price during cart/checkout validation.
+
+Suggested fields:
+
+```txt
+id
+workspace_id
+modifier_group_id
+name
+price_delta
+sort_order
+is_active
+metadata
+created_at
+updated_at
+```
+
+### product_modifier_groups
+
+Join table linking sellable products to modifier groups.
+
+Suggested fields:
+
+```txt
+workspace_id
+product_id
+modifier_group_id
+is_required
+sort_order
+metadata
+created_at
+```
+
 ---
 
 ## Cart, Order & Payment Tables

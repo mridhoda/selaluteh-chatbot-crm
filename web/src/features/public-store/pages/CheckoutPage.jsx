@@ -7,6 +7,8 @@ import { useGuestCart } from '../hooks/useGuestCart'
 import { usePublicStorefront } from '../hooks/usePublicStorefront'
 import PublicStoreLayout from '../layouts/PublicStoreLayout'
 import { formatCurrency } from '../utils/formatCurrency'
+import OrderProductThumbnail from '../components/OrderProductThumbnail'
+import { phase5ApiClient } from '../api/phase5ApiClient'
 
 export default function CheckoutPage() {
   const { storefrontSlug } = useParams()
@@ -31,7 +33,15 @@ export default function CheckoutPage() {
   const { setField } = form
 
   // Auth States
-  const [currentUser, setCurrentUser] = useState(null)
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      const stored = window.localStorage.getItem(`customer-user:${storefrontSlug}`)
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  })
   
   const [showAuthSuggestion, setShowAuthSuggestion] = useState(false)
   const [authModalOpen, setAuthModalOpen] = useState(false)
@@ -65,28 +75,27 @@ export default function CheckoutPage() {
     setAuthError('')
   }
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault()
     if (!authForm.email || !authForm.password) {
       setAuthError('Email dan Kata Sandi wajib diisi.')
       return
     }
 
-    // Mock successful login
-    const user = {
-      name: authForm.name || 'Tamu Selkop',
-      phone: authForm.phone || '081234567890',
-      email: authForm.email
+    try {
+      const response = await phase5ApiClient.public.loginCustomer({ storefrontSlug, email: authForm.email, password: authForm.password })
+      const user = response.customer
+      setCurrentUser(user)
+      window.localStorage.setItem(`customer-user:${storefrontSlug}`, JSON.stringify(user))
+      setAuthModalOpen(false)
+      setAuthError('')
+      setAuthForm(prev => ({ ...prev, password: '', confirmPassword: '' }))
+    } catch (error) {
+      setAuthError(error.status === 404 ? 'Akun tidak ditemukan. Silakan daftar terlebih dahulu.' : 'Email atau kata sandi salah.')
     }
-
-    setCurrentUser(user)
-    setAuthModalOpen(false)
-    setAuthError('')
-    // Clear password fields
-    setAuthForm(prev => ({ ...prev, password: '', confirmPassword: '' }))
   }
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault()
     if (!authForm.name || !authForm.phone || !authForm.email || !authForm.password) {
       setAuthError('Semua kolom wajib diisi.')
@@ -97,22 +106,22 @@ export default function CheckoutPage() {
       return
     }
 
-    // Mock successful registration
-    const user = {
-      name: authForm.name,
-      phone: authForm.phone,
-      email: authForm.email
+    try {
+      const response = await phase5ApiClient.public.registerCustomer({ storefrontSlug, name: authForm.name, phone: authForm.phone, email: authForm.email, password: authForm.password })
+      const user = response.customer
+      setCurrentUser(user)
+      window.localStorage.setItem(`customer-user:${storefrontSlug}`, JSON.stringify(user))
+      setAuthModalOpen(false)
+      setAuthError('')
+      setAuthForm(prev => ({ ...prev, password: '', confirmPassword: '' }))
+    } catch {
+      setAuthError('Pendaftaran akun customer gagal. Coba lagi.')
     }
-
-    setCurrentUser(user)
-    setAuthModalOpen(false)
-    setAuthError('')
-    // Clear password fields
-    setAuthForm(prev => ({ ...prev, password: '', confirmPassword: '' }))
   }
 
   const handleLogout = () => {
     setCurrentUser(null)
+    window.localStorage.removeItem(`customer-user:${storefrontSlug}`)
     form.setField('name', '')
     form.setField('phone', '')
   }
@@ -206,8 +215,9 @@ export default function CheckoutPage() {
                 value={form.values.name}
                 onFocus={handleNameFocus}
                 onChange={(e) => form.setField('name', e.target.value)}
+                disabled={Boolean(currentUser)}
                 placeholder="Masukkan nama"
-                className={`w-full border ${
+                className={`w-full border ${currentUser ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''} ${
                   form.errors.name ? 'border-red-500 focus:ring-red-100' : 'border-gray-200 focus:border-[var(--brand-500)] focus:ring-[var(--brand-50)]'
                 } rounded-2xl p-3 text-sm font-semibold outline-none focus:ring-4 transition placeholder-gray-400/50 placeholder:text-gray-400/50`}
               />
@@ -267,8 +277,9 @@ export default function CheckoutPage() {
                 inputMode="numeric"
                 value={form.values.phone}
                 onChange={(e) => form.setField('phone', e.target.value)}
+                disabled={Boolean(currentUser)}
                 placeholder="081234567890"
-                className={`w-full border ${
+                className={`w-full border ${currentUser ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''} ${
                   form.errors.phone ? 'border-red-500 focus:ring-red-100' : 'border-gray-200 focus:border-[var(--brand-500)] focus:ring-[var(--brand-50)]'
                 } rounded-2xl p-3 text-sm font-semibold outline-none focus:ring-4 transition placeholder-gray-400/50 placeholder:text-gray-400/50`}
               />
@@ -298,18 +309,18 @@ export default function CheckoutPage() {
 
         <div className="bg-white p-4">
           <h3 className="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">Ringkasan Pesanan</h3>
-          <p className="mb-3 rounded-xl bg-orange-50 px-3 py-2 text-[11px] font-bold leading-5 text-orange-700">
-            Total di layar ini hanya estimasi. Total final selalu memakai hasil validasi backend sebelum checkout.
-          </p>
           <div className="space-y-3 mb-4">
             {cart.items.map((item) => (
-              <div key={item.id} className="flex justify-between gap-3 text-sm">
-                <span className="text-gray-700 leading-tight">
-                  <span className="font-extrabold">{item.quantity}x</span> {item.productName}
-                  {item.modifierSummary?.length > 0 && (
-                    <span className="block text-xs text-gray-400 mt-0.5">{item.modifierSummary.join(', ')}</span>
-                  )}
-                </span>
+              <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
+                <div className="flex min-w-0 items-center gap-3">
+                  <OrderProductThumbnail imageUrl={item.imageUrl} name={item.productName} />
+                  <span className="min-w-0 text-gray-700 leading-tight">
+                    <span className="font-extrabold">{item.quantity}x</span> {item.productName}
+                    {item.modifierSummary?.length > 0 && (
+                      <span className="block truncate text-xs text-gray-400 mt-0.5">{item.modifierSummary.join(', ')}</span>
+                    )}
+                  </span>
+                </div>
                 <span className="text-gray-900 font-extrabold shrink-0">{formatCurrency(item.lineTotalMinor)}</span>
               </div>
             ))}
@@ -320,19 +331,16 @@ export default function CheckoutPage() {
               <span>Subtotal</span>
               <span className="font-semibold text-gray-800">{formatCurrency(cart.totals.subtotalMinor)}</span>
             </div>
-            <div className="flex justify-between text-sm text-gray-500">
-              <span>Biaya Layanan</span>
-              <span className="font-semibold text-gray-800">{formatCurrency(cart.totals.serviceFeeMinor)}</span>
-            </div>
-            <div className="flex justify-between font-bold text-base text-gray-900 pt-2">
-              <span>Total estimasi</span>
-              <span className="text-[var(--brand-600)]">{formatCurrency(cart.totals.totalMinor)}</span>
-            </div>
-            {cart.validatedCart?.valid && (
-              <div className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
-                Backend tervalidasi: {formatCurrency(cart.validatedCart.totals.totalMinor || 0)}
+            {cart.totals.serviceFeeMinor > 0 && (
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>Biaya Layanan</span>
+                <span className="font-semibold text-gray-800">{formatCurrency(cart.totals.serviceFeeMinor)}</span>
               </div>
             )}
+            <div className="flex justify-between font-bold text-base text-gray-900 pt-2">
+              <span>Total Pesanan</span>
+              <span className="text-[var(--brand-600)]">{formatCurrency(cart.totals.totalMinor)}</span>
+            </div>
             {cart.validationStatus === 'invalid' && (
               <div className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
                 Keranjang tidak valid. Periksa menu dan modifier yang dipilih.
@@ -354,25 +362,6 @@ export default function CheckoutPage() {
             <span className="w-1.5 h-1.5 bg-white/40 rounded-full mx-1" />
             <span>{formatCurrency(cart.totals.totalMinor)}</span>
           </button>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={cart.validateCart}
-              disabled={cart.validationStatus === 'pending' || !cart.items.length}
-              className="rounded-full border border-gray-200 bg-white px-3 py-2 text-[11px] font-black text-gray-600 disabled:text-gray-300"
-            >
-              {cart.validationStatus === 'pending' ? 'Validasi...' : 'Validasi Backend'}
-            </button>
-            <button
-              type="button"
-              onClick={form.newAttempt}
-              disabled={form.submitting}
-              className="rounded-full border border-gray-200 bg-white px-3 py-2 text-[11px] font-black text-gray-600 disabled:text-gray-300"
-            >
-              Percobaan Baru
-            </button>
-          </div>
-          <p className="text-center text-[10px] text-gray-400 mt-2">Dengan lanjut bayar, pesanan akan dibuat untuk pickup. Redirect pembayaran tidak dianggap lunas.</p>
         </div>
       </div>
 

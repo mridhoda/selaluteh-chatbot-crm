@@ -53,6 +53,19 @@ export default function OrdersTable({
 
   const getChannelIcon = (channel) => {
     const chan = channel ? channel.toLowerCase() : ''
+    if (['qr_store', 'qr', 'location_qr', 'location-qr', 'table_qr', 'table-qr', 'website', 'web', 'online', 'online_store', 'public_store', 'storefront'].includes(chan)) {
+      return (
+        <svg
+          aria-hidden='true'
+          viewBox='0 0 16 16'
+          className='w-[14px] h-[14px] text-[#635bff]'
+          fill='currentColor'
+          title='Online Store / QR Store'
+        >
+          <path d='M1 1h6v6H1V1Zm2 2v2h2V3H3Zm6-2h6v6H9V1Zm2 2v2h2V3h-2ZM1 9h6v6H1V9Zm2 2v2h2v-2H3Zm7-2h2v2h-2V9Zm3 0h2v2h-2V9Zm-4 4h2v2H9v-2Zm4 0h2v2h-2v-2Zm-1-2h2v2h-2v-2Z' />
+        </svg>
+      )
+    }
     if (
       chan === 'whatsapp' ||
       chan === 'telegram' ||
@@ -144,9 +157,9 @@ export default function OrdersTable({
                     <span className='font-mono text-[12px] font-semibold tracking-tight truncate' title={order.orderIdDisplay}>
                       {order.orderIdDisplay}
                     </span>
-                    {order.status === 'new' && (
-                      <span className='inline-flex items-center w-max mt-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded font-sans'>
-                        New
+                    {order.qrLabel && (
+                      <span className='text-[10px] text-gray-400 font-sans mt-0.5' title={order.qrLabel}>
+                        {order.qrLabel}
                       </span>
                     )}
                   </div>
@@ -159,7 +172,7 @@ export default function OrdersTable({
                       {order.contactId?.name || 'Unknown'}
                     </span>
                     <span className='text-gray-400 text-xs mt-0.5'>
-                      {order.contactId?.phone || order.contactId?.id || '-'}
+                      {order.customerIdentifier || '-'}
                     </span>
                   </div>
                 </td>

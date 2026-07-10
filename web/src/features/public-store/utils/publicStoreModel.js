@@ -1,4 +1,5 @@
 import { getApiErrorMessage } from '../../../shared/api/apiError.js'
+import selkopAlphaImage from '../../../assets/product-image/minuman/Selkop Aren Creamy & Alpha.png'
 
 const UNIVERSAL_SCOPE = 'UNIVERSAL'
 const OUTLET_SCOPE = 'OUTLET'
@@ -8,26 +9,53 @@ function arrayFrom(value) {
   return Array.isArray(value) ? value : []
 }
 
-function normalizeProduct(product = {}) {
+function normalizeProduct(product = {}, categoryByName = new Map()) {
   const availability = product.availability || (product.isAvailable === false ? 'sold_out' : 'available')
   const isAvailable = product.isAvailable !== false && !['sold_out', 'unavailable', 'disabled'].includes(String(availability).toLowerCase())
+  const categoryName = product.category || product.categoryName || product.metadata?.category || 'Menu'
+  const categoryId = product.categoryId || product.category_id || categoryByName.get(String(categoryName).trim().toLowerCase()) || categoryName
+  const imageUrl = String(product.name || '').trim().toLowerCase() === 'selkop alpha'
+    ? selkopAlphaImage
+    : product.imageUrl || product.image_url || product.thumbnailUrl || product.thumbnail_url || product.image || null
+
+  const modifierGroups = arrayFrom(product.modifierGroups || product.modifiers).map((group) => {
+    const type = group.type || (Number(group.maxSelections ?? group.max_selections ?? group.maxSelect ?? 1) === 1 ? 'SINGLE' : 'MULTIPLE')
+    return {
+      ...group,
+      title: group.title || group.name || group.label || 'Options',
+      type: String(type).toUpperCase() === 'MULTI' ? 'MULTIPLE' : String(type).toUpperCase(),
+      isRequired: group.isRequired ?? group.required ?? Number(group.minSelections ?? group.min_selections ?? group.minSelect ?? 0) > 0,
+      minSelect: group.minSelect ?? group.minSelections ?? group.min_selections ?? 0,
+      maxSelect: group.maxSelect ?? group.maxSelections ?? group.max_selections ?? null,
+      options: arrayFrom(group.options).map((option) => ({
+        ...option,
+        isAvailable: option.isAvailable !== false && option.is_active !== false,
+        priceDeltaMinor: option.priceDeltaMinor ?? option.pricePreviewMinor ?? option.priceDelta ?? option.price_delta ?? option.price ?? 0,
+      })),
+    }
+  })
 
   return {
     ...product,
-    basePriceMinor: product.basePriceMinor ?? product.pricePreviewMinor ?? product.priceMinor ?? 0,
+    category: categoryName,
+    categoryId,
+    imageUrl,
+    basePriceMinor: product.basePriceMinor ?? product.pricePreviewMinor ?? product.priceMinor ?? product.unit_price ?? product.unitPrice ?? 0,
     isAvailable,
     availability,
     availabilityLabel: product.availabilityLabel || (isAvailable ? 'Available' : 'Sold Out'),
-    modifierGroups: arrayFrom(product.modifierGroups).map((group) => ({
-      ...group,
-      type: group.type || (group.maxSelect === 1 ? 'SINGLE' : 'MULTIPLE'),
-      options: arrayFrom(group.options).map((option) => ({
-        ...option,
-        isAvailable: option.isAvailable !== false,
-        priceDeltaMinor: option.priceDeltaMinor ?? option.pricePreviewMinor ?? 0,
-      })),
-    })),
+    modifierGroups,
   }
+}
+
+function sortStoreCategories(categories) {
+  const priority = (category) => {
+    const name = String(category.name || category.label || '').trim().toLowerCase()
+    if (name === 'minuman') return 0
+    if (name === 'makanan') return 1
+    return 2
+  }
+  return [...categories].sort((a, b) => priority(a) - priority(b))
 }
 
 function normalizeOutlet(outlet = {}, locked = false) {
@@ -41,8 +69,9 @@ function normalizeOutlet(outlet = {}, locked = false) {
 export function normalizeStorefrontResponse(response = {}) {
   const storefront = response.storefront || response.data?.storefront || null
   const menu = response.menu || response.data?.menu || {}
-  const categories = arrayFrom(response.categories || menu.categories || response.data?.categories)
-  const products = arrayFrom(response.products || menu.products || response.data?.products).map(normalizeProduct)
+  const categories = sortStoreCategories(arrayFrom(response.categories || menu.categories || response.data?.categories))
+  const categoryByName = new Map(categories.map((category) => [String(category.name || category.label || category.id || '').trim().toLowerCase(), category.id]))
+  const products = arrayFrom(response.products || menu.products || response.data?.products).map((product) => normalizeProduct(product, categoryByName))
   const outlets = arrayFrom(response.outlets || response.eligibleOutlets || response.data?.outlets).map((outlet) => normalizeOutlet(outlet))
   const singleOutlet = response.outlet || response.data?.outlet || storefront?.outlet
   const normalizedOutlets = outlets.length ? outlets : singleOutlet ? [normalizeOutlet(singleOutlet)] : []
@@ -56,9 +85,14 @@ export function normalizeStorefrontResponse(response = {}) {
           theme: storefront.theme || {},
           outlets: normalizedOutlets,
           outlet: normalizedOutlets[0] || null,
-          banner: storefront.banner || {
+          banners: Array.isArray(storefront.banners) ? storefront.banners : [],
+          banner: {
+            ...(storefront.banner || (Array.isArray(storefront.banners) && storefront.banners[0]) || {
             title: storefront.name || storefront.brandName || 'Online Store',
             subtitle: 'Pilih outlet dan menu yang tersedia.',
+            }),
+            items: Array.isArray(storefront.banners) ? storefront.banners : [],
+            intervalSeconds: storefront.bannerIntervalSeconds || 5,
           },
         }
       : null,

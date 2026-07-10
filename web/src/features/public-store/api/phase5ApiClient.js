@@ -142,6 +142,17 @@ export function createPhase5ApiClient({
     getPublicOrder(publicOrderToken) {
       return request(`${PUBLIC_PREFIX}/orders/${encodePath(publicOrderToken, 'publicOrderToken')}`)
     },
+    getCustomerOrders(phone, contactId = '') {
+      const query = new URLSearchParams({ phone: phone || '' })
+      if (contactId) query.set('contactId', contactId)
+      return request(`${PUBLIC_PREFIX}/customer-orders?${query.toString()}`)
+    },
+    loginCustomer(payload) {
+      return request(`${PUBLIC_PREFIX}/customer/login`, { method: 'POST', body: payload })
+    },
+    registerCustomer(payload) {
+      return request(`${PUBLIC_PREFIX}/customer/register`, { method: 'POST', body: payload })
+    },
   }
 
   function adminOrderAction(orderId, action, body) {

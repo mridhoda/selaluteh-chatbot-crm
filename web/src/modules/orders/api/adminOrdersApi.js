@@ -19,7 +19,29 @@ function getWorkspaceId() {
 }
 
 export function createAdminOrdersApi(options = {}) {
-  return createPhase5ApiClient({ getAuthToken, getWorkspaceId, ...options }).admin
+  const client = createPhase5ApiClient({ getAuthToken, getWorkspaceId, ...options }).admin
+  const { acceptOrder, prepareOrder, ...safeClient } = client
+  return {
+    ...safeClient,
+    getAdminOrders(params) {
+      return client.listOrders(params)
+    },
+    getAdminOrderDetail(orderId) {
+      return client.getOrder(orderId)
+    },
+    readyOrder(orderId) {
+      return client.readyOrder(orderId)
+    },
+    completeOrder(orderId) {
+      return client.completeOrder(orderId)
+    },
+    cancelOrder(orderId, reason) {
+      const body = reason && typeof reason === 'object'
+        ? { reason: reason.reason }
+        : { reason }
+      return client.cancelOrder(orderId, body)
+    },
+  }
 }
 
 export const adminOrdersApi = createAdminOrdersApi()

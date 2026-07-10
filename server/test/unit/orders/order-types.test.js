@@ -67,8 +67,8 @@ describe('order-types', () => {
         canComplete: false,
         canCancel: true,
       });
-      assert.equal(getOrderCapabilities({ paymentStatus: 'paid', fulfillmentStatus: 'awaiting_acceptance' }).canAccept, true);
-      assert.equal(getOrderCapabilities({ paymentStatus: 'paid', fulfillmentStatus: 'accepted' }).canStartPreparing, true);
+      assert.equal(getOrderCapabilities({ paymentStatus: 'paid', fulfillmentStatus: 'awaiting_acceptance' }).canAccept, false);
+      assert.equal(getOrderCapabilities({ paymentStatus: 'paid', fulfillmentStatus: 'accepted' }).canStartPreparing, false);
       assert.equal(getOrderCapabilities({ paymentStatus: 'paid', fulfillmentStatus: 'preparing' }).canMarkReady, true);
       assert.equal(getOrderCapabilities({ paymentStatus: 'paid', fulfillmentStatus: 'ready' }).canComplete, true);
     });

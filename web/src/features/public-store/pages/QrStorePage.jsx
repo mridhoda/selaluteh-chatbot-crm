@@ -108,7 +108,7 @@ export default function QrStorePage() {
   if (!outlets.length) {
     return (
       <PublicStoreLayout theme={qrModel.storefront.theme}>
-        <StoreHeader brandName={qrModel.storefront.brandName || qrModel.storefront.name} logoUrl={qrModel.storefront.theme.logoUrl} cartCount={0} onOpenCart={() => {}} />
+        <StoreHeader brandName={qrModel.storefront.brandName || qrModel.storefront.name} logoUrl={qrModel.storefront.theme.logoUrl} cartCount={0} storefrontSlug={qrModel.storefront.slug} onOpenCart={() => {}} />
         <StoreErrorState title="Outlet QR tidak tersedia" description="Tidak ada outlet eligible dari backend untuk QR ini." />
       </PublicStoreLayout>
     )
@@ -124,6 +124,7 @@ export default function QrStorePage() {
         brandName={qrModel.storefront.brandName || qrModel.storefront.name}
         logoUrl={qrModel.storefront.theme.logoUrl}
         cartCount={cart.cartCount}
+        storefrontSlug={qrModel.storefront.slug}
         onOpenCart={() => canOpenCart && setCartOpen(true)}
       />
       <OutletPickupBadge

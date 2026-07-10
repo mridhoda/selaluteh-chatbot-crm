@@ -66,10 +66,10 @@ export default function OrderItemsList({
           return (
             <div key={index} className='flex justify-between items-start'>
               <div className='flex gap-3'>
-                <div
-                  className={`w-10 h-10 rounded flex items-center justify-center text-lg border shrink-0 ${bg}`}
-                >
-                  {emoji}
+                <div className={`w-10 h-10 rounded overflow-hidden flex items-center justify-center text-lg border shrink-0 ${bg}`}>
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.name} className='h-full w-full object-cover' />
+                  ) : emoji}
                 </div>
                 <div>
                   <div className='font-bold text-[var(--text-primary)] text-sm leading-tight'>

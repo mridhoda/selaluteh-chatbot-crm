@@ -18,6 +18,17 @@ import OrdersTable from '../components/OrdersTable'
 import OrderDetailDrawer from '../components/OrderDetailDrawer'
 import { getOrderQueryParams, getSessionUser } from '../../../shared/auth/permissions'
 
+import { adminOrdersApi } from '../api/adminOrdersApi.js'
+import {
+  normalizeAdminOrder,
+  normalizeAdminOrderList,
+  normalizeAdminOrderDetail,
+  mapAdminOrderError,
+  validateAdminAction,
+  getActionMethod,
+} from '../models/adminOrderModel.js'
+import CancelOrderModal from '../components/CancelOrderModal.jsx'
+
 const isPaidStatus = (status) => {
   const normalized = String(status || '').trim().toLowerCase()
   return normalized === 'paid' || normalized === 'lunas'
@@ -25,25 +36,7 @@ const isPaidStatus = (status) => {
 
 const normalizeRealtimeOrder = (order) => {
   if (!order) return null
-  const id = order._id || order.id
-  if (!id) return null
-  return {
-    ...order,
-    _id: id,
-    id,
-    paymentStatus: order.paymentStatus || order.payment_status,
-    createdAt: order.createdAt || order.created_at,
-    updatedAt: order.updatedAt || order.updated_at,
-    totalAmount: order.totalAmount ?? order.total_amount,
-    paidAt: order.paidAt || order.paid_at,
-    orderNumber: order.orderNumber || order.order_number,
-    customerNameSnapshot: order.customerNameSnapshot || order.customer_name_snapshot,
-    customerPhoneSnapshot: order.customerPhoneSnapshot || order.customer_phone_snapshot,
-    channelSnapshot: order.channelSnapshot || order.channel_snapshot,
-    paymentMethod: order.paymentMethod || order.payment_method,
-    paymentProofUrl: order.paymentProofUrl || order.payment_proof_url,
-    formData: order.formData || order.form_data,
-  }
+  return normalizeAdminOrder(order)
 }
 
 export default function Orders() {
@@ -80,6 +73,9 @@ export default function Orders() {
   // Selected Detail Drawer State
   const [selectedOrderId, setSelectedOrderId] = useState(null)
   const [isOrderDetailOpen, setIsOrderDetailOpen] = useState(true)
+  const [selectedOrderDetail, setSelectedOrderDetail] = useState(null)
+  const [inFlightAction, setInFlightAction] = useState('')
+  const [loadingDetail, setLoadingDetail] = useState(false)
 
   // Modal States
   const [cancelModalOrder, setCancelModalOrder] = useState(null)
@@ -145,35 +141,9 @@ export default function Orders() {
   const loadOrders = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/orders', { params: getOrderQueryParams(getSessionUser()) })
-      const rawOrders = Array.isArray(res.data)
-        ? res.data
-        : res.data && Array.isArray(res.data.data)
-          ? res.data.data
-          : []
-
-      const normalizedOrders = rawOrders.map((order) => ({
-        ...order,
-        _id: order._id || order.id,
-        id: order.id || order._id,
-      }))
-
-      setOrders(normalizedOrders)
-
-      // Fetch agents for product/price parsing
-      const agentIds = [
-        ...new Set(normalizedOrders.map((o) => o.agentId).filter(Boolean)),
-      ]
-      const agentMap = {}
-      for (const agentId of agentIds) {
-        try {
-          const agentRes = await api.get(`/agents/${agentId}`)
-          agentMap[agentId] = agentRes.data
-        } catch (err) {
-          console.error('Failed to load agent:', agentId)
-        }
-      }
-      setAgents(agentMap)
+      const payload = await adminOrdersApi.getAdminOrders(getOrderQueryParams(getSessionUser()))
+      const normalized = normalizeAdminOrderList(payload)
+      setOrders(normalized.orders)
       setLastUpdated(
         new Date().toLocaleTimeString([], {
           hour: '2-digit',
@@ -495,215 +465,8 @@ export default function Orders() {
     })
 
     // Map API orders to standard shape
-    const apiList = orders.map((order) => {
-      const agent = agents[order.agentId]
-      const priceInfo = calculateOrderPrice(order, agent)
-
-      // Legacy formData parsing (fallback for old orders)
-      const entries = Object.entries(order.formData || {})
-      const outletEntry = entries.find(([key]) =>
-        key.toLowerCase().includes('outlet')
-      )
-      const outletFromFormData = outletEntry ? outletEntry[1] : 'Samarinda'
-
-      const channelEntry = entries.find(
-        ([key]) =>
-          key.toLowerCase().includes('channel') ||
-          key.toLowerCase().includes('platform')
-      )
-      const channelFromFormData = channelEntry
-        ? channelEntry[1].toLowerCase()
-        : '' // do NOT default to 'whatsapp' — let source field take priority
-
-      const payStatusEntry = entries.find(
-        ([key]) =>
-          key.toLowerCase().includes('payment') ||
-          key.toLowerCase().includes('bayar')
-      )
-      let paymentStatusFromFormData = payStatusEntry
-        ? payStatusEntry[1]
-        : order.paymentProofUrl
-          ? 'Paid'
-          : 'Unpaid'
-      if (isPaidStatus(paymentStatusFromFormData)) {
-        paymentStatusFromFormData = 'Paid'
-      } else {
-        paymentStatusFromFormData = 'Unpaid'
-      }
-
-      let itemsFromFormData = []
-      if (priceInfo) {
-        itemsFromFormData.push({
-          name: priceInfo.itemName,
-          qty: priceInfo.quantity,
-          variant: 'Default Variant',
-          price: priceInfo.unitPrice,
-        })
-      } else {
-        const itemNameEntry = entries.find(
-          ([key]) =>
-            key.toLowerCase().includes('item') &&
-            key.toLowerCase().includes('name')
-        )
-        const qtyEntry = entries.find(
-          ([key]) =>
-            key.toLowerCase() === 'qty' || key.toLowerCase() === 'quantity'
-        )
-        if (itemNameEntry) {
-          itemsFromFormData.push({
-            name: itemNameEntry[1],
-            qty: qtyEntry ? parseInt(qtyEntry[1]) || 1 : 1,
-            variant: 'Standard',
-            price: 15000,
-          })
-        }
-      }
-
-      const subtotalFromFormData = priceInfo
-        ? priceInfo.subtotal
-        : itemsFromFormData[0]?.price * itemsFromFormData[0]?.qty || 0
-      const orderIdDisplay = order.orderNumber
-        || (order._id.startsWith('order-')
-          ? `SLTH-${order._id.replace('order-', '')}`
-          : order._id)
-
-      const timeline = [
-        {
-          time: new Date(order.createdAt).toLocaleString('en-US', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true,
-          }),
-          label: 'Order created',
-        },
-      ]
-      if (
-        order.status === 'processed' ||
-        order.status === 'preparing' ||
-        order.status === 'ready' ||
-        order.status === 'completed'
-      ) {
-        timeline.push({ time: new Date().toLocaleString(), label: 'Preparing' })
-      }
-      if (order.status === 'ready' || order.status === 'completed') {
-        timeline.push({
-          time: new Date().toLocaleString(),
-          label: 'Ready to Process',
-        })
-      }
-      if (order.status === 'completed') {
-        timeline.push({ time: new Date().toLocaleString(), label: 'Completed' })
-      }
-      if (order.status === 'cancelled') {
-        timeline.push({ time: new Date().toLocaleString(), label: 'Cancelled' })
-      }
-
-      // --- Resolve outlet name: prefer structured outlet object, then formData fallback ---
-      const outletName =
-        (order.outlet && typeof order.outlet === 'object'
-          ? order.outlet.name
-          : null) ||
-        (order.outlet && typeof order.outlet === 'string'
-          ? order.outlet
-          : null) ||
-        outletFromFormData
-
-      // --- Resolve payment status: prefer server paymentStatus field, then formData fallback ---
-      let paymentStatusResolved = order.paymentStatus
-        ? isPaidStatus(order.paymentStatus) ? 'Paid' : 'Unpaid'
-        : paymentStatusFromFormData
-
-      // --- Resolve items: prefer order.items from order_items table, then formData fallback ---
-      let itemsListResolved = itemsFromFormData
-      if (Array.isArray(order.items) && order.items.length > 0) {
-        itemsListResolved = order.items.map((item) => ({
-          name: item.name || item.productNameSnapshot || 'Item',
-          qty: item.quantity || 1,
-          variant: item.metadata?.variant || '',
-          price: item.unitPrice || 0,
-        }))
-      }
-
-      // --- Resolve total: prefer server totalAmount, then subtotal from items, then fallback ---
-      const totalResolved =
-        order.totalAmount ||
-        order.totals?.total ||
-        (itemsListResolved.length > 0
-          ? itemsListResolved.reduce((sum, i) => sum + i.price * i.qty, 0)
-          : subtotalFromFormData || 25000)
-
-      // --- Resolve channel: prefer channelSnapshot → source field → formData fallback ---
-      let channelResolved =
-        (order.channelSnapshot || '').toLowerCase() ||
-        (order.source || '').toLowerCase() ||
-        channelFromFormData ||
-        'unknown'
-
-      // --- Resolve customer name: prefer contactId object from server, then customerNameSnapshot ---
-      const customerName =
-        (order.contactId && typeof order.contactId === 'object'
-          ? order.contactId.name
-          : null) ||
-        order.customerNameSnapshot ||
-        'Unknown User'
-      
-      let customerPhone =
-        (order.contactId && typeof order.contactId === 'object'
-          ? (order.contactId.phone || order.contactId.handle || order.contactId.external_id || order.contactId.externalId)
-          : null) ||
-        order.customerPhoneSnapshot ||
-        ''
-
-      // --- Smart inference for WhatsApp ---
-      // If we have a pure numeric ID starting with 62 (Indonesian country code), it is almost certainly WhatsApp
-      if (/^\d{10,15}$/.test(customerPhone) && customerPhone.startsWith('62')) {
-        channelResolved = 'whatsapp'
-      } else if (order.chatId) {
-        if (order.chatId.includes('@s.whatsapp.net') || order.chatId.includes('@g.us')) {
-          channelResolved = 'whatsapp'
-          if (!customerPhone) {
-            customerPhone = order.chatId.split('@')[0]
-          }
-        }
-      }
-
-      return {
-        _id: order._id,
-        outletId: order.outletId || order.outlet_id || null,
-        orderIdDisplay,
-        status: order.status,
-        contactId: {
-          id: order.contactId && typeof order.contactId === 'object' ? order.contactId.id : (typeof order.contactId === 'string' ? order.contactId : null),
-          name: customerName,
-          phone: customerPhone,
-        },
-        customerNameSnapshot: order.customerNameSnapshot || null,
-        customerPhoneSnapshot: order.customerPhoneSnapshot || null,
-        chatId: order.chatId || null,
-        outlet: outletName,
-        channel: channelResolved,
-        channelSnapshot: order.channelSnapshot || null,
-        source: order.source || null,
-        itemsCount:
-          itemsListResolved.length > 0
-            ? `${itemsListResolved.length} item${itemsListResolved.length > 1 ? 's' : ''}`
-            : '0 items',
-        itemsList: itemsListResolved,
-        total: totalResolved,
-        paymentMethod: order.paymentMethod || null,
-        paymentStatus: paymentStatusResolved,
-        notes: order.notes || '',
-        createdAt: order.createdAt,
-        timeline,
-        paymentProofUrl: order.paymentProofUrl,
-      }
-    })
-
-    return [...apiList, ...overriddenMocks]
-  }, [orders, agents, mockOverrides, deletedMockIds])
+    return [...orders, ...overriddenMocks]
+  }, [orders, mockOverrides, deletedMockIds])
 
   // Date Filter matching helper
   const isDateMatched = (dateStr, dateFilter) => {
@@ -838,6 +601,9 @@ export default function Orders() {
 
   // Get currently selected order object details
   const currentSelectedOrder = useMemo(() => {
+    if (selectedOrderDetail && (selectedOrderDetail._id === selectedOrderId || selectedOrderDetail.id === selectedOrderId)) {
+      return selectedOrderDetail
+    }
     if (!selectedOrderId) {
       // Auto select the first item on load (to mimic mockup screen)
       return filteredOrders[0] || null
@@ -847,18 +613,59 @@ export default function Orders() {
       filteredOrders[0] ||
       null
     )
-  }, [selectedOrderId, filteredOrders, masterOrdersList])
+  }, [selectedOrderId, selectedOrderDetail, filteredOrders, masterOrdersList])
 
   // Status Change Logic (Quick Actions & Dropdown)
-  const handleStatusChange = async (orderId, newStatus) => {
-    // Check if mock order
+  const loadOrderDetail = async (orderId) => {
+    if (!orderId) {
+      setSelectedOrderDetail(null)
+      return
+    }
+    if (String(orderId).startsWith('order-')) {
+      const mockOrder = masterOrdersList.find((o) => o._id === orderId)
+      setSelectedOrderDetail(mockOrder || null)
+      return
+    }
+    setLoadingDetail(true)
+    try {
+      const payload = await adminOrdersApi.getAdminOrderDetail(orderId)
+      const normalized = normalizeAdminOrderDetail(payload)
+      setSelectedOrderDetail(normalized)
+    } catch (err) {
+      console.error('Failed to load order detail:', err)
+      const listOrder = orders.find((o) => o.id === orderId || o._id === orderId)
+      if (listOrder) {
+        setSelectedOrderDetail(listOrder)
+      }
+    } finally {
+      setLoadingDetail(false)
+    }
+  }
+
+  useEffect(() => {
+    loadOrderDetail(selectedOrderId)
+  }, [selectedOrderId])
+
+  const submitAction = async (action, reason = '') => {
+    if (!currentSelectedOrder) return
+
+    const orderId = currentSelectedOrder._id
     const isMock = orderId.startsWith('order-')
+
     if (isMock) {
-      // Update local override
-      const order = masterOrdersList.find((o) => o._id === orderId)
-      if (order) {
-        const updatedTimeline = [...(order.timeline || [])]
-        const label = newStatus.charAt(0).toUpperCase() + newStatus.slice(1)
+      setInFlightAction(action)
+      try {
+        const statusMap = {
+          mark_ready: 'ready',
+          ready: 'ready',
+          mark_completed: 'completed',
+          complete: 'completed',
+          cancel_order: 'cancelled',
+          cancel: 'cancelled',
+        }
+        const nextStatus = statusMap[action] || 'new'
+        const updatedTimeline = [...(currentSelectedOrder.timeline || [])]
+        const label = action.replace('_', ' ')
         updatedTimeline.push({
           time: new Date().toLocaleTimeString([], {
             hour: '2-digit',
@@ -871,84 +678,88 @@ export default function Orders() {
           ...prev,
           [orderId]: {
             ...prev[orderId],
-            status: newStatus,
+            status: nextStatus,
+            paymentStatus: nextStatus === 'cancelled' ? 'Unpaid' : (prev[orderId]?.paymentStatus || currentSelectedOrder.paymentStatus),
+            notes: nextStatus === 'cancelled' ? (reason || 'Dibatalkan oleh admin') : (prev[orderId]?.notes || currentSelectedOrder.notes),
             timeline: updatedTimeline,
+            allowedActions: [],
           },
         }))
-      }
-    } else {
-      // Real API update — use PATCH /orders/:id/status for proper state machine + WA notification
-      try {
-        await api.patch(`/orders/${orderId}/status`, { status: newStatus })
-        // Update local state optimistically
-        setOrders((prev) =>
-          prev.map((o) => (o._id === orderId ? { ...o, status: newStatus } : o))
-        )
-      } catch (err) {
-        const serverMsg = err?.response?.data?.error || err?.response?.data?.message || err.message
-        alert(`Gagal memperbarui status order: ${serverMsg}`)
-      }
-    }
-  }
 
-  // Open Cancel Modal
-  const openCancelModal = (order) => {
-    setCancelModalOrder(order)
-    setCancelReason('')
-  }
-
-  // Handle Cancel Order Submission
-  const handleCancelSubmit = async () => {
-    if (!cancelReason.trim()) {
-      alert('Mohon masukkan alasan pembatalan.')
+        setSelectedOrderDetail((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            status: nextStatus,
+            paymentStatus: nextStatus === 'cancelled' ? 'Unpaid' : prev.paymentStatus,
+            notes: nextStatus === 'cancelled' ? (reason || 'Dibatalkan oleh admin') : prev.notes,
+            timeline: updatedTimeline,
+            allowedActions: [],
+          }
+        })
+      } finally {
+        setInFlightAction('')
+        setCancelModalOrder(null)
+      }
       return
     }
 
-    const orderId = cancelModalOrder._id
-    const isMock = orderId.startsWith('order-')
-
-    setSubmittingCancel(true)
-    try {
-      if (isMock) {
-        const order = masterOrdersList.find((o) => o._id === orderId)
-        const updatedTimeline = [...(order.timeline || [])]
-        updatedTimeline.push({
-          time: new Date().toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-          label: `Cancelled: ${cancelReason}`,
-        })
-
-        setMockOverrides((prev) => ({
-          ...prev,
-          [orderId]: {
-            ...prev[orderId],
-            status: 'cancelled',
-            paymentStatus: 'Unpaid',
-            notes: cancelReason,
-            timeline: updatedTimeline,
-          },
-        }))
-        setCancelModalOrder(null)
-      } else {
-        await api.put(`/orders/${orderId}/cancel`, { reason: cancelReason })
-        setOrders((prev) =>
-          prev.map((o) =>
-            o._id === orderId
-              ? { ...o, status: 'cancelled', notes: cancelReason }
-              : o
-          )
-        )
-        setCancelModalOrder(null)
-      }
-    } catch (err) {
-      alert(
-        'Gagal membatalkan order: ' + (err.response?.data?.error || err.message)
-      )
-    } finally {
-      setSubmittingCancel(false)
+    const validation = validateAdminAction({ action, reason, inFlightAction })
+    if (!validation.ok) {
+      alert(validation.message)
+      return
     }
+
+    const methodName = getActionMethod(action)
+    setInFlightAction(action)
+    try {
+      const body = action === 'cancel_order' || action === 'cancel' ? { reason: String(reason).trim() } : undefined
+      const payload = await adminOrdersApi[methodName](orderId, body)
+      const updatedOrder = normalizeAdminOrderDetail(payload)
+      if (updatedOrder) {
+        setSelectedOrderDetail(updatedOrder)
+        setOrders((current) => current.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)))
+      }
+      await loadOrders()
+      if (orderId) {
+        await loadOrderDetail(orderId)
+      }
+      setCancelModalOrder(null)
+    } catch (err) {
+      const code = err?.code || err?.response?.data?.error?.code || err?.status || err?.response?.status || ''
+      const ORDER_ERROR_MESSAGES = {
+        ORDER_INVALID_TRANSITION: 'Status order sudah berubah. Silakan refresh data.',
+        ORDER_UNPAID: 'Order belum dibayar, belum bisa diproses.',
+        ORDER_PAYMENT_NOT_PAID: 'Order belum dibayar, belum bisa diproses.',
+        FORBIDDEN: 'Kamu tidak punya akses untuk action ini.',
+        RATE_LIMITED: 'Terlalu banyak percobaan. Coba lagi sebentar.',
+        INTERNAL_ERROR: 'Terjadi gangguan. Silakan coba lagi.',
+      }
+      const mappedMsg = ORDER_ERROR_MESSAGES[code] || ORDER_ERROR_MESSAGES[err.message] || mapAdminOrderError(err)
+      alert(mappedMsg)
+    } finally {
+      setInFlightAction('')
+    }
+  }
+
+  const handleStatusChange = async (orderId, newStatus) => {
+    const statusToAction = {
+      ready: 'mark_ready',
+      completed: 'mark_completed',
+      cancelled: 'cancel_order',
+    }
+    const action = statusToAction[newStatus]
+    if (action) {
+      if (action === 'cancel_order') {
+        openCancelModal(currentSelectedOrder)
+      } else {
+        await submitAction(action)
+      }
+    }
+  }
+
+  const openCancelModal = (order) => {
+    setCancelModalOrder(order)
   }
 
   // Delete Order
@@ -1164,9 +975,8 @@ export default function Orders() {
           order={currentSelectedOrder}
           onClose={() => setSelectedOrderId(null)}
           onHide={() => setIsOrderDetailOpen(false)}
-          onStatusChange={(status) =>
-            handleStatusChange(currentSelectedOrder._id, status)
-          }
+          inFlightAction={inFlightAction}
+          onSubmitAction={submitAction}
           onCancelClick={() => openCancelModal(currentSelectedOrder)}
           onOpenChat={() => handleOpenChat(currentSelectedOrder)}
           onResendPayment={() => handleResendPayment(currentSelectedOrder)}
@@ -1174,68 +984,13 @@ export default function Orders() {
       )}
 
       {/* Cancel Order Modal Dialogue */}
-      {cancelModalOrder && (
-        <div className='fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 transition-all duration-200'>
-          <div className='bg-[var(--surface-primary)] rounded-2xl p-6 max-w-md w-full shadow-[0_16px_40px_rgba(17,24,46,0.14)] border border-[var(--border-subtle)] flex flex-col gap-4.5 animate-in fade-in zoom-in-95 duration-150'>
-            <div className='flex justify-between items-center pb-2 border-b border-[var(--border-subtle)]'>
-              <h3 className='text-base font-bold text-[var(--text-primary)]'>
-                Batalkan Pesanan
-              </h3>
-              <button
-                onClick={() => setCancelModalOrder(null)}
-                className='text-[var(--text-muted)] hover:text-[var(--text-secondary)] p-1 rounded-full hover:bg-[var(--surface-secondary)] transition focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]'
-              >
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
-            </div>
-
-            <div className='text-xs text-[var(--text-secondary)] flex flex-col gap-1.5'>
-              <span>
-                Pesanan dari:{' '}
-                <strong className='text-[var(--text-primary)] font-extrabold'>
-                  {cancelModalOrder.contactId?.name}
-                </strong>
-              </span>
-              <span>
-                Order ID:{' '}
-                <strong className='text-[var(--text-primary)] font-extrabold'>
-                  {cancelModalOrder.orderIdDisplay}
-                </strong>
-              </span>
-            </div>
-
-            <div className='flex flex-col gap-2'>
-              <label className='text-xs font-bold text-[var(--text-secondary)]'>
-                Alasan Pembatalan:
-              </label>
-              <textarea
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                placeholder='Contoh: Pembayaran tidak valid, stok habis, outlet tutup...'
-                rows={4}
-                className='w-full border border-[var(--border-subtle)] rounded-xl p-3 text-xs font-medium text-[var(--text-primary)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-[0_0_0_3px_var(--focus-brand-ring)] bg-[var(--surface-secondary)]'
-              />
-            </div>
-
-            <div className='flex justify-end gap-2.5 pt-3 border-t border-[var(--border-subtle)]'>
-              <button
-                onClick={() => setCancelModalOrder(null)}
-                disabled={submittingCancel}
-                className='px-4 py-2 border border-[var(--border-subtle)] text-xs font-semibold rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)] transition duration-150 focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]'
-              >
-                Batal
-              </button>
-              <button
-                onClick={handleCancelSubmit}
-                disabled={submittingCancel}
-                className='px-4 py-2 bg-[var(--danger-50)] text-[var(--danger-600)] border border-[var(--danger-100)] hover:border-[var(--danger-500)] transition duration-150 text-xs font-bold rounded-lg disabled:opacity-50 focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--focus-brand-ring)]'
-              >
-                {submittingCancel ? 'Membatalkan...' : 'Batalkan Pesanan'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CancelOrderModal
+        isOpen={Boolean(cancelModalOrder)}
+        order={cancelModalOrder}
+        isSubmitting={inFlightAction === 'cancel_order' || inFlightAction === 'cancel'}
+        onClose={() => setCancelModalOrder(null)}
+        onConfirm={(reason) => submitAction(cancelModalOrder.allowedActions?.includes('cancel_order') ? 'cancel_order' : 'cancel', reason)}
+      />
 
       {/* Image Proof Preview Modal Dialogue */}
       {previewImageUrl && (

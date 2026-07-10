@@ -33,19 +33,92 @@ export function allowedActions(order = {}, user = null) {
   if (!user || !hasEffectivePermission(user, 'orders', 'manage_status')) return [];
   const capabilities = order.capabilities || {};
   const actions = [];
-  if (capabilities.canAccept) actions.push('accept_order');
-  if (capabilities.canStartPreparing) actions.push('mark_preparing');
-  if (capabilities.canMarkReady) actions.push('mark_ready');
-  if (capabilities.canComplete) actions.push('mark_completed');
-  if (capabilities.canCancel) actions.push('cancel_order');
+  if (capabilities.canMarkReady) actions.push('ready');
+  if (capabilities.canComplete) actions.push('complete');
+  if (capabilities.canCancel) actions.push('cancel');
   return actions;
 }
 
+function firstPresent(...values) {
+  return values.find((value) => value !== undefined && value !== null && value !== '') ?? null;
+}
+
+function isWhatsappChannel(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'whatsapp' || normalized === 'wa';
+}
+
+function isPhoneLikeIdentifier(value) {
+  const normalized = String(value || '').replace(/[^\d]/g, '');
+  return /^(?:62|0)\d{8,15}$/.test(normalized) ? normalized : null;
+}
+
+function readContactPhone(contact = {}) {
+  const safeContact = contact || {};
+  return firstPresent(
+    safeContact.phone,
+    safeContact.phoneNumber,
+    safeContact.phone_number,
+    safeContact.phoneMasked,
+    safeContact.phone_masked,
+    safeContact.whatsapp,
+    safeContact.whatsappNumber,
+    safeContact.whatsapp_number,
+    safeContact.waNumber,
+    safeContact.wa_number,
+    safeContact.msisdn,
+  );
+}
+
+function getContact(order = {}) {
+  if (order.contactId && typeof order.contactId === 'object') return order.contactId;
+  if (order.contact && typeof order.contact === 'object') return order.contact;
+  return null;
+}
+
+function mapSafeContact(order = {}) {
+  const contact = getContact(order);
+  if (!contact) return null;
+  return {
+    id: contact.id || null,
+    name: contact.name || contact.displayName || null,
+    phone: readContactPhone(contact),
+    handle: firstPresent(contact.handle, contact.username, contact.displayHandle, contact.display_handle),
+    telegram_id: firstPresent(contact.telegramId, contact.telegram_id, contact.telegramUserId, contact.telegram_user_id),
+    external_id: firstPresent(contact.externalId, contact.external_id, contact.providerUserId, contact.provider_user_id),
+  };
+}
+
 export function mapAdminOrder(order = {}, user = null) {
+  const contact = getContact(order);
+  const channel = order.channel || order.source || 'online_store';
+  const contactExternalId = firstPresent(contact?.externalId, contact?.external_id, contact?.providerUserId, contact?.provider_user_id);
+  const phoneLikeExternalId = isPhoneLikeIdentifier(contactExternalId);
+  const whatsappExternalId = isWhatsappChannel(channel) ? contactExternalId : null;
+  const customerPhone = firstPresent(
+    order.customerSnapshot?.phone,
+    order.customerSnapshot?.phoneNumber,
+    order.customerSnapshot?.phone_number,
+    readContactPhone(contact),
+    order.customerPhoneSnapshot,
+    order.customer_phone_snapshot,
+    order.customerSnapshot?.whatsapp,
+    order.customerSnapshot?.whatsappNumber,
+    order.customerSnapshot?.whatsapp_number,
+    order.customerSnapshot?.waNumber,
+    order.customerSnapshot?.wa_number,
+    order.customerSnapshot?.phoneMasked,
+    order.customerSnapshot?.phone_masked,
+    order.customerPhoneMaskedSnapshot,
+    order.customer_phone_masked_snapshot,
+    phoneLikeExternalId,
+    whatsappExternalId,
+  );
+
   return {
     id: order.id,
     order_number: order.orderNumber,
-    channel: order.channel || order.source || 'online_store',
+    channel,
     outlet: {
       id: order.outletId,
       name: order.outlet?.name || order.outletNameSnapshot || null,
@@ -55,11 +128,15 @@ export function mapAdminOrder(order = {}, user = null) {
       qr_session_id: order.qrSessionId || null,
       location_label: order.qrLocationLabel || null,
       table_id: order.tableId || null,
+      qr_scope: firstPresent(order.metadata?.qrScope, order.metadata?.qr_scope),
+      qr_type: firstPresent(order.metadata?.qrType, order.metadata?.qr_type),
     },
     customer: {
       name: order.customerSnapshot?.name || order.customerSnapshot?.contactName || order.customerNameSnapshot || null,
-      phone: order.customerSnapshot?.phone || order.customerPhoneSnapshot || null,
+      phone: customerPhone,
     },
+    customer_phone_snapshot: firstPresent(order.customerPhoneSnapshot, order.customer_phone_snapshot),
+    contact: mapSafeContact(order),
     payment_status: order.paymentStatus,
     fulfillment_status: order.fulfillmentStatus,
     fulfillment_type: order.fulfillmentType || 'pickup',
@@ -67,8 +144,15 @@ export function mapAdminOrder(order = {}, user = null) {
     total_amount: Number(order.totalAmount || order.totals?.total || 0),
     currency: order.currency || order.totals?.currency || 'IDR',
     items: (order.items || []).map((item) => ({
+      id: item.id,
+      product_id: item.productId,
+      productId: item.productId,
       name: item.productNameSnapshot || item.name,
       quantity: item.quantity,
+      unit_price: item.unitPrice,
+      unitPrice: item.unitPrice,
+      image_url: item.imageUrl || item.image_url || item.metadata?.imageUrl || item.metadata?.image_url || null,
+      imageUrl: item.imageUrl || item.image_url || item.metadata?.imageUrl || item.metadata?.image_url || null,
       modifiers: item.metadata?.modifiers || [],
       note: item.metadata?.note || null,
       line_total: item.subtotalAmount || item.subtotal || 0,

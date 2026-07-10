@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx'
 import api from '../../../shared/api/httpClient'
 import { getOrderQueryParams, getSessionUser } from '../../../shared/auth/permissions'
 import { isDemoMode } from '../../../mocks/demoState'
+import selkopAlphaImage from '../../../assets/product-image/minuman/Selkop Aren Creamy & Alpha.png'
 import {
   ArrowDown,
   ArrowUp,
@@ -32,132 +33,141 @@ import {
   Copy,
   Archive,
   Camera,
+  Sliders,
+  Link,
+  Shield,
 } from 'lucide-react'
+
+function resolveProductImage(name, fallback = '') {
+  if (String(name || '').trim().toLowerCase() === 'selkop alpha') return selkopAlphaImage
+  return fallback
+}
 
 const dummyProducts = [
   {
     id: 1,
-    name: 'Salty Caramel',
-    sku: 'SKU-SEL-001',
+    name: 'Selkop Aren Creamy',
+    sku: 'cof-slkp-01',
     image: '/images/products/salty-caramel.png',
     category: 'Signature',
-    outlets: 8,
-    price: 24000,
+    outlets: 1,
+    price: 1000,
     cost: 8500,
-    stock: 32,
+    stock: 100,
     stockState: 'In Stock',
     status: 'Active',
-    salesMonth: 4560000,
-    salesChange: 18,
+    salesMonth: 1000,
+    salesChange: 100,
     totalSold: 190,
-    description:
-      'Perpaduan espresso, susu segar, caramel, dan sedikit sentuhan garam laut untuk rasa manis gurih yang seimbang.',
+    modifierGroups: ['Sugar Level', 'Ice Level', 'Size / Ukuran'],
+    description: 'Perpaduan espresso, susu segar, gula aren, dan sentuhan kelapa gurih.',
     tags: ['Best Seller', 'Premium'],
-    tax: 'PPN 11%',
+    tax: 'No Tax',
     trend: [
       420000, 430000, 760000, 840000, 690000, 790000, 950000, 820000, 910000,
       1200000, 1080000, 1140000,
     ],
-    inventorySummary: { total: 236, lowStock: 15, outOfStock: 2 },
+    inventorySummary: { total: 100, lowStock: 0, outOfStock: 0 },
   },
   {
     id: 2,
-    name: 'Kopi Susu Gula Aren',
-    sku: 'SKU-SEL-002',
+    name: 'Cappuccino',
+    sku: 'cof-cap-02',
     image: '/images/products/gula-aren.png',
     category: 'Coffee',
-    outlets: 8,
+    outlets: 2,
     price: 18000,
     cost: 7000,
-    stock: 15,
-    stockState: 'Low Stock',
+    stock: 85,
+    stockState: 'In Stock',
     status: 'Active',
-    salesMonth: 3240000,
-    salesChange: 12,
+    salesMonth: 2340000,
+    salesChange: 25,
     totalSold: 180,
-    description:
-      'Espresso creamy dengan gula aren yang ringan dan mudah disukai.',
+    modifierGroups: ['Size / Ukuran', 'Extra Shot'],
+    description: 'Espresso dengan foam susu tebal dan taburan bubuk cokelat di atasnya.',
     tags: ['Best Seller'],
-    tax: 'PPN 11%',
+    tax: 'No Tax',
     trend: [
       380000, 430000, 520000, 460000, 650000, 700000, 610000, 720000, 680000,
       790000, 760000, 820000,
     ],
-    inventorySummary: { total: 188, lowStock: 12, outOfStock: 0 },
+    inventorySummary: { total: 85, lowStock: 0, outOfStock: 0 },
   },
   {
     id: 3,
-    name: 'Matcha Latte',
-    sku: 'SKU-SEL-003',
+    name: 'Americano',
+    sku: 'cof-ame-03',
     image: '/images/products/matcha-latte.png',
-    category: 'Non Coffee',
-    outlets: 7,
-    price: 22000,
-    cost: 9000,
-    stock: 28,
+    category: 'Coffee',
+    outlets: 2,
+    price: 16000,
+    cost: 5000,
+    stock: 62,
     stockState: 'In Stock',
     status: 'Active',
-    salesMonth: 2860000,
-    salesChange: 15,
+    salesMonth: 1860000,
+    salesChange: 18,
     totalSold: 130,
-    description:
-      'Matcha creamy dengan susu segar untuk pecinta rasa teh hijau yang lembut.',
-    tags: ['Premium'],
-    tax: 'PPN 11%',
+    modifierGroups: ['Ice Level', 'Extra Shot'],
+    description: 'Espresso dengan air panas untuk kopi hitam yang klasik dan bersih.',
+    tags: ['Classic'],
+    tax: 'No Tax',
     trend: [
       220000, 290000, 360000, 410000, 520000, 480000, 530000, 610000, 590000,
       660000, 710000, 760000,
     ],
-    inventorySummary: { total: 204, lowStock: 7, outOfStock: 0 },
+    inventorySummary: { total: 62, lowStock: 0, outOfStock: 0 },
   },
   {
     id: 4,
-    name: 'Lemon Tea',
-    sku: 'SKU-SEL-004',
+    name: 'Croissant',
+    sku: 'pas-cro-01',
     image: '/images/products/lemon-tea.png',
-    category: 'Tea',
-    outlets: 8,
-    price: 16000,
-    cost: 5200,
-    stock: 0,
-    stockState: 'Out of Stock',
+    category: 'Pastry',
+    outlets: 1,
+    price: 22000,
+    cost: 11000,
+    stock: 12,
+    stockState: 'Low Stock',
     status: 'Active',
-    salesMonth: 1280000,
+    salesMonth: 440000,
     salesChange: -5,
     totalSold: 80,
-    description: 'Teh lemon segar untuk menu ringan yang menyegarkan.',
+    modifierGroups: [],
+    description: 'Croissant mentega yang renyah dan berlapis-lapis.',
     tags: ['Fresh'],
-    tax: 'PPN 11%',
+    tax: 'No Tax',
     trend: [
       210000, 180000, 240000, 190000, 220000, 230000, 160000, 140000, 120000,
       110000, 100000, 90000,
     ],
-    inventorySummary: { total: 50, lowStock: 8, outOfStock: 8 },
+    inventorySummary: { total: 12, lowStock: 12, outOfStock: 0 },
   },
   {
     id: 5,
-    name: 'Choco Hazelnut',
-    sku: 'SKU-SEL-005',
+    name: 'Mineral Water',
+    sku: 'bev-min-01',
     image: '/images/products/choco-hazelnut.png',
-    category: 'Chocolate',
-    outlets: 6,
-    price: 22000,
-    cost: 8400,
-    stock: 9,
-    stockState: 'Low Stock',
-    status: 'Active',
-    salesMonth: 1150000,
-    salesChange: 8,
-    totalSold: 60,
-    description:
-      'Minuman cokelat creamy dengan aksen hazelnut yang nutty dan manis.',
-    tags: ['Kids Favorite'],
-    tax: 'PPN 11%',
+    category: 'Beverage',
+    outlets: 1,
+    price: 8000,
+    cost: 2000,
+    stock: 0,
+    stockState: 'Out of Stock',
+    status: 'Inactive',
+    salesMonth: 0,
+    salesChange: -100,
+    totalSold: 0,
+    modifierGroups: [],
+    description: 'Air mineral kemasan dingin menyegarkan.',
+    tags: ['Fresh'],
+    tax: 'No Tax',
     trend: [
       80000, 120000, 130000, 160000, 170000, 145000, 150000, 155000, 175000,
       180000, 210000, 220000,
     ],
-    inventorySummary: { total: 68, lowStock: 10, outOfStock: 1 },
+    inventorySummary: { total: 0, lowStock: 0, outOfStock: 1 },
   },
   {
     id: 6,
@@ -174,9 +184,10 @@ const dummyProducts = [
     salesMonth: 980000,
     salesChange: 10,
     totalSold: 90,
+    modifierGroups: ['Sugar Level', 'Ice Level'],
     description: 'Thai tea klasik dengan warna kuat dan rasa manis creamy.',
     tags: ['Popular'],
-    tax: 'PPN 11%',
+    tax: 'No Tax',
     trend: [
       60000, 70000, 85000, 90000, 100000, 92000, 95000, 98000, 101000, 112000,
       120000, 124000,
@@ -185,7 +196,7 @@ const dummyProducts = [
   },
   {
     id: 7,
-    name: 'Americano',
+    name: 'Americano Original',
     sku: 'SKU-SEL-007',
     image: '/images/products/americano.png',
     category: 'Coffee',
@@ -198,9 +209,10 @@ const dummyProducts = [
     salesMonth: 960000,
     salesChange: 6,
     totalSold: 95,
+    modifierGroups: ['Ice Level', 'Extra Shot'],
     description: 'Espresso dan air panas untuk pecinta kopi hitam yang clean.',
     tags: ['Classic'],
-    tax: 'PPN 11%',
+    tax: 'No Tax',
     trend: [
       50000, 60000, 70000, 76000, 80000, 82000, 85000, 88000, 91000, 95000,
       99000, 102000,
@@ -222,10 +234,10 @@ const dummyProducts = [
     salesMonth: 720000,
     salesChange: 9,
     totalSold: 42,
-    description:
-      'Minuman red velvet creamy dengan rasa manis lembut dan warna menarik.',
+    modifierGroups: ['Size / Ukuran', 'Whipped Cream'],
+    description: 'Minuman red velvet creamy dengan rasa manis lembut dan warna menarik.',
     tags: ['Seasonal'],
-    tax: 'PPN 11%',
+    tax: 'No Tax',
     trend: [
       30000, 45000, 52000, 61000, 64000, 70000, 68000, 72000, 69000, 76000,
       81000, 88000,
@@ -247,9 +259,10 @@ const dummyProducts = [
     salesMonth: 620000,
     salesChange: -3,
     totalSold: 34,
+    modifierGroups: ['Size / Ukuran', 'Sugar Level'],
     description: 'Kopi susu vanilla lembut dengan aroma manis yang familiar.',
     tags: ['Classic'],
-    tax: 'PPN 11%',
+    tax: 'No Tax',
     trend: [
       52000, 60000, 71000, 74000, 68000, 62000, 58000, 54000, 50000, 48000,
       45000, 42000,
@@ -258,7 +271,7 @@ const dummyProducts = [
   },
   {
     id: 10,
-    name: 'Aren Creamy',
+    name: 'Aren Creamy Signature',
     sku: 'SKU-SEL-010',
     image: '/images/products/aren-creamy.png',
     category: 'Signature',
@@ -271,10 +284,10 @@ const dummyProducts = [
     salesMonth: 1880000,
     salesChange: 14,
     totalSold: 102,
-    description:
-      'Menu creamy khas dengan manis gula aren yang lembut dan mudah dinikmati.',
+    modifierGroups: ['Size / Ukuran', 'Ice Level', 'Sugar Level'],
+    description: 'Menu creamy khas dengan manis gula aren yang lembut dan mudah dinikmati.',
     tags: ['Signature', 'Popular'],
-    tax: 'PPN 11%',
+    tax: 'No Tax',
     trend: [
       150000, 180000, 210000, 240000, 230000, 260000, 280000, 300000, 320000,
       340000, 360000, 390000,
@@ -283,12 +296,184 @@ const dummyProducts = [
   },
 ]
 
+const dummyModifiers = [
+  {
+    id: 1,
+    name: 'Toppings',
+    code: 'mod-top-01',
+    type: 'Optional',
+    selectionRule: 'Multi-select (max 3)',
+    minSelection: 0,
+    maxSelection: 3,
+    outletScope: 'All Outlets',
+    description: 'Optional add-ons for selected drinks and snacks.',
+    tags: ['Add-on', 'Upsell'],
+    options: [
+      { name: 'Extra Cheese', price: 5000 },
+      { name: 'Extra Sauce', price: 3000 },
+      { name: 'Whipped Cream', price: 6000 },
+      { name: 'Boba', price: 7000 },
+      { name: 'Oreo Crumble', price: 4000 }
+    ],
+    productsCount: 12,
+    categoriesCount: 3,
+    requiredInCheckout: false,
+    status: 'Active',
+    updatedAt: 'May 10, 2024 10:15 AM'
+  },
+  {
+    id: 2,
+    name: 'Drink Options',
+    code: 'mod-drk-01',
+    type: 'Required',
+    selectionRule: 'Single-select',
+    minSelection: 1,
+    maxSelection: 1,
+    outletScope: 'All Outlets',
+    description: 'Choice of drink base.',
+    tags: ['Core', 'Choice'],
+    options: [
+      { name: 'Fresh Milk', price: 0 },
+      { name: 'Oat Milk', price: 6000 },
+      { name: 'Soy Milk', price: 4000 },
+      { name: 'Almond Milk', price: 7000 }
+    ],
+    productsCount: 8,
+    categoriesCount: 2,
+    requiredInCheckout: true,
+    status: 'Active',
+    updatedAt: 'May 9, 2024 09:40 AM'
+  },
+  {
+    id: 3,
+    name: 'Sugar Level',
+    code: 'mod-sug-01',
+    type: 'Optional',
+    selectionRule: 'Single-select',
+    minSelection: 1,
+    maxSelection: 1,
+    outletScope: 'All Outlets',
+    description: 'Adjust sweetness level.',
+    tags: ['Sweetness'],
+    options: [
+      { name: 'No Sugar', price: 0 },
+      { name: 'Less Sugar', price: 0 },
+      { name: 'Normal Sugar', price: 0 },
+      { name: 'Extra Sugar', price: 0 }
+    ],
+    productsCount: 10,
+    categoriesCount: 3,
+    requiredInCheckout: false,
+    status: 'Active',
+    updatedAt: 'May 8, 2024 04:20 PM'
+  },
+  {
+    id: 4,
+    name: 'Ice Level',
+    code: 'mod-ice-01',
+    type: 'Optional',
+    selectionRule: 'Single-select',
+    minSelection: 1,
+    maxSelection: 1,
+    outletScope: 'All Outlets',
+    description: 'Adjust ice amount.',
+    tags: ['Ice'],
+    options: [
+      { name: 'No Ice', price: 0 },
+      { name: 'Less Ice', price: 0 },
+      { name: 'Normal Ice', price: 0 }
+    ],
+    productsCount: 10,
+    categoriesCount: 3,
+    requiredInCheckout: false,
+    status: 'Active',
+    updatedAt: 'May 8, 2024 02:10 PM'
+  },
+  {
+    id: 5,
+    name: 'Extras',
+    code: 'mod-ext-01',
+    type: 'Optional',
+    selectionRule: 'Multi-select (max 2)',
+    minSelection: 0,
+    maxSelection: 2,
+    outletScope: 'All Outlets',
+    description: 'Extra items for your order.',
+    tags: ['Add-on'],
+    options: [
+      { name: 'Chocolate Sauce', price: 3000 },
+      { name: 'Caramel Sauce', price: 3000 },
+      { name: 'Grass Jelly', price: 4000 }
+    ],
+    productsCount: 5,
+    categoriesCount: 1,
+    requiredInCheckout: false,
+    status: 'Inactive',
+    updatedAt: 'May 7, 2024 11:05 AM'
+  }
+]
+
+const getModifierIcon = (name) => {
+  const n = name.toLowerCase()
+  if (n.includes('topping')) {
+    return {
+      bg: 'bg-[#7F56D9]', // purple
+      icon: (
+        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+        </svg>
+      )
+    }
+  }
+  if (n.includes('drink') || n.includes('milk') || n.includes('option')) {
+    return {
+      bg: 'bg-[#2970FF]', // blue
+      icon: (
+        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9V5.25c0-.69.56-1.25 1.25-1.25h2c.69 0 1.25.56 1.25 1.25V9M3.75 9h16.5M4.5 9l1.5 10.5a2.25 2.25 0 002.25 2.25h7.5a2.25 2.25 0 002.25-2.25L19.5 9" />
+        </svg>
+      )
+    }
+  }
+  if (n.includes('sugar') || n.includes('sweet')) {
+    return {
+      bg: 'bg-[#EAAA08]', // amber/yellow
+      icon: (
+        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      )
+    }
+  }
+  if (n.includes('ice') || n.includes('cold') || n.includes('level')) {
+    return {
+      bg: 'bg-[#06AED4]', // teal/cyan
+      icon: (
+        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18m9-9H3m14.364-6.364l-10.728 10.728m0-10.728l10.728 10.728" />
+        </svg>
+      )
+    }
+  }
+  // fallback / extras
+  return {
+    bg: 'bg-[#F79009]', // orange
+    icon: (
+      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499c.15-.36.6-.36.75 0l2.368 5.678 6.136.568c.394.036.551.522.256.793l-4.57 4.16.822 5.926c.053.385-.364.689-.705.485l-5.328-3.155-5.328 3.155c-.34.204-.758-.1-.705-.485l.822-5.926-4.57-4.16c-.295-.271-.138-.757.256-.793l6.136-.568L11.48 3.499z" />
+      </svg>
+    )
+  }
+}
+
 const categoryTone = {
   Signature: 'bg-rose-50 text-[#F43F70] border border-rose-100',
   Coffee: 'bg-violet-50 text-[#6956E8] border border-violet-100',
   'Non Coffee': 'bg-indigo-50 text-[#5B52D6] border border-indigo-100',
   Tea: 'bg-emerald-50 text-[#16A34A] border border-emerald-100',
   Chocolate: 'bg-orange-50 text-[#EA7200] border border-orange-100',
+  Pastry: 'bg-amber-50 text-[#D68A00] border border-amber-100',
+  Beverage: 'bg-blue-50 text-[#2563EB] border border-blue-100',
 }
 
 const statusTone = {
@@ -324,7 +509,8 @@ function cx(...classes) {
 }
 
 function money(value) {
-  return formatter.format(value).replace(/\s/g, '')
+  const amount = Number(value)
+  return formatter.format(Number.isFinite(amount) ? amount : 0).replace(/\s/g, '')
 }
 
 function Trend({ value }) {
@@ -348,10 +534,31 @@ function Trend({ value }) {
 
 function ProductImage({ src, name, className = '' }) {
   const [failed, setFailed] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const isSmall = className.includes('h-9')
 
+  useEffect(() => {
+    if (!previewOpen) return undefined
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setPreviewOpen(false)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [previewOpen])
+
+  const preview = previewOpen && src ? createPortal(
+    <div className='fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/75 p-5' onClick={() => setPreviewOpen(false)}>
+      <div className='relative max-h-[90vh] max-w-[90vw] rounded-2xl bg-white p-2 shadow-2xl' onClick={(event) => event.stopPropagation()}>
+        <button type='button' onClick={() => setPreviewOpen(false)} className='absolute -right-3 -top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-white text-slate-700 shadow-lg hover:bg-slate-100' aria-label='Tutup preview foto'><X size={18} /></button>
+        <img src={src} alt={name} className='max-h-[84vh] max-w-[86vw] rounded-xl object-contain' />
+        <p className='m-0 px-2 pb-1 pt-2 text-center text-sm font-black text-slate-800'>{name}</p>
+      </div>
+    </div>,
+    document.body,
+  ) : null
+
   if (!src || failed) {
-    return (
+    return <>
       <div
         className={cx(
           'grid place-items-center bg-[linear-gradient(135deg,#11182E_0%,#6956E8_55%,#F43F70_100%)] select-none',
@@ -367,17 +574,14 @@ function ProductImage({ src, name, className = '' }) {
           )}
         </div>
       </div>
-    )
+      {preview}
+    </>
   }
 
-  return (
-    <img
-      src={src}
-      alt={name}
-      onError={() => setFailed(true)}
-      className={cx('object-cover', className)}
-    />
-  )
+  return <>
+    <img src={src} alt={name} onError={() => setFailed(true)} onClick={(event) => { event.stopPropagation(); setPreviewOpen(true) }} className={cx('cursor-zoom-in object-cover', className)} title='Klik untuk memperbesar foto' />
+    {preview}
+  </>
 }
 
 function FilterSelect({ label, value, onChange, options }) {
@@ -1453,6 +1657,750 @@ function DetailPanel({
   )
 }
 
+function ModifierDetailPanel({
+  modifier,
+  onClose,
+  mobile = false,
+  activeTab = 'Overview',
+  setActiveTab = () => {},
+  products = [],
+  onUpdateModifier = () => {},
+}) {
+  const [searchLinkedQuery, setSearchLinkedQuery] = useState('')
+  const [outletFilter, setOutletFilter] = useState('All Outlets')
+  const [categoryFilter, setCategoryFilter] = useState('All Categories')
+  const [statusFilter, setStatusFilter] = useState('Status')
+  const [isEditPopupOpen, setIsEditPopupOpen] = useState(false)
+  const [isOptionsPopupOpen, setIsOptionsPopupOpen] = useState(false)
+  const [isLinkProductsPopupOpen, setIsLinkProductsPopupOpen] = useState(false)
+  const [linkProductSearch, setLinkProductSearch] = useState('')
+  const [selectedLinkProductIds, setSelectedLinkProductIds] = useState([])
+  const [editForm, setEditForm] = useState(() => ({
+    name: modifier.name || '',
+    type: modifier.type || 'Optional',
+    selectionRule: modifier.selectionRule || 'Single-select',
+    minSelection: modifier.minSelection ?? 0,
+    maxSelection: modifier.maxSelection ?? 1,
+    outletScope: modifier.outletScope || 'all_outlets',
+    description: modifier.description || '',
+    tags: (modifier.tags || []).join(', '),
+  }))
+  const [optionsDraft, setOptionsDraft] = useState(() => (modifier.options || []).map((option) => ({
+    id: option.id || option.name,
+    name: option.name || String(option),
+    price: option.price ?? option.priceDelta ?? 0,
+  })))
+
+  useEffect(() => {
+    setEditForm({
+      name: modifier.name || '',
+      type: modifier.type || 'Optional',
+      selectionRule: modifier.selectionRule || 'Single-select',
+      minSelection: modifier.minSelection ?? 0,
+      maxSelection: modifier.maxSelection ?? 1,
+      outletScope: modifier.outletScope || 'all_outlets',
+      description: modifier.description || '',
+      tags: (modifier.tags || []).join(', '),
+    })
+    setOptionsDraft((modifier.options || []).map((option) => ({
+      id: option.id || option.name,
+      name: option.name || String(option),
+      price: option.price ?? option.priceDelta ?? 0,
+    })))
+  }, [modifier.id])
+
+  const saveEditForm = () => {
+    const updated = {
+      ...modifier,
+      ...editForm,
+      minSelection: Number(editForm.minSelection || 0),
+      maxSelection: Number(editForm.maxSelection || 0),
+      tags: editForm.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
+      requiredInCheckout: editForm.type === 'Required' || Number(editForm.minSelection || 0) > 0,
+    }
+    onUpdateModifier(updated)
+    setIsEditPopupOpen(false)
+  }
+
+  const saveOptionsDraft = () => {
+    const nextOptions = optionsDraft
+      .map((option) => ({ ...option, name: option.name.trim(), price: Number(option.price || 0) }))
+      .filter((option) => option.name)
+    onUpdateModifier({ ...modifier, options: nextOptions })
+    setIsOptionsPopupOpen(false)
+  }
+
+  const saveLinkedProducts = async () => {
+    const nextLinkedProducts = products.filter((product) => selectedLinkProductIds.includes(product.id))
+    let updatedModifier = {
+      ...modifier,
+      linkedProducts: nextLinkedProducts,
+      productsCount: nextLinkedProducts.length,
+      categoriesCount: new Set(nextLinkedProducts.map((product) => product.category).filter(Boolean)).size || modifier.categoriesCount,
+    }
+    try {
+      const res = await api.put(`/products/modifiers/${modifier.id}/links`, { productIds: selectedLinkProductIds })
+      const refreshed = Array.isArray(res.data?.data) ? res.data.data.find((item) => item.id === modifier.id) : null
+      if (refreshed) updatedModifier = refreshed
+    } catch (err) {
+      console.error('Failed to persist linked products:', err)
+    }
+    onUpdateModifier(updatedModifier)
+    setIsLinkProductsPopupOpen(false)
+  }
+
+  // Find actual products linked to this modifier group
+  const linkedProducts = useMemo(() => {
+    const backendLinkedProducts = Array.isArray(modifier.linkedProducts) && modifier.linkedProducts.length > 0
+      ? modifier.linkedProducts.map((product) => ({
+          ...product,
+          category: product.metadata?.category || product.category || 'Menu',
+          sku: product.sku || product.code || '',
+          price: Number(product.price ?? product.basePrice ?? product.base_price ?? 0),
+          image: product.image || product.thumbnailUrl || product.thumbnail_url || '',
+          status: product.isActive === false ? 'Inactive' : 'Active',
+        }))
+      : []
+    const sourceProducts = backendLinkedProducts.length > 0 ? backendLinkedProducts : products
+    return sourceProducts.filter((p) => {
+      // check if product has modifier group
+      const hasGroup = backendLinkedProducts.length > 0 || (p.modifierGroups && p.modifierGroups.some(
+        (g) => g.toLowerCase() === modifier.name.toLowerCase()
+      ))
+      if (!hasGroup) return false
+
+      // Apply search query
+      if (searchLinkedQuery) {
+        const q = searchLinkedQuery.toLowerCase()
+        const matchName = p.name.toLowerCase().includes(q)
+        const matchSku = (p.sku || '').toLowerCase().includes(q)
+        if (!matchName && !matchSku) return false
+      }
+
+      // Apply category filter
+      if (categoryFilter !== 'All Categories') {
+        if (p.category !== categoryFilter) return false
+      }
+
+      return true
+    })
+  }, [products, modifier.name, searchLinkedQuery, categoryFilter])
+
+  useEffect(() => {
+    if (!isLinkProductsPopupOpen) return
+    setSelectedLinkProductIds(linkedProducts.map((product) => product.id))
+  }, [isLinkProductsPopupOpen, modifier.id])
+
+  const linkProductCandidates = useMemo(() => {
+    const q = linkProductSearch.trim().toLowerCase()
+    return products.filter((product) => {
+      if (!q) return true
+      return product.name.toLowerCase().includes(q) || String(product.sku || '').toLowerCase().includes(q) || String(product.category || '').toLowerCase().includes(q)
+    })
+  }, [products, linkProductSearch])
+
+  // Count unique categories
+  const categoriesCount = useMemo(() => {
+    const cats = new Set(linkedProducts.map((p) => p.category))
+    return cats.size || modifier.categoriesCount || 0
+  }, [linkedProducts, modifier.categoriesCount])
+
+  const iconData = getModifierIcon(modifier.name)
+
+  return (
+    <>
+    <aside
+      className={cx(
+        'bg-white flex flex-col h-full',
+        mobile
+          ? 'fixed inset-y-0 right-0 z-50 w-full max-w-[480px] shadow-2xl'
+          : 'h-full overflow-hidden'
+      )}
+    >
+      {/* Sidebar Header */}
+      <header className='shrink-0 border-b border-[#E1E6EF] bg-white px-5 pt-5 z-10'>
+        <div className='flex items-center justify-between gap-3.5'>
+          <div className='flex min-w-0 items-center gap-4'>
+            <div className={cx('w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm shrink-0', iconData.bg)}>
+              <div className='scale-125'>{iconData.icon}</div>
+            </div>
+            <div className='min-w-0'>
+              <div className='flex flex-wrap items-center gap-2'>
+                <h2 className='m-0 truncate text-base font-extrabold text-[#11182E]'>
+                  {modifier.name}
+                </h2>
+                <span className='rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 text-[11px] font-bold'>
+                  {modifier.status}
+                </span>
+              </div>
+              <div className='mt-1.5 flex flex-wrap items-center gap-1.5 text-sm text-[#667085]'>
+                <span>{modifier.code}</span>
+                <span>•</span>
+                <span className={cx(
+                  'rounded-lg px-2 py-0.5 text-[11px] font-bold border',
+                  modifier.type === 'Required'
+                    ? 'bg-[#FFF1F2] text-[#DC3545] border-[#FEE2E2]'
+                    : 'bg-[#F5F3FF] text-[#6956E8] border-[#EDE9FE]'
+                )}>
+                  {modifier.type}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className='flex shrink-0 items-center gap-1.5'>
+            <button
+              type='button'
+              className='grid h-9 w-9 place-items-center rounded-lg border border-[#E1E6EF] text-[#667085] hover:bg-[#F6F8FB] hover:text-[#11182E] transition cursor-pointer'
+            >
+              <MoreVertical size={16} />
+            </button>
+            <button
+              type='button'
+              onClick={onClose}
+              className='grid h-9 w-9 place-items-center rounded-lg border border-[#E1E6EF] text-[#667085] hover:bg-[#F6F8FB] hover:text-[#11182E] transition cursor-pointer'
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Tabs switcher: Overview, Linked Products (Activity is excluded as requested) */}
+        <div className='mt-4 flex gap-3 overflow-x-auto -mb-[1px]'>
+          {['Overview', 'Linked Products'].map((tab) => (
+            <button
+              key={tab}
+              type='button'
+              onClick={() => setActiveTab(tab)}
+              className={cx(
+                'shrink-0 border-b-2 px-1 pb-3 text-sm font-bold transition-all duration-150 cursor-pointer',
+                activeTab === tab
+                  ? 'border-[#FF1F6D] text-[#FF1F6D]'
+                  : 'border-transparent text-[#667085] hover:text-[#11182E]'
+              )}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {/* Sidebar Content */}
+      <div className='min-h-0 flex-1 overflow-y-auto px-5 py-4 pb-6 bg-[#FCFDFE]'>
+        {activeTab === 'Overview' && (
+          <div className='space-y-4'>
+            {/* Basic Information */}
+            <section className='rounded-2xl border border-[#D7DFEC] bg-white p-4 shadow-[0_2px_8px_rgba(17,24,46,0.02)]'>
+              <div className='flex items-center justify-between'>
+                <h3 className='m-0 text-base font-extrabold text-[#11182E]'>
+                  Basic Information
+                </h3>
+                <button
+                  type='button'
+                  onClick={() => setIsEditPopupOpen(true)}
+                  className='rounded-lg border border-[#D7DFEC] px-3 py-1 text-sm font-bold text-[#11182E] hover:bg-[#F6F8FB] transition cursor-pointer bg-white'
+                >
+                  Edit
+                </button>
+              </div>
+              <div className='mt-4 space-y-3.5'>
+                <InfoRow label='Modifier Group Name' value={modifier.name} />
+                <div className='grid grid-cols-[150px_minmax(0,1fr)] items-center gap-2'>
+                  <span className='text-sm text-[#667085]'>Type</span>
+                  <span className={cx(
+                    'inline-block rounded-lg px-2 py-0.5 text-[11px] font-bold border w-max',
+                    modifier.type === 'Required'
+                      ? 'bg-[#FFF1F2] text-[#DC3545] border-[#FEE2E2]'
+                      : 'bg-[#F5F3FF] text-[#6956E8] border-[#EDE9FE]'
+                  )}>
+                    {modifier.type}
+                  </span>
+                </div>
+                <InfoRow label='Selection Rule' value={modifier.selectionRule} />
+                <InfoRow label='Min Selection' value={modifier.minSelection ?? 0} />
+                <InfoRow label='Max Selection' value={modifier.maxSelection ?? 1} />
+                <InfoRow label='Outlet Scope' value={modifier.outletScope || 'All Outlets'} />
+                <InfoRow label='Description' value={modifier.description || '-'} multiline />
+                
+                <div className='grid grid-cols-[150px_minmax(0,1fr)] items-start gap-2 pt-1 border-t border-slate-100'>
+                  <span className='text-sm text-[#667085]'>Tags</span>
+                  <div className='flex flex-wrap gap-1.5'>
+                    {modifier.tags && modifier.tags.length > 0 ? (
+                      modifier.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className={cx(
+                            'rounded-lg px-2.5 py-0.5 text-[11px] font-bold border',
+                            tag === 'Add-on'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                              : 'bg-violet-50 text-violet-700 border-violet-100'
+                          )}
+                        >
+                          {tag}
+                        </span>
+                      ))
+                    ) : (
+                      <span className='text-sm font-semibold text-slate-400 italic'>No tags</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Modifier Options */}
+            <section className='rounded-2xl border border-[#D7DFEC] bg-white p-4 shadow-[0_2px_8px_rgba(17,24,46,0.02)]'>
+              <div className='flex items-center justify-between'>
+                <h3 className='m-0 text-base font-extrabold text-[#11182E]'>
+                  Modifier Options
+                </h3>
+                <button
+                  type='button'
+                  onClick={() => setIsOptionsPopupOpen(true)}
+                  className='text-sm font-bold text-[#FF1F6D] hover:underline cursor-pointer bg-transparent border-0'
+                >
+                  Manage Options
+                </button>
+              </div>
+              <div className='mt-3.5 divide-y divide-slate-100'>
+                {modifier.options.map((opt, idx) => {
+                  const name = typeof opt === 'string' ? opt : opt.name
+                  const price = typeof opt === 'string' ? 0 : opt.price
+                  return (
+                    <div key={idx} className='flex items-center justify-between py-2.5 first:pt-0 last:pb-0'>
+                      <div className='flex items-center gap-2.5 min-w-0'>
+                        {/* 6-dot grab handle */}
+                        <div className='flex flex-col gap-0.5 text-slate-350 cursor-grab'>
+                          <div className='flex gap-0.5'>
+                            <span className='w-1 h-1 rounded-full bg-slate-300' />
+                            <span className='w-1 h-1 rounded-full bg-slate-300' />
+                          </div>
+                          <div className='flex gap-0.5'>
+                            <span className='w-1 h-1 rounded-full bg-slate-300' />
+                            <span className='w-1 h-1 rounded-full bg-slate-300' />
+                          </div>
+                          <div className='flex gap-0.5'>
+                            <span className='w-1 h-1 rounded-full bg-slate-300' />
+                            <span className='w-1 h-1 rounded-full bg-slate-300' />
+                          </div>
+                        </div>
+                        {/* Purple bullet */}
+                        <div className='w-2 h-2 rounded-full bg-[#7F56D9]' />
+                        <span className='text-sm font-semibold text-[#11182E] truncate'>{name}</span>
+                      </div>
+                      <span className='text-sm font-bold text-[#475467] shrink-0'>
+                        {price > 0 ? `+Rp${price.toLocaleString('id-ID')}` : '+Rp0'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+
+            {/* Linked Products Summary */}
+            <section className='rounded-2xl border border-[#D7DFEC] bg-white p-4 shadow-[0_2px_8px_rgba(17,24,46,0.02)]'>
+              <div className='flex items-center justify-between'>
+                <h3 className='m-0 text-base font-extrabold text-[#11182E]'>
+                  Linked Products Summary
+                </h3>
+                <button
+                  type='button'
+                  onClick={() => setActiveTab('Linked Products')}
+                  className='text-sm font-bold text-[#FF1F6D] hover:underline cursor-pointer bg-transparent border-0'
+                >
+                  View Linked Products
+                </button>
+              </div>
+              <div className='mt-4 grid grid-cols-3 gap-2.5'>
+                <div className='rounded-xl border border-slate-100 bg-[#FCFDFE] p-2.5 text-center'>
+                  <p className='text-[10px] font-bold text-[#667085] leading-tight uppercase tracking-wider'>Linked Products</p>
+                  <p className='mt-1 text-lg font-black text-[#11182E]'>{modifier.productsCount}</p>
+                </div>
+                <div className='rounded-xl border border-slate-100 bg-[#FCFDFE] p-2.5 text-center'>
+                  <p className='text-[10px] font-bold text-[#667085] leading-tight uppercase tracking-wider'>Categories</p>
+                  <p className='mt-1 text-lg font-black text-[#11182E]'>{categoriesCount}</p>
+                </div>
+                <div className='rounded-xl border border-slate-100 bg-[#FCFDFE] p-2.5 text-center'>
+                  <p className='text-[10px] font-bold text-[#667085] leading-tight uppercase tracking-wider'>Required</p>
+                  <p className='mt-1 text-lg font-black text-[#11182E]'>{modifier.requiredInCheckout ? 'Yes' : 'No'}</p>
+                </div>
+              </div>
+              
+              {/* Horizontal list of linked products */}
+              <div className='mt-4 flex gap-2.5 overflow-x-auto pb-1 scrollbar-thin'>
+                {linkedProducts.slice(0, 5).map((p) => (
+                  <div key={p.id} className='flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-100 bg-[#F8FAFC] shrink-0 min-w-0 max-w-[150px] shadow-sm'>
+                    <div className='w-4.5 h-4.5 rounded bg-purple-100 flex items-center justify-center text-[10px] shrink-0'>☕</div>
+                    <span className='text-xs font-semibold text-[#475467] truncate'>{p.name}</span>
+                  </div>
+                ))}
+                {linkedProducts.length === 0 && (
+                  <div className='text-xs italic text-slate-450 w-full text-center py-2'>No linked products found.</div>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* Linked Products Tab */}
+        {activeTab === 'Linked Products' && (
+          <div className='space-y-4'>
+            {/* Top metrics cards */}
+            <div className='grid grid-cols-3 gap-2.5'>
+              <div className='rounded-xl border border-[#EDE9FE] bg-[#F5F3FF] p-3 text-center shadow-sm flex flex-col items-center justify-center'>
+                <div className='w-8 h-8 rounded-full bg-white text-[#7F56D9] flex items-center justify-center shadow-sm'>
+                  <Link size={14} />
+                </div>
+                <p className='mt-2 text-xl font-black text-[#11182E] leading-none'>{modifier.productsCount}</p>
+                <p className='mt-1 text-[10px] font-bold text-[#7F56D9] uppercase tracking-wider leading-none'>Linked Products</p>
+              </div>
+              <div className='rounded-xl border border-[#FFEDD5] bg-[#FFF7ED] p-3 text-center shadow-sm flex flex-col items-center justify-center'>
+                <div className='w-8 h-8 rounded-full bg-white text-[#EA7200] flex items-center justify-center shadow-sm'>
+                  <svg className='w-4 h-4' fill='none' stroke='currentColor' strokeWidth='2' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                  </svg>
+                </div>
+                <p className='mt-2 text-xl font-black text-[#11182E] leading-none'>{categoriesCount}</p>
+                <p className='mt-1 text-[10px] font-bold text-[#EA7200] uppercase tracking-wider leading-none'>Categories</p>
+              </div>
+              <div className='rounded-xl border border-[#D1FAE5] bg-[#ECFDF5] p-3 text-center shadow-sm flex flex-col items-center justify-center'>
+                <div className='w-8 h-8 rounded-full bg-white text-[#10B981] flex items-center justify-center shadow-sm'>
+                  <Store size={14} />
+                </div>
+                <p className='mt-2 text-xl font-black text-[#11182E] leading-none'>6</p>
+                <p className='mt-1 text-[10px] font-bold text-[#10B981] uppercase tracking-wider leading-none'>Used in Outlets</p>
+              </div>
+            </div>
+
+            {/* Search and Filters */}
+            <div className='space-y-2.5'>
+              <label className='relative block min-w-0'>
+                <span className='sr-only'>Search linked product</span>
+                <Search size={14} className='pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]' />
+                <input
+                  type='text'
+                  value={searchLinkedQuery}
+                  onChange={(e) => setSearchLinkedQuery(e.target.value)}
+                  placeholder='Search linked product...'
+                  className='h-9 w-full rounded-lg border border-[#E1E6EF] bg-white pl-8 pr-3 text-sm text-[#11182E] outline-none transition placeholder:text-[#98A2B3] focus:border-[#FF1F6D]'
+                />
+              </label>
+              <div className='grid grid-cols-3 gap-2'>
+                <select
+                  value={outletFilter}
+                  onChange={(e) => setOutletFilter(e.target.value)}
+                  className='h-8 rounded-lg border border-[#E1E6EF] bg-white px-2 text-xs font-semibold text-[#475467] outline-none'
+                >
+                  <option>All Outlets</option>
+                </select>
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className='h-8 rounded-lg border border-[#E1E6EF] bg-white px-2 text-xs font-semibold text-[#475467] outline-none'
+                >
+                  <option value='All Categories'>All Categories</option>
+                  <option value='Signature'>Signature</option>
+                  <option value='Coffee'>Coffee</option>
+                  <option value='Pastry'>Pastry</option>
+                  <option value='Beverage'>Beverage</option>
+                </select>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className='h-8 rounded-lg border border-[#E1E6EF] bg-white px-2 text-xs font-semibold text-[#475467] outline-none'
+                >
+                  <option>Status</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Linked Products List */}
+            <div className='border border-slate-100 rounded-xl bg-white overflow-hidden shadow-sm'>
+              <div className='overflow-x-auto'>
+                <table className='w-full border-separate border-spacing-0'>
+                  <thead>
+                    <tr className='text-left text-xs font-bold text-slate-400 bg-slate-50 uppercase tracking-wider'>
+                      <th className='px-3 py-2 border-b border-slate-100 w-9'>
+                        <div className='w-4.5 h-4.5 rounded-full border-2 border-[#FF1F6D] bg-[#FF1F6D] flex items-center justify-center text-white text-[9px] font-black cursor-pointer'>✓</div>
+                      </th>
+                      <th className='px-3 py-2 border-b border-slate-100'>Product</th>
+                      <th className='px-3 py-2 border-b border-slate-100 text-right'>Price</th>
+                      <th className='px-3 py-2 border-b border-slate-100 text-right'>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {linkedProducts.slice(0, 5).map((p) => (
+                      <tr key={p.id} className='hover:bg-[#FFF7F9]/30 transition group'>
+                        <td className='px-3 py-3 border-b border-slate-50'>
+                          {/* Checkbox with checked state (checked circle with pink border/bg) */}
+                          <div className='w-4.5 h-4.5 rounded-full border-2 border-[#FF1F6D] bg-[#FF1F6D] flex items-center justify-center text-white text-[9px] font-black cursor-pointer shadow-sm shadow-rose-100'>✓</div>
+                        </td>
+                        <td className='px-3 py-3 border-b border-slate-50'>
+                          <div className='flex items-center gap-2.5 min-w-0'>
+                            <ProductImage
+                              src={p.image}
+                              name={p.name}
+                              className='h-9 w-9 shrink-0 rounded-lg bg-slate-50 object-contain p-0.5 border border-slate-100 shadow-sm'
+                            />
+                            <div className='min-w-0 flex flex-col'>
+                              <span className='text-xs font-bold text-[#11182E] truncate leading-tight'>{p.name}</span>
+                              <div className='flex items-center gap-1 mt-0.5'>
+                                <span className='text-[9px] font-semibold text-[#98A2B3] uppercase leading-none'>{p.sku || `SKU-0${p.id}`}</span>
+                                <span className='text-[9px] text-slate-300'>•</span>
+                                <span className={cx(
+                                  'inline-flex h-4 items-center rounded-md px-1.5 text-[8px] font-bold leading-none border',
+                                  categoryTone[p.category] || 'bg-slate-50 text-slate-600'
+                                )}>
+                                  {p.category}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className='px-3 py-3 border-b border-slate-50 text-right text-xs font-bold text-[#475467]'>
+                          {money(p.price)}
+                        </td>
+                        <td className='px-3 py-3 border-b border-slate-50 text-right' onClick={(e) => e.stopPropagation()}>
+                          <div className='flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition'>
+                            <button
+                              type='button'
+                              className='text-[10px] font-bold border border-slate-200 bg-white hover:bg-slate-50 px-2 py-1 rounded-md text-slate-700 shadow-xs cursor-pointer'
+                              onClick={() => alert(`Viewing product: ${p.name}`)}
+                            >
+                              View
+                            </button>
+                            <button className='p-1 text-slate-400 hover:text-slate-600 cursor-pointer'>
+                              <MoreVertical size={12} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Pagination */}
+              <div className='p-3 border-t border-slate-100 bg-[#FCFDFE] flex items-center justify-between text-[11px] text-[#667085]'>
+                <span>Showing 1 to {Math.min(5, linkedProducts.length)} of {linkedProducts.length} products</span>
+                <div className='flex items-center gap-1.5'>
+                  <button className='px-1.5 py-1 rounded border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 font-bold'>&lt;</button>
+                  <button className='px-2.5 py-1 rounded border border-[#FF1F6D] bg-[#FFF1F2] text-[#FF1F6D] font-bold'>1</button>
+                  <button className='px-1.5 py-1 rounded border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 font-bold'>&gt;</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Apply to more products card */}
+            <div className='rounded-2xl border border-[#EDE9FE] bg-white p-4 flex items-center justify-between gap-3 shadow-sm'>
+              <div className='flex items-center gap-3.5 min-w-0'>
+                <div className='w-10 h-10 rounded-xl bg-[#F5F3FF] text-[#7F56D9] flex items-center justify-center shadow-xs shrink-0'>
+                  <Link size={16} />
+                </div>
+                <div className='min-w-0'>
+                  <h4 className='m-0 text-sm font-extrabold text-[#11182E] leading-tight'>Apply to more products</h4>
+                  <p className='m-0 mt-0.5 text-xs text-[#667085] leading-snug truncate'>Link this modifier group to additional products.</p>
+                </div>
+              </div>
+              <button
+                type='button'
+                onClick={() => setIsLinkProductsPopupOpen(true)}
+                className='shrink-0 px-3.5 py-2 bg-[#FF1F6D] hover:bg-[#e0155b] text-white text-xs font-bold rounded-xl shadow-xs transition cursor-pointer'
+              >
+                Link Product
+              </button>
+            </div>
+
+            {/* Information Banner */}
+            <div className='rounded-2xl bg-[#F5F3FF] border border-[#EDE9FE] p-3.5 flex gap-3 text-xs text-[#6956E8] font-semibold leading-relaxed shadow-xs'>
+              <div className='w-5 h-5 rounded-full bg-white text-[#6956E8] flex items-center justify-center shadow-xs shrink-0 mt-0.5'>
+                <svg className='w-3 h-3' fill='none' stroke='currentColor' strokeWidth='3' viewBox='0 0 24 24'>
+                  <path strokeLinecap='round' strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span>This modifier group is available on all linked products across selected outlets.</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </aside>
+    {isEditPopupOpen && (
+      <div className='fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 px-4' onClick={() => setIsEditPopupOpen(false)}>
+        <div className='w-full max-w-[560px] overflow-hidden rounded-3xl bg-white shadow-2xl' onClick={(event) => event.stopPropagation()}>
+          <div className='flex items-center justify-between border-b border-slate-100 px-5 py-4'>
+            <div>
+              <p className='m-0 text-[11px] font-black uppercase tracking-wider text-[#FF1F6D]'>Modifier Group</p>
+              <h3 className='m-0 mt-1 text-xl font-black text-[#11182E]'>Edit Basic Information</h3>
+            </div>
+            <button type='button' onClick={() => setIsEditPopupOpen(false)} className='grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50'>
+              <X size={16} />
+            </button>
+          </div>
+          <div className='grid gap-4 px-5 py-5'>
+            <label className='grid gap-1.5'>
+              <span className='text-xs font-black uppercase tracking-wider text-slate-400'>Group Name</span>
+              <input value={editForm.name} onChange={(e) => setEditForm((current) => ({ ...current, name: e.target.value }))} className='h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold outline-none focus:border-[#FF1F6D]' />
+            </label>
+            <div className='grid grid-cols-2 gap-3'>
+              <label className='grid gap-1.5'>
+                <span className='text-xs font-black uppercase tracking-wider text-slate-400'>Type</span>
+                <select value={editForm.type} onChange={(e) => setEditForm((current) => ({ ...current, type: e.target.value }))} className='h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold outline-none focus:border-[#FF1F6D]'>
+                  <option>Optional</option>
+                  <option>Required</option>
+                </select>
+              </label>
+              <label className='grid gap-1.5'>
+                <span className='text-xs font-black uppercase tracking-wider text-slate-400'>Selection Rule</span>
+                <select value={editForm.selectionRule} onChange={(e) => setEditForm((current) => ({ ...current, selectionRule: e.target.value, maxSelection: e.target.value.includes('Multi') ? current.maxSelection || 2 : 1 }))} className='h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold outline-none focus:border-[#FF1F6D]'>
+                  <option>Single-select</option>
+                  <option>Multi-select (max 2)</option>
+                  <option>Multi-select (max 3)</option>
+                </select>
+              </label>
+            </div>
+            <div className='grid grid-cols-3 gap-3'>
+              <label className='grid gap-1.5'>
+                <span className='text-xs font-black uppercase tracking-wider text-slate-400'>Min</span>
+                <input type='number' min='0' value={editForm.minSelection} onChange={(e) => setEditForm((current) => ({ ...current, minSelection: e.target.value }))} className='h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold outline-none focus:border-[#FF1F6D]' />
+              </label>
+              <label className='grid gap-1.5'>
+                <span className='text-xs font-black uppercase tracking-wider text-slate-400'>Max</span>
+                <input type='number' min='0' value={editForm.maxSelection} onChange={(e) => setEditForm((current) => ({ ...current, maxSelection: e.target.value }))} className='h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold outline-none focus:border-[#FF1F6D]' />
+              </label>
+              <label className='grid gap-1.5'>
+                <span className='text-xs font-black uppercase tracking-wider text-slate-400'>Outlet Scope</span>
+                <input value={editForm.outletScope} onChange={(e) => setEditForm((current) => ({ ...current, outletScope: e.target.value }))} className='h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold outline-none focus:border-[#FF1F6D]' />
+              </label>
+            </div>
+            <label className='grid gap-1.5'>
+              <span className='text-xs font-black uppercase tracking-wider text-slate-400'>Description</span>
+              <textarea value={editForm.description} onChange={(e) => setEditForm((current) => ({ ...current, description: e.target.value }))} rows={3} className='rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold outline-none focus:border-[#FF1F6D]' />
+            </label>
+            <label className='grid gap-1.5'>
+              <span className='text-xs font-black uppercase tracking-wider text-slate-400'>Tags</span>
+              <input value={editForm.tags} onChange={(e) => setEditForm((current) => ({ ...current, tags: e.target.value }))} placeholder='Sweetness, Default' className='h-11 rounded-xl border border-slate-200 px-3 text-sm font-bold outline-none focus:border-[#FF1F6D]' />
+            </label>
+          </div>
+          <div className='flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-4'>
+            <button type='button' onClick={() => setIsEditPopupOpen(false)} className='rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600'>Cancel</button>
+            <button type='button' onClick={saveEditForm} className='rounded-xl bg-[#FF1F6D] px-4 py-2 text-sm font-black text-white shadow-lg shadow-pink-100'>Save Changes</button>
+          </div>
+        </div>
+      </div>
+    )}
+    {isOptionsPopupOpen && (
+      <div className='fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 px-4' onClick={() => setIsOptionsPopupOpen(false)}>
+        <div className='w-full max-w-[560px] overflow-hidden rounded-3xl bg-white shadow-2xl' onClick={(event) => event.stopPropagation()}>
+          <div className='flex items-center justify-between border-b border-slate-100 px-5 py-4'>
+            <div>
+              <p className='m-0 text-[11px] font-black uppercase tracking-wider text-[#FF1F6D]'>Modifier Options</p>
+              <h3 className='m-0 mt-1 text-xl font-black text-[#11182E]'>Manage {modifier.name}</h3>
+            </div>
+            <button type='button' onClick={() => setIsOptionsPopupOpen(false)} className='grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50'>
+              <X size={16} />
+            </button>
+          </div>
+          <div className='space-y-3 px-5 py-5'>
+            {optionsDraft.map((option, index) => (
+              <div key={option.id || index} className='grid grid-cols-[1fr_120px_36px] gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-3'>
+                <input value={option.name} onChange={(e) => setOptionsDraft((current) => current.map((item, idx) => idx === index ? { ...item, name: e.target.value } : item))} className='h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold outline-none focus:border-[#FF1F6D]' />
+                <input type='number' value={option.price} onChange={(e) => setOptionsDraft((current) => current.map((item, idx) => idx === index ? { ...item, price: e.target.value } : item))} className='h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold outline-none focus:border-[#FF1F6D]' />
+                <button type='button' onClick={() => setOptionsDraft((current) => current.filter((_, idx) => idx !== index))} className='grid h-10 w-10 place-items-center rounded-xl border border-rose-100 bg-white text-rose-500 hover:bg-rose-50'>
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+            <button type='button' onClick={() => setOptionsDraft((current) => [...current, { id: `new-${Date.now()}`, name: '', price: 0 }])} className='w-full rounded-2xl border border-dashed border-[#FFB3CF] bg-[#FFF7FA] px-4 py-3 text-sm font-black text-[#FF1F6D]'>+ Add Option</button>
+          </div>
+          <div className='flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-4'>
+            <button type='button' onClick={() => setIsOptionsPopupOpen(false)} className='rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600'>Cancel</button>
+            <button type='button' onClick={saveOptionsDraft} className='rounded-xl bg-[#FF1F6D] px-4 py-2 text-sm font-black text-white shadow-lg shadow-pink-100'>Save Options</button>
+          </div>
+        </div>
+      </div>
+    )}
+    {isLinkProductsPopupOpen && (
+      <div className='fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 px-4' onClick={() => setIsLinkProductsPopupOpen(false)}>
+        <div className='w-full max-w-[640px] overflow-hidden rounded-3xl bg-white shadow-2xl' onClick={(event) => event.stopPropagation()}>
+          <div className='flex items-center justify-between border-b border-slate-100 px-5 py-4'>
+            <div>
+              <p className='m-0 text-[11px] font-black uppercase tracking-wider text-[#FF1F6D]'>Linked Products</p>
+              <h3 className='m-0 mt-1 text-xl font-black text-[#11182E]'>Link products to {modifier.name}</h3>
+              <p className='m-0 mt-1 text-xs font-semibold text-slate-500'>{selectedLinkProductIds.length} product selected</p>
+            </div>
+            <button type='button' onClick={() => setIsLinkProductsPopupOpen(false)} className='grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50'>
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className='border-b border-slate-100 px-5 py-4'>
+            <label className='relative block'>
+              <Search size={16} className='pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400' />
+              <input
+                value={linkProductSearch}
+                onChange={(event) => setLinkProductSearch(event.target.value)}
+                placeholder='Search product name, SKU, or category...'
+                className='h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-semibold outline-none focus:border-[#FF1F6D]'
+              />
+            </label>
+          </div>
+
+          <div className='max-h-[420px] overflow-y-auto px-5 py-4'>
+            {linkProductCandidates.length === 0 ? (
+              <div className='rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm font-bold text-slate-400'>No products found.</div>
+            ) : (
+              <div className='space-y-2.5'>
+                {linkProductCandidates.map((product) => {
+                  const checked = selectedLinkProductIds.includes(product.id)
+                  return (
+                    <button
+                      key={product.id}
+                      type='button'
+                      onClick={() => setSelectedLinkProductIds((current) => checked ? current.filter((id) => id !== product.id) : [...current, product.id])}
+                      className={cx(
+                        'flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition',
+                        checked ? 'border-[#FFB3CF] bg-[#FFF7FA]' : 'border-slate-100 bg-white hover:bg-slate-50'
+                      )}
+                    >
+                      <div className={cx(
+                        'grid h-5 w-5 shrink-0 place-items-center rounded-md border text-[11px] font-black',
+                        checked ? 'border-[#FF1F6D] bg-[#FF1F6D] text-white' : 'border-slate-300 bg-white text-transparent'
+                      )}>
+                        ✓
+                      </div>
+                      <ProductImage src={product.image} name={product.name} className='h-11 w-11 shrink-0 rounded-xl border border-slate-100 bg-slate-50 object-contain p-1' />
+                      <div className='min-w-0 flex-1'>
+                        <div className='flex flex-wrap items-center gap-2'>
+                          <span className='truncate text-sm font-black text-[#11182E]'>{product.name}</span>
+                          <span className='rounded-lg bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500'>{product.category}</span>
+                        </div>
+                        <div className='mt-0.5 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-400'>
+                          <span>{product.sku}</span>
+                          <span>•</span>
+                          <span>{money(product.price)}</span>
+                          <span>•</span>
+                          <span>{product.status}</span>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className='flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4'>
+            <button type='button' onClick={() => setSelectedLinkProductIds([])} className='rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600'>Clear</button>
+            <div className='flex gap-2'>
+              <button type='button' onClick={() => setIsLinkProductsPopupOpen(false)} className='rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600'>Cancel</button>
+              <button type='button' onClick={saveLinkedProducts} className='rounded-xl bg-[#FF1F6D] px-4 py-2 text-sm font-black text-white shadow-lg shadow-pink-100'>Link {selectedLinkProductIds.length} Product</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
+  )
+}
+
 function RowCheckbox() {
   return (
     <input
@@ -1467,6 +2415,7 @@ function RowCheckbox() {
 let demoProductsList = null
 
 export default function ProductsPage() {
+  const [mainTab, setMainTab] = useState('products')
   const [search, setSearch] = useState('')
   const [outletFilter, setOutletFilter] = useState('All Outlets')
   const [categoryFilter, setCategoryFilter] = useState('All Categories')
@@ -1480,6 +2429,77 @@ export default function ProductsPage() {
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false)
   const [isDetailOpen, setIsDetailOpen] = useState(true)
   const [openDropdownId, setOpenDropdownId] = useState(null)
+
+  // Modifiers states
+  const [modifiers, setModifiers] = useState([])
+  const [selectedModifier, setSelectedModifier] = useState(null)
+  const [isModifierDetailOpen, setIsModifierDetailOpen] = useState(false)
+  const [activeModifierDetailTab, setActiveModifierDetailTab] = useState('Overview')
+  const [isAddModifierGroupOpen, setIsAddModifierGroupOpen] = useState(false)
+
+  // Add Modifier Group Wizard states
+  const [addModifierStep, setAddModifierStep] = useState(1)
+  const [newModifierType, setNewModifierType] = useState('Single Choice')
+  const [newModifierName, setNewModifierName] = useState('')
+  const [newModifierDesc, setNewModifierDesc] = useState('')
+  const [newModifierMaxOptions, setNewModifierMaxOptions] = useState('1')
+  const [newModifierOutletScope, setNewModifierOutletScope] = useState('All Outlets')
+
+  // Toast notification state
+  const [toastMessage, setToastMessage] = useState(null)
+
+  // Modifiers filters states
+  const [modifierSearch, setModifierSearch] = useState('')
+  const [modifierOutletFilter, setModifierOutletFilter] = useState('All Outlets')
+  const [modifierTypeFilter, setModifierTypeFilter] = useState('All Types')
+  const [modifierStatusFilter, setModifierStatusFilter] = useState('All Status')
+  const [modifierRuleFilter, setModifierRuleFilter] = useState('Selection Rule')
+  const [modifierSortBy, setModifierSortBy] = useState('Newest First')
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => {
+        setToastMessage(null)
+      }, 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [toastMessage])
+
+  // Filtered and sorted modifier groups
+  const filteredModifiers = useMemo(() => {
+    return modifiers.filter((mod) => {
+      if (modifierSearch) {
+        const query = modifierSearch.toLowerCase()
+        const matchName = mod.name.toLowerCase().includes(query)
+        const matchCode = (mod.code || '').toLowerCase().includes(query)
+        const matchOptions = mod.options.some(opt => (opt.name || opt).toLowerCase().includes(query))
+        if (!matchName && !matchCode && !matchOptions) return false
+      }
+      if (modifierTypeFilter !== 'All Types') {
+        if (mod.type !== modifierTypeFilter) return false
+      }
+      if (modifierStatusFilter !== 'All Status') {
+        if (mod.status !== modifierStatusFilter) return false
+      }
+      if (modifierRuleFilter !== 'Selection Rule') {
+        if (modifierRuleFilter === 'Single-select') {
+          if (!mod.selectionRule.toLowerCase().includes('single')) return false
+        } else if (modifierRuleFilter === 'Multi-select') {
+          if (!mod.selectionRule.toLowerCase().includes('multi')) return false
+        }
+      }
+      return true
+    }).sort((a, b) => {
+      if (modifierSortBy === 'Newest First') {
+        return String(b.updatedAt || b.id).localeCompare(String(a.updatedAt || a.id))
+      }
+      if (modifierSortBy === 'Oldest First') {
+        return String(a.updatedAt || a.id).localeCompare(String(b.updatedAt || b.id))
+      }
+      return 0
+    })
+  }, [modifiers, modifierSearch, modifierTypeFilter, modifierStatusFilter, modifierRuleFilter, modifierSortBy])
 
   // Selection states
   const [selectedSKUs, setSelectedSKUs] = useState([])
@@ -1925,13 +2945,9 @@ export default function ProductsPage() {
     formData.append('file', file)
 
     try {
-      const res = await api.post('/files/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
+      const res = await api.post('/products/images/upload', formData)
       const fileData = res.data && res.data.data ? res.data.data : res.data
-      const fileUrl = `/files/${fileData.storedName || fileData.stored_name}`
+      const fileUrl = fileData.url || `/public-files/${fileData.storedName || fileData.stored_name}`
       setPhotoPreview(fileUrl)
     } catch (err) {
       console.error('Failed to upload product image:', err)
@@ -1945,10 +2961,13 @@ export default function ProductsPage() {
   const [addName, setAddName] = useState('')
   const [addSku, setAddSku] = useState('')
   const [addCategory, setAddCategory] = useState('')
+  const [productCategories, setProductCategories] = useState(['Minuman', 'Makanan', 'Signature'])
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
   const [addDescription, setAddDescription] = useState('')
   const [addPrice, setAddPrice] = useState('')
   const [addCost, setAddCost] = useState('')
-  const [addTax, setAddTax] = useState('PPN 11%')
+  const [addTax, setAddTax] = useState('No Tax')
   const [addTags, setAddTags] = useState('')
   const [addStatus, setAddStatus] = useState('Active')
   const [addAvailability, setAddAvailability] = useState('Always available')
@@ -1966,6 +2985,19 @@ export default function ProductsPage() {
     }
   }, [isAddProductOpen, outlets, isEditMode])
 
+  const addProductCategory = () => {
+    const normalized = newCategoryName.trim()
+    if (!normalized) return
+    setProductCategories((current) => current.some((item) => item.toLowerCase() === normalized.toLowerCase()) ? current : [...current, normalized])
+    setAddCategory(normalized)
+    setNewCategoryName('')
+  }
+
+  const removeProductCategory = (category) => {
+    setProductCategories((current) => current.filter((item) => item !== category))
+    if (addCategory === category) setAddCategory('')
+  }
+
   const handleOpenAddProduct = () => {
     setIsEditMode(false)
     setEditingProductId(null)
@@ -1975,7 +3007,7 @@ export default function ProductsPage() {
     setAddDescription('')
     setAddPrice('')
     setAddCost('')
-    setAddTax('PPN 11%')
+    setAddTax('No Tax')
     setAddTags('')
     setAddStatus('Active')
     setAddAvailability('Always available')
@@ -1995,7 +3027,7 @@ export default function ProductsPage() {
     setAddDescription(product.description || '')
     setAddPrice(product.price || '')
     setAddCost(product.cost || '')
-    setAddTax(product.tax || 'PPN 11%')
+    setAddTax(product.tax || 'No Tax')
     setAddTags(Array.isArray(product.tags) ? product.tags.join(', ') : '')
     setAddStatus(product.status || 'Active')
     setAddAvailability(product.metadata?.availability || 'Always available')
@@ -2176,7 +3208,7 @@ export default function ProductsPage() {
           const costPrice = updatedRaw.costPrice ?? updatedRaw.cost_price ?? updatedRaw.cost ?? prev.cost
           const stockQuantity = updatedRaw.stockQuantity ?? updatedRaw.stock_quantity ?? updatedRaw.stock ?? prev.stock
           const isActive = updatedRaw.isActive ?? updatedRaw.is_active ?? (updatedRaw.status === 'active' || updatedRaw.status === 'Active' || prev.status === 'Active')
-          const thumbnailUrl = updatedRaw.thumbnailUrl ?? updatedRaw.thumbnail_url ?? updatedRaw.image ?? prev.image
+          const thumbnailUrl = resolveProductImage(updatedRaw.name ?? prev.name, updatedRaw.thumbnailUrl ?? updatedRaw.thumbnail_url ?? updatedRaw.image ?? prev.image)
           const taxLabel = updatedRaw.taxLabel ?? updatedRaw.tax_label ?? updatedRaw.tax ?? prev.tax
 
           return {
@@ -2396,6 +3428,7 @@ export default function ProductsPage() {
 
   useEffect(() => {
     loadProducts()
+    loadModifiers()
     loadOutlets()
   }, [])
 
@@ -2772,8 +3805,9 @@ export default function ProductsPage() {
           const costPrice = item.costPrice ?? item.cost_price ?? item.cost ?? 0
           const stockQuantity = item.stockQuantity ?? item.stock_quantity ?? item.stock ?? 0
           const isActive = item.isActive ?? item.is_active ?? (item.status === 'active' || item.status === 'Active' || item.status === true)
-          const thumbnailUrl = item.thumbnailUrl ?? item.thumbnail_url ?? item.image ?? '/images/products/salty-caramel.png'
-          const taxLabel = item.taxLabel ?? item.tax_label ?? item.tax ?? 'PPN 11%'
+          const thumbnailUrl = resolveProductImage(item.name, item.thumbnailUrl ?? item.thumbnail_url ?? item.image ?? '/images/products/salty-caramel.png')
+          const taxLabel = item.taxLabel ?? item.tax_label ?? item.tax ?? item.metadata?.tax ?? 'No Tax'
+          const outletCount = Number(item.outletCount ?? item.outlet_count ?? item.outlets ?? item.outletsCount ?? item.outlets_count ?? item.availabilityCount ?? item.availability_count ?? (Array.isArray(item.outletAvailability) ? item.outletAvailability.length : 0))
 
           return {
             id: item.id || item._id,
@@ -2781,8 +3815,8 @@ export default function ProductsPage() {
             name: item.name,
             sku: item.sku || `SKU-SEL-00${idx + 1}`,
             image: thumbnailUrl,
-            category: item.metadata?.category || item.category || 'Teh',
-            outlets: item.outlets || 1,
+            category: item.metadata?.category || item.category || 'Minuman',
+            outlets: outletCount || 0,
             price: basePrice,
             cost: costPrice,
             stock: stockQuantity,
@@ -2800,6 +3834,7 @@ export default function ProductsPage() {
               lowStock: 0,
               outOfStock: 0,
             },
+            modifierGroups: item.modifierGroups || item.modifier_groups || item.metadata?.modifierGroups || item.metadata?.modifier_groups || item.metadata?.modifiers?.map((group) => group.name).filter(Boolean) || [],
           }
         })
       }
@@ -2814,6 +3849,25 @@ export default function ProductsPage() {
       console.error('Failed to load products and sales data:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadModifiers = async () => {
+    try {
+      if (isDemoMode()) {
+        setModifiers(dummyModifiers)
+        return
+      }
+      const res = await api.get('/products/modifiers')
+      const rawModifiers = Array.isArray(res.data)
+        ? res.data
+        : res.data && Array.isArray(res.data.data)
+          ? res.data.data
+          : []
+      setModifiers(rawModifiers)
+    } catch (err) {
+      console.error('Failed to load product modifiers:', err)
+      setModifiers([])
     }
   }
 
@@ -3515,7 +4569,7 @@ export default function ProductsPage() {
               salesChange: 0,
               totalSold: 0,
               tags: item.tags || [],
-              tax: 'PPN 11%',
+              tax: 'No Tax',
               trend: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
               inventorySummary: { total: item.stockQuantity, lowStock: 0, outOfStock: 0 }
             }
@@ -3565,61 +4619,162 @@ export default function ProductsPage() {
       <main
         className={cx(
           'flex-1 flex flex-col min-w-0 p-4 pt-3 overflow-hidden transition-[padding] duration-200 motion-reduce:transition-none',
-          isDetailOpen ? 'xl:pr-[576px]' : 'xl:pr-4'
+          (isDetailOpen || isModifierDetailOpen) ? 'xl:pr-[576px]' : 'xl:pr-4'
         )}
       >
         <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden'>
           <header className='-mx-1 shrink-0 flex flex-col gap-3 overflow-visible px-1 pt-1 pb-1 lg:flex-row lg:items-start lg:justify-between'>
             <div>
               <h1 className='text-3xl font-extrabold tracking-tight text-[#11182E]'>
-                Products
+                {mainTab === 'products' ? 'Products' : 'Modifiers'}
               </h1>
-              <p className='mt-1 text-sm text-[#667085]'>
-                Manage all products across your outlets.
-              </p>
             </div>
             <div className='flex flex-wrap items-center justify-end gap-2.5 overflow-visible xl:flex-nowrap'>
-              {!isDetailOpen && selectedProduct && (
-                <button
-                  type='button'
-                  onClick={() => setIsDetailOpen(true)}
-                  className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#D6DCE8] bg-white px-3 text-sm font-bold text-[#11182E] shadow-sm transition hover:border-[#F43F70] hover:text-[#F43F70]'
-                  title='Show product details'
-                >
-                  <Eye size={14} />
-                  <span>{selectedProduct.sku}</span>
-                </button>
+              {mainTab === 'products' ? (
+                <>
+                  {!isDetailOpen && selectedProduct && (
+                    <button
+                      type='button'
+                      onClick={() => setIsDetailOpen(true)}
+                      className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#D6DCE8] bg-white px-3 text-sm font-bold text-[#11182E] shadow-sm transition hover:border-[#F43F70] hover:text-[#F43F70]'
+                      title='Show product details'
+                    >
+                      <Eye size={14} />
+                      <span>{selectedProduct.sku}</span>
+                    </button>
+                  )}
+                  <button
+                    type='button'
+                    onClick={() => setIsImportModalOpen(true)}
+                    className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#D6DCE8] bg-white px-4 text-base font-bold text-[#11182E] shadow-sm transition hover:border-[#C8D0DF] hover:bg-[#F2F4F8] cursor-pointer'
+                  >
+                    <UploadCloud size={14} />
+                    Import
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => {
+                      setExportScope('all')
+                      setIsExportModalOpen(true)
+                    }}
+                    className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#D6DCE8] bg-white px-4 text-base font-bold text-[#11182E] shadow-sm transition hover:border-[#C8D0DF] hover:bg-[#F2F4F8] cursor-pointer'
+                  >
+                    <Download size={14} />
+                    Export
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => {
+                      setMainTab('modifiers')
+                    }}
+                    className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#D6DCE8] bg-white px-4 text-base font-bold text-[#11182E] shadow-sm transition hover:border-[#C8D0DF] hover:bg-[#F2F4F8] cursor-pointer'
+                  >
+                    Add Modifiers
+                    <ChevronDown size={14} />
+                  </button>
+                  <button
+                    type='button'
+                    onClick={handleOpenAddProduct}
+                    className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-[#F43F70] px-4 text-base font-bold text-white shadow-[0_10px_24px_rgba(244,63,112,0.24)] transition hover:bg-[#e62e63]'
+                  >
+                    <Plus size={16} />
+                    Add Product
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type='button'
+                    onClick={() => setIsImportModalOpen(true)}
+                    className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#D6DCE8] bg-white px-4 text-base font-bold text-[#11182E] shadow-sm transition hover:border-[#C8D0DF] hover:bg-[#F2F4F8] cursor-pointer'
+                  >
+                    <UploadCloud size={14} />
+                    Import
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => {
+                      setExportScope('all')
+                      setIsExportModalOpen(true)
+                    }}
+                    className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#D6DCE8] bg-white px-4 text-base font-bold text-[#11182E] shadow-sm transition hover:border-[#C8D0DF] hover:bg-[#F2F4F8] cursor-pointer'
+                  >
+                    <Download size={14} />
+                    Export
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => {
+                      setAddModifierStep(1)
+                      setNewModifierType('Single Choice')
+                      setNewModifierName('')
+                      setNewModifierDesc('')
+                      setNewModifierMaxOptions('1')
+                      setNewModifierOutletScope('All Outlets')
+                      setIsAddModifierGroupOpen(true)
+                    }}
+                    className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-[#FF1F6D] px-4 text-base font-bold text-white shadow-[0_10px_24px_rgba(255,31,109,0.24)] transition hover:bg-[#e0155b] cursor-pointer'
+                  >
+                    <Plus size={16} />
+                    Add Modifier Group
+                  </button>
+                </>
               )}
-              <button
-                type='button'
-                onClick={() => setIsImportModalOpen(true)}
-                className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#D6DCE8] bg-white px-4 text-base font-bold text-[#11182E] shadow-sm transition hover:border-[#C8D0DF] hover:bg-[#F2F4F8] cursor-pointer'
-              >
-                <UploadCloud size={14} />
-                Import
-              </button>
-              <button
-                type='button'
-                onClick={() => {
-                  setExportScope('all')
-                  setIsExportModalOpen(true)
-                }}
-                className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#D6DCE8] bg-white px-4 text-base font-bold text-[#11182E] shadow-sm transition hover:border-[#C8D0DF] hover:bg-[#F2F4F8] cursor-pointer'
-              >
-                <Download size={14} />
-                Export
-              </button>
-              <button
-                type='button'
-                onClick={handleOpenAddProduct}
-                className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-[#F43F70] px-4 text-base font-bold text-white shadow-[0_10px_24px_rgba(244,63,112,0.24)] transition hover:bg-[#e62e63]'
-              >
-                <Plus size={16} />
-                Add Product
-              </button>
             </div>
           </header>
 
+          {/* Main Tabs (Products vs Modifiers) */}
+          <div className='flex border-b border-[#E1E6EF] gap-8 mt-1 mb-2 shrink-0'>
+            <button
+              type='button'
+              onClick={() => setMainTab('products')}
+              className={cx(
+                'pb-3 text-base font-extrabold cursor-pointer relative transition duration-150 flex items-center',
+                mainTab === 'products' ? 'text-[#F43F70]' : 'text-[#667085] hover:text-[#11182E]'
+              )}
+            >
+              <span>Products</span>
+              <span
+                className={cx(
+                  'ml-1.5 rounded-full px-2 py-0.5 text-xs font-bold transition duration-150',
+                  mainTab === 'products' ? 'bg-[#FDF2F5] text-[#F43F70]' : 'bg-[#F2F4F8] text-[#667085]'
+                )}
+              >
+                {products.length}
+              </span>
+              {mainTab === 'products' && (
+                <div className='absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#F43F70] rounded-full' />
+              )}
+            </button>
+            <button
+              type='button'
+              onClick={() => setMainTab('modifiers')}
+              className={cx(
+                'pb-3 text-base font-extrabold cursor-pointer relative transition duration-150 flex items-center',
+                mainTab === 'modifiers' ? 'text-[#F43F70]' : 'text-[#667085] hover:text-[#11182E]'
+              )}
+            >
+              <span>Modifiers</span>
+              <span
+                className={cx(
+                  'ml-1.5 rounded-full px-2 py-0.5 text-xs font-bold transition duration-150',
+                  mainTab === 'modifiers' ? 'bg-[#FDF2F5] text-[#F43F70]' : 'bg-[#F2F4F8] text-[#667085]'
+                )}
+              >
+                12
+              </span>
+              {mainTab === 'modifiers' && (
+                <div className='absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#F43F70] rounded-full' />
+              )}
+            </button>
+          </div>
+
+          <p className='text-sm text-[#667085] shrink-0 mt-0.5 mb-2'>
+            {mainTab === 'products' ? 'Manage all products across your outlets.' : 'Manage all product modifier groups across your outlets.'}
+          </p>
+
+          {mainTab === 'products' && (
+            <>
           <section className='mt-3 shrink-0 grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
             <MetricCard
               icon={Box}
@@ -4140,6 +5295,223 @@ export default function ProductsPage() {
               Last updated: 10:25 AM <RefreshCw size={13} />
             </button>
           </div>
+          </>
+          )}
+
+          {mainTab === 'modifiers' && (
+            <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
+              {/* Modifier Metrics */}
+              <section className='mt-3 shrink-0 grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
+                <MetricCard
+                  icon={Box}
+                  label='Total Modifier Groups'
+                  value={modifiers.length}
+                  change={9}
+                  tone='violet'
+                />
+                <MetricCard
+                  icon={Shield}
+                  label='Active Groups'
+                  value={modifiers.filter(m => m.status === 'Active').length}
+                  change={25}
+                  tone='green'
+                />
+                <MetricCard
+                  icon={Sliders}
+                  label='Total Options'
+                  value={modifiers.reduce((sum, m) => sum + m.options.length, 0)}
+                  change={12}
+                  tone='orange'
+                />
+                <MetricCard
+                  icon={Link}
+                  label='Linked Products'
+                  value={modifiers.reduce((sum, m) => sum + (m.productsCount || 0), 0)}
+                  change={18}
+                  tone='brand'
+                />
+              </section>
+
+              {/* Modifier Filters */}
+              <section className='mt-3 shrink-0 grid gap-2.5 md:grid-cols-2 xl:grid-cols-[1.35fr_.95fr_.95fr_.95fr_.95fr_auto] relative'>
+                <label className='relative block min-w-0'>
+                  <span className='sr-only'>Search modifier</span>
+                  <Search
+                    size={15}
+                    className='pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#98A2B3]'
+                  />
+                  <input
+                    type='search'
+                    value={modifierSearch}
+                    onChange={(e) => setModifierSearch(e.target.value)}
+                    placeholder='Search modifier group, option, product...'
+                    className='h-9 w-full rounded-lg border border-[#E1E6EF] bg-white pl-9 pr-3 text-sm text-[#11182E] outline-none transition placeholder:text-[#98A2B3] focus:border-[#FF1F6D] focus:ring-4 focus:ring-[#FF1F6D]/10 font-medium'
+                  />
+                </label>
+                <FilterSelect
+                  label='Outlets'
+                  value={modifierOutletFilter}
+                  onChange={setModifierOutletFilter}
+                  options={['All Outlets']}
+                />
+                <FilterSelect
+                  label='Types'
+                  value={modifierTypeFilter}
+                  onChange={setModifierTypeFilter}
+                  options={['All Types', 'Optional', 'Required']}
+                />
+                <FilterSelect
+                  label='Status'
+                  value={modifierStatusFilter}
+                  onChange={setModifierStatusFilter}
+                  options={['All Status', 'Active', 'Inactive']}
+                />
+                <FilterSelect
+                  label='Selection Rule'
+                  value={modifierRuleFilter}
+                  onChange={setModifierRuleFilter}
+                  options={['Selection Rule', 'Single-select', 'Multi-select']}
+                />
+                <button
+                  type='button'
+                  className='inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#D6DCE8] bg-white px-3 text-sm font-bold text-[#11182E] hover:bg-[#F2F4F8] cursor-pointer'
+                >
+                  <Filter size={14} />
+                  <span>More Filters</span>
+                </button>
+              </section>
+
+              {/* Sort and summary row */}
+              <div className='mt-2.5 shrink-0 flex items-center justify-between text-sm text-[#667085] px-1'>
+                <div className='flex items-center gap-2'>
+                  <span>
+                    Showing:{' '}
+                    <strong className='text-[#11182E]'>
+                      1 to {filteredModifiers.length} of {filteredModifiers.length} modifier groups
+                    </strong>
+                  </span>
+                </div>
+                <div className='flex items-center gap-2'>
+                  <span className='whitespace-nowrap text-sm font-medium text-[#667085]'>
+                    Sort by:
+                  </span>
+                  <div className='w-36'>
+                    <FilterSelect
+                      label='Sort modifiers'
+                      value={modifierSortBy}
+                      onChange={setModifierSortBy}
+                      options={['Newest First', 'Oldest First']}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Modifier Group Table */}
+              <section className='mt-2.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#E1E6EF] bg-white shadow-[0_8px_30px_rgba(17,24,46,0.03)]'>
+                <div className='min-h-0 flex-1 overflow-auto'>
+                  <table className='w-full min-w-[980px] border-separate border-spacing-0'>
+                    <thead className='bg-[#FCFDFE]'>
+                      <tr className='text-left text-sm font-semibold text-[#667085]'>
+                        <th className='border-b border-[#E1E6EF] px-3 py-2.5 w-12'>
+                          <input type='checkbox' className='h-4 w-4 rounded border-[#D0D5DD] text-[#F43F70]' />
+                        </th>
+                        <th className='border-b border-[#E1E6EF] px-3 py-2.5'>Modifier Group</th>
+                        <th className='border-b border-[#E1E6EF] px-3 py-2.5'>Type</th>
+                        <th className='border-b border-[#E1E6EF] px-3 py-2.5'>Selection Rule</th>
+                        <th className='border-b border-[#E1E6EF] px-3 py-2.5'>Options</th>
+                        <th className='border-b border-[#E1E6EF] px-3 py-2.5'>Linked Products</th>
+                        <th className='border-b border-[#E1E6EF] px-3 py-2.5'>Status</th>
+                        <th className='border-b border-[#E1E6EF] px-3 py-2.5'>Updated At</th>
+                        <th className='border-b border-[#E1E6EF] px-3 py-2.5 text-right w-28'>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredModifiers.map((mod) => {
+                        const iconData = getModifierIcon(mod.name);
+                        return (
+                          <tr key={mod.id} className='cursor-pointer transition hover:bg-[#FCF8FB]' onClick={() => {
+                            setSelectedModifier(mod);
+                            setActiveModifierDetailTab('Overview');
+                            setIsModifierDetailOpen(true);
+                            setIsDetailOpen(false); // close product detail sidebar if open
+                          }}>
+                            <td className='border-b border-[#F2F4F8] px-3 py-4.5' onClick={(e) => e.stopPropagation()}>
+                              <input type='checkbox' className='h-4 w-4 rounded border-[#D0D5DD] text-[#F43F70]' />
+                            </td>
+                            <td className='border-b border-[#F2F4F8] px-3 py-4.5 font-bold text-[#11182E]'>
+                              <div className='flex items-center gap-3'>
+                                <div className={cx('w-10 h-10 rounded-xl flex items-center justify-center shadow-sm shrink-0', iconData.bg)}>
+                                  {iconData.icon}
+                                </div>
+                                <div className='flex flex-col min-w-0'>
+                                  <span className='font-bold text-sm text-[#11182E] leading-tight truncate'>{mod.name}</span>
+                                  <span className='font-medium text-xs text-[#98A2B3] mt-0.5 leading-none'>{mod.code}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className='border-b border-[#F2F4F8] px-3 py-4.5 text-sm'>
+                              <span className={cx(
+                                'rounded-lg px-2.5 py-1 text-[11px] font-bold border',
+                                mod.type === 'Required'
+                                  ? 'bg-[#FFF1F2] text-[#DC3545] border-[#FEE2E2]'
+                                  : 'bg-[#F5F3FF] text-[#6956E8] border-[#EDE9FE]'
+                              )}>
+                                {mod.type}
+                              </span>
+                            </td>
+                            <td className='border-b border-[#F2F4F8] px-3 py-4.5 text-sm font-semibold text-[#475467]'>
+                              {mod.selectionRule}
+                            </td>
+                            <td className='border-b border-[#F2F4F8] px-3 py-4.5 text-sm font-semibold text-[#475467]'>
+                              {mod.options.length} options
+                            </td>
+                            <td className='border-b border-[#F2F4F8] px-3 py-4.5 text-sm font-bold text-[#FF1F6D]'>
+                              {mod.productsCount || 0} products
+                            </td>
+                            <td className='border-b border-[#F2F4F8] px-3 py-4.5'>
+                              <span className={cx(
+                                'rounded-lg px-2.5 py-1 text-[11px] font-bold border',
+                                mod.status === 'Active'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200'
+                              )}>
+                                {mod.status}
+                              </span>
+                            </td>
+                            <td className='border-b border-[#F2F4F8] px-3 py-4.5 text-xs font-semibold text-[#667085]'>
+                              {mod.updatedAt}
+                            </td>
+                            <td className='border-b border-[#F2F4F8] px-3 py-4.5 text-right' onClick={(e) => e.stopPropagation()}>
+                              <div className='flex items-center justify-end gap-1.5'>
+                                <button
+                                  type='button'
+                                  onClick={() => {
+                                    setSelectedModifier(mod);
+                                    setActiveModifierDetailTab('Overview');
+                                    setIsModifierDetailOpen(true);
+                                    setIsDetailOpen(false);
+                                  }}
+                                  className='bg-white hover:bg-[#F2F4F8] border border-[#E1E6EF] text-xs font-bold px-3 py-1.5 rounded-lg text-[#11182E] shadow-sm transition duration-150 cursor-pointer'
+                                >
+                                  View
+                                </button>
+                                <button
+                                  type='button'
+                                  className='grid h-8 w-8 place-items-center rounded-lg border border-[#E1E6EF] text-[#667085] hover:bg-[#F6F8FB] hover:text-[#11182E] transition cursor-pointer'
+                                >
+                                  <MoreVertical size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+          )}
         </div>
       </main>
 
@@ -4176,6 +5548,22 @@ export default function ProductsPage() {
             dateRangeLabel={dateRangeLabel}
             handleLoadMoreActivities={handleLoadMoreActivities}
             mappedActivities={mappedActivities}
+          />
+        </div>
+      )}
+
+      {isModifierDetailOpen && selectedModifier && (
+        <div className='fixed inset-y-0 right-0 z-[80] hidden xl:block w-[560px] h-[100dvh] bg-white border-l border-[#E1E6EF] overflow-hidden shadow-[-4px_0_15px_rgba(17,24,46,0.03)]'>
+          <ModifierDetailPanel
+            modifier={selectedModifier}
+            onClose={() => setIsModifierDetailOpen(false)}
+            activeTab={activeModifierDetailTab}
+            setActiveTab={setActiveModifierDetailTab}
+            products={products}
+            onUpdateModifier={(updatedMod) => {
+              setModifiers(prev => prev.map(m => m.id === updatedMod.id ? updatedMod : m))
+              setSelectedModifier(updatedMod)
+            }}
           />
         </div>
       )}
@@ -4221,6 +5609,357 @@ export default function ProductsPage() {
             mappedActivities={mappedActivities}
           />
         </div>
+      )}
+
+      {isModifierDetailOpen && selectedModifier && (
+        <div className='xl:hidden'>
+          <button
+            type='button'
+            onClick={() => setIsModifierDetailOpen(false)}
+            className='fixed inset-0 z-40 bg-[#11182E]/40 backdrop-blur-[2px]'
+          />
+          <ModifierDetailPanel
+            modifier={selectedModifier}
+            mobile
+            onClose={() => setIsModifierDetailOpen(false)}
+            activeTab={activeModifierDetailTab}
+            setActiveTab={setActiveModifierDetailTab}
+            products={products}
+            onUpdateModifier={(updatedMod) => {
+              setModifiers(prev => prev.map(m => m.id === updatedMod.id ? updatedMod : m))
+              setSelectedModifier(updatedMod)
+            }}
+          />
+        </div>
+      )}
+
+      {/* 3-STEP ADD MODIFIER GROUP MODAL */}
+      {isAddModifierGroupOpen && createPortal(
+        <div className='fixed inset-0 z-[120] flex items-center justify-center bg-[#11182E]/50 backdrop-blur-[2px] p-4 animate-in fade-in duration-200'>
+          <div className='w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200'>
+            {/* Header */}
+            <div className='flex items-center justify-between px-6 py-4.5 border-b border-slate-100'>
+              <h3 className='text-lg font-extrabold text-[#11182E]'>Add Modifier Group</h3>
+              <button
+                type='button'
+                onClick={() => setIsAddModifierGroupOpen(false)}
+                className='w-8 h-8 rounded-lg border border-slate-200 hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-650 cursor-pointer'
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Step 1 */}
+            {addModifierStep === 1 && (
+              <div className='p-6 space-y-4'>
+                <div className='flex justify-between items-center'>
+                  <span className='text-xs font-bold text-[#FF1F6D] uppercase tracking-wider bg-rose-50 px-2 py-0.5 rounded-md'>Step 1 of 3</span>
+                  <span className='text-xs font-semibold text-slate-400'>Tipe Grup</span>
+                </div>
+                <div>
+                  <p className='text-xs text-[#667085] leading-relaxed mb-3.5'>Buat grup modifier baru untuk digunakan di produk. Pilih apakah customer boleh pilih satu atau beberapa modifier.</p>
+                  
+                  <div className='grid gap-3.5'>
+                    <label className={cx(
+                      'flex items-start gap-3.5 p-4 rounded-xl border-2 cursor-pointer transition-all shadow-xs',
+                      newModifierType === 'Single Choice'
+                        ? 'border-[#7f56d9] bg-[#fdfcff] shadow-sm'
+                        : 'border-slate-200 bg-white hover:bg-slate-50/50'
+                    )}>
+                      <input
+                        type='radio'
+                        name='modifierType'
+                        value='Single Choice'
+                        checked={newModifierType === 'Single Choice'}
+                        onChange={() => setNewModifierType('Single Choice')}
+                        className='sr-only'
+                      />
+                      <div className={cx(
+                        'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5',
+                        newModifierType === 'Single Choice'
+                          ? 'border-[#7f56d9] bg-[#7f56d9] text-white'
+                          : 'border-slate-300 bg-white'
+                      )}>
+                        {newModifierType === 'Single Choice' && <span className='w-2.5 h-2.5 rounded-full bg-white' />}
+                      </div>
+                      <div className='min-w-0'>
+                        <h4 className='m-0 text-sm font-extrabold text-[#11182E]'>Single Choice</h4>
+                        <p className='m-0 mt-0.5 text-xs text-[#667085] leading-relaxed'>Customer hanya bisa memilih 1 modifier</p>
+                      </div>
+                    </label>
+
+                    <label className={cx(
+                      'flex items-start gap-3.5 p-4 rounded-xl border-2 cursor-pointer transition-all shadow-xs',
+                      newModifierType === 'Multi Choice'
+                        ? 'border-[#7f56d9] bg-[#fdfcff] shadow-sm'
+                        : 'border-slate-200 bg-white hover:bg-slate-50/50'
+                    )}>
+                      <input
+                        type='radio'
+                        name='modifierType'
+                        value='Multi Choice'
+                        checked={newModifierType === 'Multi Choice'}
+                        onChange={() => setNewModifierType('Multi Choice')}
+                        className='sr-only'
+                      />
+                      <div className={cx(
+                        'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5',
+                        newModifierType === 'Multi Choice'
+                          ? 'border-[#7f56d9] bg-[#7f56d9] text-white'
+                          : 'border-slate-300 bg-white'
+                      )}>
+                        {newModifierType === 'Multi Choice' && <span className='w-2.5 h-2.5 rounded-full bg-white' />}
+                      </div>
+                      <div className='min-w-0'>
+                        <h4 className='m-0 text-sm font-extrabold text-[#11182E]'>Multi Choice</h4>
+                        <p className='m-0 mt-0.5 text-xs text-[#667085] leading-relaxed'>Customer bisa memilih lebih dari 1 modifier</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className='flex items-center justify-between pt-4 border-t border-slate-100'>
+                  <button
+                    type='button'
+                    onClick={() => setIsAddModifierGroupOpen(false)}
+                    className='px-5 py-2.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer'
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => setAddModifierStep(2)}
+                    className='px-5 py-2.5 bg-[#7F56D9] text-white text-xs font-bold rounded-xl shadow-md hover:bg-[#693cb8] transition cursor-pointer'
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2 */}
+            {addModifierStep === 2 && (
+              <div className='p-6 space-y-4.5'>
+                <div className='flex justify-between items-center'>
+                  <span className='text-xs font-bold text-[#FF1F6D] uppercase tracking-wider bg-rose-50 px-2 py-0.5 rounded-md'>Step 2 of 3</span>
+                  <span className='text-xs font-semibold text-slate-400'>Nama & Deskripsi</span>
+                </div>
+
+                <div className='space-y-3.5'>
+                  <div>
+                    <label className='block text-xs font-bold text-slate-650 mb-1.5'>
+                      Nama Grup <span className='text-rose-500'>*</span>
+                    </label>
+                    <input
+                      type='text'
+                      value={newModifierName}
+                      onChange={(e) => setNewModifierName(e.target.value)}
+                      placeholder='Contoh: Extra Cheese'
+                      className='w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50 focus:bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7f56d9]/20 focus:border-[#7f56d9] text-xs text-slate-700 font-bold transition-all'
+                    />
+                  </div>
+
+                  <div>
+                    <label className='block text-xs font-bold text-slate-650 mb-1.5'>
+                      Deskripsi (Opsional)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={newModifierDesc}
+                      onChange={(e) => setNewModifierDesc(e.target.value)}
+                      placeholder='Contoh: Pilih tambahan keju sesuai selera'
+                      className='w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50 focus:bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7f56d9]/20 focus:border-[#7f56d9] text-xs text-slate-700 font-bold transition-all resize-none'
+                    />
+                  </div>
+
+                  {newModifierType === 'Multi Choice' && (
+                    <div>
+                      <label className='block text-xs font-bold text-slate-650 mb-1.5'>
+                        Maksimum Pilihan <span className='text-rose-500'>*</span>
+                      </label>
+                      <select
+                        value={newModifierMaxOptions}
+                        onChange={(e) => setNewModifierMaxOptions(e.target.value)}
+                        className='w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50 focus:bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7f56d9]/20 focus:border-[#7f56d9] text-xs text-slate-700 font-bold transition-all cursor-pointer'
+                      >
+                        <option value='2'>2</option>
+                        <option value='3'>3</option>
+                        <option value='4'>4</option>
+                        <option value='5'>5</option>
+                        <option value='10'>10</option>
+                      </select>
+                      <span className='block mt-1 text-[10px] text-slate-400 font-semibold leading-relaxed'>Maksimal jumlah modifier yang bisa dipilih customer</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className='flex items-center justify-between pt-4 border-t border-slate-100'>
+                  <button
+                    type='button'
+                    onClick={() => setAddModifierStep(1)}
+                    className='px-5 py-2.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer'
+                  >
+                    Back
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => {
+                      if (!newModifierName.trim()) {
+                        alert('Nama grup modifier wajib diisi!')
+                        return
+                      }
+                      setAddModifierStep(3)
+                    }}
+                    className='px-5 py-2.5 bg-[#7F56D9] text-white text-xs font-bold rounded-xl shadow-md hover:bg-[#693cb8] transition cursor-pointer'
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3 */}
+            {addModifierStep === 3 && (
+              <div className='p-6 space-y-4'>
+                <div className='flex justify-between items-center'>
+                  <span className='text-xs font-bold text-[#FF1F6D] uppercase tracking-wider bg-rose-50 px-2 py-0.5 rounded-md'>Step 3 of 3</span>
+                  <span className='text-xs font-semibold text-slate-400'>Outlet Scope</span>
+                </div>
+
+                <div>
+                  <label className='block text-xs font-bold text-slate-650 mb-1.5'>
+                    Pilih Outlet <span className='text-rose-500'>*</span>
+                  </label>
+                  <p className='text-[10px] text-slate-400 font-semibold leading-relaxed mb-3.5'>Pilih outlet yang dapat menggunakan grup modifier ini.</p>
+                  
+                  <div className='grid gap-3.5'>
+                    <label className={cx(
+                      'flex items-start gap-3.5 p-4 rounded-xl border-2 cursor-pointer transition-all shadow-xs',
+                      newModifierOutletScope === 'All Outlets'
+                        ? 'border-[#7f56d9] bg-[#fdfcff] shadow-sm'
+                        : 'border-slate-200 bg-white hover:bg-slate-50/50'
+                    )}>
+                      <input
+                        type='radio'
+                        name='outletScope'
+                        value='All Outlets'
+                        checked={newModifierOutletScope === 'All Outlets'}
+                        onChange={() => setNewModifierOutletScope('All Outlets')}
+                        className='sr-only'
+                      />
+                      <div className={cx(
+                        'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5',
+                        newModifierOutletScope === 'All Outlets'
+                          ? 'border-[#7f56d9] bg-[#7f56d9] text-white'
+                          : 'border-slate-300 bg-white'
+                      )}>
+                        {newModifierOutletScope === 'All Outlets' && <span className='w-2.5 h-2.5 rounded-full bg-white' />}
+                      </div>
+                      <div className='min-w-0'>
+                        <h4 className='m-0 text-sm font-extrabold text-[#11182E]'>All Outlets</h4>
+                        <p className='m-0 mt-0.5 text-xs text-[#667085] leading-relaxed'>Tersedia di semua outlet</p>
+                      </div>
+                    </label>
+
+                    <label className={cx(
+                      'flex items-start gap-3.5 p-4 rounded-xl border-2 cursor-pointer transition-all shadow-xs',
+                      newModifierOutletScope === 'Select Outlets'
+                        ? 'border-[#7f56d9] bg-[#fdfcff] shadow-sm'
+                        : 'border-slate-200 bg-white hover:bg-slate-50/50'
+                    )}>
+                      <input
+                        type='radio'
+                        name='outletScope'
+                        value='Select Outlets'
+                        checked={newModifierOutletScope === 'Select Outlets'}
+                        onChange={() => setNewModifierOutletScope('Select Outlets')}
+                        className='sr-only'
+                      />
+                      <div className={cx(
+                        'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5',
+                        newModifierOutletScope === 'Select Outlets'
+                          ? 'border-[#7f56d9] bg-[#7f56d9] text-white'
+                          : 'border-slate-300 bg-white'
+                      )}>
+                        {newModifierOutletScope === 'Select Outlets' && <span className='w-2.5 h-2.5 rounded-full bg-white' />}
+                      </div>
+                      <div className='min-w-0'>
+                        <h4 className='m-0 text-sm font-extrabold text-[#11182E]'>Select Outlets</h4>
+                        <p className='m-0 mt-0.5 text-xs text-[#667085] leading-relaxed'>Pilih outlet tertentu</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className='flex items-center justify-between pt-4 border-t border-slate-100'>
+                  <button
+                    type='button'
+                    onClick={() => setAddModifierStep(2)}
+                    className='px-5 py-2.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer'
+                  >
+                    Back
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => {
+                      const newGroup = {
+                        id: Date.now(),
+                        name: newModifierName,
+                        code: 'mod-' + newModifierName.toLowerCase().replace(/\s+/g, '-').slice(0, 8) + '-' + Math.floor(Math.random() * 100),
+                        type: 'Optional',
+                        selectionRule: newModifierType === 'Single Choice' ? 'Single-select' : `Multi-select (max ${newModifierMaxOptions})`,
+                        minSelection: newModifierType === 'Single Choice' ? 1 : 0,
+                        maxSelection: newModifierType === 'Single Choice' ? 1 : parseInt(newModifierMaxOptions) || 2,
+                        outletScope: newModifierOutletScope,
+                        description: newModifierDesc,
+                        tags: ['Add-on'],
+                        options: [
+                          { name: 'Option 1', price: 5000 },
+                          { name: 'Option 2', price: 3000 }
+                        ],
+                        productsCount: 0,
+                        categoriesCount: 0,
+                        requiredInCheckout: newModifierType === 'Single Choice',
+                        status: 'Active',
+                        updatedAt: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      }
+                      setModifiers(prev => [newGroup, ...prev])
+                      setIsAddModifierGroupOpen(false)
+                      setToastMessage(`Modifier group "${newModifierName}" berhasil dibuat.`)
+                    }}
+                    className='px-5 py-2.5 bg-[#7F56D9] text-white text-xs font-bold rounded-xl shadow-md hover:bg-[#693cb8] transition cursor-pointer'
+                  >
+                    Create Group
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.getElementById('modal-root') || document.body
+      )}
+
+      {/* SUCCESS TOAST NOTIFICATION */}
+      {toastMessage && createPortal(
+        <div className='fixed bottom-5 right-5 z-[200] flex items-center gap-3.5 bg-white border border-slate-100 rounded-2xl shadow-xl px-5 py-4 animate-in slide-in-from-bottom-5 duration-350'>
+          <div className='w-8 h-8 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0'>
+            <svg className='w-4.5 h-4.5' fill='none' stroke='currentColor' strokeWidth='3.5' viewBox='0 0 24 24'>
+              <path strokeLinecap='round' strokeLinejoin='round' d='M4.5 12.75l6 6 9-13.5' />
+            </svg>
+          </div>
+          <div className='flex flex-col min-w-0 pr-2'>
+            <span className='text-xs font-black text-[#11182E] leading-tight'>Modifier group created!</span>
+            <span className='text-[11px] font-semibold text-[#667085] mt-0.5 leading-none'>{toastMessage}</span>
+          </div>
+          <button
+            type='button'
+            onClick={() => setToastMessage(null)}
+            className='p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-650 rounded-full cursor-pointer shrink-0'
+          >
+            <X size={14} />
+          </button>
+        </div>,
+        document.getElementById('modal-root') || document.body
       )}
 
       {/* MORE FILTERS DRAWER */}
@@ -4793,9 +6532,18 @@ export default function ProductsPage() {
 
                   <div className='grid grid-cols-2 gap-4'>
                     <div>
-                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
-                        Category <span className='text-[#FF1F6D]'>*</span>
-                      </label>
+                      <div className='mb-1.5 flex h-5 items-center justify-between gap-2'>
+                        <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider leading-none'>
+                          Category <span className='text-[#FF1F6D]'>*</span>
+                        </label>
+                        <button
+                          type='button'
+                          onClick={() => setIsCategoryManagerOpen(true)}
+                          className='inline-flex h-5 items-center rounded-lg border border-[#FFE0EC] bg-[#FFF7FA] px-2.5 text-[10px] font-black leading-none text-[#FF1F6D] hover:bg-[#FFEAF2] transition'
+                        >
+                          Manage
+                        </button>
+                      </div>
                       <div className='relative'>
                         <select
                           value={addCategory}
@@ -4803,16 +6551,16 @@ export default function ProductsPage() {
                           className='h-10 w-full appearance-none rounded-xl border border-[#E1E6EF] bg-white pl-3.5 pr-8 text-xs text-[#11182E] outline-none transition focus:border-[#FF1F6D] focus:ring-2 focus:ring-[#FF1F6D]/10 font-bold cursor-pointer'
                         >
                           <option value=''>Select Category</option>
-                          <option value='Minuman'>Minuman</option>
-                          <option value='Makanan'>Makanan</option>
-                          <option value='Signature'>Signature</option>
+                          {productCategories.map((category) => (
+                            <option key={category} value={category}>{category}</option>
+                          ))}
                         </select>
                         <ChevronDown size={14} className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
                       </div>
                     </div>
 
                     <div>
-                      <label className='block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5'>
+                      <label className='mb-1.5 flex h-5 items-center text-[10px] font-bold text-slate-500 uppercase tracking-wider leading-none'>
                         Status
                       </label>
                       <div className='relative'>
@@ -4916,8 +6664,8 @@ export default function ProductsPage() {
                           onChange={(e) => setAddTax(e.target.value)}
                           className='h-10 w-full appearance-none rounded-xl border border-[#E1E6EF] bg-white pl-3.5 pr-8 text-xs text-[#11182E] outline-none transition focus:border-[#FF1F6D] focus:ring-2 focus:ring-[#FF1F6D]/10 font-bold cursor-pointer'
                         >
-                          <option value='PPN 11%'>PPN 11%</option>
                           <option value='No Tax'>No Tax</option>
+                          <option value='PPN 11%'>PPN 11%</option>
                         </select>
                         <ChevronDown size={14} className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none' />
                       </div>
@@ -5115,6 +6863,70 @@ export default function ProductsPage() {
               >
                 {isEditMode ? 'Update Product' : 'Save Product'}
               </button>
+            </footer>
+          </div>
+        </div>,
+        document.getElementById('modal-root') || document.body
+      )}
+
+      {isCategoryManagerOpen && createPortal(
+        <div className='fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/40 px-4 backdrop-blur-[2px]'>
+          <div className='w-full max-w-[480px] overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-2xl'>
+            <header className='flex items-center justify-between border-b border-slate-100 px-5 py-4'>
+              <div>
+                <p className='m-0 text-[11px] font-black uppercase tracking-wider text-[#FF1F6D]'>Product Categories</p>
+                <h3 className='m-0 mt-1 text-xl font-black text-[#11182E]'>Manage Category Types</h3>
+                <p className='m-0 mt-1 text-xs font-semibold text-slate-400'>Tambah atau hapus tipe kategori untuk dropdown product.</p>
+              </div>
+              <button type='button' onClick={() => setIsCategoryManagerOpen(false)} className='grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50'>
+                <X size={16} />
+              </button>
+            </header>
+
+            <div className='space-y-4 px-5 py-5'>
+              <div className='rounded-2xl border border-[#FFE0EC] bg-[#FFF7FA] p-3'>
+                <label className='block text-[10px] font-black uppercase tracking-wider text-[#FF1F6D]'>New Category</label>
+                <div className='mt-2 flex gap-2'>
+                  <input
+                    value={newCategoryName}
+                    onChange={(event) => setNewCategoryName(event.target.value)}
+                    onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addProductCategory() } }}
+                    placeholder='e.g. Coffee, Pastry, Signature'
+                    className='h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-[#11182E] outline-none focus:border-[#FF1F6D] focus:ring-2 focus:ring-[#FF1F6D]/10'
+                  />
+                  <button type='button' onClick={addProductCategory} className='rounded-xl bg-[#FF1F6D] px-4 text-sm font-black text-white shadow-lg shadow-pink-100'>Add</button>
+                </div>
+              </div>
+
+              <div className='space-y-2.5'>
+                <div className='flex items-center justify-between'>
+                  <span className='text-[11px] font-black uppercase tracking-wider text-slate-400'>Available Categories</span>
+                  <span className='rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500'>{productCategories.length}</span>
+                </div>
+                {productCategories.map((category) => (
+                  <div key={category} className='flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-3 py-3 shadow-sm'>
+                    <div className='flex items-center gap-3'>
+                      <div className='grid h-9 w-9 place-items-center rounded-xl bg-violet-50 text-sm font-black text-violet-700'>{category.slice(0, 1)}</div>
+                      <div>
+                        <div className='text-sm font-black text-[#11182E]'>{category}</div>
+                        <div className='text-[10px] font-semibold text-slate-400'>{addCategory === category ? 'Currently selected' : 'Available option'}</div>
+                      </div>
+                    </div>
+                    <button
+                      type='button'
+                      onClick={() => removeProductCategory(category)}
+                      className='rounded-xl border border-rose-100 bg-white px-3 py-1.5 text-xs font-black text-rose-500 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40'
+                      disabled={productCategories.length <= 1}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <footer className='flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-4'>
+              <button type='button' onClick={() => setIsCategoryManagerOpen(false)} className='rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600'>Done</button>
             </footer>
           </div>
         </div>,

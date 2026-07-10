@@ -334,7 +334,9 @@ const StatusBadge = ({ status }) => {
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState([])
+  const [totalContacts, setTotalContacts] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [activeContactId, setActiveContactId] = useState(null)
   const [selectedFilter, setSelectedFilter] = useState('All Contacts')
   const [q, setQ] = useState('')
@@ -363,79 +365,58 @@ export default function ContactsPage() {
   // Fetch contacts from backend
   const loadContacts = async () => {
     setLoading(true)
+    setLoadError('')
     try {
-      const res = await api.get('/contacts')
+      // Load the full CRM contact set used by the local table pagination.
+      // The previous UI rendered hardcoded summary numbers instead.
+      const res = await api.get('/contacts', { params: { page: 1, limit: 200 } })
       const apiData = res.data?.data || res.data || []
-
-      if (apiData && apiData.length > 0) {
-        // Map backend entities to our frontend dashboard shape
-        const enriched = apiData.map((c, idx) => {
-          const preset = contactsData[idx % contactsData.length]
-          return {
-            id: c.id || c._id,
-            _id: c._id || c.id,
-            name: c.name || `Contact ${idx + 1}`,
-            phone: c.phone || c.platformAccountId || preset.phone,
-            initials: c.name
-              ? c.name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')
-                  .toUpperCase()
-                  .slice(0, 2)
-              : preset.initials,
-            avatar: c.metadata?.avatar || null,
-            avatarColor: preset.avatarColor || 'bg-brand-100 text-brand-600',
-            channel: c.platformId ? 'WhatsApp' : preset.channel,
-            channelColor: preset.channelColor || 'text-green-500',
-            outlet: c.lastOutletId ? 'Samarinda' : preset.outlet,
-            tags: c.tags || [],
-            assignedTo: c.metadata?.assignedTo || preset.assignedTo,
-            lastMessage:
-              c.metadata?.lastMessage ||
-              preset.lastMessage ||
-              'No messages yet',
-            lastMessageTime: c.lastMessageAt
-              ? new Date(c.lastMessageAt).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : preset.lastMessageTime,
-            lastActive: c.lastMessageAt
-              ? new Date(c.lastMessageAt).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : preset.lastActive,
-            lastActiveDate: c.lastMessageAt
-              ? new Date(c.lastMessageAt).toLocaleDateString([], {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })
-              : preset.lastActiveDate,
-            lastActiveStatus: preset.lastActiveStatus || 'online',
-            orders: c.metadata?.orders ?? preset.orders,
-            status: c.status || preset.status,
-          }
-        })
-        setContacts(enriched)
-        if (enriched.length > 0 && !activeContactId) {
-          setActiveContactId(enriched[0].id)
+      setTotalContacts(Number(res.data?.meta?.total ?? apiData.length))
+      const enriched = apiData.map((c) => {
+        const name = c.name || 'Unnamed Contact'
+        const orderCount = Number(c.orderCount || 0)
+        const isOnlineStoreAccount = c.metadata?.account_type === 'customer' || c.tags?.some((tag) => String(tag).toLowerCase() === 'online_store')
+        const derivedType = orderCount > 0
+          ? (orderCount >= 5 ? 'VIP / High Value' : 'Customer')
+          : isOnlineStoreAccount
+            ? 'New Lead'
+            : c.lastMessageAt
+              ? 'Engaged Lead'
+              : 'New Lead'
+        const derivedTags = [...new Set([...(c.tags || []), derivedType])]
+        const lastActivity = c.lastMessageAt || c.lastOrderAt || null
+        return {
+          id: c.id || c._id,
+          _id: c._id || c.id,
+          name,
+          phone: c.phone || c.platformAccountId || '-',
+          initials: name.split(' ').map((part) => part[0]).join('').toUpperCase().slice(0, 2),
+          avatar: c.metadata?.avatar || null,
+          avatarColor: 'bg-brand-100 text-brand-600',
+          channel: c.metadata?.source === 'online_store_profile' || isOnlineStoreAccount ? 'Website' : (c.platformId ? 'Connected Channel' : 'Unknown'),
+          channelColor: 'text-indigo-500',
+          outlet: c.lastOutletId || '-',
+          tags: derivedTags,
+          assignedTo: c.metadata?.assignedTo || null,
+          lastMessage: c.metadata?.lastMessage || (c.lastOrderAt ? 'Order activity recorded' : '-'),
+          lastMessageTime: lastActivity ? new Date(lastActivity).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
+          lastActive: lastActivity ? new Date(lastActivity).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '-',
+          lastActiveDate: lastActivity ? new Date(lastActivity).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '-',
+          lastActivityAt: lastActivity || null,
+          lastActiveStatus: 'offline',
+          orders: orderCount,
+          lastOrder: c.lastOrder || null,
+          customerSince: c.createdAt || null,
+          status: c.status || (orderCount > 0 ? 'Active' : 'Unassigned'),
         }
-      } else {
-        // Fallback to presets
-        setContacts(contactsData)
-        if (!activeContactId && contactsData.length > 0) {
-          setActiveContactId(contactsData[0].id)
-        }
-      }
+      })
+      setContacts(enriched)
+      if (enriched.length > 0 && !activeContactId) setActiveContactId(enriched[0].id)
     } catch (err) {
-      console.warn('API error, falling back to mock contact data:', err)
-      setContacts(contactsData)
-      if (!activeContactId && contactsData.length > 0) {
-        setActiveContactId(contactsData[0].id)
-      }
+      console.error('Failed to load contacts:', err)
+      setContacts([])
+      setTotalContacts(0)
+      setLoadError('Gagal memuat data contacts dari server.')
     } finally {
       setLoading(false)
     }
@@ -459,15 +440,15 @@ export default function ContactsPage() {
 
   // Calculate counts for sidebar filters
   const counts = useMemo(() => {
+    const isToday = (value) => {
+      if (!value) return false
+      const date = new Date(value)
+      const now = new Date()
+      return !Number.isNaN(date.getTime()) && date.toDateString() === now.toDateString()
+    }
     return {
-      all: contacts.length,
-      recent: contacts.filter(
-        (c) =>
-          c.lastActiveDate === 'Today' ||
-          c.lastActive === 'Today' ||
-          c.lastMessageTime?.includes('AM') ||
-          c.lastMessageTime?.includes('PM')
-      ).length,
+      all: totalContacts,
+      recent: contacts.filter((c) => isToday(c.lastActivityAt)).length,
       unassigned: contacts.filter(
         (c) => c.status === 'Unassigned' || !c.assignedTo
       ).length,
@@ -485,7 +466,7 @@ export default function ContactsPage() {
       blocked: contacts.filter((c) => c.status === 'Blocked').length,
       archived: contacts.filter((c) => c.status === 'Archived').length,
     }
-  }, [contacts])
+  }, [contacts, totalContacts])
 
   // Apply filters and searches
   const filteredContacts = useMemo(() => {
@@ -665,19 +646,18 @@ export default function ContactsPage() {
       avatarColor: 'bg-brand-100 text-brand-600',
       channel: 'WhatsApp',
       channelColor: 'text-green-500',
-      outlet: 'Samarinda',
+      outlet: '-',
       tags: ['New Lead'],
-      assignedTo: {
-        name: 'Unassigned',
-        avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026799d',
-      },
-      lastMessage: 'Added via panel',
-      lastMessageTime: 'Just now',
-      lastActive: 'Just now',
-      lastActiveDate: 'Today',
-      lastActiveStatus: 'online',
+      assignedTo: null,
+      lastMessage: '-',
+      lastMessageTime: '-',
+      lastActive: '-',
+      lastActiveDate: '-',
+      lastActiveStatus: 'offline',
       orders: 0,
-      status: 'Active',
+      lastOrder: null,
+      customerSince: new Date().toISOString(),
+      status: 'Unassigned',
     }
 
     setContacts([newContactObj, ...contacts])
@@ -803,14 +783,10 @@ export default function ContactsPage() {
                 Total Contacts
               </p>
               <h3 className='text-base font-extrabold text-slate-950 mt-0.5 leading-none'>
-                2,847
+                {totalContacts.toLocaleString()}
               </h3>
-              <p className='text-[9px] text-emerald-500 font-bold flex items-center gap-0.5 mt-0.5 leading-none'>
-                +12%{' '}
-                <span className='text-slate-400 font-medium'>
-                  vs last 30 days
-                </span>{' '}
-                <span className='text-emerald-500 font-bold'>↗</span>
+              <p className='text-[9px] text-slate-400 font-medium mt-0.5 leading-none'>
+                Data aktual dari workspace
               </p>
             </div>
           </div>
@@ -825,14 +801,10 @@ export default function ContactsPage() {
                 Active Today
               </p>
               <h3 className='text-base font-extrabold text-slate-950 mt-0.5 leading-none'>
-                312
+                {counts.recent.toLocaleString()}
               </h3>
-              <p className='text-[9px] text-emerald-500 font-bold flex items-center gap-0.5 mt-0.5 leading-none'>
-                +8%{' '}
-                <span className='text-slate-400 font-medium'>
-                  vs yesterday
-                </span>{' '}
-                <span className='text-emerald-500 font-bold'>↗</span>
+              <p className='text-[9px] text-slate-400 font-medium mt-0.5 leading-none'>
+                Aktivitas hari ini
               </p>
             </div>
           </div>
@@ -847,10 +819,10 @@ export default function ContactsPage() {
                 Unassigned
               </p>
               <h3 className='text-base font-extrabold text-slate-950 mt-0.5 leading-none'>
-                126
+                {counts.unassigned.toLocaleString()}
               </h3>
-              <p className='text-[9px] text-orange-500 font-bold mt-0.5 leading-none'>
-                Need attention
+              <p className='text-[9px] text-slate-400 font-medium mt-0.5 leading-none'>
+                Belum memiliki assignee
               </p>
             </div>
           </div>
@@ -865,11 +837,11 @@ export default function ContactsPage() {
                 VIP / High Value
               </p>
               <h3 className='text-base font-extrabold text-slate-950 mt-0.5 leading-none'>
-                186
+                {counts.vip.toLocaleString()}
               </h3>
               <p className='text-[9px] text-ai-600 font-bold mt-0.5 leading-none'>
-                6.5%{' '}
-                <span className='text-slate-400 font-medium'>of total</span>
+                {totalContacts > 0 ? `${((counts.vip / totalContacts) * 100).toFixed(1)}%` : '0%'}{' '}
+                <span className='text-slate-400 font-medium'>dari total</span>
               </p>
             </div>
           </div>
@@ -885,28 +857,28 @@ export default function ContactsPage() {
             <SidebarItem
               icon={Users}
               label='All Contacts'
-              count='2,847'
+              count={counts.all.toLocaleString()}
               active={selectedFilter === 'All Contacts'}
               onClick={() => setSelectedFilter('All Contacts')}
             />
             <SidebarItem
               icon={Clock}
               label='Recent'
-              count='312'
+              count={counts.recent.toLocaleString()}
               active={selectedFilter === 'Recent'}
               onClick={() => setSelectedFilter('Recent')}
             />
             <SidebarItem
               icon={User}
               label='Unassigned'
-              count='126'
+              count={counts.unassigned.toLocaleString()}
               active={selectedFilter === 'Unassigned'}
               onClick={() => setSelectedFilter('Unassigned')}
             />
             <SidebarItem
               icon={Star}
               label='VIP / High Value'
-              count='186'
+              count={counts.vip.toLocaleString()}
               active={selectedFilter === 'VIP / High Value'}
               onClick={() => setSelectedFilter('VIP / High Value')}
             />
@@ -916,21 +888,21 @@ export default function ContactsPage() {
             <SidebarItem
               icon={UserPlus}
               label='New Leads'
-              count='482'
+              count={counts.newLeads.toLocaleString()}
               active={selectedFilter === 'New Leads'}
               onClick={() => setSelectedFilter('New Leads')}
             />
             <SidebarItem
               icon={AlertTriangle}
               label='Complaint Risk'
-              count='34'
+              count={counts.complaint.toLocaleString()}
               active={selectedFilter === 'Complaint Risk'}
               onClick={() => setSelectedFilter('Complaint Risk')}
             />
             <SidebarItem
               icon={AlertCircle}
               label='Needs Follow-up'
-              count='91'
+              count={counts.needsFollowup.toLocaleString()}
               active={selectedFilter === 'Needs Follow-up'}
               onClick={() => setSelectedFilter('Needs Follow-up')}
             />
@@ -940,14 +912,14 @@ export default function ContactsPage() {
             <SidebarItem
               icon={Ban}
               label='Blocked'
-              count='18'
+              count={counts.blocked.toLocaleString()}
               active={selectedFilter === 'Blocked'}
               onClick={() => setSelectedFilter('Blocked')}
             />
             <SidebarItem
               icon={Archive}
               label='Archived'
-              count='120'
+              count={counts.archived.toLocaleString()}
               active={selectedFilter === 'Archived'}
               onClick={() => setSelectedFilter('Archived')}
             />
@@ -1029,8 +1001,7 @@ export default function ContactsPage() {
                         colSpan='11'
                         className='px-4 py-10 text-center text-slate-400 font-semibold'
                       >
-                        No contacts found matching &quot;{q}&quot; under &quot;
-                        {selectedFilter}&quot;
+                        {loadError || `No contacts found matching "${q}" under "${selectedFilter}"`}
                       </td>
                     </tr>
                   ) : (
@@ -1120,19 +1091,10 @@ export default function ContactsPage() {
                           </div>
                         </td>
                         <td className='px-4 py-3'>
-                          <div className='flex items-center gap-2'>
-                            <img
-                              src={
-                                contact.assignedTo?.avatar ||
-                                'https://i.pravatar.cc/150?u=a042581f4e29026705d'
-                              }
-                              alt={contact.assignedTo?.name || 'Unassigned'}
-                              className='w-6 h-6 rounded-full'
-                            />
-                            <span className='text-slate-700 font-semibold text-xs'>
-                              {contact.assignedTo?.name || 'Unassigned'}
-                            </span>
-                          </div>
+                          {contact.assignedTo ? <div className='flex items-center gap-2'>
+                            {contact.assignedTo.avatar && <img src={contact.assignedTo.avatar} alt={contact.assignedTo.name || 'Assigned agent'} className='w-6 h-6 rounded-full' />}
+                            <span className='text-slate-700 font-semibold text-xs'>{contact.assignedTo.name || '-'}</span>
+                          </div> : <span className='text-slate-400 font-semibold text-xs'>-</span>}
                         </td>
                         <td className='px-4 py-3 max-w-[200px]'>
                           <p
@@ -1367,22 +1329,12 @@ export default function ContactsPage() {
                 <h4 className='text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2'>
                   Assigned To
                 </h4>
-                <div className='flex items-center justify-between'>
+                {activeContact.assignedTo ? <div className='flex items-center justify-between'>
                   <div className='flex items-center gap-2.5'>
-                    <img
-                      src={
-                        activeContact.assignedTo?.avatar ||
-                        'https://i.pravatar.cc/150?u=a042581f4e29026705d'
-                      }
-                      alt={activeContact.assignedTo?.name || 'Unassigned'}
-                      className='w-7 h-7 rounded-full'
-                    />
+                    {activeContact.assignedTo.avatar && <img src={activeContact.assignedTo.avatar} alt={activeContact.assignedTo.name || 'Assigned agent'} className='w-7 h-7 rounded-full' />}
                     <div>
                       <p className='text-xs font-bold text-slate-900 leading-none'>
-                        {activeContact.assignedTo?.name || 'Unassigned'}
-                      </p>
-                      <p className='text-[10px] text-slate-400 font-semibold leading-none -mt-1'>
-                        Account Manager
+                        {activeContact.assignedTo.name || '-'}
                       </p>
                     </div>
                   </div>
@@ -1406,7 +1358,7 @@ export default function ContactsPage() {
                       <Mail size={12} />
                     </button>
                   </div>
-                </div>
+                </div> : <p className='m-0 text-xs font-semibold italic text-slate-400'>Belum ditugaskan</p>}
               </div>
 
               {/* Outlet */}
@@ -1421,7 +1373,7 @@ export default function ContactsPage() {
               </div>
 
               {/* Last Order */}
-              <div>
+              {activeContact.lastOrder ? <div>
                 <h4 className='text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2'>
                   Last Order
                 </h4>
@@ -1432,23 +1384,26 @@ export default function ContactsPage() {
                     </div>
                     <div>
                       <p className='text-xs font-black text-slate-900 leading-none'>
-                        ORD-1028
+                        {activeContact.lastOrder.orderNumber || '-'}
                       </p>
                       <p className='text-[10px] text-slate-400 mt-1 font-bold'>
-                        May 15, 2026
+                        {activeContact.lastOrder.createdAt ? new Date(activeContact.lastOrder.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
                       </p>
                     </div>
                   </div>
                   <div className='text-right'>
                     <p className='text-xs font-bold text-slate-900 leading-none'>
-                      Rp 248.000
+                      {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(activeContact.lastOrder.totalAmount || 0)}
                     </p>
                     <p className='text-[10px] text-emerald-500 font-bold mt-1'>
-                      Completed
+                      {activeContact.lastOrder.status || activeContact.lastOrder.paymentStatus || '-'}
                     </p>
                   </div>
                 </div>
-              </div>
+              </div> : <div>
+                <h4 className='text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2'>Last Order</h4>
+                <p className='m-0 text-xs font-semibold italic text-slate-400'>Belum ada pesanan</p>
+              </div>}
 
               {/* Customer Since */}
               <div>
@@ -1456,7 +1411,7 @@ export default function ContactsPage() {
                   Customer Since
                 </h4>
                 <p className='text-xs text-slate-700 font-bold leading-normal'>
-                  June 18, 2025 (11 months)
+                  {activeContact.customerSince ? new Date(activeContact.customerSince).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
                 </p>
               </div>
 

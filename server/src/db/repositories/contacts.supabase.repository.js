@@ -47,8 +47,39 @@ export const contactsSupabaseRepository = {
     }
     q = applyPagination(q, { page, limit });
     const result = await q;
-    const rows = extractData(result, 'contacts.list');
-    return mapContactRows(rows ?? []);
+    const rows = extractData(result, 'contacts.list') ?? [];
+    const contacts = mapContactRows(rows);
+    const contactIds = contacts.map((contact) => contact.id).filter(Boolean);
+    if (!contactIds.length) return contacts;
+
+    const ordersResult = await client
+      .from('orders')
+      .select('contact_id, order_number, payment_status, status, total_amount, created_at')
+      .eq('workspace_id', workspaceId)
+      .in('contact_id', contactIds);
+    const orderRows = ordersResult.error ? [] : (ordersResult.data || []);
+    const stats = new Map();
+    orderRows.forEach((order) => {
+      const key = String(order.contact_id);
+      const current = stats.get(key) || { orderCount: 0, paidOrderCount: 0, lastOrderAt: null, lastOrder: null };
+      current.orderCount += 1;
+      if (String(order.payment_status || '').toLowerCase() === 'paid') current.paidOrderCount += 1;
+      if (!current.lastOrderAt || new Date(order.created_at) > new Date(current.lastOrderAt)) current.lastOrderAt = order.created_at;
+      if (!current.lastOrder || new Date(order.created_at) > new Date(current.lastOrder.createdAt)) {
+        current.lastOrder = {
+          orderNumber: order.order_number || null,
+          status: order.status || null,
+          paymentStatus: order.payment_status || null,
+          totalAmount: Number(order.total_amount || 0),
+          createdAt: order.created_at || null,
+        };
+      }
+      stats.set(key, current);
+    });
+    return contacts.map((contact) => ({
+      ...contact,
+      ...(stats.get(String(contact.id)) || { orderCount: 0, paidOrderCount: 0, lastOrderAt: null, lastOrder: null }),
+    }));
   },
 
   /**
@@ -210,5 +241,89 @@ export const contactsSupabaseRepository = {
       .maybeSingle();
     const row = extractSingle(result, 'contacts.setLastOutlet');
     return row ? mapContactRow(row) : null;
+  },
+
+  async findPublicStoreCustomerByEmail({ workspaceId, email }) {
+    requireWorkspaceId(workspaceId);
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) return null;
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .is('platform_id', null)
+      .eq('email', normalizedEmail)
+      .contains('tags', ['online_store'])
+      .maybeSingle();
+    const row = extractSingle(result, 'contacts.findPublicStoreCustomerByEmail');
+    return row ? mapContactRow(row) : null;
+  },
+
+  async findPublicStoreCustomerByPhone({ workspaceId, phone }) {
+    requireWorkspaceId(workspaceId);
+    const normalizedPhone = String(phone || '').replace(/[^\d+]/g, '');
+    if (!normalizedPhone) return null;
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .is('platform_id', null)
+      .eq('phone', normalizedPhone)
+      .contains('tags', ['online_store'])
+      .maybeSingle();
+    const row = extractSingle(result, 'contacts.findPublicStoreCustomerByPhone');
+    return row ? mapContactRow(row) : null;
+  },
+
+  async upsertPublicStoreCustomer({ workspaceId, name, phone, email, password, storefrontSlug, outletId = null }) {
+    requireWorkspaceId(workspaceId);
+    const normalizedPhone = String(phone || '').replace(/[^\d+]/g, '');
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const externalId = normalizedPhone || normalizedEmail;
+    const client = getSupabaseServiceClient();
+    const metadata = {
+      source: 'online_store_profile',
+      account_type: 'customer',
+      storefront_slug: storefrontSlug || null,
+      demo_password: password,
+      dashboard_access: false,
+    };
+    const existing = normalizedEmail
+      ? await this.findPublicStoreCustomerByEmail({ workspaceId, email: normalizedEmail })
+      : await this.findPublicStoreCustomerByPhone({ workspaceId, phone: normalizedPhone });
+    if (existing) {
+      const updateResult = await client
+        .from(TABLE)
+        .update({
+          name: name || existing.name || '',
+          phone: normalizedPhone || existing.phone || null,
+          email: normalizedEmail || existing.email || null,
+          tags: ['online_store', 'demo_customer'],
+          last_outlet_id: outletId || existing.lastOutletId || null,
+          metadata: { ...(existing.metadata || {}), ...metadata },
+        })
+        .eq('id', existing.id)
+        .select()
+        .single();
+      return mapContactRow(extractSingle(updateResult, 'contacts.upsertPublicStoreCustomer.update'));
+    }
+    const insertResult = await client
+      .from(TABLE)
+      .insert({
+        workspace_id: workspaceId,
+        platform_id: null,
+        external_id: externalId,
+        name: name || '',
+        phone: normalizedPhone || null,
+        email: normalizedEmail || null,
+        tags: ['online_store', 'demo_customer'],
+        last_outlet_id: outletId || null,
+        metadata,
+      })
+      .select()
+      .single();
+    return mapContactRow(extractSingle(insertResult, 'contacts.upsertPublicStoreCustomer.insert'));
   },
 };

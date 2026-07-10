@@ -79,10 +79,12 @@ export default function CartDrawer({ open, outlet, cart, onClose, onUpdateQuanti
                   <span>Subtotal</span>
                   <span className="font-medium text-gray-900">{formatCurrency(cart.totals.subtotalMinor)}</span>
                 </div>
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Biaya Layanan</span>
-                  <span className="font-medium text-gray-900">{formatCurrency(cart.totals.serviceFeeMinor)}</span>
-                </div>
+                {cart.totals.serviceFeeMinor > 0 && (
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>Biaya Layanan</span>
+                    <span className="font-medium text-gray-900">{formatCurrency(cart.totals.serviceFeeMinor)}</span>
+                  </div>
+                )}
                 {cart.totals.discountMinor > 0 && (
                   <div className="flex justify-between text-sm text-emerald-600">
                     <span>Diskon</span>

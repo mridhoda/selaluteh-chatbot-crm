@@ -122,7 +122,7 @@ export default function ProductModifierSheet({ product, open, onClose, onAdd }) 
             <span>Tambah ke Keranjang</span>
             <span>{formatCurrency(previewTotal)}</span>
           </button>
-          <p className="mt-2 text-center text-[10px] text-gray-400">Harga final akan divalidasi backend saat checkout.</p>
+          <p className="mt-2 text-center text-[10px] text-gray-400">Harga akan dihitung otomatis saat checkout.</p>
         </div>
       </div>
     </>

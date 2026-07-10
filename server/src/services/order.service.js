@@ -438,6 +438,7 @@ export async function transitionOrderStatus({ workspaceId, orderId, newStatus, a
 }
 
 export async function workspaceListOrders({ workspaceId, outletId, status, paymentStatus, search, page, limit, sort }) {
+  await ordersRepository.syncPaidOrdersFromPayments({ workspaceId, outletId });
   const data = await ordersRepository.workspaceList({ workspaceId, outletId, status, paymentStatus, search, page, limit, sort });
   const total = await ordersRepository.workspaceCount({ workspaceId, outletId, status, paymentStatus, search });
   return { data, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
@@ -445,6 +446,11 @@ export async function workspaceListOrders({ workspaceId, outletId, status, payme
 
 export async function listWorkspaceOrdersForUser({ user, outletId, status, paymentStatus, search, page, limit, chatId, contactId }) {
   const scope = await buildOrderTenantQuery(user, outletId);
+  await ordersRepository.syncPaidOrdersFromPayments({
+    workspaceId: scope.workspaceId,
+    outletId: scope.outletId,
+    outletIds: scope.outletIds,
+  });
   const data = await ordersRepository.workspaceListScoped({
     workspaceId: scope.workspaceId,
     outletId: scope.outletId,
@@ -471,6 +477,7 @@ export async function listWorkspaceOrdersForUser({ user, outletId, status, payme
 }
 
 export async function workspaceGetOrder({ workspaceId, orderId }) {
+  await ordersRepository.syncPaidOrderFromPayment({ workspaceId, orderId });
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
   if (!order) throw new AppError('NOT_FOUND', 'Order not found', 404);
   return order;
@@ -478,6 +485,11 @@ export async function workspaceGetOrder({ workspaceId, orderId }) {
 
 export async function getWorkspaceOrderForUser({ user, orderId }) {
   const scope = await buildOrderTenantQuery(user);
+  await ordersRepository.syncPaidOrderFromPayment({
+    workspaceId: scope.workspaceId,
+    orderId,
+    outletIds: scope.outletIds,
+  });
   const order = Array.isArray(scope.outletIds)
     ? await ordersRepository.workspaceFindByIdScoped({ workspaceId: scope.workspaceId, orderId, outletIds: scope.outletIds })
     : await ordersRepository.workspaceFindById({ workspaceId: scope.workspaceId, orderId });

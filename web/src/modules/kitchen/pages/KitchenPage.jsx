@@ -5,7 +5,6 @@ import {
   Maximize2,
   Minimize2,
   CheckCircle2,
-  Play,
   X,
   Copy,
   ChevronDown,
@@ -61,6 +60,23 @@ const formatAgoText = (seconds) => {
 const isPaidStatus = (status) => {
   const normalized = String(status || '').trim().toLowerCase()
   return normalized === 'paid' || normalized === 'lunas'
+}
+
+const normalizeKitchenStatus = (order = {}) => {
+  const fulfillmentStatus = String(order.fulfillmentStatus || order.fulfillment_status || '').trim().toLowerCase()
+  if (['preparing', 'ready', 'completed', 'cancelled'].includes(fulfillmentStatus)) {
+    return fulfillmentStatus
+  }
+  if (fulfillmentStatus === 'awaiting_acceptance' || fulfillmentStatus === 'accepted') {
+    return 'new'
+  }
+
+  const legacyStatus = String(order.status || '').trim().toLowerCase()
+  if (['preparing'].includes(legacyStatus)) return 'preparing'
+  if (['ready_for_pickup', 'ready_for_delivery', 'ready'].includes(legacyStatus)) return 'ready'
+  if (['completed'].includes(legacyStatus)) return 'completed'
+  if (['cancelled', 'canceled', 'rejected'].includes(legacyStatus)) return 'cancelled'
+  return 'new'
 }
 
 export default function KitchenPage() {
@@ -166,16 +182,7 @@ export default function KitchenPage() {
             })
           : []
 
-        let status = 'new'
-        if (['PREPARING', 'preparing', 'APPROVED', 'approved'].includes(order.status)) {
-          status = 'preparing'
-        } else if (['READY_FOR_PICKUP', 'ready_for_pickup', 'ready', 'READY'].includes(order.status)) {
-          status = 'ready'
-        } else if (['COMPLETED', 'completed'].includes(order.status)) {
-          status = 'completed'
-        } else if (['CANCELLED', 'cancelled', 'REJECTED', 'rejected'].includes(order.status)) {
-          status = 'cancelled'
-        }
+        const status = normalizeKitchenStatus(order)
 
         const createdAtTime = order.createdAt ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '9:41 AM'
         const elapsed = order.createdAt ? Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 1000) : 120
@@ -226,7 +233,7 @@ export default function KitchenPage() {
           platformFee,
           totalAmount
         }
-      })
+      }).filter(order => ['preparing', 'ready', 'completed'].includes(order.status))
 
       setOrders(parsedOrders)
 
@@ -268,7 +275,7 @@ export default function KitchenPage() {
   // Check if new orders arrived to trigger chime
   const prevNewOrdersCountRef = useRef(0)
   useEffect(() => {
-    const newCount = orders.filter(o => o.status === 'new' && o.paymentStatus === 'Paid').length
+    const newCount = orders.filter(o => o.status === 'preparing' && o.paymentStatus === 'Paid').length
     if (newCount > prevNewOrdersCountRef.current && prevNewOrdersCountRef.current > 0) {
       playChime()
     }
@@ -303,38 +310,20 @@ export default function KitchenPage() {
 
   // Handles updating the order status with server sync
   const updateOrderStatus = async (orderId, newStatus) => {
-    const statusApiMap = {
-      new: 'new',
-      preparing: 'preparing',
-      ready: 'ready',
-      completed: 'completed',
-      cancelled: 'cancelled'
-    }
-
     try {
-      setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status: newStatus, timerSeconds: 0 } : o))
       if (!orderId.startsWith('mock-')) {
-        await api.patch(`/orders/${orderId}/status`, { status: statusApiMap[newStatus] })
+        if (newStatus === 'ready') {
+          await api.post(`/admin/orders/${orderId}/ready`)
+        } else if (newStatus === 'completed') {
+          await api.post(`/admin/orders/${orderId}/complete`)
+        }
+      } else {
+        setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status: newStatus, timerSeconds: 0 } : o))
       }
       loadInitialData()
     } catch (err) {
       console.error('Failed to transition order status:', err)
       alert(`Gagal merubah status order: ${err.message}`)
-      loadInitialData()
-    }
-  }
-
-  const handleReject = async (orderId) => {
-    if (!window.confirm('Apakah Anda yakin ingin menolak/membatalkan orderan ini?')) return
-    try {
-      setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status: 'cancelled' } : o))
-      if (!orderId.startsWith('mock-')) {
-        await api.put(`/orders/${orderId}/cancel`, { reason: 'Ditolak dari Kitchen View' })
-      }
-      loadInitialData()
-    } catch (err) {
-      console.error('Failed to cancel order:', err)
-      alert(`Gagal membatalkan orderan: ${err.message}`)
       loadInitialData()
     }
   }
@@ -370,7 +359,6 @@ export default function KitchenPage() {
   }, [orders, selectedOutlet])
 
   // Split columns
-  const incomingCards = useMemo(() => filteredOrders.filter(o => o.status === 'new'), [filteredOrders])
   const preparingCards = useMemo(() => filteredOrders.filter(o => o.status === 'preparing'), [filteredOrders])
   const readyCards = useMemo(() => filteredOrders.filter(o => o.status === 'ready'), [filteredOrders])
   const completedCards = useMemo(() => filteredOrders.filter(o => o.status === 'completed'), [filteredOrders])
@@ -457,7 +445,7 @@ export default function KitchenPage() {
             </div>
             <div className="flex flex-col">
               <span className="text-[9px] text-gray-400 font-semibold uppercase tracking-wider">Active Orders</span>
-              <span className="text-sm font-bold text-red-500 leading-none">{incomingCards.length + preparingCards.length + readyCards.length}</span>
+              <span className="text-sm font-bold text-red-500 leading-none">{preparingCards.length + readyCards.length}</span>
             </div>
           </div>
 
@@ -493,123 +481,11 @@ export default function KitchenPage() {
         </div>
       </div>
 
-      {/* 2. Three Columns & Sidebar Main Layout */}
+      {/* 2. Kitchen Board & Sidebar Main Layout */}
       <div className="flex-1 flex gap-4 min-h-0 overflow-hidden mb-3">
-        {/* Three Columns Kitchen Board */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0 overflow-y-auto lg:overflow-visible">
-          
-          {/* Column 1: Incoming */}
-          <div className="flex flex-col h-full bg-[#FFFBFB] rounded-xl border border-[#FFCCD5] shadow-sm overflow-hidden">
-            {/* Header with Soft Pink Background and Red Border Bottom */}
-            <div className="flex items-center justify-between px-4 py-3 bg-[#FFF1F2] border-b border-[#FFCCD5]">
-              <div className="flex items-center gap-2">
-                <Store className="w-4 h-4 text-[#FF4B72]" />
-                <h3 className="font-bold text-sm text-[#FF4B72] tracking-wide">Incoming</h3>
-              </div>
-              <span className="px-2 py-0.5 bg-[#FF4B72] text-white text-[11px] font-bold rounded-full">{incomingCards.length}</span>
-            </div>
-            
-            {/* Cards List */}
-            <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
-              {incomingCards.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-48 text-gray-400">
-                  <Utensils className="w-9 h-9 mb-2 stroke-[1.5] text-gray-300" />
-                  <p className="text-xs">No incoming orders</p>
-                </div>
-              ) : (
-                incomingCards.map(order => (
-                  <div 
-                    key={order._id}
-                    onClick={() => setSelectedOrderId(order._id)}
-                    className={`group relative flex flex-col p-4 bg-white border-2 rounded-xl cursor-pointer transition-all duration-200 ${
-                      selectedOrderId === order._id 
-                        ? 'border-[#FF4B72] shadow-md shadow-[#FFF0F2] ring-2 ring-[#FFECEF]' 
-                        : 'border-[#FFE0E6] hover:border-[#FFCCD5] hover:shadow-sm'
-                    }`}
-                  >
-                    {/* Small New tag over top-left border */}
-                    <div className="absolute -top-2.5 left-3 px-1.5 py-0.5 bg-[#FF4B72] text-white text-[8px] font-bold uppercase rounded-md tracking-wider shadow-sm z-10">
-                      New
-                    </div>
-
-                    {/* Top Row: #ID and info */}
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-lg font-bold text-[#FF4B72]">{order.orderIdDisplay}</span>
-                          <span className="text-[10px] text-gray-400 font-semibold">{order.invoiceId}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-gray-400 font-semibold">
-                          <span>{order.time}</span>
-                          <span>•</span>
-                          <span>{order.agoText}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center shrink-0">
-                        {order.channel === 'whatsapp' ? <WhatsAppIcon className="w-5 h-5" /> : <TelegramIcon className="w-5 h-5" />}
-                      </div>
-                    </div>
-
-                    {/* Second Row: Timer and status badges */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <Clock className="w-3.5 h-3.5 text-[#FF4B72]" />
-                      <span className="text-sm font-bold text-[#FF4B72] tracking-wider tabular-nums">
-                        {formatTimer(order.timerSeconds)}
-                      </span>
-                      {/* Pickup Badge */}
-                      <span className="text-[9px] px-1.5 py-0.5 bg-gray-50 text-gray-600 border border-gray-200 font-bold rounded flex items-center gap-1">
-                        <Store className="w-2.5 h-2.5" />
-                        <span>Pickup</span>
-                      </span>
-                      {/* Paid Badge */}
-                      <span className="text-[9px] px-1.5 py-0.5 bg-[#E8F8F0] text-[#10B981] font-bold rounded flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
-                        <span>Paid</span>
-                      </span>
-                    </div>
-
-                    {/* Items List layout exactly like reference */}
-                    <div className="flex-1 space-y-2 text-xs font-semibold text-gray-700 border-t border-dashed border-gray-100 pt-3 pb-2">
-                      {order.items.map((item, idx) => (
-                        <div key={idx} className="flex gap-2 items-start">
-                          <span className="text-[#11182E] font-bold shrink-0 min-w-[18px]">{item.qty}x</span>
-                          <div className="flex flex-col">
-                            <span className="text-gray-900 font-bold">{item.name}</span>
-                            {item.variant && <span className="text-[10px] text-gray-400 font-normal mt-0.5">{item.variant}</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="flex gap-2 mt-3 pt-2">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateOrderStatus(order._id, 'preparing');
-                        }}
-                        className="flex-1 flex items-center justify-center gap-1 py-2 bg-[#FF4B72] hover:bg-[#E63C62] text-white rounded-lg text-xs font-bold shadow-sm shadow-[#FFF0F2] transition-all"
-                      >
-                        <Play className="w-3 h-3 fill-current" />
-                        <span>Accept & Start</span>
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleReject(order._id);
-                        }}
-                        className="px-3.5 py-2 border border-[#FFCCD5] hover:bg-[#FFF5F6] text-[#FF4B72] rounded-lg text-xs font-bold transition-all"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Column 2: Preparing */}
+        {/* Two Columns Kitchen Board */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0 overflow-y-auto lg:overflow-visible">
+          {/* Column 1: Preparing */}
           <div className="flex flex-col h-full bg-[#FCFAFF] rounded-xl border border-[#E9D5FF] shadow-sm overflow-hidden">
             {/* Header with Soft Purple Background and Purple Border Bottom */}
             <div className="flex items-center justify-between px-4 py-3 bg-[#F3E8FF] border-b border-[#E9D5FF]">
@@ -704,7 +580,7 @@ export default function KitchenPage() {
             </div>
           </div>
 
-          {/* Column 3: Ready */}
+          {/* Column 2: Ready */}
           <div className="flex flex-col h-full bg-[#FAFFF9] rounded-xl border border-[#BBF7D0] shadow-sm overflow-hidden">
             {/* Header with Soft Green Background and Green Border Bottom */}
             <div className="flex items-center justify-between px-4 py-3 bg-[#DCFCE7] border-b border-[#BBF7D0]">
@@ -838,7 +714,6 @@ export default function KitchenPage() {
                 {/* Row 2: Large Order Number & Status Badge */}
                 <div className="flex items-center gap-3">
                   <span className={`text-4xl font-extrabold tracking-tight ${
-                    selectedOrder.status === 'new' ? 'text-[#FF4B72]' :
                     selectedOrder.status === 'preparing' ? 'text-[#8B5CF6]' :
                     selectedOrder.status === 'ready' ? 'text-[#10B981]' :
                     selectedOrder.status === 'completed' ? 'text-gray-500' : 'text-gray-900'
@@ -847,12 +722,6 @@ export default function KitchenPage() {
                   </span>
                   
                   {/* Status Badges styled to match reference */}
-                  {selectedOrder.status === 'new' && (
-                    <span className="px-3 py-1 bg-[#FFF0F3] text-[#FF4B72] rounded-full text-xs font-bold border border-[#FFE0E6] flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5" />
-                      Incoming
-                    </span>
-                  )}
                   {selectedOrder.status === 'preparing' && (
                     <span className="px-3 py-1 bg-[#F3E8FF] text-[#8B5CF6] rounded-full text-xs font-bold border border-[#E9D5FF] flex items-center gap-1.5">
                       <ChefHat className="w-3.5 h-3.5" />

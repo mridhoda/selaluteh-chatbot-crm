@@ -7,16 +7,22 @@ const PUBLIC_ORDER_ALLOWED_KEYS = new Set([
   'publicOrderToken',
   'orderNumberPublic',
   'orderNumber',
+  'order_number',
   'queueNumber',
+  'queue_number',
   'publicOrderStatus',
+  'public_order_status',
   'status',
   'paymentStatus',
+  'payment_status',
   'fulfillmentStatus',
+  'fulfillment_status',
   'customer',
   'outlet',
   'qrContext',
   'items',
   'totals',
+  'amounts',
   'invoice',
   'createdAt',
   'updatedAt',
@@ -30,14 +36,27 @@ function normalizeQuantity(quantity) {
   return Math.min(CART_QUANTITY.MAX, Math.max(CART_QUANTITY.MIN, Number(quantity || 1)))
 }
 
-export function createCartIntentItem({ productId, quantity = 1, selectedModifierOptionIds = [], clientLineId } = {}) {
+export function createCartIntentItem({ productId, quantity = 1, selectedModifierOptionIds = [], modifiers = [], clientLineId } = {}) {
   if (!productId) throw new Error('productId is required')
   return {
     clientLineId: clientLineId || `line_${productId}_${Date.now()}`,
     productId,
     quantity: normalizeQuantity(quantity),
     selectedModifierOptionIds: arrayFrom(selectedModifierOptionIds).filter(Boolean),
+    modifiers: arrayFrom(modifiers),
   }
+}
+
+function buildSelectedModifiers({ product, selectedModifierOptionIds = [] } = {}) {
+  const optionIds = new Set(arrayFrom(selectedModifierOptionIds).map(String))
+  return arrayFrom(product?.modifierGroups).flatMap((group) => {
+    return arrayFrom(group.options)
+      .filter((option) => optionIds.has(String(option.id)))
+      .map((option) => ({
+        modifier_group_id: group.id,
+        option_id: option.id,
+      }))
+  })
 }
 
 export function createCartIntentContext({ storefrontSlug, outletId, qrSessionToken, includeOutlet = true } = {}) {
@@ -47,15 +66,21 @@ export function createCartIntentContext({ storefrontSlug, outletId, qrSessionTok
   return context
 }
 
-export function buildCartValidationPayload({ context = {}, items = [] } = {}) {
+export function buildCartValidationPayload({ context = {}, items = [], products = [] } = {}) {
   return {
     ...context,
-    items: arrayFrom(items).map((item) => ({
-      clientLineId: item.clientLineId,
-      productId: item.productId,
-      quantity: item.quantity,
-      selectedModifierOptionIds: arrayFrom(item.selectedModifierOptionIds),
-    })),
+    items: arrayFrom(items).map((item) => {
+      const product = products.find((candidate) => candidate.id === item.productId)
+      const selectedModifierOptionIds = arrayFrom(item.selectedModifierOptionIds)
+      const modifiers = arrayFrom(item.modifiers).length > 0 ? arrayFrom(item.modifiers) : buildSelectedModifiers({ product, selectedModifierOptionIds })
+      return {
+        clientLineId: item.clientLineId,
+        productId: item.productId,
+        quantity: item.quantity,
+        selectedModifierOptionIds,
+        modifiers,
+      }
+    }),
   }
 }
 
@@ -67,7 +92,7 @@ export function buildCheckoutPayload({ context = {}, items = [], customer = {} }
       phone: String(customer.phone || '').trim(),
       ...(customer.note ? { note: String(customer.note).trim() } : {}),
     },
-    items: buildCartValidationPayload({ items }).items,
+    items: buildCartValidationPayload({ items, products: context.products || [] }).items,
   }
 }
 
@@ -79,7 +104,7 @@ export function createCartPreviewItem({ product, intentItem }) {
     ...intentItem,
     id: intentItem.clientLineId,
     productName: product?.name || 'Menu',
-    imageUrl: product?.imageUrl,
+    imageUrl: product?.imageUrl || product?.image_url || product?.thumbnailUrl || product?.thumbnail_url || null,
     modifierSummary: arrayFrom(product?.modifierGroups)
       .flatMap((group) => arrayFrom(group.options))
       .filter((option) => optionIds.includes(option.id))
@@ -114,6 +139,7 @@ export function normalizeValidatedCart(response = {}) {
       clientLineId: item.clientLineId,
       productId: item.productId,
       productName: item.productName || item.name,
+      imageUrl: item.imageUrl || item.image_url || item.thumbnailUrl || item.thumbnail_url || null,
       quantity: item.quantity,
       selectedModifierOptionIds: arrayFrom(item.selectedModifierOptionIds),
       modifierSummary: arrayFrom(item.modifierSummary),
@@ -157,16 +183,18 @@ export function getNextPaymentPollingDelay(status, { intervalMs = 5000, rateLimi
 }
 
 export function normalizePaymentStatus(response = {}) {
-  const status = response.paymentStatus || response.status || response.state || 'pending'
+  const payment = response.payment || response
+  const order = response.order || {}
+  const status = payment.paymentStatus || payment.status || response.paymentStatus || response.status || response.state || 'pending'
   return {
-    paymentId: response.paymentId || response.id,
+    paymentId: payment.paymentId || payment.id || response.paymentId || response.id,
     status,
     paymentStatus: status,
-    paymentUrl: response.paymentUrl || response.redirectUrl || null,
-    publicOrderToken: response.publicOrderToken || null,
-    publicOrderStatus: response.publicOrderStatus || null,
-    expiresAt: response.expiresAt || null,
-    totals: response.totals || null,
+    paymentUrl: payment.paymentUrl || payment.payment_url || response.paymentUrl || response.redirectUrl || null,
+    publicOrderToken: order.public_order_token || response.publicOrderToken || null,
+    publicOrderStatus: order.public_order_status || response.publicOrderStatus || null,
+    expiresAt: payment.expiresAt || payment.expires_at || response.expiresAt || null,
+    totals: response.totals || { totalMinor: payment.amount || order.total_amount || 0 },
     isTerminal: shouldStopPaymentPolling(status),
     isRateLimited: shouldSlowPaymentPolling(status),
   }
@@ -188,7 +216,7 @@ export function toTimelineStatus(publicOrderStatus) {
   if (normalized === 'payment_pending') return 'PAYMENT_PENDING'
   if (normalized === 'payment_expired' || normalized === 'expired') return 'PAYMENT_EXPIRED'
   if (normalized === 'cancelled' || normalized === 'canceled') return 'CANCELLED'
-  if (normalized === 'ready_for_pickup') return 'READY_FOR_PICKUP'
+  if (normalized === 'ready_for_pickup' || normalized === 'ready') return 'READY_FOR_PICKUP'
   if (normalized === 'awaiting_outlet_approval') return 'AWAITING_OUTLET_APPROVAL'
   if (normalized === 'paid') return 'PAID'
   if (normalized === 'preparing') return 'PREPARING'
@@ -222,24 +250,40 @@ export function sanitizePublicOrder(response = {}) {
     if (PUBLIC_ORDER_ALLOWED_KEYS.has(key)) safe[key] = value
   }
 
-  const publicOrderStatus = safe.publicOrderStatus || safe.status || 'payment_pending'
+  const publicOrderStatus = safe.publicOrderStatus || safe.public_order_status || safe.status || 'payment_pending'
   const customer = safe.customer || {}
+  const amounts = safe.amounts || {}
+  const totals = safe.totals || {
+    subtotalMinor: amounts.subtotal_amount || 0,
+    discountMinor: amounts.discount_amount || 0,
+    serviceFeeMinor: amounts.service_fee_amount || 0,
+    taxMinor: amounts.tax_amount || 0,
+    totalMinor: amounts.total_amount || 0,
+  }
+  const items = arrayFrom(safe.items).map((item) => ({
+    ...item,
+    productName: item.productName || item.name || item.product_name || '',
+    imageUrl: item.imageUrl || item.image_url || item.thumbnailUrl || item.thumbnail_url || null,
+    quantity: item.quantity || 1,
+    modifierSummary: item.modifierSummary || item.modifiers || [],
+    lineTotalMinor: item.lineTotalMinor ?? item.line_total ?? item.subtotal ?? 0,
+  }))
   return {
     publicOrderToken: safe.publicOrderToken,
-    orderNumberPublic: safe.orderNumberPublic || safe.orderNumber,
-    queueNumber: safe.queueNumber,
+    orderNumberPublic: safe.orderNumberPublic || safe.orderNumber || safe.order_number,
+    queueNumber: safe.queueNumber || safe.queue_number,
     publicOrderStatus,
     status: publicOrderStatus,
-    paymentStatus: safe.paymentStatus || 'pending',
-    fulfillmentStatus: safe.fulfillmentStatus || publicOrderStatus,
+    paymentStatus: safe.paymentStatus || safe.payment_status || 'pending',
+    fulfillmentStatus: safe.fulfillmentStatus || safe.fulfillment_status || publicOrderStatus,
     customer: {
       name: customer.name || 'Tamu',
       phoneMasked: customer.phoneMasked || customer.maskedPhone || '',
     },
     outlet: safe.outlet || null,
     qrContext: safe.qrContext || null,
-    items: arrayFrom(safe.items),
-    totals: safe.totals || {},
+    items,
+    totals,
     invoice: sanitizeInvoice(safe.invoice),
     createdAt: safe.createdAt,
     updatedAt: safe.updatedAt,

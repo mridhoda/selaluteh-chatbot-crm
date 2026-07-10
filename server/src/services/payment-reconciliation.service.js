@@ -8,17 +8,18 @@ import { resolvePaymentProvider } from './payment-provider-resolver.service.js';
 function paidOrderUpdates(paidAt = new Date().toISOString()) {
   return {
     payment_status: PaymentStatus.PAID,
-    fulfillment_status: FulfillmentStatus.AWAITING_ACCEPTANCE,
-    status: OrderStatus.AWAITING_OUTLET_APPROVAL,
+    fulfillment_status: FulfillmentStatus.PREPARING,
+    status: OrderStatus.PREPARING,
+    preparing_at: paidAt,
     paid_at: paidAt,
   };
 }
 
-async function markOrderPaidAwaitingAcceptance({ workspaceId, orderId, paidAt }, deps = {}) {
+async function markOrderPaidPreparing({ workspaceId, orderId, paidAt }, deps = {}) {
   const ordersRepo = deps.ordersRepository || ordersRepository;
   const order = await ordersRepo.workspaceFindById({ workspaceId, orderId });
   const fulfillmentStatus = order?.fulfillmentStatus || order?.fulfillment_status;
-  if (order?.paymentStatus === PaymentStatus.PAID && ![FulfillmentStatus.NOT_STARTED, FulfillmentStatus.AWAITING_ACCEPTANCE, 'unfulfilled', null, undefined].includes(fulfillmentStatus)) {
+  if (order?.paymentStatus === PaymentStatus.PAID && ![FulfillmentStatus.NOT_STARTED, FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.ACCEPTED, 'unfulfilled', null, undefined].includes(fulfillmentStatus)) {
     return order;
   }
   return ordersRepo.updateOne({ workspaceId, orderId, updates: paidOrderUpdates(paidAt) });
@@ -150,7 +151,7 @@ async function processPaidPaymentFromReconciliation({ payment, providerEvent }, 
 
   const orderBefore = payment.orderId ? await (deps.ordersRepository || ordersRepository).workspaceFindById({ workspaceId: payment.workspaceId, orderId: payment.orderId }) : null;
   const wasAlreadyPaid = orderBefore?.paymentStatus === PaymentStatus.PAID || orderBefore?.payment_status === PaymentStatus.PAID;
-  const updatedOrder = await markOrderPaidAwaitingAcceptance({ workspaceId: payment.workspaceId, orderId: payment.orderId, paidAt: providerEvent.paidAt }, deps);
+  const updatedOrder = await markOrderPaidPreparing({ workspaceId: payment.workspaceId, orderId: payment.orderId, paidAt: providerEvent.paidAt }, deps);
 
   if (updatedOrder) {
     notifyPaymentUpdated({ workspaceId: payment.workspaceId, outletId: updated?.outletId || updatedOrder.outletId, payment: updated, order: updatedOrder });
@@ -160,7 +161,7 @@ async function processPaidPaymentFromReconciliation({ payment, providerEvent }, 
         await sendStatusMessage({
           order: updatedOrder,
           from: 'ai',
-          messageText: `Pembayaran pesanan ${updatedOrder.orderNumber || ''} sudah kami terima.\n\nPesanan sudah masuk ke outlet dan menunggu diterima oleh staff.\n\nKami akan memberi tahu saat pesanan siap diambil.`,
+          messageText: `Pembayaran pesanan ${updatedOrder.orderNumber || ''} sudah kami terima.\n\nPesanan otomatis masuk ke kitchen dan sedang diproses.\n\nKami akan memberi tahu saat pesanan siap diambil.`,
         });
       } catch (err) {
         console.error('[PaymentReconciliation] Failed to send paid notification:', err.message);

@@ -23,8 +23,18 @@ function sanitizeStoredIntentItems(rawItems) {
         productId: item.productId,
         quantity: item.quantity,
         selectedModifierOptionIds: item.selectedModifierOptionIds,
+        modifiers: item.modifiers,
       }),
     )
+}
+
+function buildSelectedModifiers({ product, selectedModifierOptionIds = [] } = {}) {
+  const optionIds = new Set((Array.isArray(selectedModifierOptionIds) ? selectedModifierOptionIds : []).map(String))
+  return (product?.modifierGroups || []).flatMap((group) => {
+    return (group.options || [])
+      .filter((option) => optionIds.has(String(option.id)))
+      .map((option) => ({ modifier_group_id: group.id, option_id: option.id }))
+  })
 }
 
 export function useGuestCart({ storefront, products, outlet, qrSessionToken, includeOutlet = true }) {
@@ -64,6 +74,7 @@ export function useGuestCart({ storefront, products, outlet, qrSessionToken, inc
         productId,
         quantity: safeQuantity,
         selectedModifierOptionIds,
+        modifiers: buildSelectedModifiers({ product, selectedModifierOptionIds }),
       })
       setItems((current) => [...current, cartItem])
       setValidatedCart(null)
@@ -118,7 +129,7 @@ export function useGuestCart({ storefront, products, outlet, qrSessionToken, inc
     setError('')
     setValidationStatus(CART_VALIDATION_STATUS.PENDING)
     try {
-      const result = await phase5ApiClient.public.validateCart(buildCartValidationPayload({ context: intentContext, items }))
+      const result = await phase5ApiClient.public.validateCart(buildCartValidationPayload({ context: intentContext, items, products }))
       const normalized = normalizeValidatedCart(result)
       setValidatedCart(normalized)
       setValidationStatus(normalized.valid ? CART_VALIDATION_STATUS.VALID : CART_VALIDATION_STATUS.INVALID)
@@ -128,7 +139,7 @@ export function useGuestCart({ storefront, products, outlet, qrSessionToken, inc
       setError('Keranjang gagal divalidasi. Coba lagi.')
       return null
     }
-  }, [intentContext, items])
+  }, [intentContext, items, products])
 
   const totals = previewCart.totals
   const cartCount = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items])

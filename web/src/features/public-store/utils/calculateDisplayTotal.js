@@ -1,6 +1,6 @@
 export function calculateCartTotals(items = []) {
   const subtotalMinor = items.reduce((sum, item) => sum + Number(item.lineTotalMinor || 0), 0)
-  const serviceFeeMinor = subtotalMinor > 0 ? 1000 : 0
+  const serviceFeeMinor = 0
   const discountMinor = 0
   const totalMinor = Math.max(0, subtotalMinor + serviceFeeMinor - discountMinor)
 

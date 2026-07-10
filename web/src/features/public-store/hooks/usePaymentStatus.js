@@ -12,7 +12,11 @@ export function usePaymentStatus(paymentId, { poll = true, intervalMs = 5000, ra
   const pollCountRef = useRef(0)
 
   const refresh = useCallback(async () => {
-    if (!paymentId) return null
+    if (!paymentId || paymentId === 'undefined' || paymentId === 'null') {
+      setError('Payment ID tidak valid.')
+      setLoading(false)
+      return null
+    }
     setError('')
     setLoading(true)
     try {

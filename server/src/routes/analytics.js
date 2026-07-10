@@ -4,6 +4,7 @@ import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
 import {
   getDashboardSummary, getOutletPerformance, getProductPerformance,
   getChannelPerformance, getPaymentMetrics, getCSVReport,
+  getDimensionPerformance,
 } from '../services/analytics.service.js';
 
 const router = express.Router();
@@ -51,6 +52,13 @@ router.get('/channels', async (req, res, next) => {
       startDate: req.query.startDate,
       endDate: req.query.endDate,
     });
+    res.json({ data: result });
+  } catch (err) { next(err); }
+});
+
+router.get('/dimension', async (req, res, next) => {
+  try {
+    const result = await getDimensionPerformance({ workspaceId: req.me.workspaceId, dimension: req.query.dimension, outletId: req.query.outletId, startDate: req.query.startDate, endDate: req.query.endDate });
     res.json({ data: result });
   } catch (err) { next(err); }
 });

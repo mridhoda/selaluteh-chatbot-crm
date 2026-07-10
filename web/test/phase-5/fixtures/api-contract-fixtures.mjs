@@ -168,6 +168,7 @@ export const adminOrderListFixture = Object.freeze({
       fulfillmentStatus: 'awaiting_acceptance',
       publicOrderStatus: 'preparing',
       allowed_actions: ['accept_order', 'cancel_order'],
+      allowedActions: ['accept', 'cancel'],
     },
   ],
   pagination: { page: 1, pageSize: 20, total: 1 },
@@ -192,6 +193,7 @@ export const adminOrderActionResponseFixture = Object.freeze({
     ...adminOrderDetailFixture,
     fulfillmentStatus: 'accepted',
     allowed_actions: ['mark_preparing', 'cancel_order'],
+    allowedActions: ['prepare', 'cancel'],
   },
 })
 

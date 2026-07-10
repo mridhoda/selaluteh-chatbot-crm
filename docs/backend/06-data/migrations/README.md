@@ -28,6 +28,7 @@ migrations-v2/
     007_rls_policies.sql
     008_local_file_storage.sql
     009_migration_validation_queries.sql
+    010_product_modifiers.sql
   notes/
     mongo-to-postgres-mapping.md
     seed-data-order.md
@@ -102,6 +103,9 @@ product_categories
 products
 product_variants
 product_images
+modifier_groups
+modifier_options
+product_modifier_groups
 carts
 cart_items
 checkouts

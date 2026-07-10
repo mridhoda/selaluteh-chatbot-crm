@@ -12,6 +12,10 @@ export async function getPublicOrderByToken(publicOrderToken) {
   const order = await ordersRepository.findByPublicOrderToken({ token: publicOrderToken });
   if (!order) throw new AppError('PUBLIC_ORDER_NOT_FOUND', 'Order not found', 404);
 
+  return transformOrderToPublic(order);
+}
+
+export function transformOrderToPublic(order) {
   const customer = order.customerSnapshot || {};
   const paymentUrlAllowed = ['unpaid', 'pending', 'processing'].includes(String(order.paymentStatus || '').toLowerCase());
   const publicStatus = derivePublicOrderStatus(order);
@@ -26,8 +30,11 @@ export async function getPublicOrderByToken(publicOrderToken) {
   const timeline = buildPublicTimeline({ order, publicStatus });
 
   return {
+    public_order_token: order.publicOrderToken || order.public_order_token,
+    publicOrderToken: order.publicOrderToken || order.public_order_token,
     order_number: order.orderNumber,
     orderNumber: order.orderNumber,
+    orderNumberPublic: order.orderNumber,
     channel: order.channel || order.source || 'online_store',
     public_order_status: publicStatus,
     publicOrderStatus: publicStatus,
@@ -48,13 +55,27 @@ export async function getPublicOrderByToken(publicOrderToken) {
     customer: {
       name: customer.name || customer.contactName || order.customerNameSnapshot || null,
       phone: maskPhone(customer.phone || order.customerPhoneSnapshot),
+      phoneMasked: maskPhone(customer.phone || order.customerPhoneSnapshot),
     },
     amounts,
+    totals: {
+      subtotalMinor: amounts.subtotal_amount,
+      discountMinor: amounts.discount_amount,
+      serviceFeeMinor: amounts.service_fee_amount,
+      taxMinor: amounts.tax_amount,
+      totalMinor: amounts.total_amount,
+    },
     items: (order.items || []).map((item) => ({
+      id: item.id,
+      productId: item.productId,
+      imageUrl: item.imageUrl || item.image_url || item.metadata?.imageUrl || item.metadata?.image_url || null,
       name: item.productNameSnapshot || item.name,
+      productName: item.productNameSnapshot || item.name,
       quantity: item.quantity,
       modifiers: (item.metadata?.modifiers || []).map((modifier) => modifier.option_name || modifier.optionName || modifier.name || modifier.option_id || modifier.optionId).filter(Boolean),
+      modifierSummary: (item.metadata?.modifiers || []).map((modifier) => modifier.option_name || modifier.optionName || modifier.name || modifier.option_id || modifier.optionId).filter(Boolean),
       line_total: item.subtotalAmount || item.subtotal,
+      lineTotalMinor: item.subtotalAmount || item.subtotal,
       subtotal: item.subtotalAmount || item.subtotal,
     })),
     payment: {
@@ -70,6 +91,21 @@ export async function getPublicOrderByToken(publicOrderToken) {
     updated_at: order.updatedAt,
     updatedAt: order.updatedAt,
   };
+}
+
+export async function getPublicOrdersByCustomerPhone(phone, contactId = null) {
+  const orders = contactId
+    ? await (async () => {
+      const [contactOrders, phoneOrders] = await Promise.all([
+        ordersRepository.findByContactIdGlobal({ contactId }),
+        phone ? ordersRepository.findByCustomerPhoneGlobal({ phone }) : [],
+      ]);
+      const unique = new Map();
+      [...contactOrders, ...phoneOrders].forEach((order) => unique.set(String(order.id || order.publicOrderToken || order.orderNumber), order));
+      return [...unique.values()].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    })()
+    : await ordersRepository.findByCustomerPhoneGlobal({ phone });
+  return orders.map(transformOrderToPublic);
 }
 
 export const publicOrderInternals = {

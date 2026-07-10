@@ -12,7 +12,7 @@ import { requestId } from './middleware/request-id.js';
 import { authRequired, attachUser } from './middleware/auth.js';
 import { attachWorkspaceContext } from './middleware/workspaceContext.js';
 import { authorizePermission } from './middleware/authorization.js';
-import { isManagedStoredName, resolveFileDownload } from './services/file.service.js';
+import { isManagedStoredName, resolveFileDownload, resolvePublicManagedFile } from './services/file.service.js';
 
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
@@ -30,6 +30,7 @@ import complaintRoutes from './routes/complaints.js';
 import complaintEscalationRoutes from './routes/complaint-escalation.routes.js';
 import orderRoutes from './routes/orders.js';
 import adminOrderRoutes from './routes/admin-orders.js';
+import adminOnlineStoreRoutes from './routes/admin-online-store.js';
 import publicStoreRoutes from './routes/public-store.js';
 import outletRoutes from './routes/outlets.js';
 import productRoutes from './routes/products.js';
@@ -87,7 +88,11 @@ app.get('/public-files/:storedName', async (req, res, next) => {
       return res.status(400).json({ error: { code: 'INVALID_FILE_NAME', message: 'Invalid file name' } });
     }
     if (await isManagedStoredName(storedName)) {
-      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Managed files require authorization' } });
+      const publicManaged = await resolvePublicManagedFile({ storedName });
+      if (!publicManaged) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Managed files require authorization' } });
+      return res.sendFile(path.resolve(publicManaged.absolutePath), {
+        headers: { 'Content-Type': publicManaged.file.mime_type || 'application/octet-stream' },
+      });
     }
     res.sendFile(path.resolve('uploads', storedName));
   } catch (err) {
@@ -153,6 +158,7 @@ app.use('/integrations', integrationsRoutes);
 app.use('/complaints', complaintRoutes);
 app.use('/orders', orderRoutes);
 app.use('/api/v1/admin/orders', adminOrderRoutes);
+app.use('/api/v1/admin/online-store', adminOnlineStoreRoutes);
 app.use('/api/public', publicStoreRoutes);
 app.use('/api/v1/public', publicStoreRoutes);
 app.use('/outlets', outletRoutes);

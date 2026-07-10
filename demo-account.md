@@ -22,3 +22,8 @@ Password semua sama: `tenggarong1`
 - outlet: `outlet@selalukopi.demo`
 
 Kalau login real backend gagal, kemungkinan seed Supabase belum dijalankan atau backend belum connect ke database yang benar.
+
+**Akun test user customer online store**
+
+- Email: customer.demo@selaluteh.test
+- Password: DemoCustomer123!

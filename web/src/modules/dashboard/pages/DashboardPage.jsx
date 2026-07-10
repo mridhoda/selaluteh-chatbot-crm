@@ -39,6 +39,7 @@ import {
 import FileInput from '../../../shared/components/ui/FileInput'
 import ProductsPage from '../../products/pages/ProductsPage'
 import KitchenPage from '../../kitchen/pages/KitchenPage'
+import OnlineStorePage from '../../online-store/pages/OnlineStorePage'
 import OutletsPage from '../../outlets/pages/OutletsPage'
 import PaymentsPage from '../../payments/pages/PaymentsPage'
 import Phase5AdminSettingsPage from '../../payments/pages/Phase5AdminSettingsPage'
@@ -1446,6 +1447,7 @@ export default function Dashboard() {
             <Route path='escalation-settings' element={<ProtectedPage user={accessUser} resource='complaints'><EscalationSettingsPage /></ProtectedPage>} />
             <Route path='orders' element={<ProtectedPage user={accessUser} resource='orders'><Orders /></ProtectedPage>} />
             <Route path='kitchen' element={<ProtectedPage user={accessUser} resource='orders' action='manage_status'><KitchenPage /></ProtectedPage>} />
+            <Route path='online-store' element={<ProtectedPage user={accessUser} resource='products'><OnlineStorePage /></ProtectedPage>} />
             <Route path='products' element={<ProtectedPage user={accessUser} resource='products'><ProductsPage /></ProtectedPage>} />
             <Route path='outlets' element={<ProtectedPage user={accessUser} resource='outlets'><OutletsPage /></ProtectedPage>} />
             <Route path='payments' element={<ProtectedPage user={accessUser} resource='payments'><PaymentsPage /></ProtectedPage>} />

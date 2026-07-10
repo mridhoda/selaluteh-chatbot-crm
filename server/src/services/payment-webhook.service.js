@@ -11,16 +11,17 @@ import { recordSecurityEvent } from './security-event.service.js';
 function paidOrderUpdates(paidAt = new Date().toISOString()) {
   return {
     payment_status: PaymentStatus.PAID,
-    fulfillment_status: FulfillmentStatus.AWAITING_ACCEPTANCE,
+    fulfillment_status: FulfillmentStatus.PREPARING,
     paid_at: paidAt,
-    status: OrderStatus.AWAITING_OUTLET_APPROVAL,
+    preparing_at: paidAt,
+    status: OrderStatus.PREPARING,
   };
 }
 
-async function markOrderPaidAwaitingAcceptance({ workspaceId, orderId, paidAt }) {
+async function markOrderPaidPreparing({ workspaceId, orderId, paidAt }) {
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
   const fulfillmentStatus = order?.fulfillmentStatus || order?.fulfillment_status;
-  if (order?.paymentStatus === PaymentStatus.PAID && ![FulfillmentStatus.NOT_STARTED, FulfillmentStatus.AWAITING_ACCEPTANCE, 'unfulfilled', null, undefined].includes(fulfillmentStatus)) {
+  if (order?.paymentStatus === PaymentStatus.PAID && ![FulfillmentStatus.NOT_STARTED, FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.ACCEPTED, 'unfulfilled', null, undefined].includes(fulfillmentStatus)) {
     return order;
   }
   return ordersRepository.updateOne({ workspaceId, orderId, updates: paidOrderUpdates(paidAt) });
@@ -101,7 +102,7 @@ export async function processPaymentWebhook({ workspaceId, provider, rawBody, he
     netAmount: event.netAmount || event.amount, paymentMethod: event.paymentMethod, paidAt: new Date(),
   } });
 
-  const updatedOrder = await markOrderPaidAwaitingAcceptance({ workspaceId, orderId: payment.orderId });
+  const updatedOrder = await markOrderPaidPreparing({ workspaceId, orderId: payment.orderId });
   notifyPaymentUpdatedRealtime({ workspaceId, outletId: updatedPayment.outletId, payment: updatedPayment, order: updatedOrder });
 
   await paymentsRepository.updatePayment({ workspaceId, paymentId: payment.id, updates: { reconciliation_status: 'matched' } });
@@ -114,7 +115,7 @@ export async function processPaymentWebhook({ workspaceId, provider, rawBody, he
       await sendOrderStatusMessage({
         order: updatedOrder,
         from: 'ai',
-        messageText: `Pembayaran pesanan ${updatedOrder.orderNumber || ''} sudah kami terima.\n\nPesanan sudah masuk ke outlet dan menunggu diterima oleh staff.\n\nKami akan memberi tahu saat pesanan siap diambil.`,
+        messageText: `Pembayaran pesanan ${updatedOrder.orderNumber || ''} sudah kami terima.\n\nPesanan otomatis masuk ke kitchen dan sedang diproses.\n\nKami akan memberi tahu saat pesanan siap diambil.`,
       });
     } catch (err) {
       console.error('[PaymentWebhook] Failed to send paid notification:', err.message);
@@ -177,7 +178,7 @@ export async function processDokuCheckoutWebhook({ rawBody, headers, requestTarg
   });
 
   await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: 'paid' });
-  const updatedOrder = await markOrderPaidAwaitingAcceptance({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId });
+  const updatedOrder = await markOrderPaidPreparing({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId });
   notifyPaymentUpdatedRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
   notifyPaidOrderRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedOrder?.outletId, order: updatedOrder });
   await notifyPaidOnce({ order: updatedOrder, paymentId: targetPayment.id, outletName: updatedOrder?.outletNameSnapshot || '' });
@@ -189,7 +190,7 @@ export async function processBayarGgWebhook({ rawBody, headers }, deps = {}) {
   const paymentEventsRepo = deps.paymentEventsRepository || paymentEventsRepository;
   const resolveProvider = deps.resolvePaymentProvider || resolvePaymentProvider;
   const getRuntimeConfig = deps.getPaymentRuntimeConfig || getPaymentRuntimeConfig;
-  const markOrderPaid = deps.markOrderPaidAwaitingAcceptance || markOrderPaidAwaitingAcceptance;
+  const markOrderPaid = deps.markOrderPaidPreparing || markOrderPaidPreparing;
   const notifyPaymentUpdated = deps.notifyPaymentUpdatedRealtime || notifyPaymentUpdatedRealtime;
   const notifyPaidOrder = deps.notifyPaidOrderRealtime || notifyPaidOrderRealtime;
   const notifyPaid = deps.notifyPaidOnce || notifyPaidOnce;
@@ -416,7 +417,7 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
   await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: nextStatus });
 
   if (nextStatus === 'paid') {
-    const updatedOrder = await markOrderPaidAwaitingAcceptance({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId });
+    const updatedOrder = await markOrderPaidPreparing({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId });
     notifyPaymentUpdatedRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
     // Only add a settlement event if this is a fresh processing (not a retry of a stuck event)
     if (!existingEvent) {
@@ -461,7 +462,7 @@ async function notifyPaidOnce({ order, paymentId, outletName }) {
     await sendOrderStatusMessage({
       order,
       from: 'ai',
-    messageText: `Pembayaran pesanan ${order.orderNumber || ''} sudah kami terima.\n\nPesanan sudah masuk ke outlet dan menunggu diterima oleh staff.${outletLine}`,
+    messageText: `Pembayaran pesanan ${order.orderNumber || ''} sudah kami terima.\n\nPesanan otomatis masuk ke kitchen dan sedang diproses.${outletLine}`,
     });
     await ordersRepository.updateOne({
       workspaceId: order.workspaceId,

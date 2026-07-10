@@ -1,10 +1,12 @@
 import express from 'express';
-import { getPublicOrderByToken } from '../services/public-order.service.js';
+import { getPublicOrderByToken, getPublicOrdersByCustomerPhone } from '../services/public-order.service.js';
 import { getQrContext, getQrStoreContext } from '../services/qr-order-session.service.js';
 import {
   createPublicCheckout,
   getPublicPaymentStatus,
   getPublicStorefront,
+  loginPublicStoreCustomer,
+  registerPublicStoreCustomer,
   validatePublicCart,
 } from '../services/public-storefront.service.js';
 import {
@@ -82,10 +84,45 @@ router.get('/payments/:paymentId/status', publicPaymentStatusRateLimit, async (r
   } catch (err) { next(err); }
 });
 
+router.post('/customer/login', async (req, res, next) => {
+  try {
+    const data = await loginPublicStoreCustomer({
+      storefrontSlug: req.body?.storefrontSlug || req.body?.storefront_slug,
+      email: req.body?.email,
+      password: req.body?.password,
+    });
+    res.json(data);
+  } catch (err) { next(err); }
+});
+
+router.post('/customer/register', async (req, res, next) => {
+  try {
+    const data = await registerPublicStoreCustomer({
+      storefrontSlug: req.body?.storefrontSlug || req.body?.storefront_slug,
+      name: req.body?.name,
+      phone: req.body?.phone,
+      email: req.body?.email,
+      password: req.body?.password,
+    });
+    res.status(201).json(data);
+  } catch (err) { next(err); }
+});
+
 router.get('/orders/:publicOrderToken', publicOrderRateLimit, async (req, res, next) => {
   try {
     const data = await getPublicOrderByToken(req.params.publicOrderToken);
     res.json(isV1(req) ? { order: data } : { data });
+  } catch (err) { next(err); }
+});
+
+router.get('/customer-orders', async (req, res, next) => {
+  try {
+    const { phone, contactId, contact_id: contactIdSnake } = req.query;
+    if (!phone && !(contactId || contactIdSnake)) {
+      return res.status(400).json({ error: 'Phone or contactId parameter is required' });
+    }
+    const data = await getPublicOrdersByCustomerPhone(phone, contactId || contactIdSnake || null);
+    res.json({ orders: data });
   } catch (err) { next(err); }
 });
 

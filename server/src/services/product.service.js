@@ -1,4 +1,4 @@
-import { productsRepository } from '../db/repositories/index.js';
+import { modifiersRepository, productsRepository } from '../db/repositories/index.js';
 import { inventoryRepository } from '../db/repositories/inventory.supabase.repository.js';
 import { assertOutletAccess, buildOutletScopedQuery, canManageWorkspace } from './access-control.service.js';
 import { AppError } from '../utils/errors.js';
@@ -31,7 +31,37 @@ export async function listProducts({ user, outletId, status, search, page, limit
   const total = await productsRepository.count({ workspaceId, status, search });
 
   if (!outletId) {
-    return { data: products, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
+    const availabilityRows = products.length > 0
+      ? await productsRepository.findAvailability({
+          workspaceId,
+          productIds: products.map((product) => product.id),
+        })
+      : [];
+    const availabilityByProduct = new Map();
+    for (const row of availabilityRows) {
+      const key = String(row.productId);
+      const current = availabilityByProduct.get(key) || [];
+      current.push(row);
+      availabilityByProduct.set(key, current);
+    }
+    const enriched = products.map((product) => {
+      const rows = availabilityByProduct.get(String(product.id)) || [];
+      const activeRows = rows.filter((row) => row.status === 'active' && row.isAvailable !== false);
+      const stockTotal = rows.reduce((sum, row) => sum + Number(row.stockQuantity || 0), 0);
+      const lowStock = rows.filter((row) => Number(row.stockQuantity || 0) > 0 && Number(row.stockQuantity || 0) <= 10).length;
+      const outOfStock = rows.filter((row) => Number(row.stockQuantity || 0) <= 0 || row.isAvailable === false || row.status !== 'active').length;
+      return {
+        ...product,
+        outlets: activeRows.length,
+        outletCount: activeRows.length,
+        inventorySummary: {
+          total: stockTotal || Number(product.stockQuantity || 0),
+          lowStock,
+          outOfStock,
+        },
+      };
+    });
+    return { data: enriched, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
   }
 
   await assertOutletAccess(user, outletId);
@@ -50,28 +80,86 @@ export async function listProducts({ user, outletId, status, search, page, limit
   return { data: enriched, meta: { total, page: parseInt(page) || 1, limit: parseInt(limit) || 20 } };
 }
 
+function toAdminModifier(group = {}) {
+  const links = group.productLinks || [];
+  const categories = new Set(links.map((link) => link.product?.metadata?.category).filter(Boolean));
+  const max = Number(group.maxSelection ?? 1);
+  const min = Number(group.minSelection ?? 0);
+  return {
+    id: group.id,
+    name: group.name,
+    code: group.code || group.id,
+    type: group.type === 'required' ? 'Required' : 'Optional',
+    selectionRule: group.selectionType === 'multi' ? `Multi-select (max ${max})` : 'Single-select',
+    minSelection: min,
+    maxSelection: max,
+    outletScope: group.outletScope || 'All Outlets',
+    description: group.description || '',
+    tags: group.tags || [],
+    options: (group.options || []).map((option) => ({
+      id: option.id,
+      name: option.name,
+      price: Number(option.priceDelta || 0),
+      priceDelta: Number(option.priceDelta || 0),
+      isActive: option.isActive !== false,
+    })),
+    productsCount: links.length,
+    categoriesCount: categories.size || (links.length > 0 ? 1 : 0),
+    requiredInCheckout: group.type === 'required' || min > 0,
+    status: group.status === 'active' ? 'Active' : 'Inactive',
+    updatedAt: group.updatedAt || group.createdAt || null,
+    linkedProducts: links.map((link) => link.product).filter(Boolean).map((product) => ({
+      id: product.id,
+      name: product.name,
+      sku: product.sku || '',
+      category: product.metadata?.category || product.category || 'Menu',
+      price: Number(product.basePrice || 0),
+      basePrice: Number(product.basePrice || 0),
+      image: product.thumbnailUrl || product.thumbnail_url || '',
+      thumbnailUrl: product.thumbnailUrl || product.thumbnail_url || '',
+      status: product.isActive === false ? 'Inactive' : 'Active',
+    })),
+  };
+}
+
+export async function listModifierGroups({ user }) {
+  const groups = await modifiersRepository.listGroups({ workspaceId: user.workspaceId });
+  return { data: groups.map(toAdminModifier) };
+}
+
+export async function replaceModifierProductLinks({ user, modifierGroupId, productIds = [] }) {
+  if (!canManageWorkspace(user)) throw new AppError('FORBIDDEN', 'Forbidden', 403);
+  await modifiersRepository.replaceProductLinks({ workspaceId: user.workspaceId, modifierGroupId, productIds });
+  return listModifierGroups({ user });
+}
+
 export async function listCustomerProductsForOutlet({ workspaceId, outletId, page = 0, limit = 8 }) {
   if (!workspaceId) throw new AppError('VALIDATION', 'workspace_id is required', 400);
   if (!outletId) throw new AppError('VALIDATION', 'outlet_id is required for customer-facing product list', 400);
 
   const products = await productsRepository.findProducts({ workspaceId, isActive: true });
   const productIds = products.map((p) => p.id);
-  const { availabilityByProduct, inventoryByProduct } = await buildOutletAvailabilityWithInventory({
+  const [{ availabilityByProduct, inventoryByProduct }, modifiersByProduct] = await Promise.all([
+    buildOutletAvailabilityWithInventory({
     workspaceId,
     outletId,
     productIds,
-  });
+    }),
+    modifiersRepository.listGroupsForProducts({ workspaceId, productIds }),
+  ]);
 
   const filtered = products
     .filter((product) => {
       const availability = availabilityByProduct.get(String(product.id));
       const inventory = inventoryByProduct.get(String(product.id));
-      if (inventory && Number(inventory.quantity) <= 0) return false;
-      if (inventory && Number(inventory.quantity) > 0) return true;
-      return !!availability && availability.status === 'active' && availability.isAvailable !== false;
+      if (availability && (availability.status !== 'active' || availability.isAvailable === false)) return false;
+      if (product.stockTracking === true && inventory && Number(inventory.quantity) <= 0) return false;
+      if (product.stockTracking === true && Number(product.stockQuantity) <= 0 && !inventory) return false;
+      return product.isActive !== false;
     })
     .map((product) => ({
       ...product,
+      modifiers: modifiersByProduct.get(String(product.id)) || product.modifiers || product.metadata?.modifiers || [],
       outletAvailability: availabilityByProduct.get(String(product.id)) || {
         productId: product.id,
         outletId,

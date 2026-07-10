@@ -193,6 +193,7 @@ export function canTransitionFulfillment(from, to) {
 
 export function normalizeFulfillmentStatus(status) {
   if (status === 'unfulfilled' || !status) return FulfillmentStatus.NOT_STARTED;
+  if (status === 'fulfilled') return FulfillmentStatus.COMPLETED;
   if (status === OrderStatus.AWAITING_OUTLET_APPROVAL) return FulfillmentStatus.AWAITING_ACCEPTANCE;
   if (status === OrderStatus.APPROVED) return FulfillmentStatus.ACCEPTED;
   if (status === OrderStatus.PREPARING) return FulfillmentStatus.PREPARING;
@@ -223,8 +224,8 @@ export function getOrderCapabilities(order = {}) {
   const fulfillmentStatus = normalizeFulfillmentStatus(order.fulfillmentStatus || order.fulfillment_status || order.status);
   const paid = paymentStatus === PaymentStatus.PAID;
   return {
-    canAccept: paid && fulfillmentStatus === FulfillmentStatus.AWAITING_ACCEPTANCE,
-    canStartPreparing: paid && fulfillmentStatus === FulfillmentStatus.ACCEPTED,
+    canAccept: false,
+    canStartPreparing: false,
     canMarkReady: paid && fulfillmentStatus === FulfillmentStatus.PREPARING,
     canComplete: paid && fulfillmentStatus === FulfillmentStatus.READY,
     canCancel: [FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.ACCEPTED, FulfillmentStatus.PREPARING].includes(fulfillmentStatus),

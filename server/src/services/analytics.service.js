@@ -71,8 +71,8 @@ export async function getProductPerformance({ workspaceId, outletId, startDate, 
     .select('*, orders!inner(workspace_id, outlet_id, status, payment_status)');
   q = q.eq('orders.workspace_id', workspaceId);
   if (outletId) q = q.eq('orders.outlet_id', outletId);
-  if (startDate) q = q.gte('created_at', startDate);
-  if (endDate) q = q.lte('created_at', endDate);
+  if (startDate) q = q.gte('orders.created_at', startDate);
+  if (endDate) q = q.lte('orders.created_at', endDate);
 
   const { data: items } = await q;
 
@@ -116,6 +116,33 @@ export async function getChannelPerformance({ workspaceId, startDate, endDate })
       map[channel].paidCount += 1;
       map[channel].grossSales += Number(o.total_amount || 0);
     }
+  }
+  return Object.values(map).sort((a, b) => b.grossSales - a.grossSales);
+}
+
+export async function getDimensionPerformance({ workspaceId, dimension, outletId, startDate, endDate }) {
+  requireWorkspaceId(workspaceId);
+  const supported = ['status', 'paymentStatus', 'customer'];
+  if (!supported.includes(dimension)) return [];
+  const client = getSupabaseServiceClient();
+  let q = client.from('orders').select('id, contact_id, status, payment_status, total_amount, outlet_id, created_at').eq('workspace_id', workspaceId);
+  if (outletId) q = q.eq('outlet_id', outletId);
+  if (startDate) q = q.gte('created_at', startDate);
+  if (endDate) q = q.lte('created_at', endDate);
+  const { data: orders } = await q;
+  const contactIds = [...new Set((orders || []).map((order) => order.contact_id).filter(Boolean))];
+  const contactNames = new Map();
+  if (dimension === 'customer' && contactIds.length) {
+    const { data: contacts } = await client.from('contacts').select('id, name').eq('workspace_id', workspaceId).in('id', contactIds);
+    for (const contact of contacts || []) contactNames.set(String(contact.id), contact.name || String(contact.id));
+  }
+  const map = {};
+  for (const order of orders || []) {
+    const rawKey = dimension === 'status' ? order.status : dimension === 'paymentStatus' ? order.payment_status : order.contact_id;
+    const key = rawKey || 'unknown';
+    if (!map[key]) map[key] = { key, label: dimension === 'customer' ? (contactNames.get(String(key)) || key) : key, orderCount: 0, grossSales: 0 };
+    map[key].orderCount += 1;
+    if (String(order.payment_status).toLowerCase() === 'paid') map[key].grossSales += Number(order.total_amount || 0);
   }
   return Object.values(map).sort((a, b) => b.grossSales - a.grossSales);
 }

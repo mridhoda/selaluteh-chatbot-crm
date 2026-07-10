@@ -22,6 +22,7 @@ import { derivePublicOrderStatus, getOrderCapabilities, FulfillmentStatus } from
 const TABLE = 'orders';
 const ITEMS_TABLE = 'order_items';
 const EVENTS_TABLE = 'order_events';
+const PAYMENTS_TABLE = 'payments';
 const OPTIONAL_SCHEMA_ERRORS = new Set(['42703', 'PGRST204']);
 
 function mapOrder(row) {
@@ -75,7 +76,109 @@ function mapOrder(row) {
   return order;
 }
 
+async function hydrateOrderItemMedia(client, workspaceId, rawItems = []) {
+  const productIds = [...new Set(rawItems.map((item) => item.product_id).filter(Boolean).map(String))];
+  if (!productIds.length) return rawItems;
+  const result = await client
+    .from('products')
+    .select('id, thumbnail_url')
+    .eq('workspace_id', workspaceId)
+    .in('id', productIds);
+  if (result.error) return rawItems;
+  const mediaByProductId = new Map((result.data || []).map((product) => [String(product.id), product.thumbnail_url || null]));
+  return rawItems.map((item) => {
+    const imageUrl = item.metadata?.imageUrl || item.metadata?.image_url || mediaByProductId.get(String(item.product_id)) || null;
+    return imageUrl
+      ? { ...item, metadata: { ...(item.metadata || {}), imageUrl } }
+      : item;
+  });
+}
+
 export const ordersSupabaseRepository = {
+  async syncPaidOrderFromPayment({ workspaceId, orderId, outletId, outletIds }) {
+    requireWorkspaceId(workspaceId);
+    if (!orderId) return null;
+    const client = getSupabaseServiceClient();
+    let paymentQuery = client
+      .from(PAYMENTS_TABLE)
+      .select('order_id, paid_at, created_at')
+      .eq('workspace_id', workspaceId)
+      .eq('order_id', orderId)
+      .eq('status', 'paid')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const payment = extractSingle(await paymentQuery, 'payments.findPaidForOrder');
+    if (!payment) return null;
+
+    let updateQuery = client
+      .from(TABLE)
+      .update({ payment_status: 'paid', paid_at: payment.paid_at || new Date().toISOString() })
+      .eq('workspace_id', workspaceId)
+      .eq('id', orderId)
+      .neq('payment_status', 'paid');
+    if (outletId) updateQuery = updateQuery.eq('outlet_id', outletId);
+    else if (Array.isArray(outletIds)) updateQuery = outletIds.length > 0 ? updateQuery.in('outlet_id', outletIds) : updateQuery.limit(0);
+    const updated = extractSingle(await updateQuery.select().maybeSingle(), 'orders.syncPaidOrderFromPayment');
+    const orderResult = await client.from(TABLE).select('status, fulfillment_status').eq('workspace_id', workspaceId).eq('id', orderId).maybeSingle();
+    const currentOrder = extractSingle(orderResult, 'orders.readStatusForPaymentSync');
+    const currentStatus = String(currentOrder?.status || '').toLowerCase();
+    const currentFulfillment = String(currentOrder?.fulfillment_status || '').toLowerCase();
+    const terminalStatuses = new Set(['cancelled', 'canceled', 'completed', 'complete', 'fulfilled', 'delivered', 'ready', 'ready_for_pickup']);
+    if (!terminalStatuses.has(currentStatus) && !terminalStatuses.has(currentFulfillment)) {
+      await client
+        .from(TABLE)
+        .update({ status: 'PREPARING', fulfillment_status: 'preparing' })
+        .eq('workspace_id', workspaceId)
+        .eq('id', orderId);
+    }
+    return updated;
+  },
+
+  async syncPaidOrdersFromPayments({ workspaceId, outletId, outletIds } = {}) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    let paymentQuery = client
+      .from(PAYMENTS_TABLE)
+      .select('order_id, paid_at, created_at')
+      .eq('workspace_id', workspaceId)
+      .eq('status', 'paid')
+      .not('order_id', 'is', null)
+      .order('created_at', { ascending: false });
+    if (outletId) paymentQuery = paymentQuery.eq('outlet_id', outletId);
+    else if (Array.isArray(outletIds)) paymentQuery = outletIds.length > 0 ? paymentQuery.in('outlet_id', outletIds) : paymentQuery.limit(0);
+    const payments = extractData(await paymentQuery, 'payments.listPaidForOrders') || [];
+    const latestByOrder = new Map();
+    payments.forEach((payment) => {
+      if (!latestByOrder.has(payment.order_id)) latestByOrder.set(payment.order_id, payment);
+    });
+
+    for (const [orderId, payment] of latestByOrder) {
+      let updateQuery = client
+        .from(TABLE)
+        .update({ payment_status: 'paid', paid_at: payment.paid_at || new Date().toISOString() })
+        .eq('workspace_id', workspaceId)
+        .eq('id', orderId)
+        .neq('payment_status', 'paid');
+      if (outletId) updateQuery = updateQuery.eq('outlet_id', outletId);
+      else if (Array.isArray(outletIds)) updateQuery = outletIds.length > 0 ? updateQuery.in('outlet_id', outletIds) : updateQuery.limit(0);
+      await updateQuery;
+      const orderResult = await client.from(TABLE).select('status, fulfillment_status').eq('workspace_id', workspaceId).eq('id', orderId).maybeSingle();
+      const currentOrder = extractSingle(orderResult, 'orders.readStatusForPaymentSync');
+      const currentStatus = String(currentOrder?.status || '').toLowerCase();
+      const currentFulfillment = String(currentOrder?.fulfillment_status || '').toLowerCase();
+      const terminalStatuses = new Set(['cancelled', 'canceled', 'completed', 'complete', 'fulfilled', 'delivered', 'ready', 'ready_for_pickup']);
+      if (!terminalStatuses.has(currentStatus) && !terminalStatuses.has(currentFulfillment)) {
+        await client
+          .from(TABLE)
+          .update({ status: 'PREPARING', fulfillment_status: 'preparing' })
+          .eq('workspace_id', workspaceId)
+          .eq('id', orderId);
+      }
+    }
+    return latestByOrder.size;
+  },
+
   async create(data) {
     requireWorkspaceId(data.workspaceId);
     const client = getSupabaseServiceClient();
@@ -149,7 +252,9 @@ export const ordersSupabaseRepository = {
     if (search) q = q.or(`order_number.ilike.%${search}%,customer_name_snapshot.ilike.%${search}%`);
     q = applyPagination(q, { page, limit });
     const result = await q;
-    return (extractData(result, 'orders.workspaceList') ?? []).map(mapOrder);
+    const rows = extractData(result, 'orders.workspaceList') ?? [];
+    for (const row of rows) row.order_items = await hydrateOrderItemMedia(client, workspaceId, row.order_items || []);
+    return rows.map(mapOrder);
   },
 
   async workspaceListScoped({ workspaceId, outletId, outletIds, status, paymentStatus, search, page = 1, limit = 50, chatId, contactId }) {
@@ -165,7 +270,9 @@ export const ordersSupabaseRepository = {
     if (search) q = q.or(`order_number.ilike.%${search}%,customer_name_snapshot.ilike.%${search}%`);
     q = applyPagination(q, { page, limit });
     const result = await q;
-    return (extractData(result, 'orders.workspaceListScoped') ?? []).map(mapOrder);
+    const rows = extractData(result, 'orders.workspaceListScoped') ?? [];
+    for (const row of rows) row.order_items = await hydrateOrderItemMedia(client, workspaceId, row.order_items || []);
+    return rows.map(mapOrder);
   },
 
   async workspaceCount({ workspaceId, outletId, status, paymentStatus, search }) {
@@ -200,6 +307,7 @@ export const ordersSupabaseRepository = {
     const client = getSupabaseServiceClient();
     const result = await client.from(TABLE).select('*, contacts(id, name, phone, handle, external_id), outlets(id, name, code, city, status), chats(*), order_items(*)').eq('workspace_id', workspaceId).eq('id', orderId).maybeSingle();
     const row = extractSingle(result, 'orders.workspaceFindById');
+    if (row) row.order_items = await hydrateOrderItemMedia(client, workspaceId, row.order_items || []);
     return row ? mapOrder(row) : null;
   },
 
@@ -213,6 +321,7 @@ export const ordersSupabaseRepository = {
       .eq('order_number', orderNumber)
       .maybeSingle();
     const row = extractSingle(result, 'orders.workspaceFindByOrderNumber');
+    if (row) row.order_items = await hydrateOrderItemMedia(client, workspaceId, row.order_items || []);
     return row ? mapOrder(row) : null;
   },
 
@@ -223,6 +332,7 @@ export const ordersSupabaseRepository = {
     if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
     const result = await q.maybeSingle();
     const row = extractSingle(result, 'orders.workspaceFindByIdScoped');
+    if (row) row.order_items = await hydrateOrderItemMedia(client, workspaceId, row.order_items || []);
     return row ? mapOrder(row) : null;
   },
 
@@ -255,10 +365,20 @@ export const ordersSupabaseRepository = {
   async updateOne({ workspaceId, orderId, updates, outletId, outletIds }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    let q = client.from(TABLE).update(updates).eq('workspace_id', workspaceId).eq('id', orderId);
-    if (outletId) q = q.eq('outlet_id', outletId);
-    else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
-    const result = await q.select('*, contacts(*), chats(*)').maybeSingle();
+    const payload = { ...(updates || {}) };
+    let result;
+    // Older workspaces may not have optional fulfillment timestamp columns.
+    // Retry without the rejected column so payment/order state still persists.
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      let q = client.from(TABLE).update(payload).eq('workspace_id', workspaceId).eq('id', orderId);
+      if (outletId) q = q.eq('outlet_id', outletId);
+      else if (Array.isArray(outletIds)) q = outletIds.length > 0 ? q.in('outlet_id', outletIds) : q.limit(0);
+      result = await q.select('*, contacts(*), chats(*)').maybeSingle();
+      if (!result.error || result.error.code !== 'PGRST204') break;
+      const missingColumn = String(result.error.message || '').match(/'([^']+)' column/i)?.[1];
+      if (!missingColumn || !(missingColumn in payload)) break;
+      delete payload[missingColumn];
+    }
     const row = extractSingle(result, 'orders.updateOne');
     return row ? mapOrder(row) : null;
   },
@@ -284,8 +404,50 @@ export const ordersSupabaseRepository = {
   async atomicFulfillmentStatusUpdate({ workspaceId, orderId, expectedStatus, newStatus, updates = {} }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    const result = await client.from(TABLE).update({ ...updates, fulfillment_status: newStatus }).eq('workspace_id', workspaceId).eq('id', orderId).eq('fulfillment_status', expectedStatus).select('*, contacts(*), chats(*)').maybeSingle();
-    const row = extractSingle(result, 'orders.atomicFulfillmentStatusUpdate');
+    const buildQuery = (nextUpdates, persistedStatus = newStatus, persistedExpected = expectedStatus) => client
+      .from(TABLE)
+      .update({ ...nextUpdates, fulfillment_status: persistedStatus })
+      .eq('workspace_id', workspaceId)
+      .eq('id', orderId)
+      .eq('fulfillment_status', persistedExpected)
+      .select('*, contacts(*), chats(*)')
+      .maybeSingle();
+    const normalizedNewStatus = String(newStatus || '').toLowerCase();
+    const statusCandidates = normalizedNewStatus === 'completed'
+      ? [
+          { status: newStatus, fulfillment: 'completed' },
+          { status: 'completed', fulfillment: 'fulfilled' },
+          { status: newStatus, fulfillment: 'fulfilled' },
+          { status: 'completed', fulfillment: 'completed' },
+        ]
+      : normalizedNewStatus === 'ready_for_pickup'
+        ? [
+            { status: newStatus, fulfillment: 'ready' },
+            { status: 'ready', fulfillment: 'ready' },
+          ]
+        : [{ status: newStatus, fulfillment: newStatus }];
+    const expectedCandidates = [...new Set([expectedStatus, String(expectedStatus || '').toUpperCase()])].filter(Boolean);
+    let lastResult = null;
+
+    for (const candidate of statusCandidates) {
+      for (const persistedExpected of expectedCandidates) {
+        const candidateUpdates = { ...updates, status: candidate.status };
+        let result = await buildQuery(candidateUpdates, candidate.fulfillment, persistedExpected);
+        lastResult = result;
+        if (result.error?.code === '22P02') continue;
+        if (result.error && OPTIONAL_SCHEMA_ERRORS.has(result.error.code)) {
+          const fallbackUpdates = Object.fromEntries(
+            Object.entries(candidateUpdates).filter(([key]) => !key.endsWith('_at')),
+          );
+          result = await buildQuery(fallbackUpdates, candidate.fulfillment, persistedExpected);
+          lastResult = result;
+        }
+        if (!result.error && result.data) return mapOrder(result.data);
+        if (result.error) break;
+      }
+    }
+
+    const row = extractSingle(lastResult, 'orders.atomicFulfillmentStatusUpdate');
     return row ? mapOrder(row) : null;
   },
 
@@ -294,6 +456,33 @@ export const ordersSupabaseRepository = {
     const result = await client.from(TABLE).select('*, contacts(id, name, phone, handle, external_id), outlets(id, name, code, city, status), order_items(*)').eq('public_order_token', token).maybeSingle();
     const row = extractSingle(result, 'orders.findByPublicOrderToken');
     return row ? mapOrder(row) : null;
+  },
+
+  async findByCustomerPhoneGlobal({ phone }) {
+    const client = getSupabaseServiceClient();
+    const cleanPhone = String(phone || '').replace(/[^\d]/g, '');
+    const phoneVariants = new Set([cleanPhone]);
+    if (cleanPhone.startsWith('0') && cleanPhone.length > 1) phoneVariants.add(`62${cleanPhone.slice(1)}`);
+    if (cleanPhone.startsWith('62') && cleanPhone.length > 2) phoneVariants.add(`0${cleanPhone.slice(2)}`);
+    const result = await client
+      .from(TABLE)
+      .select('*, contacts(id, name, phone, handle, external_id), outlets(id, name, code, city, status), order_items(*)')
+      .in('customer_phone_snapshot', [...phoneVariants])
+      .order('created_at', { ascending: false });
+    const rows = extractData(result, 'orders.findByCustomerPhoneGlobal');
+    return (rows || []).map(mapOrder);
+  },
+
+  async findByContactIdGlobal({ contactId }) {
+    if (!contactId) return [];
+    const client = getSupabaseServiceClient();
+    const result = await client
+      .from(TABLE)
+      .select('*, contacts(id, name, phone, handle, external_id), outlets(id, name, code, city, status), order_items(*)')
+      .eq('contact_id', contactId)
+      .order('created_at', { ascending: false });
+    const rows = extractData(result, 'orders.findByContactIdGlobal');
+    return (rows || []).map(mapOrder);
   },
 
   async addTimelineEntry({ workspaceId, orderId, entry, eventType, actorType, actorUserId, metadata }) {

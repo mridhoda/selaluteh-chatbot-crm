@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
-import { ordersRepository, outletsRepository, paymentsRepository, storefrontsRepository, workspacesRepository, idempotencyRepository } from '../db/repositories/index.js';
+import { contactsRepository, ordersRepository, outletsRepository, paymentsRepository, storefrontsRepository, workspacesRepository, idempotencyRepository } from '../db/repositories/index.js';
 import { listCustomerProductsForOutlet } from './product.service.js';
 import { getQrStoreContext } from './qr-order-session.service.js';
 import { createOrderFromCheckout } from './order.service.js';
-import { createPaymentSessionForOrder, toPaymentSessionResponse } from './payment.service.js';
+import { createPaymentSessionForOrder, syncPaymentWithProvider, toPaymentSessionResponse } from './payment.service.js';
 import { derivePublicOrderStatus } from '../orders/order-types.js';
 import { AppError } from '../utils/errors.js';
 import { getSupabaseServiceClient } from '../db/supabase.js';
@@ -241,6 +241,7 @@ export async function getPublicStorefront({ storefrontSlug, outletId }) {
   }
   const selectedOutlet = outletId ? publicOutlets.find((outlet) => String(outlet.id) === String(outletId)) : publicOutlets[0];
   const menu = selectedOutlet ? await buildPublicMenu({ workspaceId: workspace.id, outletId: selectedOutlet.id }) : { categories: [], products: [] };
+  const storefrontMetadata = storefrontRecord?.metadata || {};
 
   const response = {
     storefront: {
@@ -248,7 +249,26 @@ export async function getPublicStorefront({ storefrontSlug, outletId }) {
       slug: publicSettings.slug,
       name: storefrontRecord?.name || settings?.businessDisplayName || workspace.name,
       brandline: publicSettings.brandline,
+      description: storefrontMetadata.description || '',
       ordering_enabled: true,
+      theme: {
+        ...(publicSettings.theme || {}),
+        logoUrl: storefrontMetadata.logoUrl || storefrontMetadata.logo_url || publicSettings.theme?.logoUrl || null,
+        faviconUrl: storefrontMetadata.faviconUrl || storefrontMetadata.favicon_url || null,
+      },
+      banner: {
+        imageUrl: storefrontMetadata.bannerUrl || storefrontMetadata.banner_url || null,
+        linkUrl: storefrontMetadata.bannerLinkUrl || storefrontMetadata.banner_link_url || '',
+        title: storefrontMetadata.bannerTitle || 'Promo Store',
+      },
+      banners: Array.isArray(storefrontMetadata.banners)
+        ? storefrontMetadata.banners.slice(0, 5).map((banner) => ({
+          imageUrl: banner.imageUrl || banner.image_url || null,
+          linkUrl: banner.linkUrl || banner.link_url || '',
+          title: banner.title || storefrontMetadata.bannerTitle || 'Promo Store',
+        })).filter((banner) => banner.imageUrl)
+        : [],
+      bannerIntervalSeconds: Math.min(60, Math.max(2, Number(storefrontMetadata.bannerIntervalSeconds || storefrontMetadata.banner_interval_seconds || 5))),
     },
     outlets: publicOutlets.map((outlet) => toPublicOutlet(outlet, outlet.storefrontOutlet || {})),
     menu,
@@ -258,6 +278,50 @@ export async function getPublicStorefront({ storefrontSlug, outletId }) {
     enumerable: false,
   });
   return response;
+}
+
+function toPublicCustomer(contact) {
+  if (!contact) return null;
+  return {
+    id: contact.id,
+    name: contact.name,
+    phone: contact.phone,
+    email: contact.email,
+    tags: contact.tags || [],
+  };
+}
+
+export async function loginPublicStoreCustomer({ storefrontSlug, email, password }) {
+  const { workspace } = await findWorkspaceByStorefrontSlug(storefrontSlug);
+  const contact = await contactsRepository.findPublicStoreCustomerByEmail({ workspaceId: workspace.id, email });
+  if (!contact) throw new AppError('CUSTOMER_NOT_FOUND', 'Customer account not found', 404);
+  const expectedPassword = contact.metadata?.demo_password || contact.metadata?.customer_password;
+  if (!expectedPassword || String(expectedPassword) !== String(password || '')) {
+    throw new AppError('CUSTOMER_INVALID_CREDENTIALS', 'Invalid customer credentials', 401);
+  }
+  return { customer: toPublicCustomer(contact) };
+}
+
+export async function registerPublicStoreCustomer({ storefrontSlug, name, phone, email, password }) {
+  const normalizedName = String(name || '').trim();
+  const normalizedPhone = String(phone || '').trim();
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const normalizedPassword = String(password || '').trim();
+  if (!normalizedName) throw new AppError('CUSTOMER_NAME_REQUIRED', 'Customer name is required', 400);
+  if (!normalizedPhone) throw new AppError('CUSTOMER_PHONE_REQUIRED', 'Customer phone is required', 400);
+  if (!normalizedEmail) throw new AppError('CUSTOMER_EMAIL_REQUIRED', 'Customer email is required', 400);
+  if (!normalizedPassword) throw new AppError('CUSTOMER_PASSWORD_REQUIRED', 'Customer password is required', 400);
+
+  const { workspace } = await findWorkspaceByStorefrontSlug(storefrontSlug);
+  const contact = await contactsRepository.upsertPublicStoreCustomer({
+    workspaceId: workspace.id,
+    name: normalizedName,
+    phone: normalizedPhone,
+    email: normalizedEmail,
+    password: normalizedPassword,
+    storefrontSlug,
+  });
+  return { customer: toPublicCustomer(contact) };
 }
 
 async function resolvePublicOrderContext({ channel, storefrontSlug, outletId, qrToken }) {
@@ -337,6 +401,7 @@ export async function validatePublicCart({ channel = 'online_store', storefrontS
     snapshotItems.push({
       product_id: product.id,
       product_name: product.name,
+      image_url: product.thumbnailUrl || null,
       quantity,
       unit_price: unitPrice,
       modifier_total: modifierValidation.totalPriceDelta,
@@ -366,14 +431,14 @@ export async function validatePublicCart({ channel = 'online_store', storefrontS
   };
 }
 
-function toCheckoutLikePayload({ validation, customer, idempotencyKey, customerNote, channel }) {
+function toCheckoutLikePayload({ validation, customer, contactId, idempotencyKey, customerNote, channel }) {
   const snapshot = validation.cart_snapshot;
   const context = validation.context;
   const qrContext = context.qrContext?.qr_context || null;
   return {
     id: null,
     outletId: context.outletId,
-    contactId: null,
+    contactId: contactId || null,
     chatId: null,
     channel,
     qrSessionId: context.qrContext?.qr_session?.id || null,
@@ -417,7 +482,7 @@ function toCheckoutLikePayload({ validation, customer, idempotencyKey, customerN
       unitPrice: item.unit_price,
       quantity: item.quantity,
       subtotalAmount: item.line_total,
-      metadata: { modifiers: item.modifiers, note: item.note },
+      metadata: { modifiers: item.modifiers, note: item.note, imageUrl: item.image_url || null },
     })),
   };
 }
@@ -556,6 +621,15 @@ export async function createPublicCheckout({ idempotencyKey, body }) {
   const checkout = toCheckoutLikePayload({
     validation,
     customer: safePayload.customer,
+    contactId: (await contactsRepository.upsertPublicStoreCustomer({
+      workspaceId,
+      name: safePayload.customer.name,
+      phone: safePayload.customer.phone,
+      email: null,
+      password: null,
+      storefrontSlug: safePayload.storefrontSlug,
+      outletId: safePayload.outletId,
+    }))?.id,
     idempotencyKey: normalizedIdempotencyKey,
     customerNote: safePayload.customerNote,
     channel,
@@ -590,10 +664,23 @@ export async function createPublicCheckout({ idempotencyKey, body }) {
 }
 
 export async function getPublicPaymentStatus({ paymentId }) {
-  const payment = await paymentsRepository.findByIdGlobal({ paymentId });
+  let payment = await paymentsRepository.findByIdGlobal({ paymentId });
   if (!payment) throw new AppError('PAYMENT_NOT_FOUND', 'Payment not found', 404);
-  const order = payment.orderId ? await ordersRepository.workspaceFindById({ workspaceId: payment.workspaceId, orderId: payment.orderId }) : null;
+  if (['pending', 'processing'].includes(String(payment.status || '').toLowerCase()) && payment.providerTransactionId) {
+    try {
+      await syncPaymentWithProvider({ workspaceId: payment.workspaceId, paymentId: payment.id });
+      payment = await paymentsRepository.findByIdGlobal({ paymentId }) || payment;
+    } catch (error) {
+      // The payment page can continue polling when the provider status is temporarily unavailable.
+      console.warn(`[PublicPaymentStatus] Provider sync skipped for ${paymentId}:`, error.message);
+    }
+  }
+  let order = payment.orderId ? await ordersRepository.workspaceFindById({ workspaceId: payment.workspaceId, orderId: payment.orderId }) : null;
   if (!order?.publicOrderToken) throw new AppError('PAYMENT_NOT_FOUND', 'Payment not found', 404);
+  if (payment.status === 'paid' && order.paymentStatus !== 'paid') {
+    await ordersRepository.syncPaidOrderFromPayment({ workspaceId: payment.workspaceId, orderId: payment.orderId });
+    order = await ordersRepository.workspaceFindById({ workspaceId: payment.workspaceId, orderId: payment.orderId });
+  }
   const pending = ['pending', 'processing'].includes(String(payment.status || '').toLowerCase());
   return {
     payment: {

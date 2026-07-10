@@ -1,17 +1,21 @@
 import express from 'express';
+import multer from 'multer';
 import { authRequired, attachUser } from '../middleware/auth.js';
 import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
 import { authorizePermission } from '../middleware/authorization.js';
+import { uploadRateLimit } from '../middleware/rate-limit.js';
 import { validateBody } from '../middleware/validate.js';
 import { validateProductCreate, validateProductUpdate, validateProductAvailability } from '../validators/products.schema.js';
 import {
   listProducts, getProductDetail, getProductWithAvailability,
-  createProduct, updateProduct, archiveProduct, updateOutletAvailability,
+  createProduct, updateProduct, archiveProduct, updateOutletAvailability, listModifierGroups, replaceModifierProductLinks,
 } from '../services/product.service.js';
 import { productsRepository } from '../db/repositories/index.js';
 import { productsToCsv, validateProductImportRows } from '../services/product-import-export.service.js';
+import { uploadFile } from '../services/file.service.js';
 
 const router = express.Router();
+const upload = multer({ dest: 'uploads/tmp/', limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
 
 router.use(authRequired, attachUser, attachWorkspaceContext);
 
@@ -38,6 +42,48 @@ router.get('/export.csv', authorizePermission('products', 'export'), async (req,
     res.setHeader('content-type', 'text/csv; charset=utf-8');
     res.setHeader('content-disposition', 'attachment; filename="products.csv"');
     res.send(productsToCsv(products));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/modifiers', authorizePermission('products', 'read'), async (req, res, next) => {
+  try {
+    const result = await listModifierGroups({ user: req.me });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/images/upload', authorizePermission('products', 'write'), uploadRateLimit, upload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: { code: 'NO_FILE', message: 'No file uploaded.' } });
+    const file = await uploadFile({
+      workspaceId: req.me.workspaceId,
+      file: req.file,
+      userId: req.me.id,
+      source: 'product_image',
+      metadata: { public: true, purpose: 'product_image' },
+    });
+    res.status(201).json({
+      data: {
+        id: file.id,
+        stored_name: file.stored_name,
+        original_name: file.original_name,
+        url: `/public-files/${file.stored_name}`,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/modifiers/:modifierGroupId/links', authorizePermission('products', 'write'), async (req, res, next) => {
+  try {
+    const productIds = Array.isArray(req.body?.productIds) ? req.body.productIds : [];
+    const result = await replaceModifierProductLinks({ user: req.me, modifierGroupId: req.params.modifierGroupId, productIds });
+    res.json(result);
   } catch (err) {
     next(err);
   }
