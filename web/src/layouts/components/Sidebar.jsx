@@ -24,6 +24,7 @@ import {
   faUserShield,
   faBell,
   faSlidersH,
+  faTablet,
 } from '@fortawesome/free-solid-svg-icons'
 import {
   faComment,
@@ -39,6 +40,7 @@ const navigationIcons = {
   dashboard: faHome,
   orders: faShoppingBag,
   'kitchen-view': faUtensils,
+  'kitchen-tablet': faTablet,
   'online-store': faStore,
   products: faCube,
   outlets: faStore,
@@ -64,6 +66,7 @@ const activeNavigationKeys = new Set([
   'dashboard',
   'orders',
   'kitchen-view',
+  'kitchen-tablet',
   'online-store',
   'products',
   'outlets',
@@ -194,6 +197,10 @@ export default function Sidebar() {
 
   useEffect(() => {
     const user = accessUser || getSessionUser()
+    if (String(user?.workspaceRole || user?.role).toLowerCase() === 'outlet_staff') {
+      setOrdersCount(0)
+      return
+    }
     api
       .get('/orders', { params: getOrderQueryParams(user) })
       .then((res) => {

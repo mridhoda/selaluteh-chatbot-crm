@@ -4,7 +4,12 @@ import { buildCheckoutPayload, createCheckoutAttempt, resetCheckoutAttempt } fro
 import { normalizePhone } from '../utils/normalizePhone'
 
 export function useCheckoutForm({ intentItems = [], intentContext = {}, validatedCart, validateCart, onSuccess }) {
-  const [values, setValues] = useState({ name: '', phone: '', note: '' })
+  const [values, setValues] = useState(() => {
+    try {
+      const customer = JSON.parse(window.localStorage.getItem('public-store-customer') || '{}')
+      return { name: customer.name || '', phone: customer.phone || '', note: '' }
+    } catch { return { name: '', phone: '', note: '' } }
+  })
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')

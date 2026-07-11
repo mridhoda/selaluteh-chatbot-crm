@@ -1,7 +1,7 @@
 import { formatCurrency } from '../utils/formatCurrency'
 import OrderProductThumbnail from './OrderProductThumbnail'
 
-export default function OrderSummaryCard({ items = [], totals, productImages = {} }) {
+export default function OrderSummaryCard({ items = [], totals, productImages = {}, customerNote = '' }) {
   return (
     <section>
       <div className="space-y-3">
@@ -23,6 +23,13 @@ export default function OrderSummaryCard({ items = [], totals, productImages = {
           </div>
         ))}
       </div>
+
+      {customerNote && (
+        <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
+          <p className="m-0 text-[10px] font-black uppercase tracking-wider text-amber-600">Catatan Pesanan</p>
+          <p className="m-0 mt-1 font-medium leading-relaxed">{customerNote}</p>
+        </div>
+      )}
 
       <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
         <div className="space-y-2 text-sm">

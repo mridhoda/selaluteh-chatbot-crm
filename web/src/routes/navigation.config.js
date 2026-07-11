@@ -3,8 +3,8 @@ export const navigationGroups = [
     label: 'COMMERCE',
     items: [
       { label: 'Dashboard', path: '/app', key: 'dashboard' },
-      { label: 'Orders', path: '/app/orders', key: 'orders', permission: { resource: 'orders', action: 'read' } },
-      { label: 'Kitchen View', path: '/app/kitchen', key: 'kitchen-view', permission: { resource: 'orders', action: 'manage_status' } },
+      { label: 'Orders', path: '/app/orders', key: 'orders', permission: { resource: 'orders', action: 'read' }, hiddenForOutletStaff: true },
+      { label: 'Kitchen Tablet', path: '/app/kitchen-tablet', key: 'kitchen-tablet', permission: { resource: 'orders', action: 'manage_status' } },
       { label: 'Online Store', path: '/app/online-store', key: 'online-store', permission: { resource: 'products', action: 'read' } },
       { label: 'Products', path: '/app/products', key: 'products', permission: { resource: 'products', action: 'read' } },
       { label: 'Outlets', path: '/app/outlets', key: 'outlets', permission: { resource: 'outlets', action: 'read' } },

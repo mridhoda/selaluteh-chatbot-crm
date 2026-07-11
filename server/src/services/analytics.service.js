@@ -2,19 +2,25 @@ import { getSupabaseServiceClient } from '../db/supabase.js';
 import { requireWorkspaceId } from '../db/supabase-query.js';
 import { AppError } from '../utils/errors.js';
 
-export async function getDashboardSummary({ workspaceId, startDate, endDate, timezone = 'Asia/Makassar' }) {
+function applyOutletScope(query, outletIds) {
+  return Array.isArray(outletIds) ? query.in('outlet_id', outletIds) : query;
+}
+
+export async function getDashboardSummary({ workspaceId, startDate, endDate, outletIds, timezone = 'Asia/Makassar' }) {
   requireWorkspaceId(workspaceId);
   const client = getSupabaseServiceClient();
 
   const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const end = endDate || new Date().toISOString();
 
-  const { data: orders } = await client
+  let query = client
     .from('orders')
-    .select('id, status, payment_status, total_amount, paid_at')
+    .select('id, order_number, status, payment_status, total_amount, paid_at, created_at, customer_name_snapshot, contacts(name), outlets(name)')
     .eq('workspace_id', workspaceId)
     .gte('created_at', start)
     .lte('created_at', end);
+  query = applyOutletScope(query, outletIds);
+  const { data: orders } = await query.order('created_at', { ascending: false });
 
   const totalOrders = orders?.length ?? 0;
   const paidOrders = orders?.filter(o => o.payment_status === 'paid') ?? [];
@@ -31,17 +37,27 @@ export async function getDashboardSummary({ workspaceId, startDate, endDate, tim
     cancelledCount: cancelled.length,
     grossSales,
     period: { start, end },
+    recentOrders: (orders || []).slice(0, 8).map((order) => ({
+      id: order.id,
+      orderNumber: order.order_number,
+      customerName: order.contacts?.name || order.customer_name_snapshot || 'Customer',
+      outletName: order.outlets?.name || '-',
+      totalAmount: order.total_amount,
+      paymentStatus: order.payment_status,
+      status: order.status,
+    })),
   };
 }
 
-export async function getOutletPerformance({ workspaceId, outletId, startDate, endDate }) {
+export async function getOutletPerformance({ workspaceId, outletId, outletIds, startDate, endDate }) {
   requireWorkspaceId(workspaceId);
   const client = getSupabaseServiceClient();
 
   let q = client
     .from('orders')
-    .select('id, outlet_id, status, payment_status, total_amount, created_at')
+    .select('id, outlet_id, status, payment_status, total_amount, created_at, outlets(name)')
     .eq('workspace_id', workspaceId);
+  q = applyOutletScope(q, outletIds);
   if (outletId) q = q.eq('outlet_id', outletId);
   if (startDate) q = q.gte('created_at', startDate);
   if (endDate) q = q.lte('created_at', endDate);
@@ -51,7 +67,7 @@ export async function getOutletPerformance({ workspaceId, outletId, startDate, e
   const map = {};
   for (const o of orders ?? []) {
     const key = o.outlet_id;
-    if (!map[key]) map[key] = { outletId: key, orderCount: 0, paidCount: 0, grossSales: 0 };
+    if (!map[key]) map[key] = { outletId: key, outletName: o.outlets?.name || 'Outlet', orderCount: 0, paidCount: 0, grossSales: 0 };
     map[key].orderCount += 1;
     if (o.payment_status === 'paid') {
       map[key].paidCount += 1;
@@ -62,7 +78,7 @@ export async function getOutletPerformance({ workspaceId, outletId, startDate, e
   return Object.values(map).sort((a, b) => b.grossSales - a.grossSales);
 }
 
-export async function getProductPerformance({ workspaceId, outletId, startDate, endDate }) {
+export async function getProductPerformance({ workspaceId, outletId, outletIds, startDate, endDate }) {
   requireWorkspaceId(workspaceId);
   const client = getSupabaseServiceClient();
 
@@ -70,6 +86,7 @@ export async function getProductPerformance({ workspaceId, outletId, startDate, 
     .from('order_items')
     .select('*, orders!inner(workspace_id, outlet_id, status, payment_status)');
   q = q.eq('orders.workspace_id', workspaceId);
+  if (Array.isArray(outletIds)) q = q.in('orders.outlet_id', outletIds);
   if (outletId) q = q.eq('orders.outlet_id', outletId);
   if (startDate) q = q.gte('orders.created_at', startDate);
   if (endDate) q = q.lte('orders.created_at', endDate);
@@ -94,7 +111,7 @@ export async function getProductPerformance({ workspaceId, outletId, startDate, 
   return Object.values(map).sort((a, b) => b.grossRevenue - a.grossRevenue);
 }
 
-export async function getChannelPerformance({ workspaceId, startDate, endDate }) {
+export async function getChannelPerformance({ workspaceId, outletIds, startDate, endDate }) {
   requireWorkspaceId(workspaceId);
   const client = getSupabaseServiceClient();
 
@@ -102,6 +119,7 @@ export async function getChannelPerformance({ workspaceId, startDate, endDate })
     .from('orders')
     .select('id, channel_snapshot, payment_status, total_amount, created_at')
     .eq('workspace_id', workspaceId);
+  q = applyOutletScope(q, outletIds);
   if (startDate) q = q.gte('created_at', startDate);
   if (endDate) q = q.lte('created_at', endDate);
 

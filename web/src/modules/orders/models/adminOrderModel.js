@@ -478,9 +478,9 @@ function normalizeItems(order) {
   return readRawItems(order).map((item) => {
     const sItem = stripSensitive(item) || {}
     const snapshot = readItemSnapshot(sItem)
-    const modifiers = firstValue(sItem.modifiers, sItem.selectedModifiers, sItem.selected_modifier_options, snapshot.modifiers)
+    const modifiers = firstValue(sItem.metadata?.modifiers, sItem.modifiers, sItem.selectedModifiers, sItem.selected_modifier_options, snapshot.modifiers)
     const variant = Array.isArray(modifiers)
-      ? modifiers.map((modifier) => modifier.name || modifier.label || modifier.value || modifier.optionName).filter(Boolean).join(', ')
+      ? modifiers.map((modifier) => modifier.option_name || modifier.optionName || modifier.value || modifier.name || modifier.label).filter(Boolean).join(', ')
       : firstValue(sItem.variant, sItem.variantName, sItem.variant_name, snapshot.variant, sItem.notes, '')
 
     const quantity = toNumber(firstValue(sItem.quantity, sItem.qty, sItem.count), 1)

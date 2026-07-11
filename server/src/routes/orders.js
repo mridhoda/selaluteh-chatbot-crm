@@ -40,6 +40,21 @@ router.get('/', authorizePermission('orders', 'read'), requireScopedOutletSelect
   } catch (err) { next(err); }
 });
 
+router.get('/kitchen', authorizePermission('orders', 'manage_status'), requireScopedOutletSelection((req) => req.query.outletId || req.query.outlet_id, 'outletId is required for outlet-scoped kitchen access'), async (req, res, next) => {
+  try {
+    const result = await listWorkspaceOrdersForUser({
+      user: req.me,
+      outletId: req.query.outletId || req.query.outlet_id,
+      status: req.query.status,
+      paymentStatus: req.query.paymentStatus,
+      page: req.query.page,
+      limit: req.query.limit,
+      sort: req.query.sort,
+    });
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
 router.get('/:id', authorizePermission('orders', 'read'), async (req, res, next) => {
   try {
     const order = await getWorkspaceOrderForUser({ user: req.me, orderId: req.params.id });

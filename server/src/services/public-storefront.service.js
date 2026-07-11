@@ -565,7 +565,7 @@ export async function createPublicCheckout({ idempotencyKey, body }) {
     fulfillmentType: 'pickup',
     customer: { name: body?.customer?.name.trim(), phone: body?.customer?.phone.trim() },
     items: validation.cart_snapshot.items,
-    customerNote: body?.customer_note || body?.customerNote || null,
+    customerNote: body?.customer?.note || body?.customer_note || body?.customerNote || null,
   };
   const requestHash = stableHash(safePayload);
   const workspaceId = validation.context.workspaceId;

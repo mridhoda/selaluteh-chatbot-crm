@@ -33,15 +33,6 @@ export async function saveWebPushSubscription({ workspaceId, userId, subscriptio
 
   const client = getSupabaseServiceClient();
 
-  // Disable any previous subscriptions from this user so only the freshest
-  // browser session receives pushes. A stale entry accepted by FCM but never
-  // shown is the most common reason test notifications appear to succeed but
-  // never arrive in the browser.
-  await client.from(TABLE).update({ status: 'disabled' })
-    .eq('workspace_id', workspaceId)
-    .eq('user_id', userId)
-    .neq('endpoint', subscription.endpoint);
-
   const { data, error } = await client
     .from(TABLE)
     .upsert({
@@ -126,7 +117,7 @@ async function sendOrderPush({ workspaceId, outletId, order, type, title }) {
     type,
     title,
     body: buildOrderNotificationBody(order),
-    url: '/orders',
+    url: '/app/kitchen',
     orderId: order?.id,
     orderNumber: order?.orderNumber,
     workspaceId,
@@ -140,7 +131,7 @@ async function sendOrderPush({ workspaceId, outletId, order, type, title }) {
       await webpush.sendNotification({
         endpoint: sub.endpoint,
         keys: { p256dh: sub.p256dh, auth: sub.auth },
-      }, payload);
+      }, payload, { headers: { Urgency: 'high' } });
       sent += 1;
     } catch (err) {
       const statusCode = err.statusCode || err.status;
@@ -172,6 +163,7 @@ export async function sendTestWebPush({ workspaceId, userId }) {
       const res = await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         JSON.stringify({ type: 'test', title: 'Notifikasi aktif', body: 'Test notification berhasil diterima.', url: '/settings' }),
+        { headers: { Urgency: 'high' } },
       );
       if (res.statusCode >= 200 && res.statusCode < 300) {
         sent += 1;

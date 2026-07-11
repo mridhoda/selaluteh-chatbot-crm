@@ -17,6 +17,11 @@ export async function getPublicOrderByToken(publicOrderToken) {
 
 export function transformOrderToPublic(order) {
   const customer = order.customerSnapshot || {};
+  const orderNumber = order.orderNumber || '';
+  const orderSequence = orderNumber.split('-').at(-1);
+  const queueNumber = /^A\d+$/.test(orderNumber)
+    ? orderNumber
+    : /^\d+$/.test(orderSequence) ? `A${Number(orderSequence)}` : null;
   const paymentUrlAllowed = ['unpaid', 'pending', 'processing'].includes(String(order.paymentStatus || '').toLowerCase());
   const publicStatus = derivePublicOrderStatus(order);
   const amounts = {
@@ -32,9 +37,11 @@ export function transformOrderToPublic(order) {
   return {
     public_order_token: order.publicOrderToken || order.public_order_token,
     publicOrderToken: order.publicOrderToken || order.public_order_token,
-    order_number: order.orderNumber,
-    orderNumber: order.orderNumber,
-    orderNumberPublic: order.orderNumber,
+    order_number: orderNumber,
+    orderNumber,
+    orderNumberPublic: orderNumber,
+    queueNumber,
+    queue_number: queueNumber,
     channel: order.channel || order.source || 'online_store',
     public_order_status: publicStatus,
     publicOrderStatus: publicStatus,
@@ -57,6 +64,7 @@ export function transformOrderToPublic(order) {
       phone: maskPhone(customer.phone || order.customerPhoneSnapshot),
       phoneMasked: maskPhone(customer.phone || order.customerPhoneSnapshot),
     },
+    customerNote: order.fulfillmentSnapshot?.customerNote || order.notes || null,
     amounts,
     totals: {
       subtotalMinor: amounts.subtotal_amount,

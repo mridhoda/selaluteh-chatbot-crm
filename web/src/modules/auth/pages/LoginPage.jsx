@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import api from '../../../shared/api/httpClient'
-import { requestWebPushPermission } from '../../../shared/services/webPush'
+import { registerOrderPushNotifications, requestWebPushPermission } from '../../../shared/services/webPush'
 import {
   getDemoToken,
   getDemoUser,
@@ -57,6 +57,7 @@ export default function Login() {
         localStorage.removeItem('rememberedEmail')
       }
       sessionStorage.setItem('user', JSON.stringify(r.data.user))
+      await registerOrderPushNotifications().catch(() => {})
       navigate('/app')
     } catch (e) {
       if (!e.response) {

@@ -949,8 +949,20 @@ body.sidebar-pinned .dashboard-layout.no-sidebar .navbar {
 @media (min-width: 768px) and (max-width: 1023px) {
   .dashboard-layout:has(.orders-page-shell),
   .dashboard-layout:has(.orders-page-shell) .main,
-  .dashboard-layout:has(.orders-page-shell) .main-body {
+  .dashboard-layout:has(.orders-page-shell) .main-body,
+  .dashboard-layout:has(.dashboard-overview),
+  .dashboard-layout:has(.dashboard-overview) .main,
+  .dashboard-layout:has(.dashboard-overview) .main-body,
+  .dashboard-layout:has(.profile-page--scrollable),
+  .dashboard-layout:has(.profile-page--scrollable) .main,
+  .dashboard-layout:has(.profile-page--scrollable) .main-body {
     overflow: visible;
+  }
+
+  .dashboard-layout:has(.profile-page--scrollable) {
+    height: auto;
+    max-height: none;
+    min-height: 100dvh;
   }
 
   .dashboard-layout:has(.orders-page-shell) .orders-page-shell {

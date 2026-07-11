@@ -3,6 +3,7 @@ import React, {
   useContext,
   useState,
   useCallback,
+  useEffect,
   useRef,
 } from 'react'
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react'
@@ -104,6 +105,27 @@ export function ToastProvider({ children }) {
     },
     [dismiss]
   )
+
+  const lastOrderNoticeRef = useRef(new Map())
+  useEffect(() => {
+    const showOrderToast = (event) => {
+      const data = event.detail || {}
+      const key = `${data.type || event.type}:${data.orderId || data.order?.id || ''}`
+      const now = Date.now()
+      if (lastOrderNoticeRef.current.get(key) > now - 3000) return
+      lastOrderNoticeRef.current.set(key, now)
+      add('info', data.body || data.title || 'Ada pesanan baru masuk.')
+    }
+
+    window.addEventListener('order:created', showOrderToast)
+    window.addEventListener('order:paid', showOrderToast)
+    window.addEventListener('push:test', showOrderToast)
+    return () => {
+      window.removeEventListener('order:created', showOrderToast)
+      window.removeEventListener('order:paid', showOrderToast)
+      window.removeEventListener('push:test', showOrderToast)
+    }
+  }, [add])
 
   const value = {
     success: (msg) => add('success', msg),

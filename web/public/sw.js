@@ -6,26 +6,32 @@ self.addEventListener('push', (event) => {
     data = { title: 'Notifikasi baru', body: event.data ? event.data.text() : '' };
   }
 
-  const title = data.title || 'Notifikasi baru';
-  const options = {
-    body: data.body || '',
-    icon: '/logo-selalu-kopi.png',
-    badge: '/logo-selalu-kopi.png',
-    tag: data.type && data.orderId ? `${data.type}:${data.orderId}` : data.type || 'selaluteh-notification',
-    data: {
-      url: data.url || '/orders',
-      orderId: data.orderId || null,
-      workspaceId: data.workspaceId || null,
-    },
-    requireInteraction: data.type === 'order.created',
-  };
+  event.waitUntil((async () => {
+    const clientList = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    clientList.forEach((client) => client.postMessage({ type: 'push-order', payload: data }));
 
-  event.waitUntil(self.registration.showNotification(title, options));
+    if (clientList.some((client) => client.visibilityState === 'visible')) return;
+
+    await self.registration.showNotification(data.title || 'Notifikasi baru', {
+      body: data.body || '',
+      icon: '/logo-selalu-kopi.png',
+      badge: '/logo-selalu-kopi.png',
+      // Each push is independent so Android can alert again for a new order.
+      tag: `${data.type || 'selaluteh-notification'}:${data.orderId || Date.now()}:${data.createdAt || Date.now()}`,
+      renotify: true,
+      vibrate: [100, 60, 140],
+      data: {
+        url: data.url || '/app/kitchen',
+        orderId: data.orderId || null,
+        workspaceId: data.workspaceId || null,
+      },
+    });
+  })());
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = new URL(event.notification.data?.url || '/orders', self.location.origin).href;
+    const targetUrl = new URL(event.notification.data?.url || '/app/kitchen', self.location.origin).href;
 
   event.waitUntil((async () => {
     const clientList = await clients.matchAll({ type: 'window', includeUncontrolled: true });

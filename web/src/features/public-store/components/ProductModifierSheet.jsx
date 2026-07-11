@@ -60,9 +60,20 @@ export default function ProductModifierSheet({ product, open, onClose, onAdd }) 
     <>
       <div className="fixed inset-0 z-50 bg-black/60 transition-opacity" onClick={onClose} />
       <div className="fixed bottom-0 left-0 right-0 z-50 mx-auto flex max-h-[90vh] max-w-md flex-col rounded-t-3xl bg-white shadow-2xl">
-        <div className="flex justify-center pt-3 pb-2 shrink-0">
-          <div className="h-1.5 w-12 rounded-full bg-gray-200" />
-        </div>
+        <button
+          type="button"
+          className="mx-4 mt-3 mb-2 flex items-center gap-2 rounded-xl border border-[var(--brand-100)] bg-[var(--brand-50)] px-3 py-1.5 text-left transition-colors hover:bg-[var(--brand-100)] active:scale-[0.99] shrink-0"
+          onClick={onClose}
+        >
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-[var(--brand-600)] shadow-sm">
+            <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+          </span>
+          <span>
+            <span className="block text-xs font-black text-[var(--brand-700)]">Kembali ke daftar menu</span>
+          </span>
+        </button>
 
         <div className="flex-1 overflow-y-auto pb-24">
           <div className="px-4 pb-4">

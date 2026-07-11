@@ -1,5 +1,9 @@
-export default function StoreHeader({ brandName, subtitle = 'Online Store', logoUrl, cartCount, onOpenCart }) {
+import { useNavigate } from 'react-router-dom'
+
+export default function StoreHeader({ brandName, subtitle = 'Online Store', logoUrl, cartCount, storefrontSlug, onOpenCart }) {
+  const navigate = useNavigate()
   const displayName = String(brandName || '').replace(/\s+Online\s+Store\s*$/i, '').trim()
+  const lastOrderToken = typeof window === 'undefined' ? '' : window.localStorage.getItem(`public-store-last-order:${storefrontSlug}`)
   return (
     <header className="border-b border-gray-100 bg-white px-4 py-3">
       <div className="mx-auto flex max-w-md items-center justify-between gap-3">
@@ -12,7 +16,18 @@ export default function StoreHeader({ brandName, subtitle = 'Online Store', logo
             <span className="block truncate text-xs font-medium text-gray-500">{subtitle || 'Online Store'}</span>
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="relative flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            aria-label="Akun saya"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-100 bg-white text-[var(--store-primary)] shadow-sm"
+            onClick={() => navigate(`/store/${storefrontSlug}/account`)}
+          >
+            <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="3.5" />
+              <path d="M4.5 20c.8-4 3.3-6 7.5-6s6.7 2 7.5 6" />
+            </svg>
+          </button>
           <button
             type="button"
             aria-label="Buka keranjang"

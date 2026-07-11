@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import {
   Activity,
   CheckCircle2,
@@ -113,7 +113,6 @@ export default function DashboardOverviewPage() {
   const [outletRows, setOutletRows] = useState([])
   const [productRows, setProductRows] = useState([])
   const [channelRows, setChannelRows] = useState([])
-  const [outlets, setOutlets] = useState([])
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -131,28 +130,18 @@ export default function DashboardOverviewPage() {
         outletRes,
         productRes,
         channelRes,
-        outletsRes,
-        ordersRes,
       ] = await Promise.all([
         api.get('/analytics/summary', { params }),
         api.get('/analytics/outlets', { params }),
         api.get('/analytics/products', { params }),
         api.get('/analytics/channels', { params }),
-        api.get('/outlets'),
-        api.get('/orders', {
-          params: {
-            limit: 8,
-            startDate: params.startDate,
-            endDate: params.endDate,
-          },
-        }),
       ])
-      setSummary(summaryRes.data?.data || {})
+      const dashboardSummary = summaryRes.data?.data || {}
+      setSummary(dashboardSummary)
       setOutletRows(toArray(outletRes))
       setProductRows(toArray(productRes))
       setChannelRows(toArray(channelRes))
-      setOutlets(toArray(outletsRes))
-      setOrders(toArray(ordersRes))
+      setOrders(dashboardSummary.recentOrders || [])
     } catch (err) {
       console.error('Failed to load dashboard:', err)
       setError('Dashboard gagal memuat data. Silakan coba refresh.')
@@ -165,10 +154,6 @@ export default function DashboardOverviewPage() {
     loadDashboard()
   }, [loadDashboard])
 
-  const outletName = useMemo(
-    () => new Map(outlets.map((outlet) => [outlet.id, outlet.name])),
-    [outlets]
-  )
   const maxOutletSales = Math.max(
     ...outletRows.map((row) => Number(row.grossSales || 0)),
     1
@@ -188,7 +173,6 @@ export default function DashboardOverviewPage() {
     <ProgressRows
       rows={outletRows.slice(0, 6)}
       labelFor={(row) =>
-        outletName.get(row.outletId) ||
         row.outletName ||
         'Outlet tidak diketahui'
       }
@@ -253,7 +237,7 @@ export default function DashboardOverviewPage() {
   )
 
   return (
-    <div className='min-h-full space-y-5 bg-slate-50 p-5 text-left'>
+    <div className='dashboard-overview min-h-full space-y-5 bg-slate-50 p-5 text-left'>
       <div className='flex flex-wrap items-start justify-between gap-4'>
         <div>
           <div className='flex items-center gap-2'>
@@ -393,7 +377,7 @@ export default function DashboardOverviewPage() {
         <div className='rounded-xl border border-slate-200 bg-white px-4 py-3'>
           <p className='text-[11px] font-bold text-slate-400'>Outlet aktif</p>
           <p className='mt-1 text-lg font-black text-slate-900'>
-            {outlets.length}
+              {outletRows.length}
           </p>
         </div>
         <div className='rounded-xl border border-slate-200 bg-white px-4 py-3'>

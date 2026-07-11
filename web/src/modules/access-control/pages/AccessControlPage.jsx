@@ -70,6 +70,12 @@ const roleTemplates = [
 
 const modulePermissions = [
   {
+    domain: 'Dashboard',
+    permissions: [
+      ['dashboard.read', 'Read dashboard', 'Melihat ringkasan bisnis untuk outlet yang ditugaskan tanpa membuka modul pesanan, outlet, atau produk.'],
+    ],
+  },
+  {
     domain: 'Workspace',
     permissions: [
       ['workspace.read', 'Read settings', 'Melihat detail konfigurasi dasar dan informasi workspace.'],
@@ -140,6 +146,7 @@ const rolePermissions = {
     .flatMap((group) => group.permissions.map(([key]) => key))
     .filter((key) => key !== 'members.update_role' && key !== 'outlets.archive'),
   outlet_manager: [
+    'dashboard.read',
     'outlets.read',
     'outlets.update',
     'orders.read',
@@ -155,61 +162,20 @@ const rolePermissions = {
     'analytics.export',
   ],
   outlet_staff: [
-    'outlets.read',
-    'orders.read',
+    'dashboard.read',
     'orders.manage_status',
-    'products.read',
-    'inventory.read',
-    'chats.read',
-    'chats.reply',
   ],
   customer_support: [
+    'dashboard.read',
     'orders.read',
     'chats.read',
     'chats.reply',
     'chats.assign',
     'contacts.export',
   ],
-  finance_viewer: ['payments.read', 'analytics.export'],
-  analyst: ['workspace.read', 'analytics.export'],
+  finance_viewer: ['dashboard.read', 'payments.read', 'analytics.export'],
+  analyst: ['dashboard.read', 'workspace.read', 'analytics.export'],
 }
-
-const fallbackMembers = [
-  {
-    id: 'owner-demo',
-    name: 'Workspace Owner',
-    email: 'owner@selaluteh.local',
-    role: 'owner',
-    outletScopeMode: 'ALL_OUTLETS',
-    outlets: ['all'],
-    status: 'ACTIVE',
-  },
-  {
-    id: 'manager-demo',
-    name: 'Outlet Manager',
-    email: 'manager@selaluteh.local',
-    role: 'outlet_manager',
-    outletScopeMode: 'SELECTED_OUTLETS',
-    outlets: ['samarinda', 'tenggarong'],
-    status: 'ACTIVE',
-  },
-  {
-    id: 'staff-demo',
-    name: 'Kitchen Staff',
-    email: 'staff@selaluteh.local',
-    role: 'outlet_staff',
-    outletScopeMode: 'SELECTED_OUTLETS',
-    outlets: ['samarinda'],
-    status: 'ACTIVE',
-  },
-]
-
-const fallbackOutletOptions = [
-  { id: 'samarinda', name: 'SelaluTeh Samarinda' },
-  { id: 'tenggarong', name: 'SelaluTeh Tenggarong' },
-  { id: 'bontang', name: 'SelaluTeh Bontang' },
-  { id: 'danau-murung', name: 'SelaluTeh Danau Murung' },
-]
 
 function normalizeOutlet(outlet, index = 0) {
   const id = outlet.id || outlet._id || outlet.outletId || `outlet-${index}`
@@ -221,6 +187,8 @@ function normalizeOutlet(outlet, index = 0) {
     address: outlet.address || outlet.metadata?.address || '',
   }
 }
+
+const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''))
 
 function readSessionUser() {
   try {
@@ -253,9 +221,9 @@ function initials(name = '') {
 export default function AccessControlPage({ currentUser }) {
   const sessionUser = currentUser || readSessionUser()
   const isOwner = normalizeRole(sessionUser?.role) === 'owner'
-  const [members, setMembers] = useState(fallbackMembers)
-  const [outlets, setOutlets] = useState(fallbackOutletOptions)
-  const [selectedMemberId, setSelectedMemberId] = useState(fallbackMembers[0].id)
+  const [members, setMembers] = useState([])
+  const [outlets, setOutlets] = useState([])
+  const [selectedMemberId, setSelectedMemberId] = useState(null)
   const [selectedRole, setSelectedRole] = useState('owner')
   const [customPermissions, setCustomPermissions] = useState(rolePermissions.owner)
   const [query, setQuery] = useState('')
@@ -301,7 +269,7 @@ export default function AccessControlPage({ currentUser }) {
             email: member.email || member.user?.email || member.users?.email || '-',
             role,
             outletScopeMode: template.scope,
-            outlets: template.scope === 'ALL_OUTLETS' ? ['all'] : ['samarinda'],
+            outlets: template.scope === 'ALL_OUTLETS' ? ['all'] : [],
             permissions: accessPolicy.permissions || rolePermissions[role] || rolePermissions.outlet_staff,
             status: String(member.status || 'ACTIVE').toUpperCase(),
           }
@@ -310,7 +278,7 @@ export default function AccessControlPage({ currentUser }) {
         setSelectedMemberId(mapped[0]?.id || null)
       } catch {
         if (!active) return
-        setMembers(fallbackMembers)
+        setMembers([])
       } finally {
         if (active) setIsLoading(false)
       }
@@ -334,7 +302,7 @@ export default function AccessControlPage({ currentUser }) {
         if (mappedOutlets.length) setOutlets(mappedOutlets)
       })
       .catch(() => {
-        setOutlets(fallbackOutletOptions)
+        setOutlets([])
       })
     return () => {
       active = false
@@ -416,7 +384,7 @@ export default function AccessControlPage({ currentUser }) {
       const outletPayload = scopeMode === 'ALL_OUTLETS'
         ? outlets.map((outlet) => ({ outletId: outlet.id, role: selectedRole }))
         : scopeMode === 'SELECTED_OUTLETS'
-          ? selectedOutlets.map((outletId) => ({ outletId, role: selectedRole }))
+          ? selectedOutlets.filter(isUuid).map((outletId) => ({ outletId, role: selectedRole }))
           : []
       await api.put(`/api/outlets/users/${selectedMember.id}/access`, { outlets: outletPayload })
 

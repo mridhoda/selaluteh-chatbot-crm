@@ -143,6 +143,15 @@ export function createPhase5ApiClient({
     getPublicOrder(publicOrderToken) {
       return request(`${PUBLIC_PREFIX}/orders/${encodePath(publicOrderToken, 'publicOrderToken')}`)
     },
+    customerRegister(payload) {
+      return request(`${PUBLIC_PREFIX}/customer/register`, { method: 'POST', body: payload })
+    },
+    customerLogin(payload) {
+      return request(`${PUBLIC_PREFIX}/customer/login`, { method: 'POST', body: payload })
+    },
+    getCustomerOrders(token) {
+      return request(`${PUBLIC_PREFIX}/customer/orders`, { headers: { Authorization: `Bearer ${token}` } })
+    },
   }
 
   function adminOrderAction(orderId, action, body) {

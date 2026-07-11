@@ -4,9 +4,10 @@ import test from 'node:test';
 
 const root = new URL('../../src/', import.meta.url);
 
-test('public customer account and history routes remain disabled', async () => {
+test('public customer history is bound to an authenticated customer session', async () => {
   const source = await readFile(new URL('routes/public-store.js', root), 'utf8');
-  assert.doesNotMatch(source, /router\.(post|get)\('\/customer\/(login|register)|router\.get\('\/customer-orders/);
+  assert.match(source, /router\.get\('\/customer\/orders', requirePublicCustomer/);
+  assert.doesNotMatch(source, /customer-orders|req\.query\.(phone|email|contactId|contact_id)/);
 });
 
 test('public payment polling requires the matching order capability token', async () => {

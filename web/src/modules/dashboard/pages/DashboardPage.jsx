@@ -35,10 +35,12 @@ import {
   faClock,
   faGlobe,
   faFileExcel,
+  faRightFromBracket,
 } from '@fortawesome/free-solid-svg-icons'
 import FileInput from '../../../shared/components/ui/FileInput'
 import ProductsPage from '../../products/pages/ProductsPage'
 import KitchenPage from '../../kitchen/pages/KitchenPage'
+import KitchenTabletPage from '../../kitchen/pages/KitchenTabletPage'
 import OnlineStorePage from '../../online-store/pages/OnlineStorePage'
 import OutletsPage from '../../outlets/pages/OutletsPage'
 import PaymentsPage from '../../payments/pages/PaymentsPage'
@@ -1144,6 +1146,7 @@ function AnalyticsPage() {
 /* ========================= PROFILE ========================= */
 function Profile() {
   const { user, setUser } = useAuth()
+  const navigate = useNavigate()
   const workspaceId = user?.workspaceId || user?.workspace_id || null
   const initialWorkspaceName = user?.workspaceName || user?.workspace_name || user?.workspace?.name || user?.name || ''
   const [name, setName] = useState(initialWorkspaceName)
@@ -1234,6 +1237,14 @@ function Profile() {
     } finally { setChannelSaving(false) }
   }
 
+  const logout = () => {
+    sessionStorage.removeItem('token')
+    localStorage.removeItem('token')
+    sessionStorage.removeItem('user')
+    localStorage.removeItem('user')
+    navigate('/login')
+  }
+
   return (
     <div style={{ padding: '28px 32px', maxWidth: 640, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
 
@@ -1263,6 +1274,17 @@ function Profile() {
               }}>{String(user.role).replace(/_/g, ' ')}</span>
             )}
           </div>
+          <button
+            onClick={logout}
+            aria-label='Keluar'
+            title='Keluar'
+            style={{
+              marginLeft: 'auto', width: 42, height: 42, border: 'none', borderRadius: '50%',
+              background: '#fff1f2', color: '#e11d48', fontSize: 18, cursor: 'pointer', flexShrink: 0,
+            }}
+          >
+            <FontAwesomeIcon icon={faRightFromBracket} />
+          </button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1370,6 +1392,9 @@ function ProtectedPage({ user, resource, action = 'read', ownerOnly = false, chi
   if (resource && !hasPermission(resource, action, user)) return <Navigate to='/app' replace />
   return children
 }
+function isOutletStaff(user) {
+  return String(user?.workspaceRole || user?.role).toLowerCase() === 'outlet_staff'
+}
 function Billing() {
   const [data, setData] = useState(null)
   useEffect(() => {
@@ -1430,7 +1455,7 @@ export default function Dashboard() {
       <div className='sidebar-container'>
         <Sidebar />
       </div>
-      <Navbar authed user={user} plan={plan} />
+      {!isOutletStaff(accessUser) && <Navbar authed user={user} plan={plan} />}
       <div className={`main ${isProductsPage ? 'main--products' : ''}`}>
         <div
           className={`main-body ${isProductsPage ? 'main-body--products' : ''}`}
@@ -1443,8 +1468,9 @@ export default function Dashboard() {
             <Route path='complaints' element={<ProtectedPage user={accessUser} resource='complaints'><Complaints /></ProtectedPage>} />
             <Route path='escalation-inbox' element={<ProtectedPage user={accessUser} resource='complaints'><EscalationInboxPage /></ProtectedPage>} />
             <Route path='escalation-settings' element={<ProtectedPage user={accessUser} resource='complaints'><EscalationSettingsPage /></ProtectedPage>} />
-            <Route path='orders' element={<ProtectedPage user={accessUser} resource='orders'><Orders /></ProtectedPage>} />
-            <Route path='kitchen' element={<ProtectedPage user={accessUser} resource='orders' action='manage_status'><KitchenPage /></ProtectedPage>} />
+            <Route path='orders' element={isOutletStaff(accessUser) ? <Navigate to='/app' replace /> : <ProtectedPage user={accessUser} resource='orders'><Orders /></ProtectedPage>} />
+            <Route path='kitchen' element={<Navigate to='/app/kitchen-tablet' replace />} />
+            <Route path='kitchen-tablet' element={<ProtectedPage user={accessUser} resource='orders' action='manage_status'><KitchenTabletPage /></ProtectedPage>} />
             <Route path='online-store' element={<ProtectedPage user={accessUser} resource='products'><OnlineStorePage /></ProtectedPage>} />
             <Route path='products' element={<ProtectedPage user={accessUser} resource='products'><ProductsPage /></ProtectedPage>} />
             <Route path='outlets' element={<ProtectedPage user={accessUser} resource='outlets'><OutletsPage /></ProtectedPage>} />

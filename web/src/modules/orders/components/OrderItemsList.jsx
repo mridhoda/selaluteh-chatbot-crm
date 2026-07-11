@@ -75,9 +75,11 @@ export default function OrderItemsList({
                   <div className='font-bold text-[var(--text-primary)] text-sm leading-tight'>
                     {item.qty || 1}x {item.name}
                   </div>
-                  <div className='text-[11px] text-[var(--text-muted)] mt-1 leading-none'>
-                    {item.variant || 'Standard'}
-                  </div>
+                  {item.variant && (
+                    <div className='text-[11px] text-[var(--text-muted)] mt-1 leading-none'>
+                      {item.variant}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className='font-bold text-[var(--text-primary)] text-sm shrink-0'>

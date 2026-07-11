@@ -264,20 +264,23 @@ export const contactsSupabaseRepository = {
     requireWorkspaceId(workspaceId);
     const normalizedPhone = String(phone || '').replace(/[^\d+]/g, '');
     if (!normalizedPhone) return null;
+    const phoneVariants = [normalizedPhone];
+    if (normalizedPhone.startsWith('0') && normalizedPhone.length > 1) phoneVariants.push(`62${normalizedPhone.slice(1)}`);
+    if (normalizedPhone.startsWith('62') && normalizedPhone.length > 2) phoneVariants.push(`0${normalizedPhone.slice(2)}`);
     const client = getSupabaseServiceClient();
     const result = await client
       .from(TABLE)
       .select('*')
       .eq('workspace_id', workspaceId)
       .is('platform_id', null)
-      .eq('phone', normalizedPhone)
+      .in('phone', phoneVariants)
       .contains('tags', ['online_store'])
       .maybeSingle();
     const row = extractSingle(result, 'contacts.findPublicStoreCustomerByPhone');
     return row ? mapContactRow(row) : null;
   },
 
-  async upsertPublicStoreCustomer({ workspaceId, name, phone, email, password, storefrontSlug, outletId = null }) {
+  async upsertPublicStoreCustomer({ workspaceId, name, phone, email, passwordHash, storefrontSlug, outletId = null, contactId = null, upgradedFromGuest = false }) {
     requireWorkspaceId(workspaceId);
     const normalizedPhone = String(phone || '').replace(/[^\d+]/g, '');
     const normalizedEmail = String(email || '').trim().toLowerCase();
@@ -289,8 +292,10 @@ export const contactsSupabaseRepository = {
       storefront_slug: storefrontSlug || null,
       dashboard_access: false,
     };
-    const existing = normalizedEmail
-      ? await this.findPublicStoreCustomerByEmail({ workspaceId, email: normalizedEmail })
+    const existing = contactId
+      ? await this.findById({ workspaceId, contactId })
+      : normalizedEmail
+      ? (await this.findPublicStoreCustomerByEmail({ workspaceId, email: normalizedEmail })) || await this.findPublicStoreCustomerByPhone({ workspaceId, phone: normalizedPhone })
       : await this.findPublicStoreCustomerByPhone({ workspaceId, phone: normalizedPhone });
     if (existing) {
       const updateResult = await client
@@ -301,7 +306,15 @@ export const contactsSupabaseRepository = {
           email: normalizedEmail || existing.email || null,
           tags: ['online_store', 'demo_customer'],
           last_outlet_id: outletId || existing.lastOutletId || null,
-          metadata: { ...(existing.metadata || {}), ...metadata },
+          metadata: {
+            ...(existing.metadata || {}),
+            ...metadata,
+            ...(passwordHash ? {
+              customer_password_hash: passwordHash,
+              account_status: 'member',
+              ...(upgradedFromGuest ? { upgraded_from_guest: true, upgraded_at: new Date().toISOString() } : {}),
+            } : {}),
+          },
         })
         .eq('id', existing.id)
         .select()
@@ -319,7 +332,10 @@ export const contactsSupabaseRepository = {
         email: normalizedEmail || null,
         tags: ['online_store', 'demo_customer'],
         last_outlet_id: outletId || null,
-        metadata,
+        metadata: {
+          ...metadata,
+          ...(passwordHash ? { customer_password_hash: passwordHash, account_status: 'member' } : {}),
+        },
       })
       .select()
       .single();

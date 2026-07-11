@@ -19,13 +19,14 @@ import {
   ChefHat
 } from 'lucide-react'
 import api from '../../../shared/api/httpClient'
-import { getOrderQueryParams, getSessionUser } from '../../../shared/auth/permissions'
+import { getOrderQueryParams, getSessionUser, normalizeRole } from '../../../shared/auth/permissions'
 import {
   getReceiptEligibility,
   isAndroidUserAgent,
   openReceiptPrintWindow,
   printWithBestAvailableTransport,
 } from '../../printing/thermalPrint'
+import KitchenTabletPage from './KitchenTabletPage'
 
 // Helper for WhatsApp SVG Icon (Identical to reference green logo)
 const WhatsAppIcon = ({ className = "w-5 h-5" }) => (
@@ -42,6 +43,54 @@ const TelegramIcon = ({ className = "w-5 h-5" }) => (
     <path d="M7.7 11.5l7.3-2.8c.3-.1.6.1.5.4l-1.2 5.8c-.1.4-.3.5-.6.3l-2.2-1.6-1.1 1c-.1.1-.2.2-.4.2l.1-1.9 3.5-3.2c.1-.1 0-.2-.1-.1L9.1 12.3l-1.9-.6c-.4-.1-.4-.4.5-.7z" fill="white"/>
   </svg>
 )
+
+const OnlineStoreIcon = ({ className = "w-5 h-5" }) => (
+  <svg viewBox="0 0 16 16" className={`${className} fill-[#635bff]`} xmlns="http://www.w3.org/2000/svg">
+    <path d="M1 1h6v6H1V1Zm2 2v2h2V3H3Zm6-2h6v6H9V1Zm2 2v2h2V3h-2ZM1 9h6v6H1V9Zm2 2v2h2v-2H3Zm7-2h2v2h-2V9Zm3 0h2v2h-2V9Zm-4 4h2v2H9v-2Zm4 0h2v2h-2v-2Zm-1-2h2v2h-2v-2Z" />
+  </svg>
+)
+
+const renderChannelIcon = (channel, className = "w-5 h-5") => {
+  const ch = String(channel || '').toLowerCase()
+  if (['qr_store', 'qr', 'location_qr', 'location-qr', 'table_qr', 'table-qr', 'website', 'web', 'online', 'online_store', 'public_store', 'storefront'].includes(ch)) {
+    return <OnlineStoreIcon className={className} />
+  }
+  if (ch === 'whatsapp') {
+    return <WhatsAppIcon className={className} />
+  }
+  if (ch === 'telegram') {
+    return <TelegramIcon className={className} />
+  }
+  return <span className="text-lg shrink-0">💬</span>
+}
+
+const renderChannelLabel = (channel) => {
+  const ch = String(channel || '').toLowerCase()
+  if (['qr_store', 'qr', 'location_qr', 'location-qr', 'table_qr', 'table-qr', 'website', 'web', 'online', 'online_store', 'public_store', 'storefront'].includes(ch)) {
+    return 'Online Store'
+  }
+  if (ch === 'whatsapp') {
+    return 'WhatsApp'
+  }
+  if (ch === 'telegram') {
+    return 'Telegram'
+  }
+  return channel || 'Chat'
+}
+
+const renderChannelSub = (channel) => {
+  const ch = String(channel || '').toLowerCase()
+  if (['qr_store', 'qr', 'location_qr', 'location-qr', 'table_qr', 'table-qr', 'website', 'web', 'online', 'online_store', 'public_store', 'storefront'].includes(ch)) {
+    return 'via Online Order'
+  }
+  if (ch === 'whatsapp') {
+    return 'via SelaluTeh Marketplace'
+  }
+  if (ch === 'telegram') {
+    return 'via Telegram Bot'
+  }
+  return 'via Chat Room'
+}
 
 const formatCurrency = (value = 0) => {
   const num = Number(value) || 0
@@ -80,6 +129,16 @@ const normalizeKitchenStatus = (order = {}) => {
 }
 
 export default function KitchenPage() {
+  const canUseDesktopView = ['owner', 'admin'].includes(normalizeRole(getSessionUser()?.workspaceRole || getSessionUser()?.role))
+  const [viewMode, setViewMode] = useState(() => {
+    if (!canUseDesktopView) return 'tablet'
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('kitchen_view_mode')
+      if (saved) return saved
+      return window.innerWidth < 1024 ? 'tablet' : 'classic'
+    }
+    return 'classic'
+  })
   const [orders, setOrders] = useState([])
   const [outlets, setOutlets] = useState([])
   const [selectedOutlet, setSelectedOutlet] = useState('all')
@@ -90,8 +149,11 @@ export default function KitchenPage() {
   const [loading, setLoading] = useState(false)
   const [printingOrderId, setPrintingOrderId] = useState(null)
   
-  // Reference for the dashboard container to toggle fullscreen
   const boardRef = useRef(null)
+
+  if (!canUseDesktopView || viewMode === 'tablet') {
+    return <KitchenTabletPage onViewModeChange={canUseDesktopView ? setViewMode : undefined} />
+  }
 
   // Web Audio Context for order notification chime
   const playChime = () => {
@@ -165,7 +227,7 @@ export default function KitchenPage() {
         const payStatusEntry = entries.find(([key]) => key.toLowerCase().includes('payment'))
         const paymentStatus = order.paymentStatus || (payStatusEntry ? payStatusEntry[1] : (order.paymentProofUrl ? 'Paid' : 'Unpaid'))
 
-        const channel = (order.channelSnapshot || order.source || 'whatsapp').toLowerCase()
+        const channel = (order.channel || order.channelSnapshot || order.source || 'whatsapp').toLowerCase()
 
         const items = Array.isArray(order.items) && order.items.length > 0
           ? order.items.map(i => {
@@ -173,10 +235,16 @@ export default function KitchenPage() {
               if (price > 0 && price < 100) {
                 price = price * 1000
               }
+              const modifiers = i.metadata?.modifiers || i.modifiers || i.selectedModifiers || i.selected_modifier_options || []
+              const variantStr = i.metadata?.variant || i.variant || i.variantName || i.variant_name || 
+                (Array.isArray(modifiers) ? modifiers.map(m => m.option_name || m.optionName || m.value || m.name || m.label).filter(Boolean).join(', ') : '') || ''
+              
               return {
                 name: i.name || i.productNameSnapshot || 'Item',
                 qty: i.quantity || 1,
-                variant: i.metadata?.variant || '',
+                variant: variantStr,
+                note: i.metadata?.note || i.note || i.notes || '',
+                imageUrl: i.metadata?.imageUrl || i.metadata?.image_url || null,
                 price
               }
             })
@@ -229,7 +297,7 @@ export default function KitchenPage() {
               : null) || order.customerPhoneSnapshot || ''
           },
           outlet: outletName,
-          note: order.notes || '',
+          note: order.notes || order.fulfillmentSnapshot?.customerNote || order.fulfillment_snapshot?.customerNote || '',
           platformFee,
           totalAmount
         }
@@ -239,7 +307,7 @@ export default function KitchenPage() {
 
       // Set default selected order if none selected
       if (!selectedOrderId && parsedOrders.length > 0) {
-        const initialSelected = parsedOrders.find(o => o.orderIdDisplay === '#8') || parsedOrders[0]
+        const initialSelected = parsedOrders.find(o => o.orderIdDisplay === 'A8') || parsedOrders[0]
         setSelectedOrderId(initialSelected._id)
       }
 
@@ -469,6 +537,18 @@ export default function KitchenPage() {
             <span>Fullscreen</span>
           </button>
 
+          {/* Tablet View Switcher */}
+          <button 
+            onClick={() => {
+              setViewMode('tablet')
+              localStorage.setItem('kitchen_view_mode', 'tablet')
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-xs font-bold text-gray-700 transition-all shadow-sm"
+          >
+            <Store className="w-3.5 h-3.5 text-purple-600" />
+            <span>Tablet View</span>
+          </button>
+
           {/* Print Selected Order Button */}
           <button 
             disabled={!selectedOrderId || Boolean(printingOrderId)}
@@ -528,7 +608,7 @@ export default function KitchenPage() {
                         </div>
                       </div>
                       <div className="flex items-center shrink-0">
-                        {order.channel === 'whatsapp' ? <WhatsAppIcon className="w-5 h-5" /> : <TelegramIcon className="w-5 h-5" />}
+                        {renderChannelIcon(order.channel, "w-5 h-5")}
                       </div>
                     </div>
 
@@ -551,15 +631,31 @@ export default function KitchenPage() {
                     {/* Items List layout exactly like reference */}
                     <div className="flex-1 space-y-2 text-xs font-semibold text-gray-700 border-t border-dashed border-gray-100 pt-3 pb-2">
                       {order.items.map((item, idx) => (
-                        <div key={idx} className="flex gap-2 items-start">
-                          <span className="text-[#11182E] font-bold shrink-0 min-w-[18px]">{item.qty}x</span>
-                          <div className="flex flex-col">
-                            <span className="text-gray-900 font-bold">{item.name}</span>
-                            {item.variant && <span className="text-[10px] text-gray-400 font-normal mt-0.5">{item.variant}</span>}
+                        <div key={idx} className="flex gap-2.5 items-start">
+                          <span className="text-[#11182E] font-bold shrink-0 min-w-[16px] mt-0.5">{item.qty}x</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-gray-900 font-bold break-words">{item.name}</span>
+                            {item.variant && (
+                              <span className="block text-[10px] text-purple-600 font-semibold mt-0.5 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded w-max max-w-full break-words">
+                                {item.variant}
+                              </span>
+                            )}
+                            {item.note && (
+                              <span className="block text-[10px] text-amber-600 font-medium mt-0.5 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded w-max max-w-full italic break-words">
+                                Note: {item.note}
+                              </span>
+                            )}
                           </div>
                         </div>
                       ))}
                     </div>
+
+                    {order.note && (
+                      <div className="mt-2 p-2 bg-[#FFFDF2] border border-[#FFF8CC] rounded-lg text-[10px] text-amber-800 font-semibold leading-normal break-words flex items-start gap-1">
+                        <span className="shrink-0 text-amber-500 font-bold">Note:</span>
+                        <span>{order.note}</span>
+                      </div>
+                    )}
 
                     {/* Action buttons */}
                     <div className="flex gap-2 mt-3 pt-2">
@@ -623,7 +719,7 @@ export default function KitchenPage() {
                         </div>
                       </div>
                       <div className="flex items-center shrink-0">
-                        {order.channel === 'whatsapp' ? <WhatsAppIcon className="w-5 h-5" /> : <TelegramIcon className="w-5 h-5" />}
+                        {renderChannelIcon(order.channel, "w-5 h-5")}
                       </div>
                     </div>
 
@@ -646,15 +742,31 @@ export default function KitchenPage() {
                     {/* Items List layout exactly like reference */}
                     <div className="flex-1 space-y-2 text-xs font-semibold text-gray-700 border-t border-dashed border-gray-100 pt-3 pb-2">
                       {order.items.map((item, idx) => (
-                        <div key={idx} className="flex gap-2 items-start">
-                          <span className="text-[#11182E] font-bold shrink-0 min-w-[18px]">{item.qty}x</span>
-                          <div className="flex flex-col">
-                            <span className="text-gray-900 font-bold">{item.name}</span>
-                            {item.variant && <span className="text-[10px] text-gray-400 font-normal mt-0.5">{item.variant}</span>}
+                        <div key={idx} className="flex gap-2.5 items-start">
+                          <span className="text-[#11182E] font-bold shrink-0 min-w-[16px] mt-0.5">{item.qty}x</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-gray-900 font-bold break-words">{item.name}</span>
+                            {item.variant && (
+                              <span className="block text-[10px] text-purple-600 font-semibold mt-0.5 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded w-max max-w-full break-words">
+                                {item.variant}
+                              </span>
+                            )}
+                            {item.note && (
+                              <span className="block text-[10px] text-amber-600 font-medium mt-0.5 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded w-max max-w-full italic break-words">
+                                Note: {item.note}
+                              </span>
+                            )}
                           </div>
                         </div>
                       ))}
                     </div>
+
+                    {order.note && (
+                      <div className="mt-2 p-2 bg-[#FFFDF2] border border-[#FFF8CC] rounded-lg text-[10px] text-amber-800 font-semibold leading-normal break-words flex items-start gap-1">
+                        <span className="shrink-0 text-amber-500 font-bold">Note:</span>
+                        <span>{order.note}</span>
+                      </div>
+                    )}
 
                     {/* Action buttons */}
                     <div className="flex gap-2 mt-3 pt-2">
@@ -753,11 +865,7 @@ export default function KitchenPage() {
                     </div>
                   </div>
                   <div className="shrink-0">
-                    {selectedOrder.channel === 'whatsapp' ? (
-                      <WhatsAppIcon className="w-10 h-10" />
-                    ) : (
-                      <TelegramIcon className="w-10 h-10" />
-                    )}
+                    {renderChannelIcon(selectedOrder.channel, "w-10 h-10")}
                   </div>
                 </div>
               </div>
@@ -774,7 +882,7 @@ export default function KitchenPage() {
                 </span>
               </div>
 
-              {/* Items List section */}
+               {/* Items List section */}
               <div className="border-t border-gray-100 pt-3">
                 <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Items</h4>
                 <div className="space-y-2">
@@ -785,12 +893,20 @@ export default function KitchenPage() {
                         <div className="flex flex-col">
                           <span className="text-gray-900 font-bold">{item.name}</span>
                           {item.variant && <span className="text-xs text-gray-400 font-normal mt-0.5">{item.variant}</span>}
+                          {item.note && <span className="text-xs text-amber-600 font-normal mt-0.5 italic">Note: {item.note}</span>}
                         </div>
                       </div>
                       <div className="text-gray-700 font-bold shrink-0">{formatCurrency(item.price * item.qty)}</div>
                     </div>
                   ))}
                 </div>
+
+                {selectedOrder.note && (
+                  <div className="mt-3 rounded-xl border border-[#FFF8CC] bg-[#FFFDF2] p-3 text-xs text-amber-800 leading-relaxed font-semibold">
+                    <h4 className="mb-1 text-[11px] font-bold uppercase tracking-wider text-amber-700">Note from Customer</h4>
+                    {selectedOrder.note}
+                  </div>
+                )}
 
                 {/* Clean solid separator line */}
                 <div className="border-t border-gray-200 my-2.5"></div>
@@ -854,27 +970,17 @@ export default function KitchenPage() {
               <div className="border-t border-gray-100 pt-3">
                 <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Channel</h4>
                 <div className="flex items-center gap-2.5 text-xs text-gray-600 font-semibold">
-                  {selectedOrder.channel === 'whatsapp' ? <WhatsAppIcon className="w-5 h-5" /> : <TelegramIcon className="w-5 h-5" />}
+                  {renderChannelIcon(selectedOrder.channel, "w-5 h-5")}
                   <div className="flex flex-col">
                     <span className="font-bold text-gray-800">
-                      {selectedOrder.channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}
+                      {renderChannelLabel(selectedOrder.channel)}
                     </span>
                     <span className="text-[10px] text-gray-400 font-semibold mt-0.5">
-                      via {selectedOrder.channel === 'whatsapp' ? 'SelaluTeh Marketplace' : 'Telegram Bot'}
+                      {renderChannelSub(selectedOrder.channel)}
                     </span>
                   </div>
                 </div>
               </div>
-
-              {/* Note from Customer Section */}
-              {selectedOrder.note && (
-                <div className="border-t border-gray-100 pt-3">
-                  <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Note from Customer</h4>
-                  <div className="p-3 bg-[#FFFDF2] border border-[#FFF8CC] rounded-xl text-xs text-amber-800 leading-relaxed font-semibold">
-                    {selectedOrder.note}
-                  </div>
-                </div>
-              )}
 
             </div>
 

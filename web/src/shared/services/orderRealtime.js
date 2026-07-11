@@ -5,6 +5,40 @@ function getToken() {
 }
 
 let orderStream = null
+let audioContext = null
+
+function getAudioContext() {
+  if (typeof window === 'undefined') return null
+  const AudioContext = window.AudioContext || window.webkitAudioContext
+  if (!AudioContext) return null
+  audioContext ||= new AudioContext()
+  return audioContext
+}
+
+export function unlockOrderChime() {
+  const context = getAudioContext()
+  if (context?.state === 'suspended') context.resume().catch(() => {})
+}
+
+export function playOrderChime() {
+  if (document.visibilityState !== 'visible') return
+  const context = getAudioContext()
+  if (!context || context.state !== 'running') return
+
+  const now = context.currentTime
+  ;[0, 0.16].forEach((offset, index) => {
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(index === 0 ? 880 : 1175, now + offset)
+    gain.gain.setValueAtTime(0.0001, now + offset)
+    gain.gain.exponentialRampToValueAtTime(0.16, now + offset + 0.015)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.13)
+    oscillator.connect(gain).connect(context.destination)
+    oscillator.start(now + offset)
+    oscillator.stop(now + offset + 0.14)
+  })
+}
 
 export function startOrderRealtimeStream() {
   if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
@@ -69,6 +103,7 @@ export function stopOrderRealtimeStream() {
 }
 
 function showOrderNotification(data) {
+  if (document.visibilityState === 'visible') return
   if (!('Notification' in window) || Notification.permission !== 'granted') return
   try {
     new Notification(data.title || 'Pesanan baru masuk', {

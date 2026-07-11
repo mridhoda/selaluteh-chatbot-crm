@@ -21,6 +21,23 @@
   box-shadow: 0 1px 4px #00000008;
 }
 
+.profile-logout-icon {
+  margin-left: auto;
+  width: 64px;
+  height: 64px;
+  border: none;
+  border-radius: 50%;
+  background: #fff1f2;
+  color: #e11d48;
+  font-size: 24px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.profile-logout-icon:hover {
+  background: #ffe4e6;
+}
+
 .profile-avatar {
   width: 64px;
   height: 64px;

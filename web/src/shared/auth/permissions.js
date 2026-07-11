@@ -6,6 +6,7 @@ const ROLE_ALIASES = {
 
 const PERMISSION_MATRIX = {
   owner: {
+    dashboard: ['read'],
     products: ['read', 'write', 'export'],
     outlets: ['read', 'write', 'manage_access'],
     orders: ['read', 'write', 'manage_status'],
@@ -25,6 +26,7 @@ const PERMISSION_MATRIX = {
     access_control: ['manage'],
   },
   admin: {
+    dashboard: ['read'],
     products: ['read', 'write', 'export'],
     outlets: ['read', 'write', 'manage_access'],
     orders: ['read', 'write', 'manage_status'],
@@ -43,6 +45,7 @@ const PERMISSION_MATRIX = {
     billing: ['read'],
   },
   outlet_manager: {
+    dashboard: ['read'],
     products: ['read'],
     outlets: ['read'],
     orders: ['read', 'write', 'manage_status'],
@@ -58,6 +61,7 @@ const PERMISSION_MATRIX = {
     reports: ['read'],
   },
   human_agent: {
+    dashboard: ['read'],
     products: ['read'],
     outlets: ['read'],
     orders: ['read', 'manage_status'],
@@ -123,6 +127,7 @@ export function permissionsToResourceMap(permissions = []) {
 }
 
 export function canAccessNavItem(item, user = getSessionUser()) {
+  if (item.hiddenForOutletStaff && String(user?.workspaceRole || user?.role).toLowerCase() === 'outlet_staff') return false
   if (item.ownerOnly) return isOwner(user)
   if (!item.permission) return true
   return hasPermission(item.permission.resource, item.permission.action || 'read', user)

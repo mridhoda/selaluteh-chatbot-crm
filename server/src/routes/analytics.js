@@ -1,6 +1,7 @@
 import express from 'express';
 import { authRequired, attachUser } from '../middleware/auth.js';
 import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
+import { authorizePermission } from '../middleware/authorization.js';
 import {
   getDashboardSummary, getOutletPerformance, getProductPerformance,
   getChannelPerformance, getPaymentMetrics, getCSVReport,
@@ -9,6 +10,7 @@ import {
 
 const router = express.Router();
 router.use(authRequired, attachUser, attachWorkspaceContext);
+router.use(authorizePermission('dashboard', 'read'));
 
 router.get('/summary', async (req, res, next) => {
   try {
@@ -16,6 +18,7 @@ router.get('/summary', async (req, res, next) => {
       workspaceId: req.me.workspaceId,
       startDate: req.query.startDate,
       endDate: req.query.endDate,
+      outletIds: req.allowedOutletIds,
     });
     res.json({ data: result });
   } catch (err) { next(err); }
@@ -26,6 +29,7 @@ router.get('/outlets', async (req, res, next) => {
     const result = await getOutletPerformance({
       workspaceId: req.me.workspaceId,
       outletId: req.query.outletId,
+      outletIds: req.allowedOutletIds,
       startDate: req.query.startDate,
       endDate: req.query.endDate,
     });
@@ -38,8 +42,10 @@ router.get('/products', async (req, res, next) => {
     const result = await getProductPerformance({
       workspaceId: req.me.workspaceId,
       outletId: req.query.outletId,
+      outletIds: req.allowedOutletIds,
       startDate: req.query.startDate,
       endDate: req.query.endDate,
+      outletIds: req.allowedOutletIds,
     });
     res.json({ data: result });
   } catch (err) { next(err); }

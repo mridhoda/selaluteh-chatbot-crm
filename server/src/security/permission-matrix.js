@@ -16,6 +16,7 @@ export const PERMISSION_MATRIX = Object.freeze({
   owner: freezeRoleConfig({
     scope: 'workspace',
     permissions: {
+      dashboard: ['read'],
       products: ['read', 'write', 'export'],
       outlets: ['read', 'write', 'manage_access'],
       orders: ['read', 'write', 'manage_status'],
@@ -31,6 +32,7 @@ export const PERMISSION_MATRIX = Object.freeze({
   admin: freezeRoleConfig({
     scope: 'workspace',
     permissions: {
+      dashboard: ['read'],
       products: ['read', 'write', 'export'],
       outlets: ['read', 'write', 'manage_access'],
       orders: ['read', 'write', 'manage_status'],
@@ -46,6 +48,7 @@ export const PERMISSION_MATRIX = Object.freeze({
   outlet_manager: freezeRoleConfig({
     scope: 'outlet',
     permissions: {
+      dashboard: ['read'],
       products: ['read'],
       outlets: ['read'],
       orders: ['read', 'write', 'manage_status'],
@@ -61,6 +64,7 @@ export const PERMISSION_MATRIX = Object.freeze({
   human_agent: freezeRoleConfig({
     scope: 'outlet',
     permissions: {
+      dashboard: ['read'],
       products: ['read'],
       outlets: ['read'],
       orders: ['read', 'manage_status'],

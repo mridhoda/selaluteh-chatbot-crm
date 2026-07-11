@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import OrderStatusTimeline from '../components/OrderStatusTimeline'
 import OrderSummaryCard from '../components/OrderSummaryCard'
@@ -18,6 +19,10 @@ export default function OrderStatusPage() {
 
   const storefrontSlug = window.localStorage.getItem('last-storefront-slug') || 'selalu-kopi'
   const store = usePublicStorefront(storefrontSlug)
+
+  useEffect(() => {
+    if (order?.publicOrderToken) window.localStorage.setItem(`public-store-last-order:${storefrontSlug}`, order.publicOrderToken)
+  }, [order?.publicOrderToken, storefrontSlug])
 
   if (orderStatus.loading) {
     return (
@@ -77,18 +82,12 @@ export default function OrderStatusPage() {
           <h2 className="text-xl font-black text-gray-900" style={{ lineHeight: 1.2, marginTop: 0 }}>Status Pesanan</h2>
           <p className="-mt-1.5 text-gray-500 text-sm leading-none mb-5">Pantau progres pesanan kamu.</p>
 
-          <div className="flex items-center justify-center gap-4 w-full">
-            <div className="bg-gray-50 rounded-xl p-3 flex-1 border border-gray-100">
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Order ID</p>
-              <p className="font-extrabold text-gray-900 text-sm">#{order.orderNumberPublic}</p>
+          {order.queueNumber && (
+            <div className="w-full bg-[var(--brand-500)] rounded-xl p-4 border border-[var(--brand-500)]">
+              <p className="text-[10px] text-white/80 font-bold uppercase tracking-wider mb-1">Queue</p>
+              <p className="font-black text-white text-2xl leading-none">{order.queueNumber}</p>
             </div>
-            {order.queueNumber && (
-              <div className="bg-[var(--brand-50)] rounded-xl p-3 flex-1 border border-[var(--brand-100)]">
-                <p className="text-[10px] text-[var(--brand-500)] font-bold uppercase tracking-wider mb-1">Queue No</p>
-                <p className="font-black text-[var(--brand-600)] text-lg leading-none">#{order.queueNumber}</p>
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Timeline Card */}
@@ -98,6 +97,18 @@ export default function OrderStatusPage() {
 
         {/* Customer & Outlet Card */}
         <div className="rounded-[14px] border border-[#eee9e2] bg-white px-4 shadow-[0_2px_8px_rgba(28,25,23,0.06)]">
+          <div className="flex items-center gap-3 py-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#fff3ec] text-[#ff7043]">
+              <svg aria-hidden="true" className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M5 7h14M5 12h14M5 17h9" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[#8b8b8b]">Order ID</div>
+              <div className="mt-0.5 truncate text-[13px] font-bold leading-tight text-[#282828]">#{order.orderNumberPublic}</div>
+            </div>
+          </div>
+          <div className="border-t border-[#f0ede9]" />
           <div className="flex items-center gap-3 py-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#fff3ec] text-[#ff7043]">
               <Store size={18} strokeWidth={1.8} />
@@ -123,7 +134,7 @@ export default function OrderStatusPage() {
         {/* Order Summary Card */}
         <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm">
           <h3 className="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">Ringkasan Pesanan</h3>
-          <OrderSummaryCard items={order.items} totals={order.totals} productImages={productImages} />
+          <OrderSummaryCard items={order.items} totals={order.totals} productImages={productImages} customerNote={order.customerNote} />
         </div>
 
         {/* Actions Card */}

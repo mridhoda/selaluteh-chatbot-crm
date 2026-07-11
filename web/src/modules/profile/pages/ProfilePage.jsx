@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faUser,
@@ -16,12 +17,14 @@ import {
   faCheckCircle,
   faExclamationTriangle,
   faSave,
+  faRightFromBracket,
 } from '@fortawesome/free-solid-svg-icons'
 import {
   faTelegram,
   faWhatsapp,
 } from '@fortawesome/free-brands-svg-icons'
 import api from '../../../shared/api/httpClient'
+import { clearDemoMode } from '../../../mocks/demoState'
 import './profile.css'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -205,13 +208,23 @@ function NotificationChannelsSection({ workspaceId }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
+  const navigate = useNavigate()
   const user = getSessionUser()
   const workspaceId = user?.workspaceId || user?.workspace_id || null
   const workspaceName = getWorkspaceName(user)
   const role = user?.workspaceRole || user?.role
 
+  const handleLogout = () => {
+    clearDemoMode()
+    sessionStorage.removeItem('token')
+    localStorage.removeItem('token')
+    sessionStorage.removeItem('user')
+    localStorage.removeItem('user')
+    navigate('/login')
+  }
+
   return (
-    <div className="profile-page">
+    <div className="profile-page profile-page--scrollable">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="profile-header">
         <div className="profile-avatar">
@@ -224,6 +237,9 @@ export default function ProfilePage() {
             <span className="profile-role-badge">{role.replace(/_/g, ' ')}</span>
           )}
         </div>
+        <button className="profile-logout-icon" onClick={handleLogout} aria-label="Keluar" title="Keluar">
+          <FontAwesomeIcon icon={faRightFromBracket} />
+        </button>
       </div>
 
       {/* ── Notification preferences ────────────────────────────────────────── */}

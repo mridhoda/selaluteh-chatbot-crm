@@ -15,6 +15,7 @@ import {
   publicQrRateLimit,
 } from '../middleware/rate-limit.js';
 import { recordSecurityEvent } from '../services/security-event.service.js';
+import { getPublicCustomerSession, loginPublicCustomer, registerPublicCustomer, requirePublicCustomer, listPublicCustomerOrders } from '../services/public-customer.service.js';
 
 const router = express.Router();
 
@@ -73,6 +74,29 @@ router.post('/checkout', publicCheckoutRateLimit, async (req, res, next) => {
     const data = await createPublicCheckout({ idempotencyKey: req.get('Idempotency-Key') || req.body?.idempotencyKey, body: req.body });
     res.status(data?.idempotency?.status === 'processing' ? 202 : 201).json(data);
   } catch (err) { next(err); }
+});
+
+router.post('/customer/register', async (req, res, next) => {
+  try {
+    const store = await getPublicStorefront({ storefrontSlug: req.body?.storefrontSlug || req.body?.storefront_slug });
+    const data = await registerPublicCustomer({ workspaceId: store.internal.workspaceId, storefrontSlug: req.body?.storefrontSlug || req.body?.storefront_slug, ...req.body });
+    res.status(201).json(data);
+  } catch (err) { next(err); }
+});
+
+router.post('/customer/login', async (req, res, next) => {
+  try {
+    const store = await getPublicStorefront({ storefrontSlug: req.body?.storefrontSlug || req.body?.storefront_slug });
+    res.json(await loginPublicCustomer({ workspaceId: store.internal.workspaceId, email: req.body?.email, password: req.body?.password }));
+  } catch (err) { next(err); }
+});
+
+router.get('/customer/session', requirePublicCustomer, async (req, res, next) => {
+  try { res.json(await getPublicCustomerSession({ workspaceId: req.publicCustomer.workspaceId, contactId: req.publicCustomer.contactId })); } catch (err) { next(err); }
+});
+
+router.get('/customer/orders', requirePublicCustomer, async (req, res, next) => {
+  try { res.json({ orders: await listPublicCustomerOrders({ contactId: req.publicCustomer.contactId }) }); } catch (err) { next(err); }
 });
 
 router.get('/payments/:paymentId/status', publicPaymentStatusRateLimit, async (req, res, next) => {
