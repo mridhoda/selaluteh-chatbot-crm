@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import api from '../../../shared/api/httpClient'
-import { registerOrderPushNotifications } from '../../../shared/services/webPush'
+import { requestWebPushPermission } from '../../../shared/services/webPush'
 import {
   getDemoToken,
   getDemoUser,
@@ -30,6 +30,7 @@ export default function Login() {
   const navigate = useNavigate()
 
   const loginDemo = () => {
+    requestWebPushPermission().catch(() => {})
     setDemoMode(true)
     const token = getDemoToken()
     const user = getDemoUser()
@@ -44,6 +45,8 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
+      // Permission requests must happen during the login click's user activation.
+      await requestWebPushPermission()
       const normalizedEmail = email.trim().toLowerCase()
       const r = await api.post('/auth/login', { email: normalizedEmail, password })
       sessionStorage.setItem('token', r.data.token)
@@ -54,9 +57,6 @@ export default function Login() {
         localStorage.removeItem('rememberedEmail')
       }
       sessionStorage.setItem('user', JSON.stringify(r.data.user))
-      registerOrderPushNotifications().catch((err) => {
-        console.warn('Order push notification registration failed:', err?.message || err)
-      })
       navigate('/app')
     } catch (e) {
       if (!e.response) {

@@ -1,5 +1,4 @@
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { useEffect, useState } from 'react'
 import StoreErrorState from '../components/StoreErrorState'
 import StoreSkeleton from '../components/StoreSkeleton'
 import { useCheckoutForm } from '../hooks/useCheckoutForm'
@@ -8,7 +7,6 @@ import { usePublicStorefront } from '../hooks/usePublicStorefront'
 import PublicStoreLayout from '../layouts/PublicStoreLayout'
 import { formatCurrency } from '../utils/formatCurrency'
 import OrderProductThumbnail from '../components/OrderProductThumbnail'
-import { phase5ApiClient } from '../api/phase5ApiClient'
 
 export default function CheckoutPage() {
   const { storefrontSlug } = useParams()
@@ -28,103 +26,9 @@ export default function CheckoutPage() {
     intentContext: cart.intentContext,
     validatedCart: cart.validatedCart,
     validateCart: cart.validateCart,
-    onSuccess: (checkout) => navigate(`/store/payment/pending/${checkout.paymentId || checkout.checkoutToken}`),
+    onSuccess: (checkout) => navigate(`/store/payment/pending/${checkout.paymentId || checkout.checkoutToken}?publicOrderToken=${encodeURIComponent(checkout.checkoutToken)}`),
   })
   const { setField } = form
-
-  // Auth States
-  const [currentUser, setCurrentUser] = useState(() => {
-    if (typeof window === 'undefined') return null
-    try {
-      const stored = window.localStorage.getItem(`customer-user:${storefrontSlug}`)
-      return stored ? JSON.parse(stored) : null
-    } catch {
-      return null
-    }
-  })
-  
-  const [showAuthSuggestion, setShowAuthSuggestion] = useState(false)
-  const [authModalOpen, setAuthModalOpen] = useState(false)
-  const [authModalMode, setAuthModalMode] = useState('login') // 'login' | 'register'
-  
-  const [authForm, setAuthForm] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  })
-  const [authError, setAuthError] = useState('')
-
-  // Prefill checkout form if user is logged in
-  useEffect(() => {
-    if (currentUser) {
-      setField('name', currentUser.name)
-      setField('phone', currentUser.phone)
-    }
-  }, [currentUser, setField])
-
-  const handleNameFocus = () => {
-    if (!currentUser) {
-      setShowAuthSuggestion(true)
-    }
-  }
-
-  const handleAuthInputChange = (field, val) => {
-    setAuthForm(prev => ({ ...prev, [field]: val }))
-    setAuthError('')
-  }
-
-  const handleLogin = async (e) => {
-    e.preventDefault()
-    if (!authForm.email || !authForm.password) {
-      setAuthError('Email dan Kata Sandi wajib diisi.')
-      return
-    }
-
-    try {
-      const response = await phase5ApiClient.public.loginCustomer({ storefrontSlug, email: authForm.email, password: authForm.password })
-      const user = response.customer
-      setCurrentUser(user)
-      window.localStorage.setItem(`customer-user:${storefrontSlug}`, JSON.stringify(user))
-      setAuthModalOpen(false)
-      setAuthError('')
-      setAuthForm(prev => ({ ...prev, password: '', confirmPassword: '' }))
-    } catch (error) {
-      setAuthError(error.status === 404 ? 'Akun tidak ditemukan. Silakan daftar terlebih dahulu.' : 'Email atau kata sandi salah.')
-    }
-  }
-
-  const handleRegister = async (e) => {
-    e.preventDefault()
-    if (!authForm.name || !authForm.phone || !authForm.email || !authForm.password) {
-      setAuthError('Semua kolom wajib diisi.')
-      return
-    }
-    if (authForm.password !== authForm.confirmPassword) {
-      setAuthError('Konfirmasi Kata Sandi tidak cocok.')
-      return
-    }
-
-    try {
-      const response = await phase5ApiClient.public.registerCustomer({ storefrontSlug, name: authForm.name, phone: authForm.phone, email: authForm.email, password: authForm.password })
-      const user = response.customer
-      setCurrentUser(user)
-      window.localStorage.setItem(`customer-user:${storefrontSlug}`, JSON.stringify(user))
-      setAuthModalOpen(false)
-      setAuthError('')
-      setAuthForm(prev => ({ ...prev, password: '', confirmPassword: '' }))
-    } catch {
-      setAuthError('Pendaftaran akun customer gagal. Coba lagi.')
-    }
-  }
-
-  const handleLogout = () => {
-    setCurrentUser(null)
-    window.localStorage.removeItem(`customer-user:${storefrontSlug}`)
-    form.setField('name', '')
-    form.setField('phone', '')
-  }
 
   if (store.loading) {
     return (
@@ -161,26 +65,6 @@ export default function CheckoutPage() {
       </header>
 
       <main className="max-w-md w-full mx-auto pb-32">
-        {/* Logged in indicator */}
-        {currentUser && (
-          <div className="mx-4 mt-3 p-3 bg-emerald-50/80 border border-emerald-100 rounded-2xl flex justify-between items-center text-xs">
-            <div className="flex items-center gap-2 text-emerald-800 font-bold">
-              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                <path d="m22 4-10 10.01-3-3" />
-              </svg>
-              <span>Akun aktif: {currentUser.name}</span>
-            </div>
-            <button 
-              type="button"
-              onClick={handleLogout}
-              className="text-gray-400 hover:text-rose-600 font-extrabold transition-colors px-2 py-1"
-            >
-              Keluar
-            </button>
-          </div>
-        )}
-
         <div className="bg-white mb-2 px-4 py-3 border-b border-gray-100">
           <h3 className="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">Pickup Outlet</h3>
           {selectedOutlet && (
@@ -213,59 +97,14 @@ export default function CheckoutPage() {
               <input
                 type="text"
                 value={form.values.name}
-                onFocus={handleNameFocus}
                 onChange={(e) => form.setField('name', e.target.value)}
-                disabled={Boolean(currentUser)}
                 placeholder="Masukkan nama"
-                className={`w-full border ${currentUser ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''} ${
+                className={`w-full border ${
                   form.errors.name ? 'border-red-500 focus:ring-red-100' : 'border-gray-200 focus:border-[var(--brand-500)] focus:ring-[var(--brand-50)]'
                 } rounded-2xl p-3 text-sm font-semibold outline-none focus:ring-4 transition placeholder-gray-400/50 placeholder:text-gray-400/50`}
               />
               {form.errors.name && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.name}</p>}
 
-              {/* Auth Suggestion Pop-up */}
-              {showAuthSuggestion && !currentUser && (
-                <div className="mt-3 p-4 bg-white border border-gray-100 shadow-[0_8px_24px_rgba(0,0,0,0.12)] rounded-3xl flex items-center gap-3 relative animate-fade-in z-30">
-                  {/* Cart with Star Icon */}
-                  <div className="relative shrink-0 flex items-center justify-center">
-                    <svg width="42" height="32" viewBox="0 0 24 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M2 3h3l2 8h10l1.8-6H6.5" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M7 11h10l-1.2-4H7v4Z" fill="#dc2626" />
-                      <circle cx="9" cy="15" r="1.5" fill="#475569" />
-                      <circle cx="15" cy="15" r="1.5" fill="#475569" />
-                    </svg>
-                    <div className="absolute -top-1.5 -right-1 text-yellow-400 animate-bounce text-lg" style={{ animationDuration: '2.5s' }}>⭐</div>
-                  </div>
-                  
-                  <div className="flex-1 text-left">
-                    <p className="m-0 font-extrabold text-gray-900 text-xs">Sudah punya akun?</p>
-                    <p className="m-0 mt-0.5 text-[11px] text-gray-500 leading-tight">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAuthModalMode('login')
-                          setAuthModalOpen(true)
-                          setShowAuthSuggestion(false)
-                        }}
-                        className="text-orange-500 font-extrabold underline hover:text-orange-600 mr-1"
-                      >
-                        Login
-                      </button>
-                      untuk mendapatkan promosi dan poin.
-                    </p>
-                  </div>
-                  
-                  <button
-                    type="button"
-                    onClick={() => setShowAuthSuggestion(false)}
-                    className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-50 transition-colors"
-                  >
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 6 6 18M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              )}
             </div>
 
             <div>
@@ -277,9 +116,8 @@ export default function CheckoutPage() {
                 inputMode="numeric"
                 value={form.values.phone}
                 onChange={(e) => form.setField('phone', e.target.value)}
-                disabled={Boolean(currentUser)}
                 placeholder="081234567890"
-                className={`w-full border ${currentUser ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''} ${
+                className={`w-full border ${
                   form.errors.phone ? 'border-red-500 focus:ring-red-100' : 'border-gray-200 focus:border-[var(--brand-500)] focus:ring-[var(--brand-50)]'
                 } rounded-2xl p-3 text-sm font-semibold outline-none focus:ring-4 transition placeholder-gray-400/50 placeholder:text-gray-400/50`}
               />
@@ -365,149 +203,6 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* Auth Modal (Login / Register) */}
-      {authModalOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
-          {/* Backdrop Click */}
-          <div className="absolute inset-0" onClick={() => setAuthModalOpen(false)} />
-          
-          {/* Modal Container */}
-          <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 relative shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto z-10 transform transition-transform duration-300">
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={() => setAuthModalOpen(false)}
-              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-full transition-colors"
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 6 6 18M6 6l12 12" />
-              </svg>
-            </button>
-
-            {authModalMode === 'login' ? (
-              /* LOGIN VIEW */
-              <form onSubmit={handleLogin} className="flex flex-col gap-4 pt-4">
-                <h2 className="text-xl font-black text-gray-900 text-center leading-tight">Masuk Akun</h2>
-                <p className="-mt-3 text-xs text-gray-500 text-center mb-3 leading-tight">Login untuk melanjutkan pesanan dengan mudah.</p>
-
-                {authError && <p className="text-xs font-bold text-red-500 text-center">{authError}</p>}
-
-                <div className="space-y-3.5">
-                  <input
-                    type="email"
-                    required
-                    value={authForm.email}
-                    onChange={(e) => handleAuthInputChange('email', e.target.value)}
-                    placeholder="Email"
-                    className="w-full bg-[#f1f3f5] text-gray-800 placeholder-gray-400/50 placeholder:text-gray-400/50 rounded-full px-5 py-3.5 text-sm font-semibold outline-none border-none focus:ring-2 focus:ring-orange-500/20"
-                  />
-                  <input
-                    type="password"
-                    required
-                    value={authForm.password}
-                    onChange={(e) => handleAuthInputChange('password', e.target.value)}
-                    placeholder="Kata Sandi"
-                    className="w-full bg-[#f1f3f5] text-gray-800 placeholder-gray-400/50 placeholder:text-gray-400/50 rounded-full px-5 py-3.5 text-sm font-semibold outline-none border-none focus:ring-2 focus:ring-orange-500/20"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-[#ff5500] hover:bg-[#e64d00] active:scale-[0.98] text-white font-black text-sm py-4 rounded-full transition shadow-lg shadow-orange-500/20 mt-4 uppercase tracking-wider"
-                >
-                  Masuk
-                </button>
-
-                <div className="text-center mt-2 text-xs font-bold text-gray-500">
-                  Belum punya akun?{' '}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthModalMode('register')
-                      setAuthError('')
-                    }}
-                    className="text-[#ff5500] hover:underline"
-                  >
-                    Daftar
-                  </button>
-                </div>
-              </form>
-            ) : (
-              /* REGISTER VIEW (Matches image 1 style) */
-              <form onSubmit={handleRegister} className="flex flex-col gap-4 pt-4">
-                <h2 className="text-xl font-black text-gray-900 text-center leading-tight">Daftar Akun Baru</h2>
-                <p className="-mt-3 text-xs text-gray-500 text-center mb-3 leading-tight">Lengkapi formulir untuk pendaftaran instan.</p>
-
-                {authError && <p className="text-xs font-bold text-red-500 text-center">{authError}</p>}
-
-                <div className="space-y-3.5">
-                  <input
-                    type="text"
-                    required
-                    value={authForm.name}
-                    onChange={(e) => handleAuthInputChange('name', e.target.value)}
-                    placeholder="Nama"
-                    className="w-full bg-[#f1f3f5] text-gray-800 placeholder-gray-400/50 placeholder:text-gray-400/50 rounded-full px-5 py-3.5 text-sm font-semibold outline-none border-none focus:ring-2 focus:ring-orange-500/20"
-                  />
-                  <input
-                    type="tel"
-                    required
-                    value={authForm.phone}
-                    onChange={(e) => handleAuthInputChange('phone', e.target.value)}
-                    placeholder="No. Telepon"
-                    className="w-full bg-[#f1f3f5] text-gray-800 placeholder-gray-400/50 placeholder:text-gray-400/50 rounded-full px-5 py-3.5 text-sm font-semibold outline-none border-none focus:ring-2 focus:ring-orange-500/20"
-                  />
-                  <input
-                    type="email"
-                    required
-                    value={authForm.email}
-                    onChange={(e) => handleAuthInputChange('email', e.target.value)}
-                    placeholder="Email"
-                    className="w-full bg-[#f1f3f5] text-gray-800 placeholder-gray-400/50 placeholder:text-gray-400/50 rounded-full px-5 py-3.5 text-sm font-semibold outline-none border-none focus:ring-2 focus:ring-orange-500/20"
-                  />
-                  <input
-                    type="password"
-                    required
-                    value={authForm.password}
-                    onChange={(e) => handleAuthInputChange('password', e.target.value)}
-                    placeholder="Kata Sandi"
-                    className="w-full bg-[#f1f3f5] text-gray-800 placeholder-gray-400/50 placeholder:text-gray-400/50 rounded-full px-5 py-3.5 text-sm font-semibold outline-none border-none focus:ring-2 focus:ring-orange-500/20"
-                  />
-                  <input
-                    type="password"
-                    required
-                    value={authForm.confirmPassword}
-                    onChange={(e) => handleAuthInputChange('confirmPassword', e.target.value)}
-                    placeholder="Konfirmasi Kata Sandi"
-                    className="w-full bg-[#f1f3f5] text-gray-800 placeholder-gray-400/50 placeholder:text-gray-400/50 rounded-full px-5 py-3.5 text-sm font-semibold outline-none border-none focus:ring-2 focus:ring-orange-500/20"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-[#ff5500] hover:bg-[#e64d00] active:scale-[0.98] text-white font-black text-sm py-4 rounded-full transition shadow-lg shadow-orange-500/20 mt-4 uppercase tracking-wider"
-                >
-                  Daftar
-                </button>
-
-                <div className="text-center mt-2 text-xs font-bold text-gray-500">
-                  Sudah punya akun?{' '}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthModalMode('login')
-                      setAuthError('')
-                    }}
-                    className="text-[#ff5500] hover:underline"
-                  >
-                    Login
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
     </PublicStoreLayout>
   )
 }

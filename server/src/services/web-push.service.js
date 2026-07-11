@@ -32,6 +32,16 @@ export async function saveWebPushSubscription({ workspaceId, userId, subscriptio
   }
 
   const client = getSupabaseServiceClient();
+
+  // Disable any previous subscriptions from this user so only the freshest
+  // browser session receives pushes. A stale entry accepted by FCM but never
+  // shown is the most common reason test notifications appear to succeed but
+  // never arrive in the browser.
+  await client.from(TABLE).update({ status: 'disabled' })
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .neq('endpoint', subscription.endpoint);
+
   const { data, error } = await client
     .from(TABLE)
     .upsert({
@@ -67,6 +77,14 @@ export async function disableWebPushSubscription({ endpoint, userId }) {
 }
 
 export async function sendOrderCreatedPush({ workspaceId, outletId, order }) {
+  return sendOrderPush({ workspaceId, outletId, order, type: 'order.created', title: 'Pesanan baru masuk' });
+}
+
+export async function sendOrderPaidPush({ workspaceId, outletId, order }) {
+  return sendOrderPush({ workspaceId, outletId, order, type: 'order.paid', title: 'Pesanan sudah dibayar' });
+}
+
+async function sendOrderPush({ workspaceId, outletId, order, type, title }) {
   if (!configureWebPush()) {
     console.warn('[web-push] WEB_PUSH_VAPID_PUBLIC_KEY/PRIVATE_KEY not configured; skipping order notification');
     return { sent: 0, skipped: true, reason: 'not_configured' };
@@ -105,8 +123,8 @@ export async function sendOrderCreatedPush({ workspaceId, outletId, order }) {
   if (error) throw new AppError('PUSH_SUBSCRIPTION_LOOKUP_FAILED', 'Failed to load push subscriptions', 500, { detail: error.message }, error);
 
   const payload = JSON.stringify({
-    type: 'order.created',
-    title: 'Pesanan baru masuk',
+    type,
+    title,
     body: buildOrderNotificationBody(order),
     url: '/orders',
     orderId: order?.id,
@@ -135,6 +153,42 @@ export async function sendOrderCreatedPush({ workspaceId, outletId, order }) {
   }
 
   return { sent };
+}
+
+export async function sendTestWebPush({ workspaceId, userId }) {
+  if (!configureWebPush()) return { sent: 0, skipped: true, reason: 'not_configured' };
+  const client = getSupabaseServiceClient();
+  const { data: subscriptions, error } = await client.from(TABLE)
+    .select('id, endpoint, p256dh, auth')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .eq('status', 'active');
+  if (error) throw new AppError('PUSH_SUBSCRIPTION_LOOKUP_FAILED', 'Failed to load push subscriptions', 500, { detail: error.message }, error);
+  if (!subscriptions?.length) return { sent: 0, skipped: true, reason: 'no_subscription' };
+
+  let sent = 0;
+  for (const sub of subscriptions) {
+    try {
+      const res = await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        JSON.stringify({ type: 'test', title: 'Notifikasi aktif', body: 'Test notification berhasil diterima.', url: '/settings' }),
+      );
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        sent += 1;
+      } else {
+        console.warn('[web-push] test push non-2xx:', res.statusCode);
+      }
+    } catch (err) {
+      const statusCode = err.statusCode || err.status;
+      if (statusCode === 404 || statusCode === 410) {
+        await client.from(TABLE).update({ status: 'disabled' }).eq('id', sub.id);
+        console.warn('[web-push] disabled stale subscription:', sub.id, statusCode);
+      } else {
+        console.error('[web-push] test push failed:', err.message, 'status:', statusCode);
+      }
+    }
+  }
+  return { sent, skipped: sent === 0, reason: sent === 0 ? 'delivery_failed' : null };
 }
 
 function buildOrderNotificationBody(order = {}) {

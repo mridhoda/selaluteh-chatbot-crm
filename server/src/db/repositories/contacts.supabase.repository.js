@@ -287,7 +287,6 @@ export const contactsSupabaseRepository = {
       source: 'online_store_profile',
       account_type: 'customer',
       storefront_slug: storefrontSlug || null,
-      demo_password: password,
       dashboard_access: false,
     };
     const existing = normalizedEmail

@@ -117,7 +117,7 @@ export default function OrderDetailDrawer({
 
   if (!order) {
     return (
-      <aside className='fixed inset-y-0 right-0 z-[80] w-full md:w-[400px] h-[100dvh] bg-[var(--surface-primary)] border-l border-[var(--border-subtle)] overflow-hidden flex flex-col shrink-0 items-center justify-center text-center p-6 text-[var(--text-muted)] shadow-[-4px_0_15px_rgba(17,24,46,0.03)]'>
+      <aside className='fixed inset-y-0 right-0 z-[80] w-full lg:w-[400px] h-[100dvh] bg-[var(--surface-primary)] border-l border-[var(--border-subtle)] overflow-hidden flex flex-col shrink-0 items-center justify-center text-center p-6 text-[var(--text-muted)] shadow-[-4px_0_15px_rgba(17,24,46,0.03)]'>
         <div className='absolute top-4 right-4'>
           <button
             type='button'
@@ -223,7 +223,7 @@ export default function OrderDetailDrawer({
   }
 
   return (
-    <aside className='fixed inset-y-0 right-0 z-[80] w-full md:w-[400px] h-[100dvh] bg-[var(--surface-primary)] border-l border-[var(--border-subtle)] overflow-hidden flex flex-col shrink-0 shadow-[-4px_0_15px_rgba(17,24,46,0.03)]'>
+    <aside className='fixed inset-y-0 right-0 z-[80] w-full lg:w-[400px] h-[100dvh] bg-[var(--surface-primary)] border-l border-[var(--border-subtle)] overflow-hidden flex flex-col shrink-0 shadow-[-4px_0_15px_rgba(17,24,46,0.03)]'>
       {/* Header Panel */}
       <header className='shrink-0 sticky top-0 z-10 px-5 pt-4 pb-3 border-b border-[var(--brand-100)] bg-[image:var(--orders-sidebar-header-bg)]'>
         <div className='flex justify-between items-start mb-2'>

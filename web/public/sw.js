@@ -9,8 +9,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Notifikasi baru';
   const options = {
     body: data.body || '',
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
+    icon: '/logo-selalu-kopi.png',
+    badge: '/logo-selalu-kopi.png',
     tag: data.type && data.orderId ? `${data.type}:${data.orderId}` : data.type || 'selaluteh-notification',
     data: {
       url: data.url || '/orders',

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { phase5ApiClient } from '../api/phase5ApiClient'
 import { getNextPaymentPollingDelay, normalizePaymentStatus, shouldStopPaymentPolling } from '../utils/cartIntentModel'
 
-export function usePaymentStatus(paymentId, { poll = true, intervalMs = 5000, rateLimitedIntervalMs = 30000, maxPolls = 24 } = {}) {
+export function usePaymentStatus(paymentId, publicOrderToken, { poll = true, intervalMs = 5000, rateLimitedIntervalMs = 30000, maxPolls = 24 } = {}) {
   const [payment, setPayment] = useState(null)
   const [status, setStatus] = useState('pending')
   const [loading, setLoading] = useState(true)
@@ -12,7 +12,7 @@ export function usePaymentStatus(paymentId, { poll = true, intervalMs = 5000, ra
   const pollCountRef = useRef(0)
 
   const refresh = useCallback(async () => {
-    if (!paymentId || paymentId === 'undefined' || paymentId === 'null') {
+    if (!paymentId || !publicOrderToken || paymentId === 'undefined' || paymentId === 'null') {
       setError('Payment ID tidak valid.')
       setLoading(false)
       return null
@@ -20,7 +20,7 @@ export function usePaymentStatus(paymentId, { poll = true, intervalMs = 5000, ra
     setError('')
     setLoading(true)
     try {
-      const result = normalizePaymentStatus(await phase5ApiClient.public.getPaymentStatus(paymentId))
+      const result = normalizePaymentStatus(await phase5ApiClient.public.getPaymentStatus(paymentId, publicOrderToken))
       setPayment(result)
       pollCountRef.current += 1
       setPollCount(pollCountRef.current)
@@ -32,7 +32,7 @@ export function usePaymentStatus(paymentId, { poll = true, intervalMs = 5000, ra
     } finally {
       setLoading(false)
     }
-  }, [paymentId])
+  }, [paymentId, publicOrderToken])
 
   useEffect(() => {
     let mounted = true

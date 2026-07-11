@@ -864,10 +864,10 @@ export default function Orders() {
   }
 
   return (
-    <div className='flex flex-1 overflow-hidden bg-[var(--app-background)] -m-4 h-[calc(100vh-58px)] max-h-[calc(100vh-58px)]'>
+    <div className='orders-page-shell flex flex-1 overflow-y-auto lg:overflow-hidden bg-[var(--app-background)] -m-4 min-h-[calc(100dvh-58px)] lg:h-[calc(100dvh-58px)] lg:max-h-[calc(100dvh-58px)]'>
       {/* LEFT PORTION: Orders Main Content Dashboard */}
       <div
-        className={`flex-1 flex flex-col min-w-0 p-4 pt-3 overflow-hidden transition-[padding] duration-200 motion-reduce:transition-none ${isOrderDetailOpen ? 'md:pr-[416px]' : 'md:pr-4'}`}
+        className={`flex-1 flex flex-col min-w-0 p-4 pt-3 overflow-visible lg:overflow-hidden transition-[padding] duration-200 motion-reduce:transition-none ${isOrderDetailOpen ? 'lg:pr-[416px]' : 'lg:pr-4'}`}
       >
         {/* Toolbar Header (Title, Subtitle, Actions, Filters) */}
         <OrdersToolbar

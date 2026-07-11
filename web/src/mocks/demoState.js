@@ -182,7 +182,7 @@ const seedState = {
   orders: [
     {
       _id: 'order-12',
-      orderIdDisplay: '#12',
+      orderIdDisplay: 'A12',
       invoiceId: 'INV-250521-1023',
       status: 'new',
       channelSnapshot: 'whatsapp',
@@ -200,7 +200,7 @@ const seedState = {
     },
     {
       _id: 'order-11',
-      orderIdDisplay: '#11',
+      orderIdDisplay: 'A11',
       invoiceId: 'INV-250521-1024',
       status: 'new',
       channelSnapshot: 'telegram',
@@ -218,7 +218,7 @@ const seedState = {
     },
     {
       _id: 'order-10',
-      orderIdDisplay: '#10',
+      orderIdDisplay: 'A10',
       invoiceId: 'INV-250521-1025',
       status: 'new',
       channelSnapshot: 'whatsapp',
@@ -235,7 +235,7 @@ const seedState = {
     },
     {
       _id: 'order-8',
-      orderIdDisplay: '#8',
+      orderIdDisplay: 'A8',
       invoiceId: 'INV-250521-1018',
       status: 'preparing',
       channelSnapshot: 'whatsapp',
@@ -254,7 +254,7 @@ const seedState = {
     },
     {
       _id: 'order-7',
-      orderIdDisplay: '#7',
+      orderIdDisplay: 'A7',
       invoiceId: 'INV-250521-1019',
       status: 'preparing',
       channelSnapshot: 'telegram',
@@ -272,7 +272,7 @@ const seedState = {
     },
     {
       _id: 'order-6',
-      orderIdDisplay: '#6',
+      orderIdDisplay: 'A6',
       invoiceId: 'INV-250521-1020',
       status: 'preparing',
       channelSnapshot: 'whatsapp',
@@ -289,7 +289,7 @@ const seedState = {
     },
     {
       _id: 'order-5',
-      orderIdDisplay: '#5',
+      orderIdDisplay: 'A5',
       invoiceId: 'INV-250521-1015',
       status: 'ready',
       channelSnapshot: 'whatsapp',
@@ -307,7 +307,7 @@ const seedState = {
     },
     {
       _id: 'order-4',
-      orderIdDisplay: '#4',
+      orderIdDisplay: 'A4',
       invoiceId: 'INV-250521-1016',
       status: 'ready',
       channelSnapshot: 'telegram',
@@ -325,7 +325,7 @@ const seedState = {
     },
     {
       _id: 'order-3',
-      orderIdDisplay: '#3',
+      orderIdDisplay: 'A3',
       invoiceId: 'INV-250521-1017',
       status: 'ready',
       channelSnapshot: 'whatsapp',
@@ -342,7 +342,7 @@ const seedState = {
     },
     {
       _id: 'order-28',
-      orderIdDisplay: '#28',
+      orderIdDisplay: 'A28',
       invoiceId: 'INV-250521-1010',
       status: 'completed',
       createdAt: new Date(Date.now() - 2000 * 1000).toISOString(),
@@ -356,7 +356,7 @@ const seedState = {
     },
     {
       _id: 'order-27',
-      orderIdDisplay: '#27',
+      orderIdDisplay: 'A27',
       invoiceId: 'INV-250521-1009',
       status: 'completed',
       createdAt: new Date(Date.now() - 2100 * 1000).toISOString(),
@@ -370,7 +370,7 @@ const seedState = {
     },
     {
       _id: 'order-26',
-      orderIdDisplay: '#26',
+      orderIdDisplay: 'A26',
       invoiceId: 'INV-250521-1008',
       status: 'completed',
       createdAt: new Date(Date.now() - 3000 * 1000).toISOString(),
@@ -384,7 +384,7 @@ const seedState = {
     },
     {
       _id: 'order-25',
-      orderIdDisplay: '#25',
+      orderIdDisplay: 'A25',
       invoiceId: 'INV-250521-1007',
       status: 'completed',
       createdAt: new Date(Date.now() - 4000 * 1000).toISOString(),
@@ -398,7 +398,7 @@ const seedState = {
     },
     {
       _id: 'order-24',
-      orderIdDisplay: '#24',
+      orderIdDisplay: 'A24',
       invoiceId: 'INV-250521-1006',
       status: 'completed',
       createdAt: new Date(Date.now() - 5000 * 1000).toISOString(),
@@ -412,7 +412,7 @@ const seedState = {
     },
     {
       _id: 'order-23',
-      orderIdDisplay: '#23',
+      orderIdDisplay: 'A23',
       invoiceId: 'INV-250521-1005',
       status: 'completed',
       createdAt: new Date(Date.now() - 6000 * 1000).toISOString(),

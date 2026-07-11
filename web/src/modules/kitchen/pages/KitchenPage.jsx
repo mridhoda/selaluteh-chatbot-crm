@@ -197,16 +197,16 @@ export default function KitchenPage() {
 
         const getQueueNumber = () => {
           const rawNum = order.orderNumber || order.orderIdDisplay || ''
+          if (/^A\d+$/.test(rawNum)) return rawNum
           if (rawNum) {
-            const parts = rawNum.replace('#', '').split('-')
+            const parts = rawNum.split('-')
             const lastPart = parts[parts.length - 1]
-            if (/^\d+$/.test(lastPart)) {
-              return `#${parseInt(lastPart, 10)}`
-            }
-            return rawNum.startsWith('#') ? rawNum : `#${rawNum}`
+            const num = parseInt(lastPart, 10)
+            if (!isNaN(num)) return `A${num}`
           }
           const cleanId = (order._id || order.id || '').replace('order-', '')
-          return `#${cleanId.slice(-4)}`
+          const num = parseInt(cleanId.slice(-4), 10)
+          return `A${isNaN(num) ? cleanId.slice(-4) : num}`
         }
         const orderIdDisplay = getQueueNumber()
 
@@ -313,9 +313,9 @@ export default function KitchenPage() {
     try {
       if (!orderId.startsWith('mock-')) {
         if (newStatus === 'ready') {
-          await api.post(`/admin/orders/${orderId}/ready`)
+          await api.post(`/api/v1/admin/orders/${orderId}/ready`)
         } else if (newStatus === 'completed') {
-          await api.post(`/admin/orders/${orderId}/complete`)
+          await api.post(`/api/v1/admin/orders/${orderId}/complete`)
         }
       } else {
         setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status: newStatus, timerSeconds: 0 } : o))
@@ -404,7 +404,7 @@ export default function KitchenPage() {
   return (
     <div 
       ref={boardRef} 
-      className={`flex flex-col h-full bg-[#FAF9F6] text-[#11182E] overflow-hidden ${isFullscreen ? 'p-6 fixed inset-0 z-50 w-screen h-screen' : ''}`}
+      className={`flex flex-col h-full min-h-0 bg-[#FAF9F6] text-[#11182E] overflow-y-auto lg:overflow-hidden ${isFullscreen ? 'p-6 fixed inset-0 z-50 w-screen h-screen' : ''}`}
       style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}
     >
       {/* 1. Header Section */}
@@ -437,7 +437,7 @@ export default function KitchenPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-wrap md:flex-nowrap items-center gap-3 w-full md:w-auto">
           {/* Active Orders Count Badge */}
           <div className="flex items-center gap-3 bg-white px-3 py-1.5 rounded-lg border border-gray-100">
             <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center text-red-500">
@@ -482,9 +482,9 @@ export default function KitchenPage() {
       </div>
 
       {/* 2. Kitchen Board & Sidebar Main Layout */}
-      <div className="flex-1 flex gap-4 min-h-0 overflow-hidden mb-3">
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0 overflow-y-auto lg:overflow-hidden mb-3">
         {/* Two Columns Kitchen Board */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0 overflow-y-auto lg:overflow-visible">
+        <div className="flex-1 min-h-[420px] grid grid-cols-1 md:grid-cols-2 gap-4 min-h-0 overflow-y-auto md:overflow-visible">
           {/* Column 1: Preparing */}
           <div className="flex flex-col h-full bg-[#FCFAFF] rounded-xl border border-[#E9D5FF] shadow-sm overflow-hidden">
             {/* Header with Soft Purple Background and Purple Border Bottom */}
@@ -689,7 +689,7 @@ export default function KitchenPage() {
 
         {/* 3. Right Sidebar Detail View */}
         {selectedOrder && (
-          <div className="w-[380px] bg-white rounded-xl border border-gray-200/70 shadow-sm flex flex-col h-full overflow-hidden shrink-0">
+          <div className="w-full lg:w-[380px] min-h-[360px] lg:min-h-0 bg-white rounded-xl border border-gray-200/70 shadow-sm flex flex-col h-full overflow-hidden shrink-0">
             {/* Sidebar Header Navigation */}
             <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center shrink-0">
               <button 

@@ -10,7 +10,7 @@ function readStoredJson(key) {
 }
 
 function getAuthToken() {
-  return localStorage.getItem('token') || sessionStorage.getItem('token') || ''
+  return sessionStorage.getItem('token') || localStorage.getItem('token') || ''
 }
 
 function getWorkspaceId() {

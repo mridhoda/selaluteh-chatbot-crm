@@ -18,7 +18,7 @@ function readStoredJson(key) {
 
 function createAdminClient() {
   return createPhase5ApiClient({
-    getAuthToken: () => localStorage.getItem('token') || sessionStorage.getItem('token') || '',
+    getAuthToken: () => sessionStorage.getItem('token') || localStorage.getItem('token') || '',
     getWorkspaceId: () => {
       const user = readStoredJson('user') || {}
       return user.workspaceId || user.workspace_id || user.currentWorkspaceId || user.workspace?.id || ''

@@ -13,13 +13,22 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 export function isWebPushSupported() {
-  return typeof window !== 'undefined'
+  const secureContext = typeof window !== 'undefined' && (window.isSecureContext || ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname))
+  return secureContext
+    && typeof window !== 'undefined'
     && 'serviceWorker' in navigator
     && 'PushManager' in window
     && 'Notification' in window
 }
 
-export async function registerOrderPushNotifications() {
+export async function requestWebPushPermission() {
+  if (!isWebPushSupported() || Notification.permission !== 'default') {
+    return Notification.permission
+  }
+  return Notification.requestPermission()
+}
+
+export async function registerOrderPushNotifications({ requestPermission = false } = {}) {
   if (!isWebPushSupported()) return { enabled: false, reason: 'unsupported' }
 
   const configRes = await api.get('/api/push/public-key')
@@ -28,28 +37,29 @@ export async function registerOrderPushNotifications() {
 
   if (Notification.permission === 'denied') return { enabled: false, reason: 'permission_denied' }
 
-  const permission = Notification.permission === 'granted'
-    ? 'granted'
-    : await Notification.requestPermission()
+  if (Notification.permission !== 'granted' && !requestPermission) return { enabled: false, reason: 'permission_required' }
+  const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission()
 
   if (permission !== 'granted') return { enabled: false, reason: 'permission_not_granted' }
 
-  const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
-  await navigator.serviceWorker.ready
+  let registration = await registerPushServiceWorker()
 
   const applicationServerKey = urlBase64ToUint8Array(config.publicKey)
-  let subscription = await registration.pushManager.getSubscription()
-  if (!subscription) {
-    subscription = await subscribePush(registration, applicationServerKey)
-  }
+
+  // Always unsubscribe stale subscription so a fresh one is created bound to
+  // the current browser session and VAPID key.
+  const existing = await registration.pushManager.getSubscription()
+  if (existing) await existing.unsubscribe().catch(() => {})
+
+  const subscription = await subscribePush(registration, applicationServerKey)
 
   await api.post('/api/push/subscriptions', { subscription: subscription.toJSON() })
   return { enabled: true }
 }
 
 if (typeof window !== 'undefined') {
-  window.registerOrderPushNotifications = async () => {
-    const result = await registerOrderPushNotifications()
+  window.registerOrderPushNotifications = async (options = { requestPermission: true }) => {
+    const result = await registerOrderPushNotifications(options)
     console.log('Order push notification registration result:', result)
     return result
   }
@@ -62,19 +72,13 @@ async function subscribePush(registration, applicationServerKey) {
       applicationServerKey,
     })
   } catch (err) {
-    const existing = await registration.pushManager.getSubscription().catch(() => null)
-    if (existing) await existing.unsubscribe().catch(() => null)
-
-    try {
-      return await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey,
-      })
-    } catch (retryErr) {
-      throw new Error(
-        `${retryErr.message}. Push subscribe failed after retry. Ensure the app is opened on HTTPS or localhost and clear old site data if the browser kept a stale push subscription.`,
-        { cause: retryErr },
-      )
-    }
+    throw new Error(`Push browser gagal membuat subscription: ${err.message}`, { cause: err })
   }
+}
+
+async function registerPushServiceWorker() {
+  await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+  const activeRegistration = await navigator.serviceWorker.ready
+  if (!activeRegistration.active) throw new Error('Service worker tidak aktif. Refresh halaman lalu coba lagi.')
+  return activeRegistration
 }

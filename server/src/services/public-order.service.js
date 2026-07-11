@@ -93,21 +93,6 @@ export function transformOrderToPublic(order) {
   };
 }
 
-export async function getPublicOrdersByCustomerPhone(phone, contactId = null) {
-  const orders = contactId
-    ? await (async () => {
-      const [contactOrders, phoneOrders] = await Promise.all([
-        ordersRepository.findByContactIdGlobal({ contactId }),
-        phone ? ordersRepository.findByCustomerPhoneGlobal({ phone }) : [],
-      ]);
-      const unique = new Map();
-      [...contactOrders, ...phoneOrders].forEach((order) => unique.set(String(order.id || order.publicOrderToken || order.orderNumber), order));
-      return [...unique.values()].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-    })()
-    : await ordersRepository.findByCustomerPhoneGlobal({ phone });
-  return orders.map(transformOrderToPublic);
-}
-
 export const publicOrderInternals = {
   maskPhone,
 };

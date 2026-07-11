@@ -6,9 +6,9 @@ const api = axios.create({
   baseURL: getApiBase(),
 })
 
-// ambil token dari localStorage ATAU sessionStorage
+// Login normal uses session storage; prefer it over tokens left by older sessions.
 function getToken() {
-  return localStorage.getItem('token') || sessionStorage.getItem('token') || ''
+  return sessionStorage.getItem('token') || localStorage.getItem('token') || ''
 }
 
 api.interceptors.request.use((config) => {
@@ -35,12 +35,13 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && !error.config?.skipAuthRedirect && typeof window !== 'undefined') {
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
       const hadToken = !!getToken()
       localStorage.removeItem('token')
+      localStorage.removeItem('user')
       sessionStorage.removeItem('token')
       sessionStorage.removeItem('user')
-      if (hadToken) {
+      if (hadToken && window.location.pathname !== '/login') {
         window.location.href = '/login'
       }
     }

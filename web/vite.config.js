@@ -13,6 +13,7 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    allowedHosts: ['app-dev.incretlabs.my.id'],
     proxy: {
       '/api': apiProxy,
       '/auth': apiProxy,

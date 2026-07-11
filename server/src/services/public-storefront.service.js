@@ -280,50 +280,6 @@ export async function getPublicStorefront({ storefrontSlug, outletId }) {
   return response;
 }
 
-function toPublicCustomer(contact) {
-  if (!contact) return null;
-  return {
-    id: contact.id,
-    name: contact.name,
-    phone: contact.phone,
-    email: contact.email,
-    tags: contact.tags || [],
-  };
-}
-
-export async function loginPublicStoreCustomer({ storefrontSlug, email, password }) {
-  const { workspace } = await findWorkspaceByStorefrontSlug(storefrontSlug);
-  const contact = await contactsRepository.findPublicStoreCustomerByEmail({ workspaceId: workspace.id, email });
-  if (!contact) throw new AppError('CUSTOMER_NOT_FOUND', 'Customer account not found', 404);
-  const expectedPassword = contact.metadata?.demo_password || contact.metadata?.customer_password;
-  if (!expectedPassword || String(expectedPassword) !== String(password || '')) {
-    throw new AppError('CUSTOMER_INVALID_CREDENTIALS', 'Invalid customer credentials', 401);
-  }
-  return { customer: toPublicCustomer(contact) };
-}
-
-export async function registerPublicStoreCustomer({ storefrontSlug, name, phone, email, password }) {
-  const normalizedName = String(name || '').trim();
-  const normalizedPhone = String(phone || '').trim();
-  const normalizedEmail = String(email || '').trim().toLowerCase();
-  const normalizedPassword = String(password || '').trim();
-  if (!normalizedName) throw new AppError('CUSTOMER_NAME_REQUIRED', 'Customer name is required', 400);
-  if (!normalizedPhone) throw new AppError('CUSTOMER_PHONE_REQUIRED', 'Customer phone is required', 400);
-  if (!normalizedEmail) throw new AppError('CUSTOMER_EMAIL_REQUIRED', 'Customer email is required', 400);
-  if (!normalizedPassword) throw new AppError('CUSTOMER_PASSWORD_REQUIRED', 'Customer password is required', 400);
-
-  const { workspace } = await findWorkspaceByStorefrontSlug(storefrontSlug);
-  const contact = await contactsRepository.upsertPublicStoreCustomer({
-    workspaceId: workspace.id,
-    name: normalizedName,
-    phone: normalizedPhone,
-    email: normalizedEmail,
-    password: normalizedPassword,
-    storefrontSlug,
-  });
-  return { customer: toPublicCustomer(contact) };
-}
-
 async function resolvePublicOrderContext({ channel, storefrontSlug, outletId, qrToken }) {
   if (channel === 'qr_store') {
     const qrContext = await getQrStoreContext({ qrToken, outletId });
@@ -663,7 +619,8 @@ export async function createPublicCheckout({ idempotencyKey, body }) {
   return response;
 }
 
-export async function getPublicPaymentStatus({ paymentId }) {
+export async function getPublicPaymentStatus({ paymentId, publicOrderToken }) {
+  if (!publicOrderToken) throw new AppError('PAYMENT_NOT_FOUND', 'Payment not found', 404);
   let payment = await paymentsRepository.findByIdGlobal({ paymentId });
   if (!payment) throw new AppError('PAYMENT_NOT_FOUND', 'Payment not found', 404);
   if (['pending', 'processing'].includes(String(payment.status || '').toLowerCase()) && payment.providerTransactionId) {
@@ -677,6 +634,7 @@ export async function getPublicPaymentStatus({ paymentId }) {
   }
   let order = payment.orderId ? await ordersRepository.workspaceFindById({ workspaceId: payment.workspaceId, orderId: payment.orderId }) : null;
   if (!order?.publicOrderToken) throw new AppError('PAYMENT_NOT_FOUND', 'Payment not found', 404);
+  if (String(order.publicOrderToken) !== String(publicOrderToken)) throw new AppError('PAYMENT_NOT_FOUND', 'Payment not found', 404);
   if (payment.status === 'paid' && order.paymentStatus !== 'paid') {
     await ordersRepository.syncPaidOrderFromPayment({ workspaceId: payment.workspaceId, orderId: payment.orderId });
     order = await ordersRepository.workspaceFindById({ workspaceId: payment.workspaceId, orderId: payment.orderId });

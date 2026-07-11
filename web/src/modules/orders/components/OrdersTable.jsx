@@ -85,7 +85,7 @@ export default function OrdersTable({
   }
 
   return (
-    <div className='min-h-0 flex-1 overflow-auto bg-white border-x border-b border-gray-200'>
+    <div className='orders-table-scroll min-h-0 flex-1 overflow-auto bg-white border-x border-b border-gray-200'>
       <table className='w-full min-w-[1080px] text-left border-collapse'>
         <thead className='bg-gray-50 border-b border-gray-200 sticky top-0 z-10'>
           <tr>

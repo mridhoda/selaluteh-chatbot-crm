@@ -3,7 +3,7 @@ import { chatsRepository, messagesRepository, ordersRepository, contactsReposito
 import { tgSend, waSend, igSend } from './sender.js';
 import { buildOutletScopedQuery, assertOutletAccess, canAccessAllOutlets } from './access-control.service.js';
 import { AppError } from '../utils/errors.js';
-import { sendOrderCreatedPush } from './web-push.service.js';
+import { sendOrderCreatedPush, sendOrderPaidPush } from './web-push.service.js';
 import { broadcastToWorkspace } from './realtime.service.js';
 import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
 import {
@@ -170,6 +170,9 @@ export function notifyPaidOrderRealtime({ workspaceId, outletId, order }) {
   if (!isOrderPaid(order)) return { sent: 0, skipped: true, reason: 'payment_not_paid' };
 
   notifyOrderUpdatedRealtime({ workspaceId, outletId, order });
+  sendOrderPaidPush({ workspaceId, outletId, order }).catch((err) => {
+    console.error('[OrderPushNotification] Failed to send order.paid push:', err.message);
+  });
 
   return broadcastToWorkspace({
     workspaceId,

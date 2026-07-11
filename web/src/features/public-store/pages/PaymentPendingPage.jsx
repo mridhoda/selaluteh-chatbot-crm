@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { usePaymentStatus } from '../hooks/usePaymentStatus'
 import PublicStoreLayout from '../layouts/PublicStoreLayout'
@@ -6,8 +6,9 @@ import { formatCurrency } from '../utils/formatCurrency'
 
 export default function PaymentPendingPage() {
   const { paymentId } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const paymentStatus = usePaymentStatus(paymentId)
+  const paymentStatus = usePaymentStatus(paymentId, searchParams.get('publicOrderToken') || '')
   const isPaid = String(paymentStatus.status || '').toLowerCase() === 'paid'
 
   const [timeLeft, setTimeLeft] = useState(14 * 60 + 59)

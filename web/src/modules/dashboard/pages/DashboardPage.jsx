@@ -1393,16 +1393,14 @@ export default function Dashboard() {
   const { user } = useAuth()
   const [plan, setPlan] = useState(null)
   const [accessUser, setAccessUser] = useState(() => user || getSessionUser())
-  const navigate = useNavigate()
   const location = useLocation()
 
   useEffect(() => {
-    if (!user) navigate('/login')
     api
       .get('/billing')
       .then((r) => setPlan(r.data))
       .catch((error) => console.error('Error fetching billing info:', error))
-  }, [user, navigate])
+  }, [])
 
   useEffect(() => {
     api

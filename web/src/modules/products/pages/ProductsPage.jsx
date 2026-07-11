@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx'
 import api from '../../../shared/api/httpClient'
 import { getOrderQueryParams, getSessionUser } from '../../../shared/auth/permissions'
 import { isDemoMode } from '../../../mocks/demoState'
-import selkopAlphaImage from '../../../assets/product-image/minuman/Selkop Aren Creamy & Alpha.png'
+import selkopAlphaImage from '../../../assets/product-image/minuman/Selkop Aren Creamy & Alpha.webp'
 import {
   ArrowDown,
   ArrowUp,

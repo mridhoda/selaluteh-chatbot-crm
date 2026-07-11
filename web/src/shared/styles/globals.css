@@ -944,6 +944,26 @@ body.sidebar-pinned .dashboard-layout.no-sidebar .navbar {
   overflow: clip;
 }
 
+/* Tablet orders needs to scroll as a page: the dashboard shell normally clips
+   its content to support desktop drawers, which hides the table below the fold. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .dashboard-layout:has(.orders-page-shell),
+  .dashboard-layout:has(.orders-page-shell) .main,
+  .dashboard-layout:has(.orders-page-shell) .main-body {
+    overflow: visible;
+  }
+
+  .dashboard-layout:has(.orders-page-shell) .orders-page-shell {
+    flex: 0 0 auto;
+    min-height: calc(100dvh - 58px);
+  }
+
+  .dashboard-layout:has(.orders-table-scroll) .orders-table-scroll {
+    flex: 0 0 auto;
+    min-height: 360px;
+  }
+}
+
 /* NAVBAR */
 .navbar {
   height: 58px;

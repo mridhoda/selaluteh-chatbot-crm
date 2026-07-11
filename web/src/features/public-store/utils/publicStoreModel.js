@@ -1,5 +1,5 @@
 import { getApiErrorMessage } from '../../../shared/api/apiError.js'
-import selkopAlphaImage from '../../../assets/product-image/minuman/Selkop Aren Creamy & Alpha.png'
+import selkopAlphaImage from '../../../assets/product-image/minuman/Selkop Aren Creamy & Alpha.webp'
 
 const UNIVERSAL_SCOPE = 'UNIVERSAL'
 const OUTLET_SCOPE = 'OUTLET'

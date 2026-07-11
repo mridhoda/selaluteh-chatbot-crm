@@ -1,9 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom'
-
-export default function StoreHeader({ brandName, subtitle = 'Online Store', logoUrl, cartCount, onOpenCart, storefrontSlug: storefrontSlugProp }) {
-  const navigate = useNavigate()
-  const { storefrontSlug } = useParams()
-  const profileSlug = storefrontSlugProp || storefrontSlug
+export default function StoreHeader({ brandName, subtitle = 'Online Store', logoUrl, cartCount, onOpenCart }) {
   const displayName = String(brandName || '').replace(/\s+Online\s+Store\s*$/i, '').trim()
   return (
     <header className="border-b border-gray-100 bg-white px-4 py-3">
@@ -18,17 +13,6 @@ export default function StoreHeader({ brandName, subtitle = 'Online Store', logo
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            aria-label="Akun saya"
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-100 bg-white shadow-sm"
-            onClick={() => profileSlug && navigate(`/store/${profileSlug}/profile`)}
-          >
-            <svg aria-hidden="true" className="h-5 w-5 text-[var(--store-primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-          </button>
           <button
             type="button"
             aria-label="Buka keranjang"

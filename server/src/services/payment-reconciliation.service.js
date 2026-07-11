@@ -15,9 +15,15 @@ function paidOrderUpdates(paidAt = new Date().toISOString()) {
   };
 }
 
+function isTerminalOrder(order) {
+  return [OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.EXPIRED, OrderStatus.COMPLETED].includes(order?.status)
+    || [FulfillmentStatus.CANCELLED, FulfillmentStatus.COMPLETED].includes(order?.fulfillmentStatus || order?.fulfillment_status);
+}
+
 async function markOrderPaidPreparing({ workspaceId, orderId, paidAt }, deps = {}) {
   const ordersRepo = deps.ordersRepository || ordersRepository;
   const order = await ordersRepo.workspaceFindById({ workspaceId, orderId });
+  if (isTerminalOrder(order)) return order;
   const fulfillmentStatus = order?.fulfillmentStatus || order?.fulfillment_status;
   if (order?.paymentStatus === PaymentStatus.PAID && ![FulfillmentStatus.NOT_STARTED, FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.ACCEPTED, 'unfulfilled', null, undefined].includes(fulfillmentStatus)) {
     return order;
@@ -121,6 +127,15 @@ async function processPaidPaymentFromReconciliation({ payment, providerEvent }, 
   const notifyPaymentUpdated = deps.notifyPaymentUpdatedRealtime || notifyPaymentUpdatedRealtime;
   const notifyPaidOrder = deps.notifyPaidOrderRealtime || notifyPaidOrderRealtime;
   const sendStatusMessage = deps.sendOrderStatusMessage || sendOrderStatusMessage;
+  const matchesPayment = providerEvent.providerTransactionId === payment.providerTransactionId
+    && Number.isFinite(Number(providerEvent.amount))
+    && Number(providerEvent.amount) === Number(payment.amount)
+    && String(providerEvent.currency || '').toUpperCase() === String(payment.currency || '').toUpperCase()
+    && (!providerEvent.merchantReference || providerEvent.merchantReference === payment.merchantReference);
+  if (!matchesPayment) {
+    await paymentsRepo.updatePayment({ workspaceId: payment.workspaceId, paymentId: payment.id, updates: { reconciliation_status: 'manual_review' } });
+    return { updated: false, reason: 'provider_mismatch' };
+  }
   const updated = await paymentsRepo.transitionStatus({
     workspaceId: payment.workspaceId,
     paymentId: payment.id,
@@ -153,7 +168,7 @@ async function processPaidPaymentFromReconciliation({ payment, providerEvent }, 
   const wasAlreadyPaid = orderBefore?.paymentStatus === PaymentStatus.PAID || orderBefore?.payment_status === PaymentStatus.PAID;
   const updatedOrder = await markOrderPaidPreparing({ workspaceId: payment.workspaceId, orderId: payment.orderId, paidAt: providerEvent.paidAt }, deps);
 
-  if (updatedOrder) {
+  if (updatedOrder && !isTerminalOrder(updatedOrder)) {
     notifyPaymentUpdated({ workspaceId: payment.workspaceId, outletId: updated?.outletId || updatedOrder.outletId, payment: updated, order: updatedOrder });
     if (!wasAlreadyPaid) {
       notifyPaidOrder({ workspaceId: payment.workspaceId, outletId: updatedOrder.outletId, order: updatedOrder });

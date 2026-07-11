@@ -59,7 +59,8 @@ import { startEscalationScheduler } from './workers/escalation-scheduler.worker.
 import { start as startTelegramWebhookEvents } from './workers/telegram-webhook-events.worker.js';
 
 const app = express();
-app.set('trust proxy', 1);
+// Do not trust client-supplied forwarding headers; the public rate limiter uses req.ip.
+app.set('trust proxy', false);
 
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');

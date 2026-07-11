@@ -22,8 +22,14 @@ function paidOrderUpdates(paidAt = new Date().toISOString()) {
   };
 }
 
+function isTerminalOrder(order) {
+  return [OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.EXPIRED, OrderStatus.COMPLETED].includes(order?.status)
+    || [FulfillmentStatus.CANCELLED, FulfillmentStatus.COMPLETED].includes(order?.fulfillmentStatus || order?.fulfillment_status);
+}
+
 async function markOrderPaidPreparing({ workspaceId, orderId, paidAt }) {
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
+  if (isTerminalOrder(order)) return order;
   const fulfillmentStatus = order?.fulfillmentStatus || order?.fulfillment_status;
   if (order?.paymentStatus === PaymentStatus.PAID && ![FulfillmentStatus.NOT_STARTED, FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.ACCEPTED, 'unfulfilled', null, undefined].includes(fulfillmentStatus)) {
     return order;
@@ -549,8 +555,10 @@ async function processPaidPayment({ payment, providerEvent }) {
 
   const updatedOrder = await markOrderPaidPreparing({ workspaceId: payment.workspaceId, orderId: payment.orderId });
   notifyPaymentUpdatedRealtime({ workspaceId: payment.workspaceId, outletId: updated.outletId, payment: updated, order: updatedOrder });
-  notifyPaidOrderRealtime({ workspaceId: payment.workspaceId, outletId: updatedOrder?.outletId || updated.outletId, order: updatedOrder });
-  await notifyPaidOnce({ order: updatedOrder, paymentId: payment.id });
+  if (!isTerminalOrder(updatedOrder)) {
+    notifyPaidOrderRealtime({ workspaceId: payment.workspaceId, outletId: updatedOrder?.outletId || updated.outletId, order: updatedOrder });
+    await notifyPaidOnce({ order: updatedOrder, paymentId: payment.id });
+  }
 }
 
 async function notifyPaidOnce({ order, paymentId }) {

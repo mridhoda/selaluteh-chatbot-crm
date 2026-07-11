@@ -13,6 +13,8 @@ export default function ProductCard({ product, cartQuantity = 0, onSelect }) {
             <img
               src={product.imageUrl}
               alt=""
+              loading="lazy"
+              decoding="async"
               className={`h-full min-h-24 w-full object-cover ${unavailable ? 'grayscale opacity-60' : ''}`}
             />
           ) : (

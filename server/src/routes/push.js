@@ -5,6 +5,7 @@ import {
   disableWebPushSubscription,
   getWebPushPublicConfig,
   saveWebPushSubscription,
+  sendTestWebPush,
 } from '../services/web-push.service.js';
 
 const router = Router();
@@ -34,6 +35,13 @@ router.delete('/subscriptions', authRequired, attachUser, attachWorkspaceContext
   } catch (err) {
     next(err);
   }
+});
+
+router.post('/test', authRequired, attachUser, attachWorkspaceContext, async (req, res, next) => {
+  try {
+    const result = await sendTestWebPush({ workspaceId: req.me.workspaceId, userId: req.me.id });
+    res.json({ data: result });
+  } catch (err) { next(err); }
 });
 
 export default router;

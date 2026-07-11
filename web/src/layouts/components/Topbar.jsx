@@ -15,6 +15,7 @@ export default function Navbar({ authed, user, plan, className }) {
     sessionStorage.removeItem('token')
     localStorage.removeItem('token')
     sessionStorage.removeItem('user')
+    localStorage.removeItem('user')
     navigate('/login')
   }
 

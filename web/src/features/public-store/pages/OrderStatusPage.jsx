@@ -41,7 +41,7 @@ export default function OrderStatusPage() {
     if (window.history.state && window.history.state.idx > 0) {
       navigate(-1)
     } else {
-      navigate(`/store/${storefrontSlug}/profile`)
+      navigate(`/store/${storefrontSlug}`)
     }
   }
 

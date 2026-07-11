@@ -18,8 +18,14 @@ function paidOrderUpdates(paidAt = new Date().toISOString()) {
   };
 }
 
+function isTerminalOrder(order) {
+  return [OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.EXPIRED, OrderStatus.COMPLETED].includes(order?.status)
+    || [FulfillmentStatus.CANCELLED, FulfillmentStatus.COMPLETED].includes(order?.fulfillmentStatus || order?.fulfillment_status);
+}
+
 async function markOrderPaidPreparing({ workspaceId, orderId, paidAt }) {
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
+  if (isTerminalOrder(order)) return order;
   const fulfillmentStatus = order?.fulfillmentStatus || order?.fulfillment_status;
   if (order?.paymentStatus === PaymentStatus.PAID && ![FulfillmentStatus.NOT_STARTED, FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.ACCEPTED, 'unfulfilled', null, undefined].includes(fulfillmentStatus)) {
     return order;
@@ -108,7 +114,7 @@ export async function processPaymentWebhook({ workspaceId, provider, rawBody, he
   await paymentsRepository.updatePayment({ workspaceId, paymentId: payment.id, updates: { reconciliation_status: 'matched' } });
   await paymentEventsRepository.updateProcessingStatus({ workspaceId, eventId: registered.id, status: 'processed', verificationResult: 'paid' });
 
-  if (updatedOrder) {
+  if (updatedOrder && !isTerminalOrder(updatedOrder)) {
     notifyPaidOrderRealtime({ workspaceId, outletId: updatedOrder.outletId, order: updatedOrder });
     try {
       const outletName = updatedOrder.outletNameSnapshot || '';
@@ -180,8 +186,10 @@ export async function processDokuCheckoutWebhook({ rawBody, headers, requestTarg
   await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: 'paid' });
   const updatedOrder = await markOrderPaidPreparing({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId });
   notifyPaymentUpdatedRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
-  notifyPaidOrderRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedOrder?.outletId, order: updatedOrder });
-  await notifyPaidOnce({ order: updatedOrder, paymentId: targetPayment.id, outletName: updatedOrder?.outletNameSnapshot || '' });
+  if (!isTerminalOrder(updatedOrder)) {
+    notifyPaidOrderRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedOrder?.outletId, order: updatedOrder });
+    await notifyPaidOnce({ order: updatedOrder, paymentId: targetPayment.id, outletName: updatedOrder?.outletNameSnapshot || '' });
+  }
   return { processed: true, event: { eventType: event.eventType, status: 'paid' } };
 }
 
@@ -302,8 +310,10 @@ export async function processBayarGgWebhook({ rawBody, headers }, deps = {}) {
   const updatedOrder = await markOrderPaid({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId, paidAt: event.paidAt || new Date().toISOString() });
   await logPaymentAudit({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, paymentId: targetPayment.id, orderId: targetPayment.orderId, action: 'payment.paid', details: { provider: 'bayargg', eventKey }, auditRepository });
   notifyPaymentUpdated({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
-  notifyPaidOrder({ workspaceId: targetPayment.workspaceId, outletId: updatedOrder?.outletId, order: updatedOrder });
-  await notifyPaid({ order: updatedOrder, paymentId: targetPayment.id, outletName: updatedOrder?.outletNameSnapshot || '' });
+  if (!isTerminalOrder(updatedOrder)) {
+    notifyPaidOrder({ workspaceId: targetPayment.workspaceId, outletId: updatedOrder?.outletId, order: updatedOrder });
+    await notifyPaid({ order: updatedOrder, paymentId: targetPayment.id, outletName: updatedOrder?.outletNameSnapshot || '' });
+  }
   return { processed: true, event: { eventType: event.eventType, status: 'paid' } };
 }
 
@@ -431,8 +441,10 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
       }
     }
     const outletName = updatedOrder?.outletNameSnapshot || '';
-    notifyPaidOrderRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedOrder?.outletId, order: updatedOrder });
-    await notifyPaidOnce({ order: updatedOrder, paymentId: targetPayment.id, outletName });
+    if (!isTerminalOrder(updatedOrder)) {
+      notifyPaidOrderRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedOrder?.outletId, order: updatedOrder });
+      await notifyPaidOnce({ order: updatedOrder, paymentId: targetPayment.id, outletName });
+    }
   } else if (nextStatus === 'expired') {
     const updatedOrder = await ordersRepository.updateOne({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId, updates: { payment_status: PaymentStatus.EXPIRED } });
     notifyPaymentUpdatedRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });

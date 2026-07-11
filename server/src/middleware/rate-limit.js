@@ -3,8 +3,7 @@ import { AppError } from '../utils/errors.js';
 const rateBuckets = new Map();
 
 function getClientIp(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  return String(Array.isArray(forwarded) ? forwarded[0] : forwarded || req.ip || 'unknown').split(',')[0].trim() || 'unknown';
+  return String(req.ip || 'unknown').trim() || 'unknown';
 }
 
 function getBucketKey(req, keyPrefix, keyGenerator) {
