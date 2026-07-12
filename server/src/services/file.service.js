@@ -114,7 +114,8 @@ export async function resolvePublicManagedFile({ storedName }) {
   const client = getSupabaseServiceClient();
   const { data, error } = await client.from('files').select('*').eq('stored_name', storedName).maybeSingle();
   if (error) throw error;
-  if (!data || data.metadata?.public !== true) return null;
+  if (!data) return null;
+  if (data.metadata?.public !== true) return { file: data, absolutePath: null };
   return { file: data, absolutePath: path.resolve(data.relative_path) };
 }
 

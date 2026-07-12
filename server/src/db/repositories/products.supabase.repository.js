@@ -227,7 +227,7 @@ export const productsSupabaseRepository = {
   async findAvailabilityByOutlet({ workspaceId, outletId, status, isAvailable, productIds }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
-    let q = client.from(AVAIL_TABLE).select('*, products(*)').eq('workspace_id', workspaceId).eq('outlet_id', outletId);
+    let q = client.from(AVAIL_TABLE).select('*').eq('workspace_id', workspaceId).eq('outlet_id', outletId);
     if (status) q = q.eq('status', status);
     if (isAvailable !== undefined) q = q.eq('is_available', isAvailable);
     if (productIds && productIds.length > 0) q = q.in('product_id', productIds);

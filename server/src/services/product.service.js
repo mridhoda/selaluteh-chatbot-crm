@@ -133,20 +133,17 @@ export async function replaceModifierProductLinks({ user, modifierGroupId, produ
   return listModifierGroups({ user });
 }
 
-export async function listCustomerProductsForOutlet({ workspaceId, outletId, page = 0, limit = 8 }) {
+export async function listCustomerProductsForOutlet({ workspaceId, outletId, page = 0, limit = 8, category, search }) {
   if (!workspaceId) throw new AppError('VALIDATION', 'workspace_id is required', 400);
   if (!outletId) throw new AppError('VALIDATION', 'outlet_id is required for customer-facing product list', 400);
 
   const products = await productsRepository.findProducts({ workspaceId, isActive: true });
   const productIds = products.map((p) => p.id);
-  const [{ availabilityByProduct, inventoryByProduct }, modifiersByProduct] = await Promise.all([
-    buildOutletAvailabilityWithInventory({
+  const { availabilityByProduct, inventoryByProduct } = await buildOutletAvailabilityWithInventory({
     workspaceId,
     outletId,
     productIds,
-    }),
-    modifiersRepository.listGroupsForProducts({ workspaceId, productIds }),
-  ]);
+  });
 
   const filtered = products
     .filter((product) => {
@@ -159,7 +156,6 @@ export async function listCustomerProductsForOutlet({ workspaceId, outletId, pag
     })
     .map((product) => ({
       ...product,
-      modifiers: modifiersByProduct.get(String(product.id)) || product.modifiers || product.metadata?.modifiers || [],
       outletAvailability: availabilityByProduct.get(String(product.id)) || {
         productId: product.id,
         outletId,
@@ -170,12 +166,26 @@ export async function listCustomerProductsForOutlet({ workspaceId, outletId, pag
       stockQuantity: inventoryByProduct.get(String(product.id))?.quantity ?? product.stockQuantity,
     }));
 
-  const total = filtered.length;
+  const categoryNames = [...new Set(filtered.map((product) => String(product.category || product.metadata?.category || 'Menu').trim()))];
+  const normalizedCategory = String(category || '').trim().toLowerCase().replace(/^cat_/, '');
+  const normalizedSearch = String(search || '').trim().toLowerCase();
+  const matched = filtered.filter((product) => {
+    const productCategory = String(product.category || product.metadata?.category || 'Menu').trim().toLowerCase();
+    const productSearch = `${product.name || ''} ${product.shortDescription || product.description || ''}`.toLowerCase();
+    return (!normalizedCategory || productCategory === normalizedCategory) && (!normalizedSearch || productSearch.includes(normalizedSearch));
+  });
+
+  const total = matched.length;
   const start = page * limit;
-  const paged = filtered.slice(start, start + limit);
+  const paged = matched.slice(start, start + limit);
+  const modifiersByProduct = await modifiersRepository.listGroupsForProducts({ workspaceId, productIds: paged.map((product) => product.id) });
 
   return {
-    products: paged,
+    products: paged.map((product) => ({
+      ...product,
+      modifiers: modifiersByProduct.get(String(product.id)) || product.modifiers || product.metadata?.modifiers || [],
+    })),
+    categories: categoryNames,
     pagination: {
       page, limit, total, totalPages: Math.ceil(total / limit) || 1, hasNext: start + limit < total, hasPrev: page > 0,
     },

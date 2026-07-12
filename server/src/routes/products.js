@@ -15,7 +15,11 @@ import { productsToCsv, validateProductImportRows } from '../services/product-im
 import { uploadFile } from '../services/file.service.js';
 
 const router = express.Router();
-const upload = multer({ dest: 'uploads/tmp/', limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
+const upload = multer({
+  dest: 'uploads/tmp/',
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => callback(null, /^image\/(avif|gif|jpeg|png|webp)$/.test(file.mimetype)),
+});
 
 router.use(authRequired, attachUser, attachWorkspaceContext);
 

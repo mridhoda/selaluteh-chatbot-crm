@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import dailyWhitePromotionBanner from '../../../assets/banner/daily-white-promotion.png'
 
 export default function HeroBanner({ banner }) {
   const banners = Array.isArray(banner?.items) && banner.items.length ? banner.items : banner?.imageUrl ? [banner] : []
-  const slides = banners.length ? banners : [{ imageUrl: dailyWhitePromotionBanner, title: 'Daily White promotion' }]
+  const slides = banners.length ? banners : [{ title: 'Promo spesial hari ini' }]
   const [active, setActive] = useState(0)
   const swipeStart = useRef(null)
 
@@ -19,7 +18,13 @@ export default function HeroBanner({ banner }) {
   }, [slides.length, banner?.intervalSeconds])
 
   const current = slides[active] || slides[0]
-  const image = <img src={current.imageUrl || dailyWhitePromotionBanner} alt={current.title || 'Store promotion'} className="h-full w-full object-cover" />
+  const image = current.imageUrl ? (
+    <img src={current.imageUrl} alt={current.title || 'Store promotion'} width="47" height="19" fetchPriority="high" decoding="async" className="h-full w-full object-cover" />
+  ) : (
+    <div className="flex h-full w-full items-center bg-gradient-to-br from-[var(--store-primary)] to-[var(--brand-600)] px-6 text-lg font-black text-white">
+      {current.title}
+    </div>
+  )
   const moveBySwipe = (endX) => {
     if (swipeStart.current === null || slides.length < 2) return
     const distance = endX - swipeStart.current

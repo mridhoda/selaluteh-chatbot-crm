@@ -216,17 +216,17 @@ async function findWorkspaceByStorefrontSlug(storefrontSlug) {
   throw new AppError('STORE_NOT_FOUND', 'Storefront not found', 404);
 }
 
-async function buildPublicMenu({ workspaceId, outletId }) {
-  const { products } = await listCustomerProductsForOutlet({ workspaceId, outletId, page: 0, limit: 200 });
+async function buildPublicMenu({ workspaceId, outletId, page = 0, limit = 24, category, search }) {
+  const { products, categories, pagination } = await listCustomerProductsForOutlet({ workspaceId, outletId, page, limit, category, search });
   const publicProducts = products.map(toPublicProduct);
-  const categoryNames = [...new Set(publicProducts.map((product) => product.category || 'Menu'))];
   return {
-    categories: categoryNames.map((name, index) => ({ id: `cat_${index + 1}`, name })),
+    categories: categories.map((name) => ({ id: `cat_${String(name).trim().toLowerCase()}`, name })),
     products: publicProducts,
+    pagination,
   };
 }
 
-export async function getPublicStorefront({ storefrontSlug, outletId }) {
+export async function getPublicStorefront({ storefrontSlug, outletId, page, limit, category, search, includeMenu = true }) {
   const { workspace, settings, storefront: storefrontRecord, publicSettings } = await findWorkspaceByStorefrontSlug(storefrontSlug);
   if (publicSettings.orderingEnabled === false) throw new AppError('STORE_INACTIVE', 'Storefront is not accepting orders', 403);
   const mappedStorefrontOutlets = storefrontRecord
@@ -240,7 +240,9 @@ export async function getPublicStorefront({ storefrontSlug, outletId }) {
     throw new AppError('OUTLET_UNAVAILABLE', 'Outlet is not available for ordering', 409);
   }
   const selectedOutlet = outletId ? publicOutlets.find((outlet) => String(outlet.id) === String(outletId)) : publicOutlets[0];
-  const menu = selectedOutlet ? await buildPublicMenu({ workspaceId: workspace.id, outletId: selectedOutlet.id }) : { categories: [], products: [] };
+  const menu = includeMenu && selectedOutlet
+    ? await buildPublicMenu({ workspaceId: workspace.id, outletId: selectedOutlet.id, page, limit, category, search })
+    : { categories: [], products: [], pagination: { page: 0, limit: 0, total: 0, totalPages: 0, hasNext: false, hasPrev: false } };
   const storefrontMetadata = storefrontRecord?.metadata || {};
 
   const response = {
@@ -278,6 +280,20 @@ export async function getPublicStorefront({ storefrontSlug, outletId }) {
     enumerable: false,
   });
   return response;
+}
+
+export async function getPublicStoreMenu({ storefrontSlug, outletId, page, limit, category, search }) {
+  const { workspace, storefront: storefrontRecord, publicSettings } = await findWorkspaceByStorefrontSlug(storefrontSlug);
+  if (publicSettings.orderingEnabled === false) throw new AppError('STORE_INACTIVE', 'Store is not accepting orders', 403);
+  const mappedStorefrontOutlets = storefrontRecord
+    ? await storefrontsRepository.listActiveOutlets({ workspaceId: workspace.id, storefrontId: storefrontRecord.id })
+    : [];
+  const outlets = mappedStorefrontOutlets.length > 0
+    ? mappedStorefrontOutlets.map((row) => ({ ...row.outlet, storefrontOutlet: row })).filter((outlet) => outlet.id)
+    : await outletsRepository.findActiveByWorkspace(workspace.id);
+  const selectedOutlet = (outletId ? outlets.find((outlet) => String(outlet.id) === String(outletId)) : outlets.find(isOutletOrderable));
+  if (!selectedOutlet || !isOutletOrderable(selectedOutlet)) throw new AppError('OUTLET_UNAVAILABLE', 'Outlet is not available for ordering', 409);
+  return buildPublicMenu({ workspaceId: workspace.id, outletId: selectedOutlet.id, page, limit, category, search });
 }
 
 async function resolvePublicOrderContext({ channel, storefrontSlug, outletId, qrToken }) {
@@ -330,7 +346,7 @@ export async function validatePublicCart({ channel = 'online_store', storefrontS
   }
 
   context ||= await resolvePublicOrderContext({ channel: normalizedChannel, storefrontSlug, outletId, qrToken: qrToken || qrSessionToken });
-  const menu = await buildPublicMenu({ workspaceId: context.workspaceId, outletId: context.outletId });
+  const menu = await buildPublicMenu({ workspaceId: context.workspaceId, outletId: context.outletId, limit: Number.MAX_SAFE_INTEGER });
   const productsById = new Map(menu.products.map((product) => [String(product.id), product]));
   const errors = [];
   const snapshotItems = [];

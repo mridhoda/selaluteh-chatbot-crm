@@ -43,6 +43,23 @@ function resolveProductImage(name, fallback = '') {
   return fallback
 }
 
+async function createProductImageUpload(file) {
+  if (!file.type.startsWith('image/') || file.type === 'image/svg+xml' || typeof createImageBitmap !== 'function') return file
+  try {
+    const source = await createImageBitmap(file)
+    const scale = Math.min(1, 512 / Math.max(source.width, source.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(source.width * scale)
+    canvas.height = Math.round(source.height * scale)
+    canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height)
+    source.close()
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.82))
+    return blob ? new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.webp`, { type: 'image/webp' }) : file
+  } catch {
+    return file
+  }
+}
+
 const dummyProducts = [
   {
     id: 1,
@@ -2933,7 +2950,8 @@ export default function ProductsPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const localUrl = URL.createObjectURL(file)
+    const uploadFile = await createProductImageUpload(file)
+    const localUrl = URL.createObjectURL(uploadFile)
     setPhotoPreview(localUrl)
 
     if (isDemoMode()) {
@@ -2942,7 +2960,7 @@ export default function ProductsPage() {
 
     setUploadingPhoto(true)
     const formData = new FormData()
-    formData.append('file', file)
+    formData.append('file', uploadFile)
 
     try {
       const res = await api.post('/products/images/upload', formData)

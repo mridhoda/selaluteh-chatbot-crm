@@ -1,6 +1,6 @@
 import { formatCurrency } from '../utils/formatCurrency'
 
-export default function ProductCard({ product, cartQuantity = 0, onSelect }) {
+export default function ProductCard({ product, cartQuantity = 0, onSelect, imagePriority = false }) {
   const unavailable = !product.isAvailable
   const hasCartQuantity = cartQuantity > 0
 
@@ -13,7 +13,10 @@ export default function ProductCard({ product, cartQuantity = 0, onSelect }) {
             <img
               src={product.imageUrl}
               alt=""
-              loading="lazy"
+              width="96"
+              height="96"
+              loading={imagePriority ? 'eager' : 'lazy'}
+              fetchPriority={imagePriority ? 'high' : 'auto'}
               decoding="async"
               className={`h-full min-h-24 w-full object-cover ${unavailable ? 'grayscale opacity-60' : ''}`}
             />

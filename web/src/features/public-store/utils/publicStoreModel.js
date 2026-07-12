@@ -1,5 +1,6 @@
 import { getApiErrorMessage } from '../../../shared/api/apiError.js'
 import selkopAlphaImage from '../../../assets/product-image/minuman/Selkop Aren Creamy & Alpha.webp'
+import selkopSocietyImage from '../../../assets/product-image/selkop-society.webp'
 
 const UNIVERSAL_SCOPE = 'UNIVERSAL'
 const OUTLET_SCOPE = 'OUTLET'
@@ -14,9 +15,11 @@ function normalizeProduct(product = {}, categoryByName = new Map()) {
   const isAvailable = product.isAvailable !== false && !['sold_out', 'unavailable', 'disabled'].includes(String(availability).toLowerCase())
   const categoryName = product.category || product.categoryName || product.metadata?.category || 'Menu'
   const categoryId = product.categoryId || product.category_id || categoryByName.get(String(categoryName).trim().toLowerCase()) || categoryName
-  const imageUrl = String(product.name || '').trim().toLowerCase() === 'selkop alpha'
-    ? selkopAlphaImage
-    : product.imageUrl || product.image_url || product.thumbnailUrl || product.thumbnail_url || product.image || null
+  const bundledImage = {
+    'selkop alpha': selkopAlphaImage,
+    'selkop society': selkopSocietyImage,
+  }[String(product.name || '').trim().toLowerCase()]
+  const imageUrl = bundledImage || product.imageUrl || product.image_url || product.thumbnailUrl || product.thumbnail_url || product.image || null
 
   const modifierGroups = arrayFrom(product.modifierGroups || product.modifiers).map((group) => {
     const type = group.type || (Number(group.maxSelections ?? group.max_selections ?? group.maxSelect ?? 1) === 1 ? 'SINGLE' : 'MULTIPLE')
@@ -72,6 +75,7 @@ export function normalizeStorefrontResponse(response = {}) {
   const categories = sortStoreCategories(arrayFrom(response.categories || menu.categories || response.data?.categories))
   const categoryByName = new Map(categories.map((category) => [String(category.name || category.label || category.id || '').trim().toLowerCase(), category.id]))
   const products = arrayFrom(response.products || menu.products || response.data?.products).map((product) => normalizeProduct(product, categoryByName))
+  const pagination = response.pagination || menu.pagination || response.data?.pagination || {}
   const outlets = arrayFrom(response.outlets || response.eligibleOutlets || response.data?.outlets).map((outlet) => normalizeOutlet(outlet))
   const singleOutlet = response.outlet || response.data?.outlet || storefront?.outlet
   const normalizedOutlets = outlets.length ? outlets : singleOutlet ? [normalizeOutlet(singleOutlet)] : []
@@ -98,6 +102,12 @@ export function normalizeStorefrontResponse(response = {}) {
       : null,
     categories,
     products,
+    pagination: {
+      page: Number(pagination.page || 0),
+      limit: Number(pagination.limit || products.length),
+      total: Number(pagination.total || products.length),
+      hasNext: pagination.hasNext === true,
+    },
   }
 }
 

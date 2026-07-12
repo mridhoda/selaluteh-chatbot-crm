@@ -3,6 +3,7 @@ import { getPublicOrderByToken } from '../services/public-order.service.js';
 import { getQrContext, getQrStoreContext } from '../services/qr-order-session.service.js';
 import {
   createPublicCheckout,
+  getPublicStoreMenu,
   getPublicPaymentStatus,
   getPublicStorefront,
   validatePublicCart,
@@ -16,8 +17,10 @@ import {
 } from '../middleware/rate-limit.js';
 import { recordSecurityEvent } from '../services/security-event.service.js';
 import { getPublicCustomerSession, loginPublicCustomer, registerPublicCustomer, requirePublicCustomer, listPublicCustomerOrders } from '../services/public-customer.service.js';
+import { AppError } from '../utils/errors.js';
 
 const router = express.Router();
+const storefrontCacheControl = 'public, max-age=60';
 
 function isV1(req) {
   return String(req.baseUrl || '').includes('/api/v1/');
@@ -27,16 +30,48 @@ function getQrTokenFromBody(body = {}) {
   return body.qr_token || body.qrToken || body.qr_session_token || body.qrSessionToken;
 }
 
+function getMenuQuery(query = {}) {
+  const page = Number(query.page ?? 0);
+  const limit = Number(query.limit ?? 24);
+  if (!Number.isInteger(page) || page < 0 || !Number.isInteger(limit) || limit < 1 || limit > 48) {
+    throw new AppError('INVALID_PAGINATION', 'page must be >= 0 and limit must be between 1 and 48', 400);
+  }
+  return {
+    page,
+    limit,
+    category: String(query.category || '').trim() || undefined,
+    search: String(query.search || '').trim() || undefined,
+  };
+}
+
 router.get('/stores/:storefrontSlug', async (req, res, next) => {
   try {
-    const data = await getPublicStorefront({ storefrontSlug: req.params.storefrontSlug, outletId: req.query.outlet_id || req.query.outletId });
+    const data = await getPublicStorefront({ storefrontSlug: req.params.storefrontSlug, outletId: req.query.outlet_id || req.query.outletId, ...getMenuQuery(req.query) });
+    res.set('Cache-Control', storefrontCacheControl);
+    res.json(data);
+  } catch (err) { next(err); }
+});
+
+router.get('/storefronts/:storefrontSlug/menu', async (req, res, next) => {
+  try {
+    const data = await getPublicStoreMenu({ storefrontSlug: req.params.storefrontSlug, outletId: req.query.outlet_id || req.query.outletId, ...getMenuQuery(req.query) });
+    res.set('Cache-Control', storefrontCacheControl);
+    res.json(data);
+  } catch (err) { next(err); }
+});
+
+router.get('/storefronts/:storefrontSlug/bootstrap', async (req, res, next) => {
+  try {
+    const data = await getPublicStorefront({ storefrontSlug: req.params.storefrontSlug, outletId: req.query.outlet_id || req.query.outletId, page: 0, limit: 24, category: 'cat_minuman' });
+    res.set('Cache-Control', storefrontCacheControl);
     res.json(data);
   } catch (err) { next(err); }
 });
 
 router.get('/storefronts/:storefrontSlug', async (req, res, next) => {
   try {
-    const data = await getPublicStorefront({ storefrontSlug: req.params.storefrontSlug, outletId: req.query.outlet_id || req.query.outletId });
+    const data = await getPublicStorefront({ storefrontSlug: req.params.storefrontSlug, outletId: req.query.outlet_id || req.query.outletId, ...getMenuQuery(req.query) });
+    res.set('Cache-Control', storefrontCacheControl);
     res.json(data);
   } catch (err) { next(err); }
 });
@@ -112,5 +147,7 @@ router.get('/orders/:publicOrderToken', publicOrderRateLimit, async (req, res, n
     res.json(isV1(req) ? { order: data } : { data });
   } catch (err) { next(err); }
 });
+
+export const publicStoreRouteInternals = { getMenuQuery };
 
 export default router;

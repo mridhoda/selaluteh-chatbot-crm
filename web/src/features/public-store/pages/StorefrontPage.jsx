@@ -21,10 +21,10 @@ export default function StorefrontPage() {
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [cartOpen, setCartOpen] = useState(false)
   const [selectedOutletId, setSelectedOutletId] = useState('')
-  const store = usePublicStorefront(storefrontSlug)
+  const store = usePublicStorefront(storefrontSlug, selectedOutletId)
   const outlets = useMemo(() => getEligibleOutlets({ outlets: store.storefront?.outlets || (store.storefront?.outlet ? [store.storefront.outlet] : []) }), [store.storefront])
   const selectedOutlet = outlets.find((outlet) => outlet.id === selectedOutletId) || outlets[0]
-  const cart = useGuestCart({ storefront: store.storefront, products: store.products, outlet: selectedOutlet })
+  const cart = useGuestCart({ storefront: store.storefront, products: store.cartProducts, outlet: selectedOutlet })
 
   useEffect(() => {
     if (!outlets.length) return
@@ -40,7 +40,7 @@ export default function StorefrontPage() {
     cart.clearCart()
   }
 
-  if (store.loading) {
+  if (store.loading || (store.menuLoading && !store.products.length)) {
     return (
       <PublicStoreLayout>
         <StoreSkeleton />
@@ -111,7 +111,7 @@ export default function StorefrontPage() {
         searchQuery={store.searchQuery}
         onSearchChange={store.setSearchQuery}
       />
-      <ProductGrid products={store.filteredProducts} cartItems={cart.items} onSelect={setSelectedProduct} />
+      <ProductGrid products={store.products} cartItems={cart.items} onSelect={setSelectedProduct} hasMore={store.hasMore} loadingMore={store.loadingMore} onLoadMore={store.loadMoreProducts} />
       <FloatingCartButton count={cart.cartCount} totalMinor={cart.displayTotalMinor} onClick={() => setCartOpen(true)} />
       <ProductModifierSheet
         open={Boolean(selectedProduct)}

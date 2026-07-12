@@ -10,6 +10,7 @@ export default function OrderProductThumbnail({ imageUrl, name = 'Menu', classNa
         <img
           src={imageUrl}
           alt={name}
+          decoding="async"
           className="h-full w-full object-cover"
           onError={() => setImageFailed(true)}
         />

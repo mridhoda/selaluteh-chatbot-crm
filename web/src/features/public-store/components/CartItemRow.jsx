@@ -18,7 +18,7 @@ export default function CartItemRow({ item, onUpdateQuantity, onRemove }) {
       {/* Product Image / Icon — top-aligned, no internal vertical centering */}
       <div className="shrink-0 h-14 w-14 rounded-xl overflow-hidden bg-[var(--brand-50)] border border-[var(--brand-100)]/40">
         {item.imageUrl ? (
-          <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
+          <img src={item.imageUrl} alt="" width="56" height="56" decoding="async" className="h-full w-full object-cover" />
         ) : (
           <div className="h-full w-full flex items-center justify-center text-lg font-black text-[var(--store-primary)]">
             {item.productName.slice(0, 1)}

@@ -120,6 +120,12 @@ export function createPhase5ApiClient({
     getStorefront(storefrontSlug, params = {}) {
       return request(`${PUBLIC_PREFIX}/storefronts/${encodePath(storefrontSlug, 'storefrontSlug')}${buildQuery(params)}`)
     },
+    getStorefrontBootstrap(storefrontSlug, params = {}) {
+      return request(`${PUBLIC_PREFIX}/storefronts/${encodePath(storefrontSlug, 'storefrontSlug')}/bootstrap${buildQuery(params)}`)
+    },
+    getStoreMenu(storefrontSlug, params = {}) {
+      return request(`${PUBLIC_PREFIX}/storefronts/${encodePath(storefrontSlug, 'storefrontSlug')}/menu${buildQuery(params)}`)
+    },
     resolveQr(qrToken, params = {}) {
       return request(`${PUBLIC_PREFIX}/qr/${encodePath(qrToken, 'qrToken')}${buildQuery(params)}`)
     },
