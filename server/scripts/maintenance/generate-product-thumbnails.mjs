@@ -9,7 +9,8 @@ import { getSupabaseServiceClient } from '../../src/db/supabase.js';
 const apply = process.argv.includes('--apply');
 const workspaceId = String(process.env.WORKSPACE_ID || '').trim();
 const publicBaseUrl = new URL(requireEnv('PUBLIC_BASE_URL'));
-const uploadRoot = path.resolve(process.env.LOCAL_UPLOAD_ROOT || 'uploads');
+// Must match uploadFile() and the public-file server path exactly.
+const uploadRoot = path.resolve('uploads');
 const maxSourceBytes = 20 * 1024 * 1024;
 
 if (!workspaceId) throw new Error('WORKSPACE_ID is required');
