@@ -13,6 +13,9 @@ const ALLOWED_MIMES = new Set([
 ]);
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+const PUBLIC_FILE_CACHE_TTL_MS = 60_000;
+const PUBLIC_FILE_CACHE_MAX_ENTRIES = 1_000;
+const publicFileCache = new Map();
 const EXECUTABLE_EXTENSIONS = new Set(['.exe', '.bat', '.cmd', '.com', '.sh', '.ps1', '.scr', '.js', '.mjs', '.cjs', '.jar', '.apk']);
 const SERVER_SIDE_EXTENSIONS = new Set(['.php', '.phtml', '.phar', '.asp', '.aspx', '.jsp', '.jspx', '.cgi']);
 
@@ -117,6 +120,18 @@ export async function resolvePublicManagedFile({ storedName }) {
   if (!data) return null;
   if (data.metadata?.public !== true) return { file: data, absolutePath: null };
   return { file: data, absolutePath: path.resolve(data.relative_path) };
+}
+
+export async function resolveCachedPublicManagedFile({ storedName }) {
+  const cached = publicFileCache.get(storedName);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const value = await resolvePublicManagedFile({ storedName });
+  if (value?.absolutePath) {
+    if (publicFileCache.size >= PUBLIC_FILE_CACHE_MAX_ENTRIES) publicFileCache.delete(publicFileCache.keys().next().value);
+    publicFileCache.set(storedName, { value, expiresAt: Date.now() + PUBLIC_FILE_CACHE_TTL_MS });
+  }
+  return value;
 }
 
 export async function resolveFileDownload({ workspaceId, fileId = null, storedName = null }) {

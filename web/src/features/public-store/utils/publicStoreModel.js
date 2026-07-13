@@ -1,6 +1,20 @@
 import { getApiErrorMessage } from '../../../shared/api/apiError.js'
 import selkopAlphaImage from '../../../assets/product-image/minuman/Selkop Aren Creamy & Alpha.webp'
 import selkopSocietyImage from '../../../assets/product-image/selkop-society.webp'
+import dailyBlackImage from '../../../assets/product-image/minuman/daily-black.webp'
+import dailyWhiteImage from '../../../assets/product-image/minuman/daily-white.webp'
+import dubMatchaImage from '../../../assets/product-image/minuman/dub-matcha.webp'
+import nuttyChocoImage from '../../../assets/product-image/minuman/nutty-choco.webp'
+import nuttyLatteImage from '../../../assets/product-image/minuman/nutty-latte.webp'
+import hipChocoImage from '../../../assets/product-image/minuman/hip-choco.webp'
+import selkopArenCreamyImage from '../../../assets/product-image/minuman/selkop-aren-creamy.webp'
+import lycheeTeaImage from '../../../assets/product-image/minuman/lychee-tea.webp'
+import softLatteImage from '../../../assets/product-image/minuman/soft-latte.webp'
+import lemonTeaImage from '../../../assets/product-image/minuman/lemon-tea.webp'
+import saltyCaramelImage from '../../../assets/product-image/minuman/salty-caramel.webp'
+import butterSaltImage from '../../../assets/product-image/minuman/butter-salt.webp'
+import orangeAmericanoImage from '../../../assets/product-image/minuman/orange-americano.webp'
+import peachAmericanoImage from '../../../assets/product-image/minuman/peach-americano.webp'
 
 const UNIVERSAL_SCOPE = 'UNIVERSAL'
 const OUTLET_SCOPE = 'OUTLET'
@@ -18,6 +32,20 @@ function normalizeProduct(product = {}, categoryByName = new Map()) {
   const bundledImage = {
     'selkop alpha': selkopAlphaImage,
     'selkop society': selkopSocietyImage,
+    'daily black': dailyBlackImage,
+    'daily white': dailyWhiteImage,
+    'dub matcha': dubMatchaImage,
+    'nutty choco': nuttyChocoImage,
+    'nutty latte': nuttyLatteImage,
+    'hip choco': hipChocoImage,
+    'selkop aren creamy': selkopArenCreamyImage,
+    'lychee tea': lycheeTeaImage,
+    'soft latte': softLatteImage,
+    'lemon tea': lemonTeaImage,
+    'salty caramel': saltyCaramelImage,
+    'butter salt': butterSaltImage,
+    'orange americano': orangeAmericanoImage,
+    'peach americano': peachAmericanoImage,
   }[String(product.name || '').trim().toLowerCase()]
   const imageUrl = bundledImage || product.imageUrl || product.image_url || product.thumbnailUrl || product.thumbnail_url || product.image || null
 

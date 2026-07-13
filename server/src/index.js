@@ -12,7 +12,7 @@ import { requestId } from './middleware/request-id.js';
 import { authRequired, attachUser } from './middleware/auth.js';
 import { attachWorkspaceContext } from './middleware/workspaceContext.js';
 import { authorizePermission } from './middleware/authorization.js';
-import { isManagedStoredName, resolveFileDownload, resolvePublicManagedFile } from './services/file.service.js';
+import { isManagedStoredName, resolveCachedPublicManagedFile, resolveFileDownload } from './services/file.service.js';
 
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
@@ -88,18 +88,18 @@ app.get('/public-files/:storedName', async (req, res, next) => {
     if (!storedName || storedName !== req.params.storedName) {
       return res.status(400).json({ error: { code: 'INVALID_FILE_NAME', message: 'Invalid file name' } });
     }
-    const publicManaged = await resolvePublicManagedFile({ storedName });
+    const publicManaged = await resolveCachedPublicManagedFile({ storedName });
     if (publicManaged?.file && !publicManaged.absolutePath) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Managed files require authorization' } });
     if (publicManaged) {
       return res.sendFile(path.resolve(publicManaged.absolutePath), {
         headers: {
-          'Cache-Control': 'public, max-age=31536000, immutable',
+          'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable',
           'Content-Type': publicManaged.file.mime_type || 'application/octet-stream',
         },
       });
     }
     res.sendFile(path.resolve('uploads', storedName), {
-      headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
+      headers: { 'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable' },
     });
   } catch (err) {
     next(err);
