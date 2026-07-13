@@ -93,10 +93,6 @@ tmp/
 # Docker
 docker-compose.override.yml
 
-# Uploads folder (if contains user uploads)
-server/uploads/*
-!server/uploads/.gitkeep
-
 # OS specific
 .Spotlight-V100
 .Trashes
