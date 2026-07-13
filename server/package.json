@@ -25,7 +25,8 @@
     "test:location:performance": "NODE_ENV=test node --test \"test/performance/location-intelligence/**/*.test.js\"",
     "test:location:all": "NODE_ENV=test node --test \"test/unit/location-intelligence/**/*.test.js\" \"test/component/location-intelligence/**/*.test.js\" \"test/integration/location-intelligence/**/*.test.js\" \"test/security/location-intelligence/**/*.test.js\" \"test/property/location-intelligence/**/*.test.js\" \"test/concurrency/location-intelligence/**/*.test.js\" \"test/resilience/location-intelligence/**/*.test.js\" \"test/performance/location-intelligence/**/*.test.js\"",
     "seed": "node scripts/seed/supabase-seed.js",
-    "load-test:storefront": "node scripts/load-test/storefront-browse.mjs"
+    "load-test:storefront": "node scripts/load-test/storefront-browse.mjs",
+    "migrate:product-thumbnails": "node scripts/maintenance/generate-product-thumbnails.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.23.0",
