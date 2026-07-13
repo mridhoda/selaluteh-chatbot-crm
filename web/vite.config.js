@@ -13,7 +13,13 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
-    allowedHosts: ['app-dev.incretlabs.my.id'],
+    allowedHosts: [
+      'localhost',
+      '127.0.0.1',
+      '.incretlabs.my.id',
+      '.foodiserver.my.id',
+      '.trycloudflare.com',
+    ],
     proxy: {
       '/api': apiProxy,
       '/auth': apiProxy,
