@@ -420,12 +420,18 @@ export default function KitchenTabletPage({ onViewModeChange }) {
     }
   }
 
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      boardRef.current?.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {})
-    } else {
-      document.exitFullscreen()
-      setIsFullscreen(false)
+  const toggleFullscreen = async () => {
+    const board = boardRef.current
+    if (!board) return
+    try {
+      if (document.fullscreenElement === board) {
+        await document.exitFullscreen()
+        return
+      }
+      if (document.fullscreenElement) await document.exitFullscreen()
+      await board.requestFullscreen()
+    } catch (error) {
+      console.error('Fullscreen failed:', error)
     }
   }
 
@@ -459,9 +465,14 @@ export default function KitchenTabletPage({ onViewModeChange }) {
   }, [soundEnabled])
 
   useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement)
+    const board = boardRef.current
+    const handler = () => setIsFullscreen(document.fullscreenElement === board)
     document.addEventListener('fullscreenchange', handler)
-    return () => document.removeEventListener('fullscreenchange', handler)
+    handler()
+    return () => {
+      document.removeEventListener('fullscreenchange', handler)
+      if (document.fullscreenElement === board) document.exitFullscreen().catch(() => {})
+    }
   }, [])
 
   const handlePrint = async (order) => {

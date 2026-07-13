@@ -89,9 +89,6 @@ export function usePublicStorefront(storefrontSlug, outletId) {
 
   const selectCategory = (categoryId) => {
     if (categoryId === selectedCategoryId) return
-    setProducts([])
-    setHasMore(false)
-    setNextPage(1)
     setSelectedCategoryId(categoryId)
   }
 

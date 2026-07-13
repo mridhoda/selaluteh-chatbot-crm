@@ -24,7 +24,8 @@ export default function StorefrontPage() {
   const store = usePublicStorefront(storefrontSlug, selectedOutletId)
   const outlets = useMemo(() => getEligibleOutlets({ outlets: store.storefront?.outlets || (store.storefront?.outlet ? [store.storefront.outlet] : []) }), [store.storefront])
   const selectedOutlet = outlets.find((outlet) => outlet.id === selectedOutletId) || outlets[0]
-  const cart = useGuestCart({ storefront: store.storefront, products: store.cartProducts, outlet: selectedOutlet })
+  const cartCatalog = useMemo(() => [...store.products, ...store.cartProducts.filter((product) => !store.products.some((current) => current.id === product.id))], [store.cartProducts, store.products])
+  const cart = useGuestCart({ storefront: store.storefront, products: cartCatalog, outlet: selectedOutlet })
 
   useEffect(() => {
     if (!outlets.length) return

@@ -397,26 +397,29 @@ export default function KitchenPage() {
   }
 
   // Fullscreen toggle handler
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      boardRef.current?.requestFullscreen().then(() => {
-        setIsFullscreen(true)
-      }).catch(err => {
-        console.error('Fullscreen failed:', err)
-      })
-    } else {
-      document.exitFullscreen()
-      setIsFullscreen(false)
+  const toggleFullscreen = async () => {
+    const board = boardRef.current
+    if (!board) return
+    try {
+      if (document.fullscreenElement === board) {
+        await document.exitFullscreen()
+        return
+      }
+      if (document.fullscreenElement) await document.exitFullscreen()
+      await board.requestFullscreen()
+    } catch (error) {
+      console.error('Fullscreen failed:', error)
     }
   }
 
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement)
-    }
+    const board = boardRef.current
+    const handleFullscreenChange = () => setIsFullscreen(document.fullscreenElement === board)
     document.addEventListener('fullscreenchange', handleFullscreenChange)
+    handleFullscreenChange()
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      if (document.fullscreenElement === board) document.exitFullscreen().catch(() => {})
     }
   }, [])
 
