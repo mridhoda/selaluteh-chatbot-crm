@@ -15,6 +15,16 @@ import saltyCaramelImage from '../../../assets/product-image/minuman/salty-caram
 import butterSaltImage from '../../../assets/product-image/minuman/butter-salt.webp'
 import orangeAmericanoImage from '../../../assets/product-image/minuman/orange-americano.webp'
 import peachAmericanoImage from '../../../assets/product-image/minuman/peach-americano.webp'
+import beefBlackPepperImage from '../../../assets/product-image/makanan/Beef Black Pepper (1).webp'
+import beefBulgogiImage from '../../../assets/product-image/makanan/Beef Bulgogi (2).webp'
+import beefRendangImage from '../../../assets/product-image/makanan/Beef Rendang (2).webp'
+import beefYakinikuImage from '../../../assets/product-image/makanan/Beef Yakiniku (1).webp'
+import chickenCurryNoodleImage from '../../../assets/product-image/makanan/Cbicken Curry Noodle (2).webp'
+import chickenCurryRiceImage from '../../../assets/product-image/makanan/Chicken Curry Rice (2).webp'
+import chickenMushroomNoodleImage from '../../../assets/product-image/makanan/Chicken Mushroom Noodle (1).webp'
+import chickenRendangImage from '../../../assets/product-image/makanan/Chicken Rendang (2).webp'
+import chickenTeriyakiImage from '../../../assets/product-image/makanan/Chicken Teriyaki (2).webp'
+import gyudonTruffleImage from '../../../assets/product-image/makanan/Gyudon Truffle (1).webp'
 
 const UNIVERSAL_SCOPE = 'UNIVERSAL'
 const OUTLET_SCOPE = 'OUTLET'
@@ -46,6 +56,16 @@ function normalizeProduct(product = {}, categoryByName = new Map()) {
     'butter salt': butterSaltImage,
     'orange americano': orangeAmericanoImage,
     'peach americano': peachAmericanoImage,
+    'beef black pepper': beefBlackPepperImage,
+    'beef bulgogi': beefBulgogiImage,
+    'beef rendang': beefRendangImage,
+    'beef yakiniku': beefYakinikuImage,
+    'chicken curry noodle': chickenCurryNoodleImage,
+    'chicken curry rice': chickenCurryRiceImage,
+    'chicken mushroom noodle': chickenMushroomNoodleImage,
+    'chicken rendang': chickenRendangImage,
+    'chicken teriyaki': chickenTeriyakiImage,
+    'gyudon truffle': gyudonTruffleImage,
   }[String(product.name || '').trim().toLowerCase()]
   const imageUrl = bundledImage || product.imageUrl || product.image_url || product.thumbnailUrl || product.thumbnail_url || product.image || null
 
