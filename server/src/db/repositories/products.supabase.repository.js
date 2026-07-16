@@ -274,13 +274,63 @@ export const productsSupabaseRepository = {
     const base = {
       workspace_id: workspaceId,
       product_id: productId,
+      variant_id: updates.variantId ?? null,
       outlet_id: outletId,
       is_available: updates.isAvailable ?? true,
       price_override: updates.priceOverride ?? null,
       stock_quantity: updates.stockQuantity ?? null,
       status: updates.status || 'active',
     };
-    const result = await client.from(AVAIL_TABLE).upsert(base, { onConflict: 'workspace_id,product_id,outlet_id' }).select().single();
+    let existingQuery = client.from(AVAIL_TABLE)
+      .select('id')
+      .eq('workspace_id', workspaceId)
+      .eq('product_id', productId)
+      .eq('outlet_id', outletId);
+    existingQuery = updates.variantId
+      ? existingQuery.eq('variant_id', updates.variantId)
+      : existingQuery.is('variant_id', null);
+    const { data: existing, error: findError } = await existingQuery.maybeSingle();
+    if (findError) throw findError;
+
+    const result = existing
+      ? await client.from(AVAIL_TABLE).update(base).eq('id', existing.id).select().single()
+      : await client.from(AVAIL_TABLE).insert(base).select().single();
     return mapRow(extractSingle(result, 'products.upsertAvailability'));
+  },
+
+  async syncProductOutletAvailability({ workspaceId, productId, outletIds, stockQuantity = null }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const selectedIds = new Set((outletIds || []).map(String));
+    const { data: currentRows, error: findError } = await client
+      .from(AVAIL_TABLE)
+      .select('id, outlet_id, variant_id')
+      .eq('workspace_id', workspaceId)
+      .eq('product_id', productId)
+      .is('variant_id', null);
+    if (findError) throw findError;
+
+    const currentByOutlet = new Map((currentRows || []).map((row) => [String(row.outlet_id), row]));
+    for (const row of currentRows || []) {
+      if (selectedIds.has(String(row.outlet_id))) {
+        const { error } = await client.from(AVAIL_TABLE).update({ is_available: true, status: 'active' }).eq('id', row.id);
+        if (error) throw error;
+      } else {
+        const { error } = await client.from(AVAIL_TABLE).update({ is_available: false, status: 'inactive' }).eq('id', row.id);
+        if (error) throw error;
+      }
+    }
+
+    for (const outletId of selectedIds) {
+      if (currentByOutlet.has(outletId)) continue;
+      await this.upsertAvailability({
+        workspaceId,
+        productId,
+        outletId,
+        updates: { isAvailable: true, stockQuantity, status: 'active' },
+      });
+    }
+
+    return this.findAvailabilityByProduct({ workspaceId, productId });
   },
 };

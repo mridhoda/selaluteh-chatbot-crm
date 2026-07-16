@@ -68,18 +68,25 @@ function productsFrom(data) {
   return Array.isArray(data?.products) ? data.products : Array.isArray(data?.menu?.products) ? data.menu.products : [];
 }
 
+function publicImageUrl(product) {
+  const value = String(product?.image_url || product?.imageUrl || '');
+  return value.startsWith('/public-files/') ? value : null;
+}
+
 async function simulateUser() {
   const bootstrap = await get('bootstrap', endpoint(`/api/v1/public/storefronts/${encodeURIComponent(storefrontSlug)}/bootstrap`));
   const bootstrapData = bootstrap.ok ? parseJson(bootstrap.body) : null;
   const outletId = bootstrapData?.outlets?.[0]?.id || bootstrapData?.storefront?.outlet?.id;
-  const minumanProducts = productsFrom(bootstrapData);
   if (!outletId) return;
 
   const minuman = await get('menu:minuman', endpoint(`/api/v1/public/storefronts/${encodeURIComponent(storefrontSlug)}/menu`, { outlet_id: outletId, category: 'cat_minuman', page: '0', limit: '24' }));
   const makanan = await get('menu:makanan', endpoint(`/api/v1/public/storefronts/${encodeURIComponent(storefrontSlug)}/menu`, { outlet_id: outletId, category: 'cat_makanan', page: '0', limit: '24' }));
-  const minumanData = minuman.ok ? parseJson(minuman.body) : { products: minumanProducts };
+  const minumanData = minuman.ok ? parseJson(minuman.body) : null;
   const makananData = makanan.ok ? parseJson(makanan.body) : null;
-  const imageUrls = [productsFrom(minumanData)[0]?.image_url, productsFrom(makananData)[0]?.image_url].filter(Boolean);
+  const imageUrls = [
+    publicImageUrl(productsFrom(minumanData).find((product) => publicImageUrl(product))),
+    publicImageUrl(productsFrom(makananData).find((product) => publicImageUrl(product))),
+  ].filter(Boolean);
   await Promise.all(imageUrls.map((imageUrl) => get('image', new URL(imageUrl, baseUrl))));
 }
 

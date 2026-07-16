@@ -1,4 +1,4 @@
-import { modifiersRepository, productsRepository } from '../db/repositories/index.js';
+import { modifiersRepository, outletsRepository, productsRepository } from '../db/repositories/index.js';
 import { inventoryRepository } from '../db/repositories/inventory.supabase.repository.js';
 import { assertOutletAccess, buildOutletScopedQuery, canManageWorkspace } from './access-control.service.js';
 import { AppError } from '../utils/errors.js';
@@ -23,6 +23,30 @@ async function buildOutletAvailabilityWithInventory({ workspaceId, outletId, pro
   const inventoryByProduct = new Map(inventory.map((row) => [String(row.productId), row]));
 
   return { availabilityByProduct, inventoryByProduct };
+}
+
+export function getAssignedOutletIds(metadata = {}) {
+  return [...new Set((Array.isArray(metadata.outlets) ? metadata.outlets : [])
+    .filter((outletId) => outletId !== null && outletId !== undefined)
+    .map((outletId) => String(outletId).trim())
+    .filter(Boolean))];
+}
+
+async function validateAssignedOutlets({ user, metadata }) {
+  if (!Object.prototype.hasOwnProperty.call(metadata || {}, 'outlets')) return;
+  const outletIds = getAssignedOutletIds(metadata);
+  const activeOutlets = await outletsRepository.findActiveByWorkspace(user.workspaceId);
+  const activeOutletIds = new Set(activeOutlets.map((outlet) => String(outlet.id)));
+  for (const outletId of outletIds) {
+    if (!activeOutletIds.has(outletId)) throw new AppError('OUTLET_NOT_FOUND', `Outlet ${outletId} is not active`, 400);
+    await assertOutletAccess(user, outletId);
+  }
+}
+
+async function syncProductOutlets({ user, productId, metadata, stockQuantity }) {
+  if (!Object.prototype.hasOwnProperty.call(metadata || {}, 'outlets')) return;
+  const outletIds = getAssignedOutletIds(metadata);
+  await productsRepository.syncProductOutletAvailability({ workspaceId: user.workspaceId, productId, outletIds, stockQuantity });
 }
 
 export async function listProducts({ user, outletId, status, search, page, limit, sort }) {
@@ -220,6 +244,7 @@ export async function createProduct({ user, data }) {
 
   if (data.basePrice < 0) throw new AppError('VALIDATION', 'basePrice cannot be negative', 400);
   if (data.costPrice != null && data.costPrice < 0) throw new AppError('VALIDATION', 'costPrice cannot be negative', 400);
+  await validateAssignedOutlets({ user, metadata: data.metadata });
 
   const product = await productsRepository.create({
     workspaceId: user.workspaceId,
@@ -239,6 +264,8 @@ export async function createProduct({ user, data }) {
     stockQuantity: data.stockQuantity ?? null,
     metadata: data.metadata || {},
   });
+
+  await syncProductOutlets({ user, productId: product.id, metadata: data.metadata, stockQuantity: data.stockQuantity ?? null });
 
   try {
     await auditLogsRepository.log({
@@ -275,8 +302,10 @@ export async function updateProduct({ user, productId, data }) {
   if (allowedUpdates.costPrice !== undefined && allowedUpdates.costPrice < 0) {
     throw new AppError('VALIDATION', 'costPrice cannot be negative', 400);
   }
+  await validateAssignedOutlets({ user, metadata: data.metadata });
 
   const updated = await productsRepository.update({ workspaceId: user.workspaceId, productId, updates: allowedUpdates });
+  await syncProductOutlets({ user, productId, metadata: data.metadata, stockQuantity: data.stockQuantity ?? updated.stockQuantity ?? null });
 
   try {
     if (existing.basePrice !== updated.basePrice) {
