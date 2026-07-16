@@ -21,9 +21,12 @@ export const REPORT_METRICS = [
 export const getDimensionLabel = (id) => REPORT_DIMENSIONS.find((item) => item.id === id)?.label || id
 export const getMetricLabel = (id) => REPORT_METRICS.find((item) => item.id === id)?.label || id
 
-export function buildReportRows({ dimension, metrics, outlets = [], outletRows = [], productRows = [], channelRows = [], genericRows = [] }) {
+export function buildReportRows({ dimension, dimensions = [], metrics, outlets = [], outletRows = [], productRows = [], channelRows = [], genericRows = [] }) {
+  const selectedDimensions = dimensions.length ? dimensions : [dimension]
   let source = []
-  if (dimension === 'outlet') {
+  if (selectedDimensions.length > 1) {
+    source = genericRows.map((row) => ({ key: row.key, label: row.label || Object.values(row.dimensions || {}).join(' / '), dimensions: row.dimensions, revenue: Number(row.grossSales || 0), orders: Number(row.orderCount || 0), quantity: Number(row.quantity || 0) }))
+  } else if (dimension === 'outlet') {
     source = outletRows.map((row) => ({
       key: row.outletId || 'unknown',
       label: outlets.find((outlet) => outlet.id === row.outletId)?.name || row.outletName || 'Outlet tidak diketahui',
@@ -34,10 +37,11 @@ export function buildReportRows({ dimension, metrics, outlets = [], outletRows =
   } else if (dimension === 'channel') {
     source = channelRows.map((row) => ({ key: row.channel || 'unknown', label: row.channel || 'Channel tidak diketahui', revenue: Number(row.grossSales || 0), orders: Number(row.orderCount || 0), quantity: 0 }))
   } else {
-    source = genericRows.map((row) => ({ key: row.key, label: row.label, revenue: Number(row.grossSales || 0), orders: Number(row.orderCount || 0), quantity: 0 }))
+    source = genericRows.map((row) => ({ key: row.key, label: row.label || Object.values(row.dimensions || {}).join(' / '), dimensions: row.dimensions, revenue: Number(row.grossSales || 0), orders: Number(row.orderCount || 0), quantity: Number(row.quantity || 0) }))
   }
   return source.map((row) => {
     const result = { key: row.key, label: row.label }
+    if (row.dimensions) result.dimensions = row.dimensions
     metrics.forEach((metric) => {
       if (metric === 'averageOrder') result[metric] = row.orders ? row.revenue / row.orders : 0
       else result[metric] = row[metric] ?? 0

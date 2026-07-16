@@ -11,10 +11,15 @@ const workspaceId = String(process.env.WORKSPACE_ID || '').trim();
 const publicBaseUrl = new URL(requireEnv('PUBLIC_BASE_URL'));
 // Must match uploadFile() and the public-file server path exactly.
 const uploadRoot = path.resolve('uploads');
+const ffmpegCommand = process.env.FFMPEG_PATH || 'ffmpeg';
 const maxSourceBytes = 20 * 1024 * 1024;
 
 if (!workspaceId) throw new Error('WORKSPACE_ID is required');
 if (publicBaseUrl.protocol !== 'https:') throw new Error('PUBLIC_BASE_URL must use HTTPS');
+
+if (apply && process.platform === 'win32' && !process.env.FFMPEG_PATH) {
+  console.warn('FFMPEG_PATH is not set; the script will use ffmpeg from PATH.');
+}
 
 function requireEnv(name) {
   const value = String(process.env[name] || '').trim();
@@ -33,8 +38,8 @@ function isOwnPublicImage(value) {
 
 function runFfmpeg(args) {
   return new Promise((resolve, reject) => {
-    const child = spawn('ffmpeg', args, { stdio: 'ignore' });
-    child.once('error', () => reject(new Error('ffmpeg is required to generate product thumbnails')));
+    const child = spawn(ffmpegCommand, args, { stdio: 'ignore' });
+    child.once('error', () => reject(new Error(`FFmpeg not found at ${ffmpegCommand}. Set FFMPEG_PATH to the full path of ffmpeg.exe.`)));
     child.once('exit', (code) => code === 0 ? resolve() : reject(new Error(`ffmpeg exited with code ${code}`)));
   });
 }
@@ -58,6 +63,8 @@ const { data: products, error } = await client
 if (error) throw error;
 
 const candidates = products.filter((product) => isOwnPublicImage(product.thumbnail_url));
+let migrated = 0;
+let failed = 0;
 console.log(`${apply ? 'APPLY' : 'DRY-RUN'}: ${candidates.length} public product images in workspace ${workspaceId}`);
 
 for (const product of candidates) {
@@ -103,9 +110,16 @@ for (const product of candidates) {
       throw updateError || new Error('product image changed during migration');
     }
     console.log(`DONE ${product.name}: ${stat.size} bytes`);
+    migrated += 1;
   } catch (migrationError) {
     console.error(`FAILED ${product.name}: ${migrationError.message}`);
+    failed += 1;
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
+}
+
+if (apply) {
+  console.log(`Migration summary: ${migrated} completed, ${failed} failed`);
+  if (failed > 0) process.exitCode = 1;
 }

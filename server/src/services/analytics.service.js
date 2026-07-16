@@ -138,31 +138,41 @@ export async function getChannelPerformance({ workspaceId, outletIds, startDate,
   return Object.values(map).sort((a, b) => b.grossSales - a.grossSales);
 }
 
-export async function getDimensionPerformance({ workspaceId, dimension, outletId, startDate, endDate }) {
+export async function getDimensionPerformance({ workspaceId, dimensions = [], dimension, outletId, outletIds, startDate, endDate }) {
   requireWorkspaceId(workspaceId);
-  const supported = ['status', 'paymentStatus', 'customer'];
-  if (!supported.includes(dimension)) return [];
+  const selected = dimensions.length ? dimensions : [dimension];
+  const supported = ['outlet', 'product', 'channel', 'status', 'paymentStatus', 'customer'];
+  if (!selected.length || selected.some((item) => !supported.includes(item))) return [];
   const client = getSupabaseServiceClient();
-  let q = client.from('orders').select('id, contact_id, status, payment_status, total_amount, outlet_id, created_at').eq('workspace_id', workspaceId);
+  let q = client.from('orders').select('id, contact_id, status, payment_status, total_amount, outlet_id, channel_snapshot, created_at, contacts(name), outlets(name), order_items(product_id, product_name_snapshot, quantity, subtotal_amount)').eq('workspace_id', workspaceId);
+  q = applyOutletScope(q, outletIds);
   if (outletId) q = q.eq('outlet_id', outletId);
   if (startDate) q = q.gte('created_at', startDate);
   if (endDate) q = q.lte('created_at', endDate);
   const { data: orders } = await q;
   const contactIds = [...new Set((orders || []).map((order) => order.contact_id).filter(Boolean))];
   const contactNames = new Map();
-  if (dimension === 'customer' && contactIds.length) {
+  if (selected.includes('customer') && contactIds.length) {
     const { data: contacts } = await client.from('contacts').select('id, name').eq('workspace_id', workspaceId).in('id', contactIds);
     for (const contact of contacts || []) contactNames.set(String(contact.id), contact.name || String(contact.id));
   }
   const map = {};
   for (const order of orders || []) {
-    const rawKey = dimension === 'status' ? order.status : dimension === 'paymentStatus' ? order.payment_status : order.contact_id;
-    const key = rawKey || 'unknown';
-    if (!map[key]) map[key] = { key, label: dimension === 'customer' ? (contactNames.get(String(key)) || key) : key, orderCount: 0, grossSales: 0 };
-    map[key].orderCount += 1;
-    if (String(order.payment_status).toLowerCase() === 'paid') map[key].grossSales += Number(order.total_amount || 0);
+    const items = selected.includes('product') ? (order.order_items || [{ product_id: 'unknown', product_name_snapshot: 'Produk tidak diketahui', quantity: 0, subtotal_amount: 0 }]) : [null];
+    for (const item of items) {
+      const values = Object.fromEntries(selected.map((itemDimension) => {
+        const raw = itemDimension === 'outlet' ? order.outlet_id : itemDimension === 'product' ? item.product_id : itemDimension === 'channel' ? order.channel_snapshot : itemDimension === 'status' ? order.status : itemDimension === 'paymentStatus' ? order.payment_status : order.contact_id;
+        const fallback = itemDimension === 'outlet' ? (order.outlets?.name || 'Outlet tidak diketahui') : itemDimension === 'product' ? (item.product_name_snapshot || 'Produk tidak diketahui') : itemDimension === 'customer' ? (contactNames.get(String(raw)) || 'Pelanggan tidak diketahui') : (raw || 'unknown');
+        return [itemDimension, { key: raw || 'unknown', label: fallback }];
+      }));
+      const key = selected.map((itemDimension) => values[itemDimension].key).join('|');
+      if (!map[key]) map[key] = { key, dimensions: Object.fromEntries(selected.map((itemDimension) => [itemDimension, values[itemDimension].label])), orderIds: new Set(), grossSales: 0, quantity: 0 };
+      map[key].orderIds.add(order.id);
+      if (String(order.payment_status).toLowerCase() === 'paid') map[key].grossSales += Number(item ? item.subtotal_amount : order.total_amount || 0);
+      map[key].quantity += Number(item?.quantity || 0);
+    }
   }
-  return Object.values(map).sort((a, b) => b.grossSales - a.grossSales);
+  return Object.values(map).map((row) => ({ ...row, orderCount: row.orderIds.size, orderIds: undefined })).sort((a, b) => b.grossSales - a.grossSales);
 }
 
 export async function getPaymentMetrics({ workspaceId, startDate, endDate }) {

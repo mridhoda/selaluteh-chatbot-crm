@@ -64,7 +64,8 @@ router.get('/channels', async (req, res, next) => {
 
 router.get('/dimension', async (req, res, next) => {
   try {
-    const result = await getDimensionPerformance({ workspaceId: req.me.workspaceId, dimension: req.query.dimension, outletId: req.query.outletId, startDate: req.query.startDate, endDate: req.query.endDate });
+    const dimensions = String(req.query.dimensions || req.query.dimension || '').split(',').filter(Boolean);
+    const result = await getDimensionPerformance({ workspaceId: req.me.workspaceId, dimensions, outletId: req.query.outletId, outletIds: req.allowedOutletIds, startDate: req.query.startDate, endDate: req.query.endDate });
     res.json({ data: result });
   } catch (err) { next(err); }
 });

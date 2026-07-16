@@ -23,3 +23,14 @@ test('product report uses quantity and product revenue', () => {
   assert.equal(rows[0].quantity, 3)
   assert.equal(rows[0].revenue, 45000)
 })
+
+test('multidimensional report preserves every selected dimension', () => {
+  const rows = buildReportRows({
+    dimensions: ['outlet', 'channel'],
+    metrics: ['revenue', 'orders'],
+    genericRows: [{ key: 'o1|online', dimensions: { outlet: 'Samarinda', channel: 'online' }, grossSales: 100000, orderCount: 2 }],
+  })
+  assert.deepEqual(rows[0].dimensions, { outlet: 'Samarinda', channel: 'online' })
+  assert.equal(rows[0].revenue, 100000)
+  assert.equal(rows[0].orders, 2)
+})
