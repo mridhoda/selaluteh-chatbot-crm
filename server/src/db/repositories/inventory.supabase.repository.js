@@ -75,10 +75,17 @@ export const inventoryRepository = {
       low_stock_threshold: lowStockThreshold ?? 5,
       ...(status && { status }),
     };
-    const result = await client.from(INV_TABLE).upsert(payload, {
-      onConflict: 'workspace_id,outlet_id,product_id,variant',
-      ignoreDuplicates: false,
-    }).select().single();
+    let existingQuery = client.from(INV_TABLE)
+      .select('id')
+      .eq('workspace_id', workspaceId)
+      .eq('outlet_id', outletId)
+      .eq('product_id', productId);
+    existingQuery = variant === null ? existingQuery.is('variant', null) : existingQuery.eq('variant', variant);
+    const { data: existing, error: findError } = await existingQuery.maybeSingle();
+    if (findError) throw findError;
+    const result = existing
+      ? await client.from(INV_TABLE).update(payload).eq('id', existing.id).select().single()
+      : await client.from(INV_TABLE).insert(payload).select().single();
     return mapRow(extractSingle(result, 'inventory.upsertItem'));
   },
 

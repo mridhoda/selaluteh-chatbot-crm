@@ -6,6 +6,19 @@ import { buildOutletScopedQuery, assertOutletAccess } from './access-control.ser
 
 export async function getStock({ workspaceId, outletId, outletIds, productId, variant = null }) {
   const item = await inventoryRepository.findByProduct({ workspaceId, outletId, outletIds, productId, variant });
+  if (!item && outletId) {
+    const availability = await productsRepository.findOneAvailability({ workspaceId, productId, outletId });
+    if (availability) {
+      return {
+        productId,
+        outletId,
+        quantity: Number(availability.stockQuantity ?? 0),
+        lowStockThreshold: 5,
+        status: availability.status || 'active',
+        updatedAt: availability.updatedAt,
+      };
+    }
+  }
   if (!item) return { productId, outletId, quantity: 0, lowStockThreshold: 5, status: 'active' };
   return item;
 }

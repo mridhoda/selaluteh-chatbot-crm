@@ -47,6 +47,24 @@ async function syncProductOutlets({ user, productId, metadata, stockQuantity }) 
   if (!Object.prototype.hasOwnProperty.call(metadata || {}, 'outlets')) return;
   const outletIds = getAssignedOutletIds(metadata);
   await productsRepository.syncProductOutletAvailability({ workspaceId: user.workspaceId, productId, outletIds, stockQuantity });
+
+  for (const outletId of outletIds) {
+    const inventory = await inventoryRepository.findByProduct({
+      workspaceId: user.workspaceId,
+      outletId,
+      productId,
+    });
+    if (!inventory) {
+      await inventoryRepository.upsertItem({
+        workspaceId: user.workspaceId,
+        outletId,
+        productId,
+        quantity: Number(stockQuantity ?? 0),
+        lowStockThreshold: 5,
+        status: 'active',
+      });
+    }
+  }
 }
 
 export async function listProducts({ user, outletId, status, search, page, limit, sort }) {
@@ -414,6 +432,17 @@ export async function updateOutletAvailability({ user, productId, outlets }) {
         availableUntil: item.availableUntil || item.available_until || null,
       },
     });
+    if (item.stockQuantity !== undefined || item.stock_quantity !== undefined) {
+      await inventoryRepository.upsertItem({
+        workspaceId: user.workspaceId,
+        outletId,
+        productId,
+        variant: item.variant || item.variant_id || null,
+        quantity: Number(item.stockQuantity ?? item.stock_quantity ?? 0),
+        lowStockThreshold: 5,
+        status: item.status === 'inactive' ? 'active' : 'active',
+      });
+    }
     results.push(row);
   }
 
