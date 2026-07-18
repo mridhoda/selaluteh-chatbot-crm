@@ -4,6 +4,7 @@ import CartDrawer from '../components/CartDrawer'
 import CategoryTabs from '../components/CategoryTabs'
 import FloatingCartButton from '../components/FloatingCartButton'
 import HeroBanner from '../components/HeroBanner'
+import NearestOutletModal from '../components/NearestOutletModal'
 import OutletPickupBadge from '../components/OutletPickupBadge'
 import ProductGrid from '../components/ProductGrid'
 import ProductModifierSheet from '../components/ProductModifierSheet'
@@ -11,6 +12,7 @@ import StoreErrorState from '../components/StoreErrorState'
 import StoreHeader from '../components/StoreHeader'
 import StoreSkeleton from '../components/StoreSkeleton'
 import { useGuestCart } from '../hooks/useGuestCart'
+import { useNearestOutletRecommendation } from '../hooks/useNearestOutletRecommendation'
 import { usePublicStorefront } from '../hooks/usePublicStorefront'
 import PublicStoreLayout from '../layouts/PublicStoreLayout'
 import { getEligibleOutlets } from '../utils/publicStoreModel'
@@ -24,6 +26,8 @@ export default function StorefrontPage() {
   const store = usePublicStorefront(storefrontSlug, selectedOutletId)
   const outlets = useMemo(() => getEligibleOutlets({ outlets: store.storefront?.outlets || (store.storefront?.outlet ? [store.storefront.outlet] : []) }), [store.storefront])
   const selectedOutlet = outlets.find((outlet) => outlet.id === selectedOutletId) || outlets[0]
+  const hasStoredOutlet = Boolean(window.localStorage.getItem(`public-store-outlet:${storefrontSlug}`))
+  const nearestOutlet = useNearestOutletRecommendation(outlets, !hasStoredOutlet, storefrontSlug)
   const cartCatalog = useMemo(() => [...store.products, ...store.cartProducts.filter((product) => !store.products.some((current) => current.id === product.id))], [store.cartProducts, store.products])
   const cart = useGuestCart({ storefront: store.storefront, products: cartCatalog, outlet: selectedOutlet })
 
@@ -103,6 +107,14 @@ export default function StorefrontPage() {
         outlets={outlets}
         selectedOutletId={selectedOutlet?.id || ''}
         onSelectOutlet={selectOutlet}
+      />
+      <NearestOutletModal
+        outlet={nearestOutlet.recommendation}
+        onDismiss={nearestOutlet.dismiss}
+        onConfirm={() => {
+          selectOutlet(nearestOutlet.recommendation.id)
+          nearestOutlet.dismiss()
+        }}
       />
       <HeroBanner banner={store.storefront.banner} />
       <CategoryTabs

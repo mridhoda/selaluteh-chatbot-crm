@@ -213,6 +213,26 @@ describe('public storefront helpers', () => {
     assert.equal(mapped.takeaway_enabled, true);
   });
 
+  it('exposes only valid public outlet coordinates for distance recommendations', () => {
+    const mapped = publicStorefrontInternals.toPublicOutlet({
+      id: 'outlet-location',
+      name: 'SELKOP Lokasi',
+      status: 'active',
+      metadata: { latitude: '-0.501', longitude: '117.153' },
+    });
+    assert.equal(mapped.latitude, -0.501);
+    assert.equal(mapped.longitude, 117.153);
+
+    const invalid = publicStorefrontInternals.toPublicOutlet({
+      id: 'outlet-invalid-location',
+      name: 'SELKOP Tanpa Lokasi',
+      status: 'active',
+      metadata: { latitude: 'unknown', longitude: null },
+    });
+    assert.equal(Object.hasOwn(invalid, 'latitude'), false);
+    assert.equal(Object.hasOwn(invalid, 'longitude'), false);
+  });
+
   it('treats only active visible orderable pickup outlets as selectable', () => {
     assert.equal(publicStorefrontInternals.isOutletOrderable({
       id: 'outlet-1',

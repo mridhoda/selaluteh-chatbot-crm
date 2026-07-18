@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { contactsRepository, ordersRepository, outletsRepository, paymentsRepository, storefrontsRepository, workspacesRepository, idempotencyRepository } from '../db/repositories/index.js';
+import { contactsRepository, ordersRepository, outletLocationsRepository, outletsRepository, paymentsRepository, storefrontsRepository, workspacesRepository, idempotencyRepository } from '../db/repositories/index.js';
 import { listCustomerProductsForOutlet } from './product.service.js';
 import { getQrStoreContext } from './qr-order-session.service.js';
 import { createOrderFromCheckout } from './order.service.js';
@@ -86,8 +86,12 @@ function getWorkspacePublicSettings(workspace = {}, settings = {}) {
   };
 }
 
-function toPublicOutlet(outlet, storefrontOutlet = {}) {
+function toPublicOutlet(outlet, storefrontOutlet = {}, location = null) {
   const metadata = outlet.metadata || {};
+  const latitude = Number(location?.latitude ?? metadata.latitude);
+  const longitude = Number(location?.longitude ?? metadata.longitude);
+  const hasValidCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude)
+    && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
   return {
     id: outlet.id,
     name: outlet.name,
@@ -98,6 +102,10 @@ function toPublicOutlet(outlet, storefrontOutlet = {}) {
     pickup_enabled: storefrontOutlet.pickupEnabled ?? (metadata.pickupEnabled !== false),
     dine_in_enabled: storefrontOutlet.dineInEnabled === true,
     takeaway_enabled: storefrontOutlet.takeawayEnabled === true,
+    ...(hasValidCoordinates ? { latitude, longitude } : {}),
+    ...(location?.googleMapsUri || metadata.googleMapsLink || metadata.googleMapsUrl
+      ? { google_maps_url: location?.googleMapsUri || metadata.googleMapsLink || metadata.googleMapsUrl }
+      : {}),
   };
 }
 
@@ -236,6 +244,8 @@ export async function getPublicStorefront({ storefrontSlug, outletId, page, limi
     ? mappedStorefrontOutlets.map((row) => ({ ...row.outlet, storefrontOutlet: row })).filter((outlet) => outlet.id)
     : await outletsRepository.findActiveByWorkspace(workspace.id);
   const publicOutlets = outlets.filter(isOutletOrderable);
+  const outletLocations = await outletLocationsRepository.listVerifiedEligible(workspace.id).catch(() => []);
+  const locationByOutletId = new Map(outletLocations.map((location) => [String(location.outletId), location]));
   if (outletId && !publicOutlets.some((outlet) => String(outlet.id) === String(outletId))) {
     throw new AppError('OUTLET_UNAVAILABLE', 'Outlet is not available for ordering', 409);
   }
@@ -272,7 +282,7 @@ export async function getPublicStorefront({ storefrontSlug, outletId, page, limi
         : [],
       bannerIntervalSeconds: Math.min(60, Math.max(2, Number(storefrontMetadata.bannerIntervalSeconds || storefrontMetadata.banner_interval_seconds || 5))),
     },
-    outlets: publicOutlets.map((outlet) => toPublicOutlet(outlet, outlet.storefrontOutlet || {})),
+    outlets: publicOutlets.map((outlet) => toPublicOutlet(outlet, outlet.storefrontOutlet || {}, locationByOutletId.get(String(outlet.id)))),
     menu,
   };
   Object.defineProperty(response, 'internal', {
