@@ -149,13 +149,6 @@ export default function OrderStatusPage() {
               Kembali ke Menu
             </button>
           )}
-          <button
-            type="button"
-            className="w-full bg-white border border-gray-200 text-gray-700 font-bold text-sm py-3 rounded-full hover:bg-gray-50 active:bg-gray-100 transition-colors active:scale-95"
-            onClick={orderStatus.refresh}
-          >
-            Refresh Status
-          </button>
         </div>
       </main>
     </PublicStoreLayout>

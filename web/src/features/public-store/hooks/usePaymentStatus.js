@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { phase5ApiClient } from '../api/phase5ApiClient'
 import { getNextPaymentPollingDelay, normalizePaymentStatus, shouldStopPaymentPolling } from '../utils/cartIntentModel'
 
-export function usePaymentStatus(paymentId, publicOrderToken, { poll = true, intervalMs = 5000, rateLimitedIntervalMs = 30000, maxPolls = 24 } = {}) {
+export function usePaymentStatus(paymentId, publicOrderToken, { poll = true, intervalMs = 2000, rateLimitedIntervalMs = 30000, maxPolls = 24 } = {}) {
   const [payment, setPayment] = useState(null)
   const [status, setStatus] = useState('pending')
   const [loading, setLoading] = useState(true)

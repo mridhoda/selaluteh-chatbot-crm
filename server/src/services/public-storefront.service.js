@@ -429,6 +429,7 @@ function toCheckoutLikePayload({ validation, customer, contactId, idempotencyKey
     qrLocationLabel: qrContext?.location_label || null,
     metadata: {
       publicStorefrontId: context.storefront?.internal?.storefrontId || null,
+      publicStorefrontSlug: context.storefront?.slug || null,
       qrCodeId: context.qrContext?.qr_session?.qr_code_id || null,
       qrScope: context.qrContext?.qr_session?.scope || null,
       qrType: context.qrContext?.qr_session?.qr_type || null,

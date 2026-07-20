@@ -11,6 +11,8 @@ describe('BayarGG payment session contract', () => {
       workspaceId: 'workspace-1',
       outletId: 'outlet-1',
       orderNumber: 'SLT-0001',
+      publicOrderToken: 'po_test-123',
+      metadata: { publicStorefrontSlug: 'selalu-teh' },
       paymentStatus: 'unpaid',
       totals: { total: 75000, currency: 'IDR' },
       items: [{ name: 'Tea', quantity: 1, subtotal: 75000 }],
@@ -90,6 +92,9 @@ describe('BayarGG payment session contract', () => {
     assert.equal(adapterCalls[0].input.referenceId, 'SLTSLT0001PAY01');
     assert.equal(adapterCalls[0].input.orderId, 'order-1');
     assert.equal(adapterCalls[0].input.callbackUrl.endsWith('/webhook/bayargg'), true);
+    assert.match(adapterCalls[0].input.successReturnUrl, /\/payments\/return\/success\?/);
+    assert.match(adapterCalls[0].input.successReturnUrl, /merchantReference=SLTSLT0001PAY01/);
+    assert.match(adapterCalls[0].input.successReturnUrl, /publicOrderToken=/);
 
     assert.equal(createdPayments.length, 1);
     assert.equal(createdPayments[0].amount, 75000);

@@ -26,6 +26,38 @@ describe('bayargg payment adapter', () => {
     assert.equal(result.paymentMethod, 'qris_bayar_gg');
   });
 
+  it('sends HTTPS redirect and callback URLs when creating a payment', async () => {
+    const originalFetch = global.fetch;
+    let requestBody;
+    global.fetch = async (_url, options) => {
+      requestBody = JSON.parse(options.body);
+      return {
+        ok: true,
+        text: async () => JSON.stringify({
+          success: true,
+          data: { invoice_id: 'INV-REDIRECT', status: 'pending', payment_url: 'https://www.bayar.gg/pay?invoice=INV-REDIRECT' },
+        }),
+      };
+    };
+
+    try {
+      await bayargg.createPaymentSession({
+        referenceId: 'REF-REDIRECT',
+        orderId: 'order-redirect',
+        amount: 50000,
+        currency: 'IDR',
+        successReturnUrl: 'https://app.example.com/store/payment/pending/pay-1',
+        callbackUrl: 'https://api.example.com/webhook/bayargg',
+      }, { apiKey: 'test-key', checkoutUrl: 'https://www.bayar.gg/pay', paymentMethod: 'qris' });
+    } finally {
+      global.fetch = originalFetch;
+    }
+
+    assert.equal(requestBody.payment_url, 'https://www.bayar.gg/pay');
+    assert.equal(requestBody.redirect_url, 'https://app.example.com/store/payment/pending/pay-1');
+    assert.equal(requestBody.callback_url, 'https://api.example.com/webhook/bayargg');
+  });
+
   it('normalizes check payment paid response', () => {
     const result = bayargg.normalizeCreatePaymentResponse({
       data: {

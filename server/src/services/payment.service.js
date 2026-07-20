@@ -197,8 +197,8 @@ export async function createXenditPaymentSessionForOrder({ user, workspaceId, or
     amount: paymentAmount,
     currency: order.totals?.currency || order.currency || 'IDR',
     customer: buildCustomerSnapshot(order, customer),
-    successReturnUrl: buildReturnUrl('success'),
-    cancelReturnUrl: buildReturnUrl('cancel'),
+    successReturnUrl: buildReturnUrl('success', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
+    cancelReturnUrl: buildReturnUrl('cancel', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
     expiresAt,
     metadata: {
       workspace_id: workspaceId,
@@ -308,8 +308,8 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
     currency: order.totals?.currency || order.currency || 'IDR',
     customer: buildCustomerSnapshot(order, customer),
     items: order.items || [],
-    successReturnUrl: buildReturnUrl('success'),
-    cancelReturnUrl: buildReturnUrl('cancel'),
+    successReturnUrl: buildReturnUrl('success', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
+    cancelReturnUrl: buildReturnUrl('cancel', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
     notificationUrl: activeProvider === 'doku' ? buildDokuWebhookUrl() : undefined,
     callbackUrl: activeProvider === 'bayargg' ? buildBayarGgWebhookUrl() : undefined,
     idempotencyKey,
@@ -601,9 +601,13 @@ function buildPaymentReference({ order, attemptNumber, provider }) {
   return `SLT${orderNumber}PAY${String(attemptNumber).padStart(2, '0')}`.slice(0, 64);
 }
 
-function buildReturnUrl(kind) {
+function buildReturnUrl(kind, { publicOrderToken, merchantReference, storefrontSlug } = {}) {
   const base = env.publicBaseUrl || env.corsOrigin?.split(',')?.[0] || 'http://localhost:5000';
-  return `${base.replace(/\/$/, '')}/payments/return/${kind}`;
+  const url = new URL(`${base.replace(/\/$/, '')}/payments/return/${kind}`);
+  if (publicOrderToken) url.searchParams.set('publicOrderToken', publicOrderToken);
+  if (merchantReference) url.searchParams.set('merchantReference', merchantReference);
+  if (storefrontSlug) url.searchParams.set('storefrontSlug', storefrontSlug);
+  return url.toString();
 }
 
 function buildDokuWebhookUrl() {
