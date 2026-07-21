@@ -4,6 +4,7 @@ import { filterRecommendations } from '../utils/recommendationModel'
 import { formatCurrency } from '../utils/formatCurrency'
 
 function track(payload) {
+  if (typeof phase5ApiClient.public.recordRecommendationEvent !== 'function') return Promise.resolve()
   return phase5ApiClient.public
     .recordRecommendationEvent(payload)
     .catch(() => {})
@@ -29,6 +30,12 @@ export default function CartRecommendations({
     const requestId = ++requestRef.current
     const productIds = productKey.split(',').filter(Boolean)
     if (!storefrontSlug || !outlet?.id || !hasCartProducts) {
+      setRecommendations([])
+      setLoading(false)
+      return undefined
+    }
+    if (typeof phase5ApiClient.public.getRecommendations !== 'function') {
+      // Keep the cart usable while an older cached bundle is being replaced.
       setRecommendations([])
       setLoading(false)
       return undefined
