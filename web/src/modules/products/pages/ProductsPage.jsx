@@ -2438,6 +2438,7 @@ const dummyRecommendations = [
     sourceProductId: 1,
     targetProductId: 4,
     recommendationType: 'cross_sell',
+    actionType: 'add',
     outletId: null,
     placement: 'cart',
     priority: 10,
@@ -2584,6 +2585,11 @@ export default function ProductsPage() {
       return true
     })
   }, [recommendations, products, recommendationSearch, recommendationTypeFilter, recommendationStatusFilter, recommendationOutletFilter, recommendationSourceFilter, recommendationTargetFilter])
+  const recommendationSourceProduct = products.find((product) => String(product.id) === String(recommendationForm.sourceProductId))
+  const recommendationTargetProduct = products.find((product) => String(product.id) === String(recommendationForm.targetProductId))
+  const recommendationPriceDelta = recommendationSourceProduct && recommendationTargetProduct
+    ? Number(recommendationTargetProduct.price || 0) - Number(recommendationSourceProduct.price || 0)
+    : null
 
   // Selection states
   const [selectedSKUs, setSelectedSKUs] = useState([])
@@ -4011,6 +4017,7 @@ export default function ProductsPage() {
       sourceProductId: '',
       targetProductId: '',
       recommendationType: 'cross_sell',
+      actionType: 'add',
       outletId: '',
       priority: '0',
       headline: '',
@@ -4034,6 +4041,7 @@ export default function ProductsPage() {
       sourceProductId,
       targetProductId,
       recommendationType: recommendationForm.recommendationType,
+      actionType: recommendationForm.actionType,
       outletId: recommendationForm.outletId || null,
       priority: Number(recommendationForm.priority) || 0,
       headline: recommendationForm.headline.trim() || null,
@@ -5588,7 +5596,7 @@ export default function ProductsPage() {
                               return (
                                 <tr key={rule.id} className='transition hover:bg-[#FCF8FB]'>
                                   <td className='border-b border-[#F2F4F8] px-3 py-3.5 text-sm font-bold text-[#11182E]'>{productName(rule.sourceProductId)}</td>
-                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5'><p className='m-0 text-sm font-bold text-[#11182E]'>{productName(rule.targetProductId)}</p><p className='m-0 mt-1 text-xs text-[#667085]'>{rule.headline || 'No headline'}</p></td>
+                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5'><p className='m-0 text-sm font-bold text-[#11182E]'>{productName(rule.targetProductId)}</p><p className='m-0 mt-1 text-xs font-semibold text-[#475467]'>Harga katalog target: {money(products.find((product) => String(product.id) === String(rule.targetProductId))?.price || 0)}</p><p className='m-0 mt-1 text-xs text-[#667085]'>{rule.headline || 'No headline'}</p></td>
                                   <td className='border-b border-[#F2F4F8] px-3 py-3.5'><span className='rounded-md bg-violet-50 px-2 py-1 text-[11px] font-bold text-violet-700'>{rule.recommendationType === 'cross_sell' ? 'Cross-sell' : 'Upsell'}</span></td>
                                   <td className='border-b border-[#F2F4F8] px-3 py-3.5 text-sm font-semibold text-[#475467]'>{outletName(rule.outletId)}</td>
                                   <td className='border-b border-[#F2F4F8] px-3 py-3.5 text-sm font-bold text-[#11182E]'>{rule.priority ?? 0}</td>
@@ -5956,25 +5964,31 @@ export default function ProductsPage() {
             <div className='flex items-center justify-between border-b border-slate-100 px-6 py-4.5'>
               <div>
                 <h3 className='text-lg font-extrabold text-[#11182E]'>Add Recommendation Rule</h3>
-                <p className='mt-1 text-xs font-semibold text-[#667085]'>Suggestions are shown in the cart only when the target is eligible.</p>
+                <p className='mt-1 text-xs font-semibold text-[#667085]'>Pilih produk tambahan atau menu premium yang tampil di cart.</p>
               </div>
               <button type='button' onClick={() => setIsRecommendationModalOpen(false)} className='grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50'><X size={16} /></button>
             </div>
             <div className='grid gap-4 p-6 sm:grid-cols-2'>
-              <label className='text-xs font-bold text-slate-600'>Source product *
+              <div className='sm:col-span-2 rounded-xl border border-violet-100 bg-violet-50 px-3.5 py-3 text-xs leading-relaxed text-violet-900'>
+                <strong>Aturan harga:</strong> rule tidak menyimpan harga. Harga katalog target di outlet tetap menjadi authority. Action <strong>Tambah item</strong> menambah target ke cart; <strong>Ganti item di cart</strong> mengganti source, untuk upgrade ukuran seperti Medium ke Jumbo. Gunakan modul Promo/Coupon untuk harga promo.
+              </div>
+              <label className='text-xs font-bold text-slate-600'>Produk di cart (source) *
                 <select value={recommendationForm.sourceProductId} onChange={(e) => setRecommendationForm((form) => ({ ...form, sourceProductId: e.target.value, targetProductId: form.targetProductId === e.target.value ? '' : form.targetProductId }))} className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]'>
                   <option value=''>Select source</option>
-                  {products.filter((product) => product.status !== 'Inactive').map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                  {products.filter((product) => product.status !== 'Inactive').map((product) => <option key={product.id} value={product.id}>{product.name} - {money(product.price || 0)}</option>)}
                 </select>
               </label>
-              <label className='text-xs font-bold text-slate-600'>Target product *
+              <label className='text-xs font-bold text-slate-600'>Produk yang ditawarkan (target) *
                 <select value={recommendationForm.targetProductId} onChange={(e) => setRecommendationForm((form) => ({ ...form, targetProductId: e.target.value }))} className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]'>
                   <option value=''>Select target</option>
-                  {products.filter((product) => product.status !== 'Inactive' && String(product.id) !== String(recommendationForm.sourceProductId)).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                  {products.filter((product) => product.status !== 'Inactive' && String(product.id) !== String(recommendationForm.sourceProductId)).map((product) => <option key={product.id} value={product.id}>{product.name} - {money(product.price || 0)}</option>)}
                 </select>
               </label>
               <label className='text-xs font-bold text-slate-600'>Type
-                <select value={recommendationForm.recommendationType} onChange={(e) => setRecommendationForm((form) => ({ ...form, recommendationType: e.target.value }))} className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]'><option value='upsell'>Upsell</option><option value='cross_sell'>Cross-sell</option></select>
+                <select value={recommendationForm.recommendationType} onChange={(e) => setRecommendationForm((form) => ({ ...form, recommendationType: e.target.value }))} className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]'><option value='upsell'>Upsell - upgrade / premium</option><option value='cross_sell'>Cross-sell - pelengkap</option></select>
+              </label>
+              <label className='text-xs font-bold text-slate-600'>Action customer
+                <select value={recommendationForm.actionType} onChange={(e) => setRecommendationForm((form) => ({ ...form, actionType: e.target.value }))} className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]'><option value='add'>Tambah item ke cart</option><option value='replace_source'>Ganti item di cart (upgrade ukuran)</option></select>
               </label>
               <label className='text-xs font-bold text-slate-600'>Outlet scope
                 <select value={recommendationForm.outletId} onChange={(e) => setRecommendationForm((form) => ({ ...form, outletId: e.target.value }))} className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]'><option value=''>All Outlets</option>{outlets.map((outlet) => <option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}</select>
@@ -5988,6 +6002,12 @@ export default function ProductsPage() {
               <label className='text-xs font-bold text-slate-600 sm:col-span-2'>Headline (optional)
                 <input type='text' maxLength={160} value={recommendationForm.headline} onChange={(e) => setRecommendationForm((form) => ({ ...form, headline: e.target.value }))} placeholder='Example: Make it a complete order' className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]' />
               </label>
+              {recommendationSourceProduct && recommendationTargetProduct && (
+                <div className='sm:col-span-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-xs'>
+                  <span className='font-semibold text-slate-600'>Customer {recommendationForm.actionType === 'replace_source' ? 'mengganti item source dengan' : 'menambah'} <strong className='text-[#11182E]'>{recommendationTargetProduct.name}</strong>{recommendationForm.actionType === 'replace_source' ? '.' : ' sebagai item baru.'}</span>
+                  <span className='font-extrabold text-[#11182E]'>Harga target {money(recommendationTargetProduct.price || 0)} {recommendationPriceDelta > 0 ? `(+${money(recommendationPriceDelta)} vs source)` : recommendationPriceDelta < 0 ? `(${money(recommendationPriceDelta)} vs source)` : '(sama dengan source)'}</span>
+                </div>
+              )}
             </div>
             <div className='flex justify-end gap-2 border-t border-slate-100 px-6 py-4'>
               <button type='button' onClick={() => setIsRecommendationModalOpen(false)} className='rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600'>Cancel</button>

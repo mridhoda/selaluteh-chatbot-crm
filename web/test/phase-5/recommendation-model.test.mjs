@@ -40,3 +40,17 @@ test('recommendation product preserves modifier options for the existing sheet',
   assert.equal(product.modifierGroups[0].isRequired, true)
   assert.equal(product.modifierGroups[0].options[0].isAvailable, true)
 })
+
+test('recommendation model preserves an explicit replace-source upgrade action', () => {
+  const [upgrade] = filterRecommendations([
+    {
+      id: 'jumbo',
+      source_product_id: 'medium',
+      action_type: 'replace_source',
+      name: 'Selkop Aren Creamy Jumbo',
+    },
+  ])
+
+  assert.equal(upgrade.actionType, 'replace_source')
+  assert.equal(upgrade.sourceProductId, 'medium')
+})

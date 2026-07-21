@@ -1,6 +1,17 @@
 -- 045_product_recommendations.sql
 -- Rule-based upsell/cross-sell rules and best-effort storefront tracking.
 
+create or replace function set_product_recommendations_updated_at()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 create table if not exists product_recommendations (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references workspaces(id) on delete cascade,
@@ -28,8 +39,10 @@ create table if not exists recommendation_events (
   source_product_id uuid null references products(id) on delete set null,
   target_product_id uuid not null references products(id) on delete restrict,
   outlet_id uuid null references outlets(id) on delete set null,
-  cart_id uuid null references carts(id) on delete set null,
-  order_id uuid null references orders(id) on delete set null,
+  -- The active target uses sales_carts and has no shared orders relation.
+  -- Keep identifiers for attribution without coupling this additive feature to either lifecycle table.
+  cart_id uuid null,
+  order_id uuid null,
   session_id text null,
   event_type text not null check (event_type in ('impression', 'clicked', 'accepted', 'dismissed', 'purchased')),
   placement text not null check (placement in ('cart')),
@@ -64,7 +77,7 @@ create index if not exists recommendation_events_cart_order_idx
 do $$ begin
   if not exists (select 1 from pg_trigger where tgname = 'set_product_recommendations_updated_at') then
     create trigger set_product_recommendations_updated_at
-      before update on product_recommendations for each row execute function set_updated_at();
+      before update on product_recommendations for each row execute function set_product_recommendations_updated_at();
   end if;
 end $$;
 

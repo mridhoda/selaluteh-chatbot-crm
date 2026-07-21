@@ -173,7 +173,7 @@ export default function ProductModifierSheet({
             onClick={submit}
             className='flex w-full items-center justify-between rounded-full bg-[var(--brand-500)] px-6 py-3.5 text-base font-black text-white transition-all hover:bg-[var(--brand-600)] active:scale-[0.98]'
           >
-            <span>Tambah ke Keranjang</span>
+            <span>{product.recommendationActionType === 'replace_source' ? 'Upgrade Keranjang' : 'Tambah ke Keranjang'}</span>
             <span>{formatCurrency(previewTotal)}</span>
           </button>
           <p className='mt-2 text-center text-[10px] text-gray-400'>

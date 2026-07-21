@@ -13,6 +13,7 @@ export default function CartRecommendations({
   storefrontSlug,
   outlet,
   cartProductIds,
+  cartItems,
   onSelect,
   sessionId,
 }) {
@@ -22,6 +23,7 @@ export default function CartRecommendations({
   const impressionKeysRef = useRef(new Set())
   const productKey = cartProductIds.join(',')
   const hasCartProducts = productKey.length > 0
+  const sourcePriceByProductId = new Map((cartItems || []).map((item) => [String(item.productId), Number(item.unitPriceMinor || 0)]))
 
   useEffect(() => {
     const requestId = ++requestRef.current
@@ -122,8 +124,11 @@ export default function CartRecommendations({
                 </p>
               )}
               <p className='text-xs font-bold text-[var(--brand-600)]'>
-                {formatCurrency(recommendation.unitPriceMinor)}
+                {recommendation.actionType === 'replace_source' && sourcePriceByProductId.has(String(recommendation.sourceProductId))
+                  ? `+${formatCurrency(recommendation.unitPriceMinor - sourcePriceByProductId.get(String(recommendation.sourceProductId)))}`
+                  : formatCurrency(recommendation.unitPriceMinor)}
               </p>
+              <p className='text-[10px] font-medium text-gray-400'>{recommendation.actionType === 'replace_source' ? 'Mengganti ukuran item di keranjang' : 'Harga menu ditambahkan ke keranjang'}</p>
             </div>
             <button
               type='button'
@@ -142,7 +147,7 @@ export default function CartRecommendations({
                 onSelect(recommendation)
               }}
             >
-              Tambah
+              {recommendation.actionType === 'replace_source' ? 'Upgrade' : 'Pilih'}
             </button>
           </article>
         ))}

@@ -160,6 +160,33 @@ export function useGuestCart({
     setValidationStatus(CART_VALIDATION_STATUS.IDLE)
   }, [])
 
+  const replaceFirstProduct = useCallback(async ({ sourceProductId, productId, selectedModifierOptionIds, product: providedProduct }) => {
+    const product = products.find((item) => item.id === productId) || supplementalProducts.find((item) => item.id === productId) || providedProduct
+    if (!product || !product.isAvailable) {
+      setError('Produk upgrade tidak tersedia.')
+      return false
+    }
+    const sourceItem = items.find((item) => String(item.productId) === String(sourceProductId))
+    if (!sourceItem) {
+      setError('Item asal untuk upgrade sudah tidak ada di keranjang.')
+      return false
+    }
+    setItems((current) => current.map((item) => {
+      if (item.clientLineId !== sourceItem.clientLineId) return item
+      return createCartIntentItem({
+        clientLineId: `cart_${productId}_${Date.now()}`,
+        productId,
+        quantity: item.quantity,
+        selectedModifierOptionIds,
+        modifiers: buildSelectedModifiers({ product, selectedModifierOptionIds }),
+      })
+    }))
+    if (!products.some((item) => item.id === productId) && !supplementalProducts.some((item) => item.id === productId)) setSupplementalProducts((current) => [...current, providedProduct])
+    setValidatedCart(null)
+    setValidationStatus(CART_VALIDATION_STATUS.IDLE)
+    return true
+  }, [items, products, supplementalProducts])
+
   const clearCart = useCallback(() => {
     setItems([])
     setValidatedCart(null)
@@ -246,6 +273,7 @@ export function useGuestCart({
     validationStatus,
     validateCart,
     addItem,
+    replaceFirstProduct,
     updateQuantity,
     removeItem,
     clearCart,

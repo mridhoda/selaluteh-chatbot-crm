@@ -114,6 +114,8 @@ export default function QrStorePage() {
     setSelectedProduct({
       ...product,
       recommendationId: recommendation.recommendationId,
+      recommendationActionType: recommendation.actionType,
+      recommendationSourceProductId: recommendation.sourceProductId,
     })
   }
 
@@ -123,7 +125,9 @@ export default function QrStorePage() {
       selectedOutletId: intentContext.outletId,
       selectedLocationId: intentContext.qrLocationId,
     })
-    const ok = await cart.addItem({ ...payload, product: selectedProduct })
+    const ok = selectedProduct?.recommendationActionType === 'replace_source'
+      ? await cart.replaceFirstProduct({ ...payload, sourceProductId: selectedProduct.recommendationSourceProductId, product: selectedProduct })
+      : await cart.addItem({ ...payload, product: selectedProduct })
     if (ok && selectedProduct?.recommendationId) {
       void phase5ApiClient.public
         .recordRecommendationEvent({
@@ -131,8 +135,9 @@ export default function QrStorePage() {
           outlet_id: selectedOutlet?.id,
           event_type: 'accepted',
           placement: 'cart',
-          recommendation_id: selectedProduct.recommendationId,
-          target_product_id: selectedProduct.id,
+           recommendation_id: selectedProduct.recommendationId,
+           target_product_id: selectedProduct.id,
+           session_id: recommendationSessionId,
         })
         .catch(() => {})
     }

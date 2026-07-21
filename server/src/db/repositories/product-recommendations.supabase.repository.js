@@ -40,6 +40,7 @@ export const productRecommendationsRepository = {
       target_product_id: data.targetProductId,
       outlet_id: data.outletId || null,
       recommendation_type: data.recommendationType,
+      action_type: data.actionType || 'add',
       placement: data.placement || 'cart',
       headline: data.headline || null,
       priority: data.priority ?? 0,
@@ -55,7 +56,7 @@ export const productRecommendationsRepository = {
     requireWorkspaceId(workspaceId);
     const fields = {
       sourceProductId: 'source_product_id', targetProductId: 'target_product_id', outletId: 'outlet_id',
-      recommendationType: 'recommendation_type', placement: 'placement', headline: 'headline', priority: 'priority',
+      recommendationType: 'recommendation_type', actionType: 'action_type', placement: 'placement', headline: 'headline', priority: 'priority',
       status: 'status', startsAt: 'starts_at', endsAt: 'ends_at', metadata: 'metadata',
     };
     const set = {};

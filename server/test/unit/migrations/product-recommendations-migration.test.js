@@ -20,4 +20,9 @@ describe('product recommendations migration', () => {
       'to service_role using (true) with check (true)',
     ]) assert.match(sql, new RegExp(fragment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
   });
+
+  it('keeps upgrade rules explicit through a replace-source action migration', async () => {
+    const sql = await readFile(new URL('../../../src/db/migrations/046_product_recommendation_actions.sql', import.meta.url), 'utf8');
+    assert.match(sql, /action_type[\s\S]*replace_source/i);
+  });
 });

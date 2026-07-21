@@ -41,6 +41,8 @@ export function normalizeRecommendation(recommendation = {}) {
       recommendation.recommendationId ||
       recommendation.recommendation_id ||
       null,
+    actionType: recommendation.actionType || recommendation.action_type || 'add',
+    sourceProductId: recommendation.sourceProductId || recommendation.source_product_id || null,
     name: recommendation.name || 'Menu rekomendasi',
     description: recommendation.description || '',
     headline: recommendation.headline || null,

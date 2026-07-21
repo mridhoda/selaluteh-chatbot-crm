@@ -143,6 +143,7 @@ export default function CartDrawer({
                 cartProductIds={[
                   ...new Set(cart.items.map((item) => item.productId)),
                 ]}
+                cartItems={cart.items}
                 sessionId={recommendationSessionId}
                 onSelect={onSelectRecommendation}
               />

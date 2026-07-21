@@ -10,6 +10,7 @@ import { assertOutletAccess, canAccessAllOutlets } from './access-control.servic
 import { AppError } from '../utils/errors.js';
 
 const TYPES = new Set(['upsell', 'cross_sell']);
+const ACTIONS = new Set(['add', 'replace_source']);
 const STATUSES = new Set(['active', 'inactive', 'archived']);
 const PLACEMENT = 'cart';
 const EVENTS = new Set(['impression', 'clicked', 'accepted', 'dismissed', 'purchased']);
@@ -26,7 +27,7 @@ function validation(message, details = null) {
 export function validateRecommendationInput(input = {}, { partial = false } = {}) {
   const aliases = {
     source_product_id: 'sourceProductId', target_product_id: 'targetProductId', outlet_id: 'outletId',
-    recommendation_type: 'recommendationType', starts_at: 'startsAt', ends_at: 'endsAt',
+    recommendation_type: 'recommendationType', action_type: 'actionType', starts_at: 'startsAt', ends_at: 'endsAt',
   };
   const value = { ...input };
   for (const [snake, camel] of Object.entries(aliases)) if (value[snake] !== undefined) value[camel] = value[snake];
@@ -39,6 +40,8 @@ export function validateRecommendationInput(input = {}, { partial = false } = {}
     validation('sourceProductId and targetProductId must differ');
   }
   if (value.recommendationType !== undefined && !TYPES.has(value.recommendationType)) validation('recommendationType must be upsell or cross_sell');
+  if (value.actionType !== undefined && !ACTIONS.has(value.actionType)) validation('actionType must be add or replace_source');
+  if (value.actionType === 'replace_source' && value.recommendationType !== 'upsell') validation('replace_source is available only for upsell rules');
   if (value.placement !== undefined && value.placement !== PLACEMENT) validation('placement must be cart');
   if (value.status !== undefined && !STATUSES.has(value.status)) validation('status is invalid');
   if (value.priority !== undefined && (!Number.isInteger(value.priority) || value.priority < -1000 || value.priority > 1000)) validation('priority must be an integer between -1000 and 1000');
@@ -191,7 +194,9 @@ export async function resolvePublicRecommendations({ workspaceId, outletId, cart
       unit_price: Number(price),
       currency: product.currency || 'IDR',
       type: rule.recommendationType,
+      actionType: rule.actionType || 'add',
       headline: rule.headline || null,
+      sourceProductId: rule.sourceProductId,
       targetProductId: product.id,
       recommendationId: rule.id,
       priority: rule.priority,
