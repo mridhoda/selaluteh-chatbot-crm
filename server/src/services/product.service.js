@@ -169,6 +169,25 @@ export async function listModifierGroups({ user }) {
   return { data: groups.map(toAdminModifier) };
 }
 
+export async function createModifierGroup({ user, data }) {
+  if (!canManageWorkspace(user)) throw new AppError('FORBIDDEN', 'Forbidden', 403);
+  const name = data.name.trim();
+  const code = `mod-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'group'}`;
+  const group = await modifiersRepository.createGroup({
+    workspaceId: user.workspaceId,
+    group: { ...data, name, code, type: 'optional', status: 'active', tags: [] },
+  });
+  return toAdminModifier(group);
+}
+
+export async function replaceModifierOptions({ user, modifierGroupId, options }) {
+  if (!canManageWorkspace(user)) throw new AppError('FORBIDDEN', 'Forbidden', 403);
+  const groups = await modifiersRepository.listGroups({ workspaceId: user.workspaceId });
+  if (!groups.some((group) => String(group.id) === String(modifierGroupId))) throw new AppError('NOT_FOUND', 'Modifier group not found', 404);
+  await modifiersRepository.replaceOptions({ workspaceId: user.workspaceId, modifierGroupId, options });
+  return listModifierGroups({ user });
+}
+
 export async function replaceModifierProductLinks({ user, modifierGroupId, productIds = [] }) {
   if (!canManageWorkspace(user)) throw new AppError('FORBIDDEN', 'Forbidden', 403);
   await modifiersRepository.replaceProductLinks({ workspaceId: user.workspaceId, modifierGroupId, productIds });

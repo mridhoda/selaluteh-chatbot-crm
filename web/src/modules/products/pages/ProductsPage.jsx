@@ -1739,12 +1739,19 @@ function ModifierDetailPanel({
     setIsEditPopupOpen(false)
   }
 
-  const saveOptionsDraft = () => {
+  const saveOptionsDraft = async () => {
     const nextOptions = optionsDraft
-      .map((option) => ({ ...option, name: option.name.trim(), price: Number(option.price || 0) }))
+      .map((option) => ({ ...option, name: option.name.trim(), priceDelta: Number(option.price || 0) }))
       .filter((option) => option.name)
-    onUpdateModifier({ ...modifier, options: nextOptions })
-    setIsOptionsPopupOpen(false)
+    try {
+      const response = await api.put(`/products/modifiers/${modifier.id}/options`, { options: nextOptions })
+      const groups = response.data?.data || []
+      const updated = groups.find((group) => group.id === modifier.id)
+      if (updated) onUpdateModifier(updated)
+      setIsOptionsPopupOpen(false)
+    } catch (err) {
+      alert(err.response?.data?.error?.message || 'Modifier options gagal disimpan.')
+    }
   }
 
   const saveLinkedProducts = async () => {
@@ -6286,31 +6293,23 @@ export default function ProductsPage() {
                   </button>
                   <button
                     type='button'
-                    onClick={() => {
-                      const newGroup = {
-                        id: Date.now(),
-                        name: newModifierName,
-                        code: 'mod-' + newModifierName.toLowerCase().replace(/\s+/g, '-').slice(0, 8) + '-' + Math.floor(Math.random() * 100),
-                        type: 'Optional',
-                        selectionRule: newModifierType === 'Single Choice' ? 'Single-select' : `Multi-select (max ${newModifierMaxOptions})`,
-                        minSelection: newModifierType === 'Single Choice' ? 1 : 0,
-                        maxSelection: newModifierType === 'Single Choice' ? 1 : parseInt(newModifierMaxOptions) || 2,
-                        outletScope: newModifierOutletScope,
-                        description: newModifierDesc,
-                        tags: ['Add-on'],
-                        options: [
-                          { name: 'Option 1', price: 5000 },
-                          { name: 'Option 2', price: 3000 }
-                        ],
-                        productsCount: 0,
-                        categoriesCount: 0,
-                        requiredInCheckout: newModifierType === 'Single Choice',
-                        status: 'Active',
-                        updatedAt: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    onClick={async () => {
+                      try {
+                        const response = await api.post('/products/modifiers', {
+                          name: newModifierName.trim(),
+                          description: newModifierDesc.trim(),
+                          selectionType: newModifierType === 'Single Choice' ? 'single' : 'multi',
+                          minSelection: 0,
+                          maxSelection: newModifierType === 'Single Choice' ? 1 : Number(newModifierMaxOptions),
+                          outletScope: newModifierOutletScope === 'All Outlets' ? 'all_outlets' : 'selected_outlets',
+                        })
+                        const group = response.data?.data || response.data
+                        setModifiers((current) => [group, ...current])
+                        setIsAddModifierGroupOpen(false)
+                        setToastMessage(`Modifier group "${group.name}" berhasil dibuat.`)
+                      } catch (err) {
+                        alert(err.response?.data?.error?.message || 'Modifier group gagal disimpan.')
                       }
-                      setModifiers(prev => [newGroup, ...prev])
-                      setIsAddModifierGroupOpen(false)
-                      setToastMessage(`Modifier group "${newModifierName}" berhasil dibuat.`)
                     }}
                     className='px-5 py-2.5 bg-[#7F56D9] text-white text-xs font-bold rounded-xl shadow-md hover:bg-[#693cb8] transition cursor-pointer'
                   >

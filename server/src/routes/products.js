@@ -5,10 +5,10 @@ import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
 import { authorizePermission } from '../middleware/authorization.js';
 import { uploadRateLimit } from '../middleware/rate-limit.js';
 import { validateBody } from '../middleware/validate.js';
-import { validateProductCreate, validateProductUpdate, validateProductAvailability } from '../validators/products.schema.js';
+import { validateProductCreate, validateProductUpdate, validateProductAvailability, validateModifierGroupCreate, validateModifierOptionsReplace } from '../validators/products.schema.js';
 import {
   listProducts, getProductDetail, getProductWithAvailability,
-  createProduct, updateProduct, archiveProduct, updateOutletAvailability, listModifierGroups, replaceModifierProductLinks,
+  createProduct, updateProduct, archiveProduct, updateOutletAvailability, listModifierGroups, createModifierGroup, replaceModifierOptions, replaceModifierProductLinks,
 } from '../services/product.service.js';
 import { productsRepository } from '../db/repositories/index.js';
 import { productsToCsv, validateProductImportRows } from '../services/product-import-export.service.js';
@@ -62,6 +62,22 @@ router.get('/modifiers', authorizePermission('products', 'read'), async (req, re
   try {
     const result = await listModifierGroups({ user: req.me });
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/modifiers', authorizePermission('products', 'write'), validateBody(validateModifierGroupCreate), async (req, res, next) => {
+  try {
+    res.status(201).json({ data: await createModifierGroup({ user: req.me, data: req.body }) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/modifiers/:modifierGroupId/options', authorizePermission('products', 'write'), validateBody(validateModifierOptionsReplace), async (req, res, next) => {
+  try {
+    res.json(await replaceModifierOptions({ user: req.me, modifierGroupId: req.params.modifierGroupId, options: req.body.options }));
   } catch (err) {
     next(err);
   }

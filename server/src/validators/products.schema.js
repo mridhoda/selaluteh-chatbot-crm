@@ -111,3 +111,28 @@ export function validateProductAvailability(body = {}) {
 
   return { value: body };
 }
+
+export function validateModifierGroupCreate(body = {}) {
+  const errors = [];
+  if (typeof body.name !== 'string' || !body.name.trim()) errors.push('name is required');
+  if (typeof body.name === 'string' && body.name.trim().length > 120) errors.push('name must be at most 120 characters');
+  if (!['single', 'multi'].includes(body.selectionType)) errors.push('selectionType must be single or multi');
+  if (!['all_outlets', 'selected_outlets'].includes(body.outletScope)) errors.push('outletScope is invalid');
+  if (!Number.isInteger(body.minSelection) || body.minSelection < 0) errors.push('minSelection must be a non-negative integer');
+  if (!Number.isInteger(body.maxSelection) || body.maxSelection < body.minSelection) errors.push('maxSelection must be an integer not below minSelection');
+  if (body.selectionType === 'single' && body.maxSelection !== 1) errors.push('single selection requires maxSelection of 1');
+  if (body.description !== undefined && (typeof body.description !== 'string' || body.description.length > 500)) errors.push('description must be at most 500 characters');
+  if (errors.length) return { error: { code: 'VALIDATION_ERROR', message: errors.join('; ') } };
+  return { value: body };
+}
+
+export function validateModifierOptionsReplace(body = {}) {
+  const errors = [];
+  if (!Array.isArray(body.options) || body.options.length > 50) errors.push('options must contain at most 50 entries');
+  for (const option of body.options || []) {
+    if (typeof option?.name !== 'string' || !option.name.trim() || option.name.trim().length > 120) errors.push('each option needs a name of at most 120 characters');
+    if (typeof option?.priceDelta !== 'number' || !Number.isFinite(option.priceDelta)) errors.push('each option priceDelta must be a number');
+  }
+  if (errors.length) return { error: { code: 'VALIDATION_ERROR', message: errors.join('; ') } };
+  return { value: body };
+}
