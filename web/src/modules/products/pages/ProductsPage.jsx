@@ -2430,6 +2430,34 @@ function RowCheckbox() {
 }
 
 let demoProductsList = null
+let demoRecommendationsList = null
+
+const dummyRecommendations = [
+  {
+    id: 'demo-recommendation-1',
+    sourceProductId: 1,
+    targetProductId: 4,
+    recommendationType: 'cross_sell',
+    outletId: null,
+    placement: 'cart',
+    priority: 10,
+    headline: 'Tambahkan pastry untuk teman ngopi',
+    status: 'active',
+    updatedAt: '2026-07-20T10:25:00.000Z',
+  },
+  {
+    id: 'demo-recommendation-2',
+    sourceProductId: 2,
+    targetProductId: 1,
+    recommendationType: 'upsell',
+    outletId: 'Sudirman',
+    placement: 'cart',
+    priority: 5,
+    headline: 'Upgrade ke signature coffee',
+    status: 'inactive',
+    updatedAt: '2026-07-19T10:25:00.000Z',
+  },
+]
 
 export default function ProductsPage() {
   const [mainTab, setMainTab] = useState('products')
@@ -2453,6 +2481,29 @@ export default function ProductsPage() {
   const [isModifierDetailOpen, setIsModifierDetailOpen] = useState(false)
   const [activeModifierDetailTab, setActiveModifierDetailTab] = useState('Overview')
   const [isAddModifierGroupOpen, setIsAddModifierGroupOpen] = useState(false)
+
+  // Recommendation states
+  const [recommendations, setRecommendations] = useState([])
+  const [recommendationReport, setRecommendationReport] = useState([])
+  const [recommendationLoading, setRecommendationLoading] = useState(false)
+  const [isRecommendationModalOpen, setIsRecommendationModalOpen] = useState(false)
+  const [recommendationForm, setRecommendationForm] = useState({
+    sourceProductId: '',
+    targetProductId: '',
+    recommendationType: 'cross_sell',
+    outletId: '',
+    priority: '0',
+    headline: '',
+    status: 'active',
+  })
+  const [recommendationSearch, setRecommendationSearch] = useState('')
+  const [recommendationTypeFilter, setRecommendationTypeFilter] = useState('All Types')
+  const [recommendationStatusFilter, setRecommendationStatusFilter] = useState('All Status')
+  const [recommendationOutletFilter, setRecommendationOutletFilter] = useState('All Outlets')
+  const [recommendationSourceFilter, setRecommendationSourceFilter] = useState('All Sources')
+  const [recommendationTargetFilter, setRecommendationTargetFilter] = useState('All Targets')
+  const [recommendationFrom, setRecommendationFrom] = useState('')
+  const [recommendationTo, setRecommendationTo] = useState('')
 
   // Add Modifier Group Wizard states
   const [addModifierStep, setAddModifierStep] = useState(1)
@@ -2517,6 +2568,22 @@ export default function ProductsPage() {
       return 0
     })
   }, [modifiers, modifierSearch, modifierTypeFilter, modifierStatusFilter, modifierRuleFilter, modifierSortBy])
+
+  const filteredRecommendations = useMemo(() => {
+    const query = recommendationSearch.trim().toLowerCase()
+    const productName = (id) => products.find((product) => String(product.id) === String(id))?.name || String(id || '—')
+    return recommendations.filter((rule) => {
+      const sourceName = productName(rule.sourceProductId)
+      const targetName = productName(rule.targetProductId)
+      if (query && !`${sourceName} ${targetName} ${rule.headline || ''}`.toLowerCase().includes(query)) return false
+      if (recommendationTypeFilter !== 'All Types' && rule.recommendationType !== recommendationTypeFilter) return false
+      if (recommendationStatusFilter !== 'All Status' && rule.status !== recommendationStatusFilter) return false
+      if (recommendationOutletFilter !== 'All Outlets' && String(rule.outletId || '') !== recommendationOutletFilter) return false
+      if (recommendationSourceFilter !== 'All Sources' && String(rule.sourceProductId) !== recommendationSourceFilter) return false
+      if (recommendationTargetFilter !== 'All Targets' && String(rule.targetProductId) !== recommendationTargetFilter) return false
+      return true
+    })
+  }, [recommendations, products, recommendationSearch, recommendationTypeFilter, recommendationStatusFilter, recommendationOutletFilter, recommendationSourceFilter, recommendationTargetFilter])
 
   // Selection states
   const [selectedSKUs, setSelectedSKUs] = useState([])
@@ -3450,6 +3517,10 @@ export default function ProductsPage() {
     loadOutlets()
   }, [])
 
+  useEffect(() => {
+    if (mainTab === 'recommendations') loadRecommendations()
+  }, [mainTab, recommendationTypeFilter, recommendationStatusFilter, recommendationOutletFilter, recommendationFrom, recommendationTo])
+
   const findProductForOrderItem = (itemName, productsList) => {
     const cleanItem = itemName.toLowerCase().trim()
     for (const p of productsList) {
@@ -3886,6 +3957,118 @@ export default function ProductsPage() {
     } catch (err) {
       console.error('Failed to load product modifiers:', err)
       setModifiers([])
+    }
+  }
+
+  const loadRecommendations = async () => {
+    setRecommendationLoading(true)
+    try {
+      if (isDemoMode()) {
+        if (!demoRecommendationsList) demoRecommendationsList = dummyRecommendations.map((rule) => ({ ...rule }))
+        setRecommendations(demoRecommendationsList.map((rule) => ({ ...rule })))
+        setRecommendationReport(demoRecommendationsList.map((rule, index) => ({
+          recommendationId: rule.id,
+          impressions: index === 0 ? 120 : 40,
+          clicks: index === 0 ? 36 : 8,
+          accepted: index === 0 ? 24 : 5,
+          purchases: index === 0 ? 12 : 2,
+          revenue: index === 0 ? 288000 : 42000,
+          acceptanceRate: index === 0 ? 0.2 : 0.125,
+          purchaseConversion: index === 0 ? 0.5 : 0.4,
+        })))
+        return
+      }
+
+      const params = { limit: 1000 }
+      if (recommendationTypeFilter !== 'All Types') params.type = recommendationTypeFilter
+      if (recommendationStatusFilter !== 'All Status') params.status = recommendationStatusFilter
+      if (recommendationOutletFilter !== 'All Outlets') params.outlet_id = recommendationOutletFilter
+      const [rulesRes, reportRes] = await Promise.all([
+        api.get('/products/recommendations', { params }),
+        api.get('/products/recommendations/report', {
+          params: {
+            ...params,
+            ...(recommendationFrom ? { from: recommendationFrom } : {}),
+            ...(recommendationTo ? { to: `${recommendationTo}T23:59:59.999Z` } : {}),
+          },
+        }),
+      ])
+      const rules = rulesRes.data?.data || rulesRes.data || []
+      const report = reportRes.data?.data || reportRes.data || []
+      setRecommendations(Array.isArray(rules) ? rules : [])
+      setRecommendationReport(Array.isArray(report) ? report : [])
+    } catch (err) {
+      console.error('Failed to load product recommendations:', err)
+      setRecommendations([])
+      setRecommendationReport([])
+    } finally {
+      setRecommendationLoading(false)
+    }
+  }
+
+  const openRecommendationModal = () => {
+    setRecommendationForm({
+      sourceProductId: '',
+      targetProductId: '',
+      recommendationType: 'cross_sell',
+      outletId: '',
+      priority: '0',
+      headline: '',
+      status: 'active',
+    })
+    setIsRecommendationModalOpen(true)
+  }
+
+  const handleCreateRecommendation = async () => {
+    const { sourceProductId, targetProductId } = recommendationForm
+    if (!sourceProductId || !targetProductId) {
+      alert('Source and target products are required.')
+      return
+    }
+    if (String(sourceProductId) === String(targetProductId)) {
+      alert('Source and target products must be different.')
+      return
+    }
+
+    const payload = {
+      sourceProductId,
+      targetProductId,
+      recommendationType: recommendationForm.recommendationType,
+      outletId: recommendationForm.outletId || null,
+      priority: Number(recommendationForm.priority) || 0,
+      headline: recommendationForm.headline.trim() || null,
+      status: recommendationForm.status,
+      placement: 'cart',
+    }
+
+    try {
+      if (isDemoMode()) {
+        const rule = { ...payload, id: `demo-recommendation-${Date.now()}`, updatedAt: new Date().toISOString() }
+        demoRecommendationsList = [rule, ...(demoRecommendationsList || [])]
+      } else {
+        await api.post('/products/recommendations', payload)
+      }
+      setIsRecommendationModalOpen(false)
+      setToastMessage('Recommendation rule created successfully.')
+      await loadRecommendations()
+    } catch (err) {
+      console.error('Failed to create product recommendation:', err)
+      alert(err.response?.data?.error?.message || 'Failed to create recommendation rule.')
+    }
+  }
+
+  const handleArchiveRecommendation = async (rule) => {
+    if (!window.confirm('Archive this recommendation rule? It will stop new impressions while keeping its report history.')) return
+    try {
+      if (isDemoMode()) {
+        demoRecommendationsList = (demoRecommendationsList || []).map((item) => item.id === rule.id ? { ...item, status: 'archived' } : item)
+      } else {
+        await api.delete(`/products/recommendations/${rule.id}`)
+      }
+      await loadRecommendations()
+    } catch (err) {
+      console.error('Failed to archive product recommendation:', err)
+      alert(err.response?.data?.error?.message || 'Failed to archive recommendation rule.')
     }
   }
 
@@ -4644,7 +4827,7 @@ export default function ProductsPage() {
           <header className='-mx-1 shrink-0 flex flex-col gap-3 overflow-visible px-1 pt-1 pb-1 lg:flex-row lg:items-start lg:justify-between'>
             <div>
               <h1 className='text-3xl font-extrabold tracking-tight text-[#11182E]'>
-                {mainTab === 'products' ? 'Products' : 'Modifiers'}
+                {mainTab === 'products' ? 'Products' : mainTab === 'recommendations' ? 'Recommendations' : 'Modifiers'}
               </h1>
             </div>
             <div className='flex flex-wrap items-center justify-end gap-2.5 overflow-visible xl:flex-nowrap'>
@@ -4699,6 +4882,15 @@ export default function ProductsPage() {
                     Add Product
                   </button>
                 </>
+              ) : mainTab === 'recommendations' ? (
+                <button
+                  type='button'
+                  onClick={openRecommendationModal}
+                  className='inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-[#FF1F6D] px-4 text-base font-bold text-white shadow-[0_10px_24px_rgba(255,31,109,0.24)] transition hover:bg-[#e0155b] cursor-pointer'
+                >
+                  <Plus size={16} />
+                  Add Recommendation
+                </button>
               ) : (
                 <>
                   <button
@@ -4741,7 +4933,7 @@ export default function ProductsPage() {
             </div>
           </header>
 
-          {/* Main Tabs (Products vs Modifiers) */}
+           {/* Main Tabs */}
           <div className='flex border-b border-[#E1E6EF] gap-8 mt-1 mb-2 shrink-0'>
             <button
               type='button'
@@ -4785,10 +4977,31 @@ export default function ProductsPage() {
                 <div className='absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#F43F70] rounded-full' />
               )}
             </button>
+            <button
+              type='button'
+              onClick={() => setMainTab('recommendations')}
+              className={cx(
+                'pb-3 text-base font-extrabold cursor-pointer relative transition duration-150 flex items-center',
+                mainTab === 'recommendations' ? 'text-[#F43F70]' : 'text-[#667085] hover:text-[#11182E]'
+              )}
+            >
+              <span>Recommendations</span>
+              <span
+                className={cx(
+                  'ml-1.5 rounded-full px-2 py-0.5 text-xs font-bold transition duration-150',
+                  mainTab === 'recommendations' ? 'bg-[#FDF2F5] text-[#F43F70]' : 'bg-[#F2F4F8] text-[#667085]'
+                )}
+              >
+                {recommendations.length}
+              </span>
+              {mainTab === 'recommendations' && (
+                <div className='absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#F43F70] rounded-full' />
+              )}
+            </button>
           </div>
 
           <p className='text-sm text-[#667085] shrink-0 mt-0.5 mb-2'>
-            {mainTab === 'products' ? 'Manage all products across your outlets.' : 'Manage all product modifier groups across your outlets.'}
+             {mainTab === 'products' ? 'Manage all products across your outlets.' : mainTab === 'recommendations' ? 'Configure cart upsell and cross-sell rules for your products.' : 'Manage all product modifier groups across your outlets.'}
           </p>
 
           {mainTab === 'products' && (
@@ -5316,6 +5529,92 @@ export default function ProductsPage() {
           </>
           )}
 
+          {mainTab === 'recommendations' && (
+            <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
+              {(() => {
+                const reportSummary = recommendationReport.reduce((summary, row) => ({
+                  impressions: summary.impressions + Number(row.impressions || 0),
+                  clicks: summary.clicks + Number(row.clicks || 0),
+                  accepted: summary.accepted + Number(row.accepted || 0),
+                  purchases: summary.purchases + Number(row.purchases || 0),
+                  revenue: summary.revenue + Number(row.revenue || 0),
+                }), { impressions: 0, clicks: 0, accepted: 0, purchases: 0, revenue: 0 })
+                const rate = (value, denominator) => denominator ? `${((value / denominator) * 100).toFixed(1)}%` : '—'
+                const productName = (id) => products.find((product) => String(product.id) === String(id))?.name || `Product #${id || '—'}`
+                const outletName = (id) => id ? outlets.find((outlet) => String(outlet.id) === String(id))?.name || `Outlet #${id}` : 'All Outlets'
+                const reportFor = (rule) => recommendationReport.find((row) => String(row.recommendationId) === String(rule.id)) || {}
+                return (
+                  <>
+                    <section className='mt-3 shrink-0 grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
+                      <MetricCard icon={Eye} label='Impressions' value={reportSummary.impressions} change={0} tone='brand' />
+                      <MetricCard icon={TrendingUp} label='Acceptance Rate' value={rate(reportSummary.accepted, reportSummary.impressions)} change={0} tone='violet' />
+                      <MetricCard icon={Check} label='Purchases' value={reportSummary.purchases} change={0} tone='green' />
+                      <MetricCard icon={Box} label='Attributed Revenue' value={money(reportSummary.revenue)} change={0} tone='orange' />
+                    </section>
+
+                    <section className='mt-3 shrink-0 grid gap-2.5 md:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr]'>
+                      <label className='relative block min-w-0'>
+                        <span className='sr-only'>Search recommendations</span>
+                        <Search size={15} className='pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#98A2B3]' />
+                        <input type='search' value={recommendationSearch} onChange={(e) => setRecommendationSearch(e.target.value)} placeholder='Search source, target, headline...' className='h-9 w-full rounded-lg border border-[#E1E6EF] bg-white pl-9 pr-3 text-sm text-[#11182E] outline-none transition placeholder:text-[#98A2B3] focus:border-[#F43F70] focus:ring-4 focus:ring-[#F43F70]/10' />
+                      </label>
+                      <FilterSelect label='Type' value={recommendationTypeFilter} onChange={setRecommendationTypeFilter} options={['All Types', 'upsell', 'cross_sell']} />
+                      <FilterSelect label='Status' value={recommendationStatusFilter} onChange={setRecommendationStatusFilter} options={['All Status', 'active', 'inactive', 'archived']} />
+                      <FilterSelect label='Outlet' value={recommendationOutletFilter} onChange={setRecommendationOutletFilter} options={['All Outlets', ...outlets.map((outlet) => String(outlet.id))]} />
+                      <FilterSelect label='Source' value={recommendationSourceFilter} onChange={setRecommendationSourceFilter} options={['All Sources', ...products.map((product) => String(product.id))]} />
+                      <FilterSelect label='Target' value={recommendationTargetFilter} onChange={setRecommendationTargetFilter} options={['All Targets', ...products.map((product) => String(product.id))]} />
+                    </section>
+                    <section className='mt-2.5 flex flex-wrap items-center gap-2 text-sm'>
+                      <span className='font-bold text-[#667085]'>Report period</span>
+                      <input type='date' value={recommendationFrom} onChange={(e) => setRecommendationFrom(e.target.value)} className='h-9 rounded-lg border border-[#E1E6EF] bg-white px-3 text-sm font-semibold text-[#11182E] outline-none focus:border-[#F43F70]' aria-label='Report from date' />
+                      <span className='text-[#98A2B3]'>to</span>
+                      <input type='date' value={recommendationTo} onChange={(e) => setRecommendationTo(e.target.value)} className='h-9 rounded-lg border border-[#E1E6EF] bg-white px-3 text-sm font-semibold text-[#11182E] outline-none focus:border-[#F43F70]' aria-label='Report to date' />
+                      <span className='text-xs text-[#98A2B3]'>Revenue is attributed recommendation revenue, not causal uplift.</span>
+                    </section>
+
+                    <section className='mt-2.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#E1E6EF] bg-white shadow-[0_8px_30px_rgba(17,24,46,0.03)]'>
+                      <div className='min-h-0 flex-1 overflow-auto'>
+                        <table className='w-full min-w-[1120px] border-separate border-spacing-0'>
+                          <thead className='bg-[#FCFDFE]'>
+                            <tr className='text-left text-sm font-semibold text-[#667085]'>
+                              {['Source', 'Target', 'Type', 'Outlet', 'Priority', 'Status', 'Impressions', 'Clicks', 'Accepted', 'Purchases', 'Revenue', 'Updated', 'Action'].map((head) => <th key={head} className={cx('border-b border-[#E1E6EF] px-3 py-2.5', head === 'Action' && 'text-right')}>{head}</th>)}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {recommendationLoading ? (
+                              <tr><td colSpan={13} className='px-6 py-16 text-center text-sm font-semibold text-[#667085]'>Loading recommendations...</td></tr>
+                            ) : filteredRecommendations.map((rule) => {
+                              const report = reportFor(rule)
+                              return (
+                                <tr key={rule.id} className='transition hover:bg-[#FCF8FB]'>
+                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5 text-sm font-bold text-[#11182E]'>{productName(rule.sourceProductId)}</td>
+                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5'><p className='m-0 text-sm font-bold text-[#11182E]'>{productName(rule.targetProductId)}</p><p className='m-0 mt-1 text-xs text-[#667085]'>{rule.headline || 'No headline'}</p></td>
+                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5'><span className='rounded-md bg-violet-50 px-2 py-1 text-[11px] font-bold text-violet-700'>{rule.recommendationType === 'cross_sell' ? 'Cross-sell' : 'Upsell'}</span></td>
+                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5 text-sm font-semibold text-[#475467]'>{outletName(rule.outletId)}</td>
+                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5 text-sm font-bold text-[#11182E]'>{rule.priority ?? 0}</td>
+                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5'><span className={cx('rounded-md px-2 py-1 text-[11px] font-bold', rule.status === 'active' ? 'bg-emerald-50 text-emerald-700' : rule.status === 'archived' ? 'bg-slate-100 text-slate-500' : 'bg-amber-50 text-amber-700')}>{rule.status}</span></td>
+                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5 text-sm font-semibold text-[#475467]'>{report.impressions ?? 0}</td>
+                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5 text-sm font-semibold text-[#475467]'>{report.clicks ?? 0}</td>
+                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5 text-sm font-semibold text-[#475467]'>{report.accepted ?? 0}</td>
+                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5 text-sm font-semibold text-[#475467]'>{report.purchases ?? 0}<span className='ml-1 text-xs text-[#98A2B3]'>{rate(report.purchases || 0, report.accepted || 0)}</span></td>
+                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5 text-sm font-bold text-[#11182E]'>{money(report.revenue)}</td>
+                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5 text-xs font-semibold text-[#667085]'>{rule.updatedAt ? new Date(rule.updatedAt).toLocaleDateString() : '—'}</td>
+                                  <td className='border-b border-[#F2F4F8] px-3 py-3.5 text-right'><button type='button' onClick={() => handleArchiveRecommendation(rule)} disabled={rule.status === 'archived'} className='inline-flex items-center gap-1.5 rounded-lg border border-[#E1E6EF] px-2.5 py-1.5 text-xs font-bold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40'><Archive size={13} />Archive</button></td>
+                                </tr>
+                              )
+                            })}
+                            {!recommendationLoading && filteredRecommendations.length === 0 && <tr><td colSpan={13} className='px-6 py-16 text-center'><Search size={24} className='mx-auto text-[#F43F70]' /><h2 className='mt-3 text-xl font-bold text-[#11182E]'>No recommendation rules found</h2><p className='mt-1 text-sm text-[#667085]'>Suggestions appear in the cart after a qualifying source product is added.</p></td></tr>}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className='shrink-0 border-t border-[#E1E6EF] px-3 py-2.5 text-sm text-[#667085]'>Showing <strong className='text-[#11182E]'>{filteredRecommendations.length}</strong> of {recommendations.length} recommendation rules</div>
+                    </section>
+                  </>
+                )
+              })()}
+            </div>
+          )}
+
           {mainTab === 'modifiers' && (
             <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
               {/* Modifier Metrics */}
@@ -5649,6 +5948,54 @@ export default function ProductsPage() {
             }}
           />
         </div>
+      )}
+
+      {isRecommendationModalOpen && createPortal(
+        <div className='fixed inset-0 z-[120] flex items-center justify-center bg-[#11182E]/50 p-4 backdrop-blur-[2px]'>
+          <div className='w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl'>
+            <div className='flex items-center justify-between border-b border-slate-100 px-6 py-4.5'>
+              <div>
+                <h3 className='text-lg font-extrabold text-[#11182E]'>Add Recommendation Rule</h3>
+                <p className='mt-1 text-xs font-semibold text-[#667085]'>Suggestions are shown in the cart only when the target is eligible.</p>
+              </div>
+              <button type='button' onClick={() => setIsRecommendationModalOpen(false)} className='grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50'><X size={16} /></button>
+            </div>
+            <div className='grid gap-4 p-6 sm:grid-cols-2'>
+              <label className='text-xs font-bold text-slate-600'>Source product *
+                <select value={recommendationForm.sourceProductId} onChange={(e) => setRecommendationForm((form) => ({ ...form, sourceProductId: e.target.value, targetProductId: form.targetProductId === e.target.value ? '' : form.targetProductId }))} className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]'>
+                  <option value=''>Select source</option>
+                  {products.filter((product) => product.status !== 'Inactive').map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                </select>
+              </label>
+              <label className='text-xs font-bold text-slate-600'>Target product *
+                <select value={recommendationForm.targetProductId} onChange={(e) => setRecommendationForm((form) => ({ ...form, targetProductId: e.target.value }))} className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]'>
+                  <option value=''>Select target</option>
+                  {products.filter((product) => product.status !== 'Inactive' && String(product.id) !== String(recommendationForm.sourceProductId)).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                </select>
+              </label>
+              <label className='text-xs font-bold text-slate-600'>Type
+                <select value={recommendationForm.recommendationType} onChange={(e) => setRecommendationForm((form) => ({ ...form, recommendationType: e.target.value }))} className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]'><option value='upsell'>Upsell</option><option value='cross_sell'>Cross-sell</option></select>
+              </label>
+              <label className='text-xs font-bold text-slate-600'>Outlet scope
+                <select value={recommendationForm.outletId} onChange={(e) => setRecommendationForm((form) => ({ ...form, outletId: e.target.value }))} className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]'><option value=''>All Outlets</option>{outlets.map((outlet) => <option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}</select>
+              </label>
+              <label className='text-xs font-bold text-slate-600'>Priority
+                <input type='number' min='-1000' max='1000' value={recommendationForm.priority} onChange={(e) => setRecommendationForm((form) => ({ ...form, priority: e.target.value }))} className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]' />
+              </label>
+              <label className='text-xs font-bold text-slate-600'>Status
+                <select value={recommendationForm.status} onChange={(e) => setRecommendationForm((form) => ({ ...form, status: e.target.value }))} className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]'><option value='active'>Active</option><option value='inactive'>Inactive</option></select>
+              </label>
+              <label className='text-xs font-bold text-slate-600 sm:col-span-2'>Headline (optional)
+                <input type='text' maxLength={160} value={recommendationForm.headline} onChange={(e) => setRecommendationForm((form) => ({ ...form, headline: e.target.value }))} placeholder='Example: Make it a complete order' className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]' />
+              </label>
+            </div>
+            <div className='flex justify-end gap-2 border-t border-slate-100 px-6 py-4'>
+              <button type='button' onClick={() => setIsRecommendationModalOpen(false)} className='rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600'>Cancel</button>
+              <button type='button' onClick={handleCreateRecommendation} className='rounded-xl bg-[#FF1F6D] px-4 py-2 text-sm font-bold text-white shadow-lg shadow-pink-100'>Create Rule</button>
+            </div>
+          </div>
+        </div>,
+        document.getElementById('modal-root') || document.body
       )}
 
       {/* 3-STEP ADD MODIFIER GROUP MODAL */}

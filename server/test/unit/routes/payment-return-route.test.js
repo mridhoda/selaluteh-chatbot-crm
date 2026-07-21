@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
 import { paymentsRepository, ordersRepository } from '../../../src/db/repositories/index.js';
-import paymentRouter from '../../../src/routes/payments.js';
+import paymentRouter, { paymentRouteInternals } from '../../../src/routes/payments.js';
 
 function createApp() {
   const app = express();
@@ -23,25 +23,43 @@ async function request(app, path) {
 }
 
 describe('Bayar.gg payment return route', () => {
+  it('syncs a pending provider payment before deciding the return state', async () => {
+    let syncArgs;
+    const result = await paymentRouteInternals.resolvePaymentReturnState({
+      payment: { id: 'pay-pending', workspaceId: 'workspace-1', status: 'pending' },
+      isSuccess: true,
+      sync: async (args) => {
+        syncArgs = args;
+        return { id: 'pay-pending', status: 'paid' };
+      },
+    });
+
+    assert.deepEqual(syncArgs, { workspaceId: 'workspace-1', paymentId: 'pay-pending' });
+    assert.equal(result.status, 'paid');
+  });
+
   it('redirects the browser to the public payment page using a merchant reference', async (t) => {
-    t.mock.method(paymentsRepository, 'findByMerchantReferenceGlobal', async () => ({ id: 'pay-1', workspaceId: 'workspace-1', orderId: 'order-1' }));
+    t.mock.method(paymentsRepository, 'findByMerchantReferenceGlobal', async () => ({ id: 'pay-1', workspaceId: 'workspace-1', orderId: 'order-1', status: 'paid' }));
     t.mock.method(ordersRepository, 'workspaceFindById', async () => ({ publicOrderToken: 'po-1', metadata: { publicStorefrontSlug: 'selalu-teh' } }));
     const response = await request(createApp(), '/payments/return/success?merchantReference=REF-1');
 
     assert.equal(response.status, 303);
     const location = new URL(response.headers.get('location'));
     assert.equal(location.origin, 'https://app-dev.incretlabs.my.id');
-    assert.equal(location.pathname, '/store/payment/pending/pay-1');
-    assert.equal(location.searchParams.get('publicOrderToken'), 'po-1');
-    assert.equal(location.searchParams.get('storefrontSlug'), 'selalu-teh');
+    assert.equal(location.pathname, '/store/selalu-teh');
+    assert.equal(location.searchParams.get('paymentReturn'), 'success');
+    assert.equal(location.searchParams.get('orderToken'), 'po-1');
   });
 
   it('uses provider invoice lookup when merchant reference is absent', async (t) => {
-    t.mock.method(paymentsRepository, 'findByProviderTransactionId', async () => ({ id: 'pay-2', workspaceId: 'workspace-1', orderId: 'order-2' }));
+    t.mock.method(paymentsRepository, 'findByProviderTransactionId', async () => ({ id: 'pay-2', workspaceId: 'workspace-1', orderId: 'order-2', status: 'paid' }));
     t.mock.method(ordersRepository, 'workspaceFindById', async () => ({ publicOrderToken: 'po-2', metadata: { publicStorefrontSlug: 'store-2' } }));
     const response = await request(createApp(), '/payments/return/success?invoice_id=INV-2');
 
     assert.equal(response.status, 303);
-    assert.match(response.headers.get('location'), /payment\/pending\/pay-2/);
+    const location = new URL(response.headers.get('location'));
+    assert.equal(location.pathname, '/store/store-2');
+    assert.equal(location.searchParams.get('paymentReturn'), 'success');
+    assert.equal(location.searchParams.get('orderToken'), 'po-2');
   });
 });

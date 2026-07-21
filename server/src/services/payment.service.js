@@ -8,6 +8,7 @@ import { resolvePaymentProvider, resolvePaymentAdapter } from './payment-provide
 import { assertPaymentProviderAuthority, assertPaymentSnapshot } from '../ai/security/payment-order-guardrails.js';
 import { FulfillmentStatus, OrderStatus, PaymentStatus } from '../orders/order-types.js';
 import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
+import { attributePaidOrder } from './product-recommendation.service.js';
 
 const TERMINAL_PAID_STATUSES = new Set(['paid', 'refunded', 'partially_refunded']);
 const ACTIVE_SESSION_STATUSES = new Set(['pending', 'created']);
@@ -397,6 +398,7 @@ export async function reconcileProviderSession({ payment, providerSession }) {
     const updatedOrder = providerSession.status === 'paid'
       ? await markOrderPaidPreparing({ workspaceId: payment.workspaceId, orderId: payment.orderId })
       : null;
+    if (updatedOrder) await attributePaidOrder({ workspaceId: payment.workspaceId, order: updatedOrder }).catch((error) => console.error('[Payment] Recommendation attribution failed:', error.message));
     notifyPaymentUpdatedRealtime({ workspaceId: payment.workspaceId, outletId: updatedPayment.outletId, payment: updatedPayment, order: updatedOrder });
     if (updatedOrder) notifyPaidOrderRealtime({ workspaceId: payment.workspaceId, outletId: updatedOrder.outletId, order: updatedOrder });
   }
@@ -554,6 +556,7 @@ async function processPaidPayment({ payment, providerEvent }) {
   await paymentsRepository.updatePayment(payment.id, { reconciliation_status: 'matched' });
 
   const updatedOrder = await markOrderPaidPreparing({ workspaceId: payment.workspaceId, orderId: payment.orderId });
+  await attributePaidOrder({ workspaceId: payment.workspaceId, order: updatedOrder }).catch((error) => console.error('[Payment] Recommendation attribution failed:', error.message));
   notifyPaymentUpdatedRealtime({ workspaceId: payment.workspaceId, outletId: updated.outletId, payment: updated, order: updatedOrder });
   if (!isTerminalOrder(updatedOrder)) {
     notifyPaidOrderRealtime({ workspaceId: payment.workspaceId, outletId: updatedOrder?.outletId || updated.outletId, order: updatedOrder });

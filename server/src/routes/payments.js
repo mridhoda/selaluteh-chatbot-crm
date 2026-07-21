@@ -24,6 +24,16 @@ function getPublicWebBaseUrl() {
   }
 }
 
+export async function resolvePaymentReturnState({ payment, isSuccess, sync = syncPaymentWithProvider } = {}) {
+  if (!payment || !isSuccess || !['pending', 'processing'].includes(String(payment.status || '').toLowerCase())) return payment;
+  try {
+    return await sync({ workspaceId: payment.workspaceId, paymentId: payment.id });
+  } catch (error) {
+    console.warn(`[PaymentReturn] Provider sync skipped for ${payment.id}:`, error.message);
+    return payment;
+  }
+}
+
 router.all('/return/:kind', async (req, res, next) => {
   const kind = req.params.kind === 'cancel' ? 'cancel' : 'success';
   const isSuccess = kind === 'success';
@@ -38,14 +48,13 @@ router.all('/return/:kind', async (req, res, next) => {
       : null;
     const storefrontSlug = query.storefrontSlug || order?.metadata?.publicStorefrontSlug || '';
     const publicOrderToken = query.publicOrderToken || order?.publicOrderToken || '';
-    if (payment?.id && publicOrderToken) {
+    if (payment?.id && publicOrderToken && storefrontSlug) {
+      const verifiedPayment = await resolvePaymentReturnState({ payment, isSuccess });
       const webBase = getPublicWebBaseUrl();
       if (webBase) {
-        const returnTo = storefrontSlug ? `/store/${encodeURIComponent(storefrontSlug)}` : '/';
-        const target = new URL(`${webBase.replace(/\/$/, '')}/store/payment/pending/${encodeURIComponent(payment.id)}`);
-        target.searchParams.set('publicOrderToken', publicOrderToken);
-        if (storefrontSlug) target.searchParams.set('storefrontSlug', storefrontSlug);
-        target.searchParams.set('returnTo', returnTo);
+        const target = new URL(`${webBase.replace(/\/$/, '')}/store/${encodeURIComponent(storefrontSlug || 'store')}`);
+        target.searchParams.set('paymentReturn', isSuccess ? (String(verifiedPayment?.status || '').toLowerCase() === 'paid' ? 'success' : 'pending') : 'cancel');
+        target.searchParams.set('orderToken', publicOrderToken);
         return res.redirect(303, target.toString());
       }
     }
@@ -239,3 +248,5 @@ router.post('/reconciliation/:paymentId', authorizePermission('payments', 'recon
 });
 
 export default router;
+
+export const paymentRouteInternals = { getPublicWebBaseUrl, resolvePaymentReturnState };

@@ -24,12 +24,20 @@ function sanitizeStoredIntentItems(rawItems) {
         quantity: item.quantity,
         selectedModifierOptionIds: item.selectedModifierOptionIds,
         modifiers: item.modifiers,
-      }),
+      })
     )
 }
 
-function buildSelectedModifiers({ product, selectedModifierOptionIds = [] } = {}) {
-  const optionIds = new Set((Array.isArray(selectedModifierOptionIds) ? selectedModifierOptionIds : []).map(String))
+function buildSelectedModifiers({
+  product,
+  selectedModifierOptionIds = [],
+} = {}) {
+  const optionIds = new Set(
+    (Array.isArray(selectedModifierOptionIds)
+      ? selectedModifierOptionIds
+      : []
+    ).map(String)
+  )
   return (product?.modifierGroups || []).flatMap((group) => {
     return (group.options || [])
       .filter((option) => optionIds.has(String(option.id)))
@@ -37,12 +45,22 @@ function buildSelectedModifiers({ product, selectedModifierOptionIds = [] } = {}
   })
 }
 
-export function useGuestCart({ storefront, products, outlet, qrSessionToken, includeOutlet = true }) {
+export function useGuestCart({
+  storefront,
+  products,
+  outlet,
+  qrSessionToken,
+  recommendationSessionId,
+  includeOutlet = true,
+}) {
   const storageKey = getCartStorageKey(storefront?.id)
   const [items, setItems] = useState([])
+  const [supplementalProducts, setSupplementalProducts] = useState([])
   const [error, setError] = useState('')
   const [validatedCart, setValidatedCart] = useState(null)
-  const [validationStatus, setValidationStatus] = useState(CART_VALIDATION_STATUS.IDLE)
+  const [validationStatus, setValidationStatus] = useState(
+    CART_VALIDATION_STATUS.IDLE
+  )
 
   useEffect(() => {
     if (!storefront?.id) return
@@ -60,34 +78,62 @@ export function useGuestCart({ storefront, products, outlet, qrSessionToken, inc
   }, [items, storageKey, storefront?.id])
 
   const addItem = useCallback(
-    async ({ productId, quantity, selectedModifierOptionIds }) => {
+    async ({
+      productId,
+      quantity,
+      selectedModifierOptionIds,
+      product: providedProduct,
+    }) => {
       setError('')
-      const product = products.find((item) => item.id === productId)
+      const product =
+        products.find((item) => item.id === productId) ||
+        supplementalProducts.find((item) => item.id === productId) ||
+        providedProduct
       if (!product || !product.isAvailable) {
         setError('Produk tidak tersedia.')
         return false
       }
 
-      const safeQuantity = Math.min(CART_QUANTITY.MAX, Math.max(CART_QUANTITY.MIN, Number(quantity || 1)))
+      const safeQuantity = Math.min(
+        CART_QUANTITY.MAX,
+        Math.max(CART_QUANTITY.MIN, Number(quantity || 1))
+      )
       const cartItem = createCartIntentItem({
         clientLineId: `cart_${productId}_${Date.now()}`,
         productId,
         quantity: safeQuantity,
         selectedModifierOptionIds,
-        modifiers: buildSelectedModifiers({ product, selectedModifierOptionIds }),
+        modifiers: buildSelectedModifiers({
+          product,
+          selectedModifierOptionIds,
+        }),
       })
+      if (
+        providedProduct &&
+        !products.some((item) => item.id === productId) &&
+        !supplementalProducts.some((item) => item.id === productId)
+      ) {
+        setSupplementalProducts((current) => [...current, providedProduct])
+      }
       setItems((current) => [...current, cartItem])
       setValidatedCart(null)
       setValidationStatus(CART_VALIDATION_STATUS.IDLE)
       return true
     },
-    [products],
+    [products, supplementalProducts]
   )
 
   const updateQuantity = useCallback(async (cartItemId, nextQuantity) => {
-    const safeQuantity = Math.max(0, Math.min(CART_QUANTITY.MAX, Number(nextQuantity || 0)))
+    const safeQuantity = Math.max(
+      0,
+      Math.min(CART_QUANTITY.MAX, Number(nextQuantity || 0))
+    )
     if (safeQuantity === 0) {
-      setItems((current) => current.filter((item) => item.clientLineId !== cartItemId && item.id !== cartItemId))
+      setItems((current) =>
+        current.filter(
+          (item) => item.clientLineId !== cartItemId && item.id !== cartItemId
+        )
+      )
       setValidatedCart(null)
       setValidationStatus(CART_VALIDATION_STATUS.IDLE)
       return
@@ -97,15 +143,19 @@ export function useGuestCart({ storefront, products, outlet, qrSessionToken, inc
       current.map((item) =>
         item.clientLineId === cartItemId || item.id === cartItemId
           ? { ...item, quantity: safeQuantity }
-          : item,
-      ),
+          : item
+      )
     )
     setValidatedCart(null)
     setValidationStatus(CART_VALIDATION_STATUS.IDLE)
   }, [])
 
   const removeItem = useCallback(async (cartItemId) => {
-    setItems((current) => current.filter((item) => item.clientLineId !== cartItemId && item.id !== cartItemId))
+    setItems((current) =>
+      current.filter(
+        (item) => item.clientLineId !== cartItemId && item.id !== cartItemId
+      )
+    )
     setValidatedCart(null)
     setValidationStatus(CART_VALIDATION_STATUS.IDLE)
   }, [])
@@ -117,10 +167,37 @@ export function useGuestCart({ storefront, products, outlet, qrSessionToken, inc
   }, [])
 
   const intentContext = useMemo(
-    () => createCartIntentContext({ storefrontSlug: storefront?.slug, outletId: outlet?.id || storefront?.outlet?.id, qrSessionToken, includeOutlet }),
-    [includeOutlet, outlet?.id, qrSessionToken, storefront?.outlet?.id, storefront?.slug],
+    () =>
+      createCartIntentContext({
+        storefrontSlug: storefront?.slug,
+        outletId: outlet?.id || storefront?.outlet?.id,
+        qrSessionToken,
+        recommendationSessionId,
+        includeOutlet,
+      }),
+    [
+      includeOutlet,
+      outlet?.id,
+      qrSessionToken,
+      recommendationSessionId,
+      storefront?.outlet?.id,
+      storefront?.slug,
+    ]
   )
-  const previewCart = useMemo(() => createCartPreview({ items, products, context: intentContext }), [intentContext, items, products])
+  const catalog = useMemo(
+    () => [
+      ...products,
+      ...supplementalProducts.filter(
+        (product) => !products.some((item) => item.id === product.id)
+      ),
+    ],
+    [products, supplementalProducts]
+  )
+  const previewCart = useMemo(
+    () =>
+      createCartPreview({ items, products: catalog, context: intentContext }),
+    [catalog, intentContext, items]
+  )
   const validateCart = useCallback(async () => {
     if (!items.length) {
       setError('Keranjang masih kosong.')
@@ -129,20 +206,33 @@ export function useGuestCart({ storefront, products, outlet, qrSessionToken, inc
     setError('')
     setValidationStatus(CART_VALIDATION_STATUS.PENDING)
     try {
-      const result = await phase5ApiClient.public.validateCart(buildCartValidationPayload({ context: intentContext, items, products }))
+      const result = await phase5ApiClient.public.validateCart(
+        buildCartValidationPayload({
+          context: intentContext,
+          items,
+          products: catalog,
+        })
+      )
       const normalized = normalizeValidatedCart(result)
       setValidatedCart(normalized)
-      setValidationStatus(normalized.valid ? CART_VALIDATION_STATUS.VALID : CART_VALIDATION_STATUS.INVALID)
+      setValidationStatus(
+        normalized.valid
+          ? CART_VALIDATION_STATUS.VALID
+          : CART_VALIDATION_STATUS.INVALID
+      )
       return normalized
     } catch {
       setValidationStatus(CART_VALIDATION_STATUS.ERROR)
       setError('Keranjang gagal divalidasi. Coba lagi.')
       return null
     }
-  }, [intentContext, items, products])
+  }, [catalog, intentContext, items])
 
   const totals = previewCart.totals
-  const cartCount = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items])
+  const cartCount = useMemo(
+    () => items.reduce((sum, item) => sum + item.quantity, 0),
+    [items]
+  )
 
   return {
     cart: previewCart,

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 export default function StoreHeader({ brandName, subtitle = 'Online Store', logoUrl, cartCount, storefrontSlug, onOpenCart }) {
   const navigate = useNavigate()
   const displayName = String(brandName || '').replace(/\s+Online\s+Store\s*$/i, '').trim()
-  const lastOrderToken = typeof window === 'undefined' ? '' : window.localStorage.getItem(`public-store-last-order:${storefrontSlug}`)
   return (
     <header className="border-b border-gray-100 bg-white px-4 py-3">
       <div className="mx-auto flex max-w-md items-center justify-between gap-3">

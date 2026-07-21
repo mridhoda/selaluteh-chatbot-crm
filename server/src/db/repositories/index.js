@@ -37,6 +37,7 @@ export { messagesSupabaseRepository as messagesRepository } from './messages.sup
 export { productsSupabaseRepository } from './products.supabase.repository.js';
 export { productsSupabaseRepository as productsRepository } from './products.supabase.repository.js';
 export { modifiersRepository } from './modifiers.supabase.repository.js';
+export { productRecommendationsRepository, recommendationEventsRepository } from './product-recommendations.supabase.repository.js';
 
 // ─── 24.12 — Carts + CartItems ───────────────────────────────────────────────
 export { cartsSupabaseRepository } from './carts.supabase.repository.js';

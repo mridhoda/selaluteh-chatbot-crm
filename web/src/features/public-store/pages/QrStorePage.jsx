@@ -13,6 +13,7 @@ import StoreSkeleton from '../components/StoreSkeleton'
 import { phase5ApiClient } from '../api/phase5ApiClient'
 import { useGuestCart } from '../hooks/useGuestCart'
 import PublicStoreLayout from '../layouts/PublicStoreLayout'
+import { recommendationProduct } from '../utils/recommendationModel'
 import {
   assertNoLockedQrOverride,
   canSelectOutletForQr,
@@ -24,7 +25,8 @@ import {
 } from '../utils/publicStoreModel'
 
 function getScopeLabel(qrModel) {
-  if (qrModel?.qrScope === 'LOCATION') return `Meja/Lokasi: ${qrModel.lockedLocation?.label || 'terkunci'}`
+  if (qrModel?.qrScope === 'LOCATION')
+    return `Meja/Lokasi: ${qrModel.lockedLocation?.label || 'terkunci'}`
   if (qrModel?.qrScope === 'OUTLET') return 'Outlet dikunci oleh QR ini.'
   return 'Pilih outlet yang tersedia untuk QR ini.'
 }
@@ -40,6 +42,7 @@ export default function QrStorePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [recommendationSessionId] = useState(() => window.crypto?.randomUUID?.() || `session_${Date.now()}`)
 
   useEffect(() => {
     let mounted = true
@@ -54,10 +57,23 @@ export default function QrStorePage() {
         const normalized = normalizeQrResolveResponse(response)
         setQrModel(normalized)
         setSelectedCategoryId(normalized.categories[0]?.id || '')
-        const initialOutlet = normalized.lockedOutlet || (normalized.qrScope === 'UNIVERSAL' ? null : normalized.eligibleOutlets[0])
+        const initialOutlet =
+          normalized.lockedOutlet ||
+          (normalized.qrScope === 'UNIVERSAL'
+            ? null
+            : normalized.eligibleOutlets[0])
         setSelectedOutletId(initialOutlet?.id || '')
       })
-      .catch((requestError) => mounted && setError(getSafePublicStoreError(requestError, 'QR tidak valid atau sudah tidak aktif.')))
+      .catch(
+        (requestError) =>
+          mounted &&
+          setError(
+            getSafePublicStoreError(
+              requestError,
+              'QR tidak valid atau sudah tidak aktif.'
+            )
+          )
+      )
       .finally(() => mounted && setLoading(false))
 
     return () => {
@@ -66,25 +82,85 @@ export default function QrStorePage() {
   }, [qrToken])
 
   const outlets = useMemo(
-    () => getEligibleOutlets({ outlets: qrModel?.eligibleOutlets, qrScope: qrModel?.qrScope, lockedOutlet: qrModel?.lockedOutlet }),
-    [qrModel],
+    () =>
+      getEligibleOutlets({
+        outlets: qrModel?.eligibleOutlets,
+        qrScope: qrModel?.qrScope,
+        lockedOutlet: qrModel?.lockedOutlet,
+      }),
+    [qrModel]
   )
-  const selectedOutlet = resolveSelectedOutlet({ requestedOutletId: selectedOutletId, outlets, qrScope: qrModel?.qrScope, lockedOutlet: qrModel?.lockedOutlet })
+  const selectedOutlet = resolveSelectedOutlet({
+    requestedOutletId: selectedOutletId,
+    outlets,
+    qrScope: qrModel?.qrScope,
+    lockedOutlet: qrModel?.lockedOutlet,
+  })
   const canSelectOutlet = canSelectOutletForQr(qrModel)
-  const cart = useGuestCart({ storefront: qrModel?.storefront, products: qrModel?.products || [], outlet: selectedOutlet, qrSessionToken: qrModel?.qrSessionToken, includeOutlet: canSelectOutlet })
+  const cart = useGuestCart({
+    storefront: qrModel?.storefront,
+    products: qrModel?.products || [],
+    outlet: selectedOutlet,
+    qrSessionToken: qrModel?.qrSessionToken,
+    recommendationSessionId,
+    includeOutlet: canSelectOutlet,
+  })
+
+  const selectRecommendation = (recommendation) => {
+    const product =
+      (qrModel?.products || []).find(
+        (item) => item.id === recommendation.productId
+      ) || recommendationProduct(recommendation)
+    setSelectedProduct({
+      ...product,
+      recommendationId: recommendation.recommendationId,
+    })
+  }
+
+  const addProduct = async (payload) => {
+    assertNoLockedQrOverride({
+      qrModel,
+      selectedOutletId: intentContext.outletId,
+      selectedLocationId: intentContext.qrLocationId,
+    })
+    const ok = await cart.addItem({ ...payload, product: selectedProduct })
+    if (ok && selectedProduct?.recommendationId) {
+      void phase5ApiClient.public
+        .recordRecommendationEvent({
+          storefront_slug: qrModel?.storefront?.slug,
+          outlet_id: selectedOutlet?.id,
+          event_type: 'accepted',
+          placement: 'cart',
+          recommendation_id: selectedProduct.recommendationId,
+          target_product_id: selectedProduct.id,
+        })
+        .catch(() => {})
+    }
+    return ok
+  }
 
   const filteredProducts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     return (qrModel?.products || []).filter((product) => {
-      const matchesCategory = !selectedCategoryId || product.categoryId === selectedCategoryId
-      const matchesSearch = !query || `${product.name} ${product.description || ''}`.toLowerCase().includes(query)
+      const matchesCategory =
+        !selectedCategoryId || product.categoryId === selectedCategoryId
+      const matchesSearch =
+        !query ||
+        `${product.name} ${product.description || ''}`
+          .toLowerCase()
+          .includes(query)
       return matchesCategory && matchesSearch
     })
   }, [qrModel, searchQuery, selectedCategoryId])
 
   const selectOutlet = (outletId) => {
     if (!canSelectOutlet) return
-    if (!outlets.some((outlet) => outlet.id === outletId && outlet.isAvailable !== false)) return
+    if (
+      !outlets.some(
+        (outlet) => outlet.id === outletId && outlet.isAvailable !== false
+      )
+    )
+      return
     setSelectedOutletId(outletId)
     cart.clearCart()
   }
@@ -100,7 +176,10 @@ export default function QrStorePage() {
   if (error || !qrModel?.storefront) {
     return (
       <PublicStoreLayout theme={qrModel?.storefront?.theme}>
-        <StoreErrorState title="QR tidak dapat digunakan" description={error || 'QR tidak valid atau sudah kedaluwarsa.'} />
+        <StoreErrorState
+          title='QR tidak dapat digunakan'
+          description={error || 'QR tidak valid atau sudah kedaluwarsa.'}
+        />
       </PublicStoreLayout>
     )
   }
@@ -108,15 +187,29 @@ export default function QrStorePage() {
   if (!outlets.length) {
     return (
       <PublicStoreLayout theme={qrModel.storefront.theme}>
-        <StoreHeader brandName={qrModel.storefront.brandName || qrModel.storefront.name} logoUrl={qrModel.storefront.theme.logoUrl} cartCount={0} storefrontSlug={qrModel.storefront.slug} onOpenCart={() => {}} />
-        <StoreErrorState title="Outlet QR tidak tersedia" description="Tidak ada outlet eligible dari backend untuk QR ini." />
+        <StoreHeader
+          brandName={qrModel.storefront.brandName || qrModel.storefront.name}
+          logoUrl={qrModel.storefront.theme.logoUrl}
+          cartCount={0}
+          storefrontSlug={qrModel.storefront.slug}
+          onOpenCart={() => {}}
+        />
+        <StoreErrorState
+          title='Outlet QR tidak tersedia'
+          description='Tidak ada outlet eligible dari backend untuk QR ini.'
+        />
       </PublicStoreLayout>
     )
   }
 
   const canOpenCart = Boolean(selectedOutlet)
   const lockLabel = getScopeLabel(qrModel)
-  const intentContext = createStoreIntentContext({ storefrontSlug: qrModel.storefront.slug, selectedOutlet, qrModel })
+  const intentContext = createStoreIntentContext({
+    storefrontSlug: qrModel.storefront.slug,
+        recommendationSessionId,
+    selectedOutlet,
+    qrModel,
+  })
 
   return (
     <PublicStoreLayout theme={qrModel.storefront.theme}>
@@ -135,11 +228,17 @@ export default function QrStorePage() {
         lockLabel={lockLabel}
         requireExplicitSelection={canSelectOutlet}
       />
-      <section className="px-4 pt-2">
-        <div className="rounded-2xl border border-gray-100 bg-white p-3 text-xs font-bold text-gray-600 shadow-sm">
-          <p className="text-[11px] uppercase tracking-wide text-gray-400">QR Session</p>
+      <section className='px-4 pt-2'>
+        <div className='rounded-2xl border border-gray-100 bg-white p-3 text-xs font-bold text-gray-600 shadow-sm'>
+          <p className='text-[11px] uppercase tracking-wide text-gray-400'>
+            QR Session
+          </p>
           <p>{lockLabel}</p>
-          {!selectedOutlet && <p className="mt-1 text-orange-600">Pilih outlet sebelum lanjut validasi atau checkout.</p>}
+          {!selectedOutlet && (
+            <p className='mt-1 text-orange-600'>
+              Pilih outlet sebelum lanjut validasi atau checkout.
+            </p>
+          )}
         </div>
       </section>
       <HeroBanner banner={qrModel.storefront.banner} />
@@ -150,31 +249,49 @@ export default function QrStorePage() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
       />
-      <ProductGrid products={filteredProducts} cartItems={cart.items} onSelect={canOpenCart ? setSelectedProduct : () => {}} />
-      <FloatingCartButton count={cart.cartCount} totalMinor={cart.displayTotalMinor} onClick={() => canOpenCart && setCartOpen(true)} />
+      <ProductGrid
+        products={filteredProducts}
+        cartItems={cart.items}
+        onSelect={canOpenCart ? setSelectedProduct : () => {}}
+      />
+      <FloatingCartButton
+        count={cart.cartCount}
+        totalMinor={cart.displayTotalMinor}
+        onClick={() => canOpenCart && setCartOpen(true)}
+      />
       <ProductModifierSheet
         open={Boolean(selectedProduct)}
         product={selectedProduct}
         onClose={() => setSelectedProduct(null)}
-        onAdd={async (payload) => {
-          assertNoLockedQrOverride({ qrModel, selectedOutletId: intentContext.outletId, selectedLocationId: intentContext.qrLocationId })
-          return cart.addItem(payload)
-        }}
+        onAdd={addProduct}
       />
       <CartDrawer
         open={cartOpen}
         outlet={selectedOutlet}
-        cart={{ ...cart.cart, outletId: intentContext.outletId, qrSessionToken: intentContext.qrSessionToken }}
+        cart={{
+          ...cart.cart,
+          outletId: intentContext.outletId,
+          qrSessionToken: intentContext.qrSessionToken,
+        }}
+        storefrontSlug={qrModel.storefront.slug}
+        recommendationSessionId={recommendationSessionId}
+        onSelectRecommendation={selectRecommendation}
         onClose={() => setCartOpen(false)}
         onUpdateQuantity={cart.updateQuantity}
         onRemove={cart.removeItem}
         onCheckout={() => {
           if (!selectedOutlet) return
           const params = new URLSearchParams()
-          if (intentContext.outletId) params.set('outletId', intentContext.outletId)
-          if (intentContext.qrSessionToken) params.set('qrSessionToken', intentContext.qrSessionToken)
+          if (intentContext.outletId)
+            params.set('outletId', intentContext.outletId)
+          if (intentContext.qrSessionToken)
+            params.set('qrSessionToken', intentContext.qrSessionToken)
+          if (recommendationSessionId)
+            params.set('recommendationSessionId', recommendationSessionId)
           params.set('includeOutlet', String(canSelectOutlet))
-          navigate(`/store/${qrModel.storefront.slug}/checkout?${params.toString()}`)
+          navigate(
+            `/store/${qrModel.storefront.slug}/checkout?${params.toString()}`
+          )
         }}
       />
     </PublicStoreLayout>

@@ -60,10 +60,11 @@ function buildSelectedModifiers({ product, selectedModifierOptionIds = [] } = {}
   })
 }
 
-export function createCartIntentContext({ storefrontSlug, outletId, qrSessionToken, includeOutlet = true } = {}) {
+export function createCartIntentContext({ storefrontSlug, outletId, qrSessionToken, recommendationSessionId, includeOutlet = true } = {}) {
   const context = { storefrontSlug }
   if (includeOutlet && outletId) context.outletId = outletId
   if (qrSessionToken) context.qrSessionToken = qrSessionToken
+  if (recommendationSessionId) context.recommendationSessionId = recommendationSessionId
   return context
 }
 

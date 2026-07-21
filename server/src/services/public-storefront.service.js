@@ -413,7 +413,7 @@ export async function validatePublicCart({ channel = 'online_store', storefrontS
   };
 }
 
-function toCheckoutLikePayload({ validation, customer, contactId, idempotencyKey, customerNote, channel }) {
+function toCheckoutLikePayload({ validation, customer, contactId, idempotencyKey, customerNote, channel, recommendationSessionId }) {
   const snapshot = validation.cart_snapshot;
   const context = validation.context;
   const qrContext = context.qrContext?.qr_context || null;
@@ -433,6 +433,7 @@ function toCheckoutLikePayload({ validation, customer, contactId, idempotencyKey
       qrCodeId: context.qrContext?.qr_session?.qr_code_id || null,
       qrScope: context.qrContext?.qr_session?.scope || null,
       qrType: context.qrContext?.qr_session?.qr_type || null,
+      ...(recommendationSessionId ? { recommendationSessionId } : {}),
       qrLocation: qrContext ? {
         id: qrContext.qr_location_id || null,
         label: qrContext.location_label || null,
@@ -593,6 +594,7 @@ export async function createPublicCheckout({ idempotencyKey, body }) {
     customer: { name: body?.customer?.name.trim(), phone: body?.customer?.phone.trim() },
     items: validation.cart_snapshot.items,
     customerNote: body?.customer?.note || body?.customer_note || body?.customerNote || null,
+    recommendationSessionId: body?.recommendationSessionId || body?.recommendation_session_id || null,
   };
   const requestHash = stableHash(safePayload);
   const workspaceId = validation.context.workspaceId;
@@ -616,6 +618,7 @@ export async function createPublicCheckout({ idempotencyKey, body }) {
     idempotencyKey: normalizedIdempotencyKey,
     customerNote: safePayload.customerNote,
     channel,
+    recommendationSessionId: safePayload.recommendationSessionId,
   });
   const order = await createOrderFromCheckout({ workspaceId, checkout, user: null });
   let payment;
