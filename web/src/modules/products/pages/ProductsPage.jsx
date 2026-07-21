@@ -4068,7 +4068,10 @@ export default function ProductsPage() {
       await loadRecommendations()
     } catch (err) {
       console.error('Failed to create product recommendation:', err)
-      alert(err.response?.data?.error?.message || 'Failed to create recommendation rule.')
+      const detail = err.response?.data?.error?.details?.detail || err.response?.data?.error?.message || ''
+      alert(/product_recommendations|schema cache|does not exist/i.test(detail)
+        ? 'Recommendation database belum dimigrasikan pada server aktif. Jalankan migration 045_product_recommendations.sql dan 046_product_recommendation_actions.sql pada database server.'
+        : detail || 'Failed to create recommendation rule.')
     }
   }
 
@@ -5967,7 +5970,7 @@ export default function ProductsPage() {
 
       {isRecommendationModalOpen && createPortal(
         <div className='fixed inset-0 z-[120] flex items-center justify-center bg-[#11182E]/50 p-4 backdrop-blur-[2px]'>
-          <div className='w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl'>
+          <div className='w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-xl'>
             <div className='flex items-center justify-between border-b border-slate-100 px-6 py-4.5'>
               <div>
                 <h3 className='text-lg font-extrabold text-[#11182E]'>Add Recommendation Rule</h3>
@@ -5975,10 +5978,11 @@ export default function ProductsPage() {
               </div>
               <button type='button' onClick={() => setIsRecommendationModalOpen(false)} className='grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50'><X size={16} /></button>
             </div>
-            <div className='grid gap-4 p-6 sm:grid-cols-2'>
-              <div className='sm:col-span-2 rounded-xl border border-violet-100 bg-violet-50 px-3.5 py-3 text-xs leading-relaxed text-violet-900'>
-                <strong>Aturan harga:</strong> rule tidak menyimpan harga. Harga katalog target di outlet tetap menjadi authority. Action <strong>Tambah item</strong> menambah target ke cart; <strong>Ganti item di cart</strong> mengganti source, untuk upgrade ukuran seperti Medium ke Jumbo. Gunakan modul Promo/Coupon untuk harga promo.
-              </div>
+            <div className='grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_300px]'>
+              <div className='grid content-start gap-4 sm:grid-cols-2'>
+                <div className='sm:col-span-2 rounded-xl border border-violet-100 bg-violet-50 px-3.5 py-3 text-xs leading-relaxed text-violet-900'>
+                  <strong>Aturan harga:</strong> rule tidak menyimpan harga. Harga katalog target di outlet tetap menjadi authority. Action <strong>Tambah item</strong> menambah target ke cart; <strong>Ganti item di cart</strong> mengganti source, untuk upgrade ukuran seperti Medium ke Jumbo. Gunakan modul Promo/Coupon untuk harga promo.
+                </div>
               <label className='text-xs font-bold text-slate-600'>Produk di cart (source) *
                 <select value={recommendationForm.sourceProductId} onChange={(e) => setRecommendationForm((form) => ({ ...form, sourceProductId: e.target.value, targetProductId: form.targetProductId === e.target.value ? '' : form.targetProductId }))} className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]'>
                   <option value=''>Select source</option>
@@ -6009,12 +6013,34 @@ export default function ProductsPage() {
               <label className='text-xs font-bold text-slate-600 sm:col-span-2'>Headline (optional)
                 <input type='text' maxLength={160} value={recommendationForm.headline} onChange={(e) => setRecommendationForm((form) => ({ ...form, headline: e.target.value }))} placeholder='Example: Make it a complete order' className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#F43F70]' />
               </label>
-              {recommendationSourceProduct && recommendationTargetProduct && (
-                <div className='sm:col-span-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-xs'>
-                  <span className='font-semibold text-slate-600'>Customer {recommendationForm.actionType === 'replace_source' ? 'mengganti item source dengan' : 'menambah'} <strong className='text-[#11182E]'>{recommendationTargetProduct.name}</strong>{recommendationForm.actionType === 'replace_source' ? '.' : ' sebagai item baru.'}</span>
-                  <span className='font-extrabold text-[#11182E]'>Harga target {money(recommendationTargetProduct.price || 0)} {recommendationPriceDelta > 0 ? `(+${money(recommendationPriceDelta)} vs source)` : recommendationPriceDelta < 0 ? `(${money(recommendationPriceDelta)} vs source)` : '(sama dengan source)'}</span>
+              </div>
+              <aside className='rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4 shadow-inner'>
+                <div className='mb-4 flex items-center justify-between'>
+                  <div>
+                    <p className='m-0 text-[10px] font-black uppercase tracking-[0.12em] text-[#F43F70]'>Customer preview</p>
+                    <h4 className='m-0 mt-1 text-sm font-extrabold text-[#11182E]'>Muncul di keranjang</h4>
+                  </div>
+                  <span className='rounded-full bg-white px-2 py-1 text-[10px] font-bold text-slate-400 shadow-sm'>Cart</span>
                 </div>
-              )}
+                {!recommendationSourceProduct || !recommendationTargetProduct ? (
+                  <div className='rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-xs font-semibold leading-relaxed text-slate-400'>Pilih produk source dan target untuk melihat contoh recommendation card.</div>
+                ) : (
+                  <div className='rounded-2xl border border-slate-200 bg-white p-3 shadow-sm'>
+                    <p className='m-0 text-[11px] font-extrabold text-slate-500'>{recommendationForm.recommendationType === 'upsell' ? 'Naikkan pesananmu' : 'Lengkapi pesananmu'}</p>
+                    <div className='mt-3 flex gap-3'>
+                      <div className='grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-[#FFF1F5] text-lg font-black text-[#F43F70]'>{recommendationTargetProduct.name?.slice(0, 1) || '?'}</div>
+                      <div className='min-w-0 flex-1'>
+                        <p className='m-0 truncate text-sm font-extrabold text-[#11182E]'>{recommendationTargetProduct.name}</p>
+                        <p className='m-0 mt-1 text-[11px] font-medium leading-snug text-slate-500'>{recommendationForm.headline.trim() || (recommendationForm.actionType === 'replace_source' ? `Ganti ${recommendationSourceProduct.name} dengan ukuran lebih besar.` : 'Tambahan yang cocok untuk pesanan ini.')}</p>
+                        <p className='m-0 mt-2 text-xs font-extrabold text-[#F43F70]'>{recommendationForm.actionType === 'replace_source' && recommendationPriceDelta !== null ? `${recommendationPriceDelta >= 0 ? '+' : ''}${money(recommendationPriceDelta)}` : money(recommendationTargetProduct.price || 0)}</p>
+                      </div>
+                    </div>
+                    <button type='button' disabled className='mt-3 w-full rounded-xl bg-[#FF1F6D] px-3 py-2 text-xs font-extrabold text-white opacity-90'>{recommendationForm.actionType === 'replace_source' ? 'Upgrade' : 'Pilih'}</button>
+                    <p className='m-0 mt-2 text-center text-[10px] font-semibold text-slate-400'>{recommendationForm.actionType === 'replace_source' ? `Mengganti ${recommendationSourceProduct.name} di keranjang` : 'Harga menu ditambahkan ke keranjang'}</p>
+                  </div>
+                )}
+                {recommendationSourceProduct && recommendationTargetProduct && <p className='m-0 mt-3 text-center text-[11px] font-bold text-slate-500'>Harga target {money(recommendationTargetProduct.price || 0)} {recommendationPriceDelta > 0 ? `(${money(recommendationPriceDelta)} lebih tinggi)` : ''}</p>}
+              </aside>
             </div>
             <div className='flex justify-end gap-2 border-t border-slate-100 px-6 py-4'>
               <button type='button' onClick={() => setIsRecommendationModalOpen(false)} className='rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600'>Cancel</button>
