@@ -89,6 +89,7 @@ export default function StorefrontPage() {
       recommendationActionType: recommendation.actionType,
       recommendationSourceProductId: recommendation.sourceProductId,
     })
+    setCartOpen(false)
   }
   const addProduct = async (payload) => {
     const ok = selectedProduct?.recommendationActionType === 'replace_source'

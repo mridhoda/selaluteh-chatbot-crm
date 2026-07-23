@@ -86,10 +86,10 @@ export default function CartRecommendations({
 
   return (
     <section
-      className='border-y border-gray-100 bg-gray-50/70 px-4 py-4'
+      className='border-y border-gray-100 bg-gray-50/70 px-4 py-2.5'
       aria-label='Rekomendasi untukmu'
     >
-      <div className='mb-3 flex items-center justify-between gap-3'>
+      <div className='mb-2 flex items-center justify-between gap-3'>
         <h3 className='min-w-0 text-sm font-black text-gray-900'>
           Mungkin kamu suka
         </h3>
@@ -103,15 +103,15 @@ export default function CartRecommendations({
         {recommendations.map((recommendation) => (
           <article
             key={recommendation.productId}
-            className='flex min-w-0 items-center gap-3 rounded-2xl border border-gray-100 bg-white p-2.5 shadow-sm'
+            className='flex min-w-0 items-center gap-2.5 rounded-xl border border-gray-100 bg-white p-2 shadow-sm'
           >
-            <div className='h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-[var(--brand-50)]'>
+            <div className='h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[var(--brand-50)]'>
               {recommendation.imageUrl ? (
                 <img
                   src={recommendation.imageUrl}
                   alt=''
-                  width='56'
-                  height='56'
+                  width='48'
+                  height='48'
                   decoding='async'
                   className='h-full w-full object-cover'
                 />
@@ -135,11 +135,10 @@ export default function CartRecommendations({
                   ? `+${formatCurrency(recommendation.unitPriceMinor - sourcePriceByProductId.get(String(recommendation.sourceProductId)))}`
                   : formatCurrency(recommendation.unitPriceMinor)}
               </p>
-              <p className='text-[10px] font-medium text-gray-400'>{recommendation.actionType === 'replace_source' ? 'Mengganti ukuran item di keranjang' : 'Harga menu ditambahkan ke keranjang'}</p>
             </div>
             <button
               type='button'
-              className='shrink-0 rounded-full bg-[var(--brand-500)] px-3 py-2 text-xs font-black text-white transition-colors hover:bg-[var(--brand-600)]'
+              className='shrink-0 rounded-full bg-[var(--brand-500)] px-3 py-1.5 text-xs font-black text-white transition-colors hover:bg-[var(--brand-600)]'
               aria-label={`Tambah ${recommendation.name}`}
               onClick={() => {
                 void track({
@@ -154,7 +153,7 @@ export default function CartRecommendations({
                 onSelect(recommendation)
               }}
             >
-              {recommendation.actionType === 'replace_source' ? 'Upgrade' : 'Pilih'}
+              {recommendation.actionType === 'replace_source' ? 'Upgrade' : 'Tambah'}
             </button>
           </article>
         ))}

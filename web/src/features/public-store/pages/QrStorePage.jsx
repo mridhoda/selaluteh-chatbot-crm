@@ -117,6 +117,7 @@ export default function QrStorePage() {
       recommendationActionType: recommendation.actionType,
       recommendationSourceProductId: recommendation.sourceProductId,
     })
+    setCartOpen(false)
   }
 
   const addProduct = async (payload) => {
