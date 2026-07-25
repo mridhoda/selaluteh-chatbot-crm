@@ -656,6 +656,7 @@ export default function Orders() {
       setInFlightAction(action)
       try {
         const statusMap = {
+          accept: 'accepted',
           mark_ready: 'ready',
           ready: 'ready',
           mark_completed: 'completed',
@@ -682,7 +683,7 @@ export default function Orders() {
             paymentStatus: nextStatus === 'cancelled' ? 'Unpaid' : (prev[orderId]?.paymentStatus || currentSelectedOrder.paymentStatus),
             notes: nextStatus === 'cancelled' ? (reason || 'Dibatalkan oleh admin') : (prev[orderId]?.notes || currentSelectedOrder.notes),
             timeline: updatedTimeline,
-            allowedActions: [],
+            allowedActions: nextStatus === 'accepted' ? ['cancel'] : [],
           },
         }))
 
@@ -694,7 +695,7 @@ export default function Orders() {
             paymentStatus: nextStatus === 'cancelled' ? 'Unpaid' : prev.paymentStatus,
             notes: nextStatus === 'cancelled' ? (reason || 'Dibatalkan oleh admin') : prev.notes,
             timeline: updatedTimeline,
-            allowedActions: [],
+            allowedActions: nextStatus === 'accepted' ? ['cancel'] : [],
           }
         })
       } finally {

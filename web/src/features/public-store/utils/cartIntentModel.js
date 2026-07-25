@@ -217,11 +217,11 @@ export function getPaymentStatusLabel(status) {
 
 export function toTimelineStatus(publicOrderStatus) {
   const normalized = String(publicOrderStatus || '').toLowerCase()
-  if (normalized === 'payment_pending') return 'PAYMENT_PENDING'
+  if (normalized === 'unconfirmed' || normalized === 'awaiting_confirmation' || normalized === 'awaiting_outlet_approval') return 'AWAITING_OUTLET_APPROVAL'
+  if (normalized === 'unpaid' || normalized === 'payment_pending') return 'PAYMENT_PENDING'
   if (normalized === 'payment_expired' || normalized === 'expired') return 'PAYMENT_EXPIRED'
   if (normalized === 'cancelled' || normalized === 'canceled') return 'CANCELLED'
   if (normalized === 'ready_for_pickup' || normalized === 'ready') return 'READY_FOR_PICKUP'
-  if (normalized === 'awaiting_outlet_approval') return 'AWAITING_OUTLET_APPROVAL'
   if (normalized === 'paid') return 'PAID'
   if (normalized === 'preparing') return 'PREPARING'
   if (normalized === 'completed') return 'COMPLETED'
@@ -254,7 +254,7 @@ export function sanitizePublicOrder(response = {}) {
     if (PUBLIC_ORDER_ALLOWED_KEYS.has(key)) safe[key] = value
   }
 
-  const publicOrderStatus = safe.publicOrderStatus || safe.public_order_status || safe.status || 'payment_pending'
+  const publicOrderStatus = safe.publicOrderStatus || safe.public_order_status || safe.status || 'unpaid'
   const customer = safe.customer || {}
   const amounts = safe.amounts || {}
   const totals = safe.totals || {

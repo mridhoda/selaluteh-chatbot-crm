@@ -102,8 +102,8 @@ export const FulfillmentStatus = {
 };
 
 export const PublicOrderStatus = {
-  AWAITING_CONFIRMATION: 'awaiting_confirmation',
-  PAYMENT_PENDING: 'payment_pending',
+  AWAITING_CONFIRMATION: 'unconfirmed',
+  PAYMENT_PENDING: 'unpaid',
   PAYMENT_FAILED: 'payment_failed',
   PAYMENT_EXPIRED: 'payment_expired',
   ORDER_RECEIVED: 'order_received',

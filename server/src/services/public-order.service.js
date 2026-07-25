@@ -130,8 +130,8 @@ function buildPublicTimeline({ order, publicStatus }) {
   const readyAt = order.readyAt || null;
   const completedAt = order.completedAt || null;
   const statuses = [
-    { status: 'awaiting_confirmation', label: 'Menunggu Konfirmasi Pesanan', timestamp: createdAt },
-    { status: 'payment_pending', label: 'Menunggu Pembayaran', timestamp: order.approvedAt || null },
+    { status: 'unconfirmed', label: 'Menunggu Konfirmasi Pesanan', timestamp: createdAt },
+    { status: 'unpaid', label: 'Menunggu Pembayaran', timestamp: order.approvedAt || null },
     { status: 'order_received', label: 'Pesanan Diterima', timestamp: paidAt || order.approvedAt || null },
     { status: 'preparing', label: 'Pesanan Sedang Dibuat', timestamp: preparingAt },
     { status: 'ready', label: 'Pesanan Siap Diambil', timestamp: readyAt },
@@ -141,5 +141,5 @@ function buildPublicTimeline({ order, publicStatus }) {
   return statuses.map((entry, index) => ({
     ...entry,
     completed: Boolean(entry.timestamp) || (orderIndex >= 0 && index <= orderIndex),
-  })).filter((entry) => entry.completed || ['awaiting_confirmation', 'payment_pending', 'order_received', 'preparing', 'ready', 'completed'].includes(entry.status));
+  })).filter((entry) => entry.completed || ['unconfirmed', 'unpaid', 'order_received', 'preparing', 'ready', 'completed'].includes(entry.status));
 }

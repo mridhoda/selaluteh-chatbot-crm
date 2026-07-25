@@ -33,6 +33,7 @@ export function allowedActions(order = {}, user = null) {
   if (!user || !hasEffectivePermission(user, 'orders', 'manage_status')) return [];
   const capabilities = order.capabilities || {};
   const actions = [];
+  if (capabilities.canAccept) actions.push('accept');
   if (capabilities.canMarkReady) actions.push('ready');
   if (capabilities.canComplete) actions.push('complete');
   if (capabilities.canCancel) actions.push('cancel');

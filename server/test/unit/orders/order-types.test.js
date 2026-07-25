@@ -51,17 +51,17 @@ describe('order-types', () => {
     });
 
     it('derives public order status from payment and fulfillment truth', () => {
-      assert.strictEqual(derivePublicOrderStatus({ paymentStatus: 'pending', fulfillmentStatus: 'not_started' }), 'payment_pending');
+      assert.strictEqual(derivePublicOrderStatus({ paymentStatus: 'pending', fulfillmentStatus: 'not_started' }), 'unpaid');
       assert.strictEqual(derivePublicOrderStatus({ paymentStatus: 'failed', fulfillmentStatus: 'not_started' }), 'payment_failed');
       assert.strictEqual(derivePublicOrderStatus({ paymentStatus: 'expired', fulfillmentStatus: 'not_started' }), 'payment_expired');
-      assert.strictEqual(derivePublicOrderStatus({ paymentStatus: 'paid', fulfillmentStatus: 'awaiting_acceptance' }), 'order_received');
+      assert.strictEqual(derivePublicOrderStatus({ paymentStatus: 'unpaid', fulfillmentStatus: 'awaiting_acceptance' }), 'unconfirmed');
       assert.strictEqual(derivePublicOrderStatus({ paymentStatus: 'paid', fulfillmentStatus: 'preparing' }), 'preparing');
       assert.strictEqual(derivePublicOrderStatus({ paymentStatus: 'paid', fulfillmentStatus: 'cancelled' }), 'cancelled');
     });
 
-    it('exposes paid-only fulfillment capabilities', () => {
+    it('exposes confirmation and paid fulfillment capabilities', () => {
       assert.deepStrictEqual(getOrderCapabilities({ paymentStatus: 'pending', fulfillmentStatus: 'awaiting_acceptance' }), {
-        canAccept: false,
+        canAccept: true,
         canStartPreparing: false,
         canMarkReady: false,
         canComplete: false,

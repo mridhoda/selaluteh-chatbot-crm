@@ -1,6 +1,7 @@
 import React from 'react'
 
 const ACTION_LABELS = {
+  accept: 'Accept Order',
   mark_ready: 'Mark as Ready',
   ready: 'Mark as Ready',
   mark_completed: 'Completed',
@@ -10,6 +11,7 @@ const ACTION_LABELS = {
 }
 
 const ACTION_LOADING_LABELS = {
+  accept: 'Accepting...',
   mark_ready: 'Marking as Ready...',
   ready: 'Marking as Ready...',
   mark_completed: 'Completing...',
@@ -19,6 +21,7 @@ const ACTION_LOADING_LABELS = {
 }
 
 const ACTION_STYLES = {
+  accept: 'bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100',
   mark_ready: 'bg-violet-50 text-violet-700 border border-violet-100 hover:bg-violet-100',
   ready: 'bg-violet-50 text-violet-700 border border-violet-100 hover:bg-violet-100',
   mark_completed: 'bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100',
@@ -26,6 +29,7 @@ const ACTION_STYLES = {
 }
 
 const ACTION_ICONS = {
+  accept: '✓',
   mark_ready: '✓',
   ready: '✓',
   mark_completed: '✓',
@@ -41,6 +45,7 @@ export default function OrderLifecycleActions({
   if (!order) return null
 
   const allowedActions = (order.allowedActions || []).filter((action) => (
+    action === 'accept' ||
     action === 'mark_ready' ||
     action === 'ready' ||
     action === 'mark_completed' ||
@@ -71,6 +76,9 @@ export default function OrderLifecycleActions({
         return <div className="text-xs text-[var(--text-muted)] italic">Order telah dibatalkan.</div>
       }
       return <div className="text-xs text-[var(--text-muted)] italic">Order telah ditolak.</div>
+    }
+    if (String(order.fulfillmentStatus || '').toLowerCase() === 'awaiting_acceptance') {
+      return <div className="text-xs font-semibold text-amber-700">Menunggu konfirmasi stok. Tekan Accept jika semua menu tersedia.</div>
     }
     if (!isPaid) {
       return (

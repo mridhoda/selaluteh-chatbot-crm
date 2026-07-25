@@ -7,7 +7,7 @@ import PublicStoreLayout from '../layouts/PublicStoreLayout'
 const sessionKey = (slug) => `public-store-customer-session:${slug}`
 const formatCurrency = (amount) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(amount || 0))
 const formatDate = (date) => date ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(date)) : ''
-const statusLabel = (status) => ({ payment_pending: 'Menunggu pembayaran', order_received: 'Pesanan diterima', preparing: 'Sedang dibuat', ready: 'Siap diambil', completed: 'Selesai', cancelled: 'Dibatalkan' }[status] || status || 'Diproses')
+const statusLabel = (status) => ({ unconfirmed: 'Menunggu konfirmasi outlet', awaiting_confirmation: 'Menunggu konfirmasi outlet', unpaid: 'Menunggu pembayaran', payment_pending: 'Menunggu pembayaran', order_received: 'Pesanan diterima', preparing: 'Sedang dibuat', ready: 'Siap diambil', completed: 'Selesai', cancelled: 'Dibatalkan' }[status] || status || 'Diproses')
 
 export default function CustomerAccountPage() {
   const { storefrontSlug } = useParams()

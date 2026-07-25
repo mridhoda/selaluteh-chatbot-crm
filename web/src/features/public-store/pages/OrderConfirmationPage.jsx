@@ -10,7 +10,7 @@ export default function OrderConfirmationPage() {
   const navigate = useNavigate()
   const [order, setOrder] = useState(null)
   const [error, setError] = useState('')
-  const [, setNow] = useState(Date.now())
+  const [now, setNow] = useState(Date.now())
   const creatingPayment = useRef(false)
   const storefrontSlug = searchParams.get('storefrontSlug') || 'store'
 
@@ -45,7 +45,7 @@ export default function OrderConfirmationPage() {
     return () => window.clearInterval(timer)
   }, [])
 
-  const secondsLeft = order?.confirmationExpiresAt ? Math.max(0, Math.ceil((new Date(order.confirmationExpiresAt).getTime() - Date.now()) / 1000)) : 30
+  const secondsLeft = order?.confirmationExpiresAt ? Math.max(0, Math.ceil((new Date(order.confirmationExpiresAt).getTime() - now) / 1000)) : 30
   return (
     <PublicStoreLayout>
       <main className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center p-6 text-center">

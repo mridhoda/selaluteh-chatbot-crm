@@ -1,4 +1,5 @@
 const ACTION_LABELS = Object.freeze({
+  accept: 'Accept Order',
   mark_ready: 'Mark as Ready',
   ready: 'Mark as Ready',
   mark_completed: 'Completed',
@@ -8,6 +9,7 @@ const ACTION_LABELS = Object.freeze({
 })
 
 const ACTION_METHODS = Object.freeze({
+  accept: 'acceptOrder',
   mark_ready: 'readyOrder',
   ready: 'readyOrder',
   mark_completed: 'completeOrder',

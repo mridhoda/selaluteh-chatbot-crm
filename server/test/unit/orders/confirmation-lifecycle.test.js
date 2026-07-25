@@ -8,11 +8,11 @@ describe('public order confirmation lifecycle', () => {
       status: OrderStatus.AWAITING_OUTLET_APPROVAL,
       fulfillmentStatus: FulfillmentStatus.AWAITING_ACCEPTANCE,
       paymentStatus: PaymentStatus.UNPAID,
-    }), 'awaiting_confirmation');
+    }), 'unconfirmed');
     assert.equal(derivePublicOrderStatus({
       status: OrderStatus.APPROVED,
       fulfillmentStatus: FulfillmentStatus.ACCEPTED,
       paymentStatus: PaymentStatus.UNPAID,
-    }), 'payment_pending');
+    }), 'unpaid');
   });
 });
