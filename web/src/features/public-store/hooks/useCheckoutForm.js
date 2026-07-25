@@ -61,6 +61,7 @@ export function useCheckoutForm({ intentItems = [], intentContext = {}, validate
         ...checkoutResponse,
         paymentId: checkoutResponse.paymentId || checkoutResponse.payment?.id,
         paymentUrl: checkoutResponse.paymentUrl || checkoutResponse.payment?.payment_url,
+        provider: checkoutResponse.provider || checkoutResponse.payment?.provider,
         checkoutToken: checkoutResponse.checkoutToken || checkoutResponse.order?.public_order_token,
       }
       onSuccess?.(checkout)

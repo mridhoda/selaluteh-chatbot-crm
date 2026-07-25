@@ -10,6 +10,7 @@ export const RECONCILIATION_STATUSES = Object.freeze(['pending', 'matched', 'mis
 export const PAYMENT_PROVIDER_CODES = Object.freeze({
   BAYARGG: 'bayargg',
   DOKU: 'doku',
+  DUITKU: 'duitku',
   XENDIT: 'xendit',
   MIDTRANS: 'midtrans',
   MANUAL: 'manual',

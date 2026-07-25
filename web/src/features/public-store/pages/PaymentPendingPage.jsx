@@ -26,7 +26,7 @@ export default function PaymentPendingPage() {
 
   const openPayment = () => {
     if (paymentStatus.payment?.paymentUrl) {
-      window.open(paymentStatus.payment.paymentUrl, '_blank', 'noopener,noreferrer')
+      window.location.assign(paymentStatus.payment.paymentUrl)
     }
   }
 
@@ -236,7 +236,7 @@ export default function PaymentPendingPage() {
               transition: 'background-color 0.15s',
             }}
           >
-            <span>Bayar Sekarang (Simulasi)</span>
+            <span>Buka Halaman Pembayaran</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>

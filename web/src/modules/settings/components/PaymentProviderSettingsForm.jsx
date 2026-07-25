@@ -8,6 +8,7 @@ const PROVIDERS = [
   { value: 'midtrans', label: 'Midtrans' },
   { value: 'xendit', label: 'Xendit' },
   { value: 'doku', label: 'DOKU Checkout' },
+  { value: 'duitku', label: 'Duitku POP' },
   { value: 'bayargg', label: 'Bayar.gg' },
 ]
 
@@ -77,6 +78,8 @@ export default function PaymentProviderSettingsForm({
     webhookSecret: null,
     dokuClientId: null,
     dokuSecretKey: null,
+    duitkuMerchantCode: null,
+    duitkuApiKey: null,
     bayarggApiKey: null,
     bayarggWebhookSecret: null,
     bayarggCheckoutUrl: 'https://www.bayar.gg/pay',
@@ -100,6 +103,8 @@ export default function PaymentProviderSettingsForm({
         webhookSecret: null,
         dokuClientId: null,
         dokuSecretKey: null,
+        duitkuMerchantCode: null,
+        duitkuApiKey: null,
         bayarggApiKey: null,
         bayarggWebhookSecret: null,
         bayarggCheckoutUrl: payment.bayarggCheckoutUrl || 'https://www.bayar.gg/pay',
@@ -150,6 +155,8 @@ export default function PaymentProviderSettingsForm({
     if (form.webhookSecret !== null) payload.webhookSecret = form.webhookSecret
     if (form.dokuClientId !== null) payload.dokuClientId = form.dokuClientId
     if (form.dokuSecretKey !== null) payload.dokuSecretKey = form.dokuSecretKey
+    if (form.duitkuMerchantCode !== null) payload.duitkuMerchantCode = form.duitkuMerchantCode
+    if (form.duitkuApiKey !== null) payload.duitkuApiKey = form.duitkuApiKey
     if (form.bayarggApiKey !== null) payload.bayarggApiKey = form.bayarggApiKey
     if (form.bayarggWebhookSecret !== null) payload.bayarggWebhookSecret = form.bayarggWebhookSecret
     payload.bayarggCheckoutUrl = form.bayarggCheckoutUrl
@@ -171,6 +178,7 @@ export default function PaymentProviderSettingsForm({
   const webhookPathByProvider = {
     bayargg: '/webhook/bayargg',
     doku: '/webhook/doku',
+    duitku: '/webhook/duitku',
     xendit: '/webhook/xendit/payment-sessions',
     midtrans: '/webhook/midtrans',
   }
@@ -330,7 +338,7 @@ export default function PaymentProviderSettingsForm({
                 style={{ width: '100%' }}
               />
             </div>
-            {!['doku', 'bayargg'].includes(form.provider) && <div style={FIELD}>
+            {!['doku', 'duitku', 'bayargg'].includes(form.provider) && <div style={FIELD}>
               <label style={LABEL}>
                 {form.provider === 'midtrans'
                   ? 'Client Key (Public)'
@@ -367,6 +375,27 @@ export default function PaymentProviderSettingsForm({
                   onChange={(val) => set('dokuSecretKey', val)}
                   placeholder='DOKU secret key'
                   helperText='Write-only. Used to sign DOKU Checkout requests and verify notifications.'
+                />
+              </>
+            ) : form.provider === 'duitku' ? (
+              <>
+                <SecretField
+                  label='Duitku Merchant Code'
+                  name='duitkuMerchantCode'
+                  hasExistingValue={!!payment.duitkuMerchantCodeConfigured}
+                  value={form.duitkuMerchantCode}
+                  onChange={(val) => set('duitkuMerchantCode', val)}
+                  placeholder='Duitku merchant code'
+                  helperText='Write-only. Used to create invoices and validate callbacks.'
+                />
+                <SecretField
+                  label='Duitku API Key'
+                  name='duitkuApiKey'
+                  hasExistingValue={!!payment.duitkuApiKeyConfigured}
+                  value={form.duitkuApiKey}
+                  onChange={(val) => set('duitkuApiKey', val)}
+                  placeholder='Duitku API key'
+                  helperText='Write-only. Used to sign invoice requests and validate callbacks.'
                 />
               </>
             ) : form.provider === 'bayargg' ? (
@@ -491,7 +520,7 @@ export default function PaymentProviderSettingsForm({
               </div>
             </div>
 
-            {form.provider !== 'bayargg' && <><div style={SECTION_HDR}>Default Payment Methods</div>
+            {!['bayargg', 'duitku'].includes(form.provider) && <><div style={SECTION_HDR}>Default Payment Methods</div>
             <div
               style={{
                 display: 'flex',

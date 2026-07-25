@@ -12,7 +12,7 @@ export const SETTINGS_SCHEMAS = {
   commerce: { keys: ['ai_commerce_enabled', 'require_checkout_confirmation', 'human_handoff_enabled'] },
   notifications: { keys: ['default_channel', 'enabled_types', 'quiet_hours', 'outlet_recipients'] },
   ai: { keys: ['primary_ai', 'secondary_ai', 'default_model', 'custom_provider_url', 'custom_provider_key'] },
-  payment: { keys: ['provider', 'xendit_mode', 'environment', 'merchant_id', 'public_key', 'payment_methods', 'xendit_secret_key', 'xendit_webhook_token', 'doku_client_id', 'doku_secret_key', 'bayargg_api_key', 'bayargg_webhook_secret', 'bayargg_checkout_url', 'bayargg_payment_method', 'bayargg_use_qris_converter'] },
+  payment: { keys: ['provider', 'xendit_mode', 'environment', 'merchant_id', 'public_key', 'payment_methods', 'xendit_secret_key', 'xendit_webhook_token', 'doku_client_id', 'doku_secret_key', 'duitku_merchant_code', 'duitku_api_key', 'bayargg_api_key', 'bayargg_webhook_secret', 'bayargg_checkout_url', 'bayargg_payment_method', 'bayargg_use_qris_converter'] },
   security: { keys: ['allow_all_outlets_view'] },
 };
 
@@ -27,7 +27,7 @@ export function getSchemaKeys(category) {
 }
 
 export function isSecretKey(key) {
-  return key.includes('secret') || key.includes('key') || key.includes('token') || key === 'custom_provider_key' || key === 'doku_client_id';
+  return key.includes('secret') || key.includes('key') || key.includes('token') || key === 'custom_provider_key' || key === 'doku_client_id' || key === 'duitku_merchant_code';
 }
 
 export function secretConfiguredKey(key) {
@@ -168,8 +168,10 @@ export async function getPaymentRuntimeConfig({ workspaceId, mode } = {}) {
   const ns = metadata[SETTINGS_NS] ?? {};
   const requestedMode = normalizePaymentMode(mode || ns.environment || ns.xendit_mode || 'test');
   const normalized = await paymentProviderSettingsRepository.findActiveByWorkspace({ workspaceId, mode: requestedMode });
-  const provider = normalized?.providerCode || normalized?.provider || ns.provider || 'manual';
-  const environment = normalized?.mode || requestedMode;
+  // Workspace payment settings are the authoritative source for hosted checkout.
+  // Legacy payment_provider_settings remains a fallback for workspaces not migrated to Settings.
+  const provider = ns.provider || normalized?.providerCode || normalized?.provider || 'manual';
+  const environment = normalizePaymentMode(mode || ns.environment || ns.xendit_mode || normalized?.mode || 'test');
   const paymentMethods = Array.isArray(ns.payment_methods) ? ns.payment_methods : [];
 
   return {
@@ -180,8 +182,10 @@ export async function getPaymentRuntimeConfig({ workspaceId, mode } = {}) {
       ? Boolean(ns.doku_client_id && ns.doku_secret_key)
       : provider === 'xendit'
         ? Boolean(ns.xendit_secret_key)
-        : provider === 'bayargg'
+      : provider === 'bayargg'
           ? Boolean(ns.bayargg_api_key)
+          : provider === 'duitku'
+            ? Boolean(ns.duitku_merchant_code && ns.duitku_api_key)
           : provider === 'manual',
     doku: {
       clientId: decryptSecret(ns.doku_client_id),
@@ -189,6 +193,13 @@ export async function getPaymentRuntimeConfig({ workspaceId, mode } = {}) {
       apiBaseUrl: environment === 'production' ? 'https://api.doku.com' : 'https://api-sandbox.doku.com',
       paymentTtlMinutes: 60,
       paymentMethods,
+    },
+    duitku: {
+      merchantCode: decryptSecret(ns.duitku_merchant_code),
+      apiKey: decryptSecret(ns.duitku_api_key),
+      environment,
+      paymentTtlMinutes: 15,
+      paymentMethods: [],
     },
     xendit: {
       secretKey: decryptSecret(ns.xendit_secret_key),

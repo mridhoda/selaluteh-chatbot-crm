@@ -145,4 +145,19 @@ describe('BayarGG payment session contract', () => {
       (err) => err.code === 'PAYMENT_PROVIDER_NOT_CONFIGURED' && err.status === 409,
     );
   });
+
+  it('passes secure Duitku callback and one shared return URL', async () => {
+    const adapterCalls = [];
+    const order = { id: 'order-1', outletId: 'outlet-1', orderNumber: 'SLT-0001', publicOrderToken: 'po_test-123', metadata: { publicStorefrontSlug: 'selalu-teh' }, paymentStatus: 'unpaid', totals: { total: 75000, currency: 'IDR' }, items: [] };
+    await createPaymentSessionForOrder({ workspaceId: 'workspace-1', orderId: 'order-1', provider: 'duitku' }, {
+      ordersRepository: { async workspaceFindById() { return order; }, async updateOne() { return order; } },
+      paymentsRepository: { async findByIdempotencyKey() { return null; }, async findReusableAttempt() { return null; }, async count() { return 0; }, async create(payment) { return { id: 'pay-1', ...payment }; } },
+      async resolvePaymentProvider() { return { provider: 'duitku', runtimeConfig: { configured: true, environment: 'sandbox', duitku: {} }, providerConfig: { merchantCode: 'M', apiKey: 'K' }, adapter: { async createPaymentSession(input) { adapterCalls.push(input); return { providerTransactionId: 'DK-1', providerSessionId: 'DK-1', status: 'pending', amount: input.amount, currency: input.currency, paymentUrl: 'https://app-sandbox.duitku.com/pay/DK-1' }; } } }; },
+      notifyPaymentUpdatedRealtime() {}, notifyOrderUpdatedRealtime() {}, auditLogsRepository: { async log() {} },
+    });
+    assert.equal(adapterCalls[0].callbackUrl.endsWith('/webhook/duitku'), true);
+    assert.equal(adapterCalls[0].returnUrl, adapterCalls[0].successReturnUrl);
+    assert.equal(adapterCalls[0].cancelReturnUrl, adapterCalls[0].successReturnUrl);
+    assert.equal(adapterCalls[0].referenceId.length <= 50, true);
+  });
 });

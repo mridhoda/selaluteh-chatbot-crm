@@ -17,6 +17,14 @@ export const PAYMENT_PROVIDER_CAPABILITIES = Object.freeze({
     supportsCancel: false,
     supportsStatusQuery: false,
   }),
+  [PAYMENT_PROVIDER_CODES.DUITKU]: Object.freeze({
+    code: PAYMENT_PROVIDER_CODES.DUITKU,
+    methods: [PAYMENT_METHODS.QRIS, PAYMENT_METHODS.VIRTUAL_ACCOUNT, PAYMENT_METHODS.EWALLET, PAYMENT_METHODS.CARD, PAYMENT_METHODS.LINK_PAYMENT],
+    supportsWebhook: true,
+    supportsRefund: false,
+    supportsCancel: false,
+    supportsStatusQuery: false,
+  }),
   [PAYMENT_PROVIDER_CODES.XENDIT]: Object.freeze({
     code: PAYMENT_PROVIDER_CODES.XENDIT,
     methods: [PAYMENT_METHODS.QRIS, PAYMENT_METHODS.VIRTUAL_ACCOUNT, PAYMENT_METHODS.EWALLET, PAYMENT_METHODS.CARD, PAYMENT_METHODS.LINK_PAYMENT],

@@ -25,7 +25,7 @@ function getPublicWebBaseUrl() {
 }
 
 export async function resolvePaymentReturnState({ payment, isSuccess, sync = syncPaymentWithProvider } = {}) {
-  if (!payment || !isSuccess || !['pending', 'processing'].includes(String(payment.status || '').toLowerCase())) return payment;
+  if (!payment || payment.provider === 'duitku' || !isSuccess || !['pending', 'processing'].includes(String(payment.status || '').toLowerCase())) return payment;
   try {
     return await sync({ workspaceId: payment.workspaceId, paymentId: payment.id });
   } catch (error) {
@@ -39,10 +39,12 @@ router.all('/return/:kind', async (req, res, next) => {
   const isSuccess = kind === 'success';
   try {
     const query = req.query || {};
-    const providerInvoice = query.invoice_id || query.invoice || query.payment_id || null;
+    const providerInvoice = query.invoice_id || query.invoice || query.payment_id || query.reference || null;
     const payment = query.merchantReference
       ? await paymentsRepository.findByMerchantReferenceGlobal(String(query.merchantReference))
-      : providerInvoice ? await paymentsRepository.findByProviderTransactionId(String(providerInvoice)) : null;
+      : query.merchantOrderId
+        ? await paymentsRepository.findByMerchantReferenceGlobal(String(query.merchantOrderId))
+        : providerInvoice ? await paymentsRepository.findByProviderTransactionId(String(providerInvoice)) : null;
     const order = payment?.orderId
       ? await ordersRepository.workspaceFindById({ workspaceId: payment.workspaceId, orderId: payment.orderId })
       : null;
@@ -98,6 +100,8 @@ router.get('/gateway/config', authorizePermission('payments', 'read'), async (re
     const configured = runtime.configured;
     const webhookPath = provider === 'doku'
       ? '/webhook/doku'
+      : provider === 'duitku'
+        ? '/webhook/duitku'
       : provider === 'bayargg'
         ? '/webhook/bayargg'
         : '/webhook/xendit/payment-sessions';

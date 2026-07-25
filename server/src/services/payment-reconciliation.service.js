@@ -245,6 +245,7 @@ export async function reconcilePendingProviderPayment({ workspaceId, paymentId }
   if (!payment) throw new AppError('NOT_FOUND', 'Payment not found', 404);
   if (!['pending', 'processing'].includes(payment.status)) return { reconciled: false, reason: 'not_pending', payment };
   if (!payment.providerTransactionId) return { reconciled: false, reason: 'missing_transaction', payment };
+  if (payment.provider === 'duitku') return { reconciled: false, reason: 'status_query_unsupported', payment };
 
   const { adapter, providerConfig } = await resolveStatusQueryAdapter({ workspaceId, provider: payment.provider }, deps);
   const result = await adapter.getPayment(payment.providerTransactionId, providerConfig);

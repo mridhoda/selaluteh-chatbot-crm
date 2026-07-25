@@ -81,6 +81,13 @@ app.use(express.json({
     req.rawBody = buf;
   },
 }));
+app.use(express.urlencoded({
+  extended: false,
+  limit: '2mb',
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  },
+}));
 app.use(httpLogger());
 app.get('/public-files/:storedName', async (req, res, next) => {
   try {

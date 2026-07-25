@@ -22,7 +22,7 @@ async function request(app, path) {
   }
 }
 
-describe('Bayar.gg payment return route', () => {
+describe('Payment return route', () => {
   it('syncs a pending provider payment before deciding the return state', async () => {
     let syncArgs;
     const result = await paymentRouteInternals.resolvePaymentReturnState({
@@ -61,5 +61,27 @@ describe('Bayar.gg payment return route', () => {
     assert.equal(location.pathname, '/store/store-2');
     assert.equal(location.searchParams.get('paymentReturn'), 'success');
     assert.equal(location.searchParams.get('orderToken'), 'po-2');
+  });
+
+  it('uses Duitku merchantOrderId and never syncs its browser return', async (t) => {
+    t.mock.method(paymentsRepository, 'findByMerchantReferenceGlobal', async (reference) => ({ id: 'pay-3', workspaceId: 'workspace-1', orderId: 'order-3', provider: 'duitku', merchantReference: reference, status: 'pending' }));
+    t.mock.method(ordersRepository, 'workspaceFindById', async () => ({ publicOrderToken: 'po-3', metadata: { publicStorefrontSlug: 'store-3' } }));
+    const response = await request(createApp(), '/payments/return/success?merchantOrderId=DK-REF&reference=DK-1');
+
+    assert.equal(response.status, 303);
+    const location = new URL(response.headers.get('location'));
+    assert.equal(location.pathname, '/store/store-3');
+    assert.equal(location.searchParams.get('paymentReturn'), 'pending');
+  });
+
+  it('does not sync a pending Duitku payment from its browser return', async () => {
+    let synced = false;
+    const payment = await paymentRouteInternals.resolvePaymentReturnState({
+      payment: { id: 'pay-4', workspaceId: 'workspace-1', provider: 'duitku', status: 'pending' },
+      isSuccess: true,
+      sync: async () => { synced = true; },
+    });
+    assert.equal(synced, false);
+    assert.equal(payment.status, 'pending');
   });
 });

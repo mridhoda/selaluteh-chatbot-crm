@@ -5,6 +5,7 @@ import { getProviderCapabilities } from './provider-capabilities.js';
 const ADAPTER_LOADERS = Object.freeze({
   bayargg: () => import('./bayargg-client.js'),
   doku: () => import('./doku-client.js'),
+  duitku: () => import('./duitku-client.js'),
   xendit: () => import('./xendit-client.js'),
   midtrans: () => import('./midtrans-client.js'),
 });

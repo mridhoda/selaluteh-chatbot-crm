@@ -204,6 +204,104 @@ export async function processDokuCheckoutWebhook({ rawBody, headers, requestTarg
   return { processed: true, event: { eventType: event.eventType, status: 'paid' } };
 }
 
+export async function processDuitkuWebhook({ rawBody, headers }, deps = {}) {
+  const paymentsRepo = deps.paymentsRepository || paymentsRepository;
+  const paymentEventsRepo = deps.paymentEventsRepository || paymentEventsRepository;
+  const resolveProvider = deps.resolvePaymentProvider || resolvePaymentProvider;
+  const recordSecurity = deps.recordSecurityEvent || recordSecurityEvent;
+  const markOrderPaid = deps.markOrderPaidPreparing || markOrderPaidPreparing;
+  const notifyPaymentUpdated = deps.notifyPaymentUpdatedRealtime || notifyPaymentUpdatedRealtime;
+  const notifyPaidOrder = deps.notifyPaidOrderRealtime || notifyPaidOrderRealtime;
+  const notifyPaid = deps.notifyPaidOnce || notifyPaidOnce;
+  const payload = safeForm(rawBody);
+  const merchantReference = payload.merchantOrderId;
+  if (!merchantReference) throw new AppError('DUITKU_WEBHOOK_INVALID', 'Missing Duitku merchant order ID', 400);
+
+  const targetPayment = await paymentsRepo.findByMerchantReferenceGlobal(merchantReference);
+  if (!targetPayment) return { processed: false, reason: 'no_payment_found' };
+  const { adapter, providerConfig } = await resolveProvider({ workspaceId: targetPayment.workspaceId, provider: 'duitku', capability: 'webhook' });
+  const { valid, event, reason } = await adapter.verifyWebhook(rawBody, headers, providerConfig);
+  if (!valid || !event) {
+    await recordSecurity({
+      workspaceId: targetPayment.workspaceId,
+      eventType: 'payment.webhook_verification_failed',
+      severity: 'medium',
+      metadata: { provider: 'duitku', paymentId: targetPayment.id, orderId: targetPayment.orderId, reason },
+    });
+    throw new AppError('DUITKU_WEBHOOK_UNAUTHORIZED', reason || 'Invalid Duitku webhook signature', 401);
+  }
+
+  const eventKey = event.providerEventId || `${event.providerTransactionId}:${event.providerStatus}`;
+  const existingEvent = await paymentEventsRepo.findByProviderEventId({ workspaceId: targetPayment.workspaceId, provider: 'duitku', providerEventId: eventKey });
+  if (existingEvent?.processingStatus === 'processed') return { processed: false, reason: 'duplicate', existingEventId: existingEvent.id };
+  const registered = existingEvent || await paymentEventsRepo.create({
+    workspaceId: targetPayment.workspaceId,
+    provider: 'duitku',
+    providerEventId: eventKey,
+    eventType: event.eventType,
+    status: event.status,
+    amount: event.amount,
+    currency: event.currency,
+    paymentMethod: event.paymentMethod,
+    raw: safePaymentSessionPayload(event.raw),
+    processingStatus: 'received',
+  });
+  await paymentEventsRepo.updateReferences({ workspaceId: targetPayment.workspaceId, eventId: registered.id, paymentId: targetPayment.id, orderId: targetPayment.orderId });
+
+  const reject = async (reason) => {
+    await paymentEventsRepo.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'rejected', verificationResult: reason });
+    await recordSecurity({
+      workspaceId: targetPayment.workspaceId,
+      eventType: 'payment.webhook_mismatch',
+      severity: 'high',
+      metadata: { provider: 'duitku', paymentId: targetPayment.id, orderId: targetPayment.orderId, reason },
+    });
+    throw new AppError('DUITKU_WEBHOOK_MISMATCH', `Duitku webhook ${reason}`, 409);
+  };
+  if (event.providerTransactionId !== targetPayment.providerTransactionId) return reject('provider_transaction_mismatch');
+  if (event.merchantReference !== targetPayment.merchantReference) return reject('reference_mismatch');
+  if (Number(event.amount) !== Number(targetPayment.amount)) {
+    await paymentsRepo.updatePayment({ workspaceId: targetPayment.workspaceId, paymentId: targetPayment.id, updates: { status: PaymentStatus.MANUAL_REVIEW, reconciliation_status: 'manual_review' } });
+    return reject('amount_mismatch');
+  }
+  if (event.currency !== targetPayment.currency) return reject('currency_mismatch');
+  if (targetPayment.status === 'paid' && event.status !== 'paid') {
+    await paymentEventsRepo.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: 'stale_no_downgrade' });
+    return { processed: false, reason: 'stale_no_downgrade' };
+  }
+  if (event.status !== 'paid') {
+    await paymentEventsRepo.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: event.status });
+    return { processed: true, event: { eventType: event.eventType, status: event.status } };
+  }
+
+  const updatedPayment = await paymentsRepo.transitionStatus({
+    workspaceId: targetPayment.workspaceId,
+    paymentId: targetPayment.id,
+    fromStatuses: ['pending', 'expired'],
+    newStatus: 'paid',
+    updates: { reconciliation_status: 'matched', paid_at: new Date().toISOString() },
+  });
+  if (!updatedPayment && targetPayment.status !== 'paid') {
+    await paymentEventsRepo.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: 'state_conflict_noop' });
+    return { processed: false, reason: 'state_conflict_noop' };
+  }
+  await paymentEventsRepo.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: 'paid' });
+  if (!existingEvent) {
+    await paymentsRepo.addEvent({ workspaceId: targetPayment.workspaceId, paymentId: targetPayment.id, event: {
+      provider: 'duitku', providerEventId: eventKey, eventType: event.eventType, status: 'paid', amount: event.amount,
+      currency: event.currency, paymentMethod: event.paymentMethod, paidAt: new Date(), rawPayload: safePaymentSessionPayload(event.raw),
+    } }).catch((error) => console.error('[PaymentWebhook] addEvent warning (non-fatal):', error.message));
+  }
+  const updatedOrder = await markOrderPaid({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId });
+  await attributeRecommendationPurchase(targetPayment.workspaceId, updatedOrder);
+  notifyPaymentUpdated({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
+  if (!isTerminalOrder(updatedOrder)) {
+    notifyPaidOrder({ workspaceId: targetPayment.workspaceId, outletId: updatedOrder?.outletId, order: updatedOrder });
+    await notifyPaid({ order: updatedOrder, paymentId: targetPayment.id, outletName: updatedOrder?.outletNameSnapshot || '' });
+  }
+  return { processed: true, event: { eventType: event.eventType, status: 'paid' } };
+}
+
 export async function processBayarGgWebhook({ rawBody, headers }, deps = {}) {
   const paymentsRepo = deps.paymentsRepository || paymentsRepository;
   const paymentEventsRepo = deps.paymentEventsRepository || paymentEventsRepository;
@@ -476,6 +574,12 @@ function safeJson(rawBody) {
   if (Buffer.isBuffer(rawBody)) return JSON.parse(rawBody.toString('utf8'));
   if (typeof rawBody === 'string') return JSON.parse(rawBody);
   return rawBody;
+}
+
+function safeForm(rawBody) {
+  if (!rawBody) return {};
+  if (typeof rawBody === 'object' && !Buffer.isBuffer(rawBody)) return rawBody;
+  return Object.fromEntries(new URLSearchParams(Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : rawBody));
 }
 
 async function notifyPaidOnce({ order, paymentId, outletName }) {

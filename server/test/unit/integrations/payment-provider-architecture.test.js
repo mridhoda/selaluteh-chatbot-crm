@@ -30,11 +30,14 @@ describe('Phase 3.6.3 external provider architecture', () => {
   it('defines provider capability matrix for active and future providers', () => {
     const bayargg = getProviderCapabilities(PAYMENT_PROVIDER_CODES.BAYARGG);
     const xendit = getProviderCapabilities(PAYMENT_PROVIDER_CODES.XENDIT);
+    const duitku = getProviderCapabilities(PAYMENT_PROVIDER_CODES.DUITKU);
     const manual = getProviderCapabilities(PAYMENT_PROVIDER_CODES.MANUAL);
 
     assert.equal(bayargg.supportsWebhook, true);
     assert.equal(bayargg.supportsRefund, false);
     assert.equal(xendit.supportsRefund, true);
+    assert.equal(duitku.supportsWebhook, true);
+    assert.equal(duitku.supportsStatusQuery, false);
     assert.equal(manual.supportsWebhook, false);
   });
 
@@ -49,6 +52,7 @@ describe('Phase 3.6.3 external provider architecture', () => {
     assert.ok(registered.includes('bayargg'));
     assert.ok(registered.includes('xendit'));
     assert.ok(registered.includes('doku'));
+    assert.ok(registered.includes('duitku'));
     assert.ok(registered.includes('midtrans'));
 
     const midtrans = await loadPaymentAdapter('midtrans');

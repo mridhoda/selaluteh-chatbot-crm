@@ -264,7 +264,7 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
   if (activeProvider === 'xendit') {
     return createXenditPaymentSessionForOrder({ user, workspaceId, orderId, customer, idempotencyKey });
   }
-  if (!['doku', 'bayargg'].includes(activeProvider)) {
+  if (!['doku', 'duitku', 'bayargg'].includes(activeProvider)) {
     throw new AppError('PAYMENT_PROVIDER_NOT_ENABLED', `Payment provider ${activeProvider || 'manual'} does not support payment links`, 400);
   }
   if (!runtimeConfig.configured) {
@@ -310,9 +310,10 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
     customer: buildCustomerSnapshot(order, customer),
     items: order.items || [],
     successReturnUrl: buildReturnUrl('success', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
-    cancelReturnUrl: buildReturnUrl('cancel', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
+    cancelReturnUrl: buildReturnUrl(activeProvider === 'duitku' ? 'success' : 'cancel', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
     notificationUrl: activeProvider === 'doku' ? buildDokuWebhookUrl() : undefined,
-    callbackUrl: activeProvider === 'bayargg' ? buildBayarGgWebhookUrl() : undefined,
+    returnUrl: activeProvider === 'duitku' ? buildReturnUrl('success', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }) : undefined,
+    callbackUrl: activeProvider === 'duitku' ? buildDuitkuWebhookUrl() : activeProvider === 'bayargg' ? buildBayarGgWebhookUrl() : undefined,
     idempotencyKey,
     metadata: {
       workspace_id: workspaceId,
@@ -515,6 +516,7 @@ export async function syncPaymentWithProvider({ workspaceId, paymentId }) {
   if (!payment.providerTransactionId || payment.provider === 'manual') {
     throw new AppError('NO_PROVIDER_TRANSACTION', 'No provider transaction to sync', 400);
   }
+  if (payment.provider === 'duitku') return payment;
 
   const { adapter, providerConfig } = await resolvePaymentProvider({ workspaceId, provider: payment.provider, capability: 'statusQuery' });
   const result = await adapter.getPayment(payment.providerTransactionId, providerConfig);
@@ -601,7 +603,7 @@ function buildXenditReference({ order, attemptNumber }) {
 function buildPaymentReference({ order, attemptNumber, provider }) {
   if (provider === 'xendit') return buildXenditReference({ order, attemptNumber });
   const orderNumber = String(order.orderNumber || order.id).replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(-24);
-  return `SLT${orderNumber}PAY${String(attemptNumber).padStart(2, '0')}`.slice(0, 64);
+  return `SLT${orderNumber}PAY${String(attemptNumber).padStart(2, '0')}`.slice(0, provider === 'duitku' ? 50 : 64);
 }
 
 function buildReturnUrl(kind, { publicOrderToken, merchantReference, storefrontSlug } = {}) {
@@ -616,6 +618,11 @@ function buildReturnUrl(kind, { publicOrderToken, merchantReference, storefrontS
 function buildDokuWebhookUrl() {
   const base = env.publicBaseUrl || env.corsOrigin?.split(',')?.[0] || 'http://localhost:5000';
   return `${base.replace(/\/$/, '')}/webhook/doku`;
+}
+
+function buildDuitkuWebhookUrl() {
+  const base = env.publicBaseUrl || env.corsOrigin?.split(',')?.[0] || 'http://localhost:5000';
+  return `${base.replace(/\/$/, '')}/webhook/duitku`;
 }
 
 function buildBayarGgWebhookUrl() {

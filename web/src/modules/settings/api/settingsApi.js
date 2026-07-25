@@ -24,6 +24,8 @@ const normalizePaymentSettings = (data = {}, runtime = {}) => {
     serverKeyConfigured: Boolean(data.xendit_secret_key_configured || data.serverKeyConfigured),
     dokuClientIdConfigured: Boolean(data.doku_client_id_configured),
     dokuSecretKeyConfigured: Boolean(data.doku_secret_key_configured),
+    duitkuMerchantCodeConfigured: Boolean(data.duitku_merchant_code_configured),
+    duitkuApiKeyConfigured: Boolean(data.duitku_api_key_configured),
     webhookSecretConfigured: Boolean(data.xendit_webhook_token_configured || data.webhookSecretConfigured),
     bayarggApiKeyConfigured: Boolean(data.bayargg_api_key_configured),
     bayarggWebhookSecretConfigured: Boolean(data.bayargg_webhook_secret_configured),
@@ -49,6 +51,8 @@ const mapPaymentPayload = (payload = {}) => {
     ...(provider === 'xendit' && payload.webhookSecret !== undefined && payload.webhookSecret !== null ? { xendit_webhook_token: payload.webhookSecret } : {}),
     ...(provider === 'doku' && payload.dokuClientId !== undefined && payload.dokuClientId !== null ? { doku_client_id: payload.dokuClientId } : {}),
     ...(provider === 'doku' && payload.dokuSecretKey !== undefined && payload.dokuSecretKey !== null ? { doku_secret_key: payload.dokuSecretKey } : {}),
+    ...(provider === 'duitku' && payload.duitkuMerchantCode !== undefined && payload.duitkuMerchantCode !== null ? { duitku_merchant_code: payload.duitkuMerchantCode } : {}),
+    ...(provider === 'duitku' && payload.duitkuApiKey !== undefined && payload.duitkuApiKey !== null ? { duitku_api_key: payload.duitkuApiKey } : {}),
     ...(provider === 'bayargg' && payload.bayarggApiKey !== undefined && payload.bayarggApiKey !== null ? { bayargg_api_key: payload.bayarggApiKey } : {}),
     ...(provider === 'bayargg' && payload.bayarggWebhookSecret !== undefined && payload.bayarggWebhookSecret !== null ? { bayargg_webhook_secret: payload.bayarggWebhookSecret } : {}),
     ...(provider === 'bayargg' ? {

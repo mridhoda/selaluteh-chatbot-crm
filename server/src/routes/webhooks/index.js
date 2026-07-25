@@ -18,5 +18,6 @@ router.use('/payments', paymentRouter);
 router.use('/xendit', paymentRouter);
 router.use('/doku', paymentRouter);
 router.use('/bayargg', paymentRouter);
+router.use('/duitku', paymentRouter);
 
 export default router;
