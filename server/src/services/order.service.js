@@ -78,10 +78,10 @@ export async function createOrderFromCheckout({ workspaceId, checkout, user }) {
     tableId: checkout.tableId || null,
     qrLocationLabel: checkout.qrLocationLabel || null,
     fulfillmentType: 'pickup',
-    status: OrderStatus.PENDING_PAYMENT,
+    status: OrderStatus.AWAITING_OUTLET_APPROVAL,
     paymentStatus: PaymentStatus.UNPAID,
-    fulfillmentStatus: FulfillmentStatus.NOT_STARTED,
-    metadata: checkout.metadata || {},
+    fulfillmentStatus: FulfillmentStatus.AWAITING_ACCEPTANCE,
+    metadata: { ...(checkout.metadata || {}), confirmationExpiresAt: new Date(Date.now() + 30_000).toISOString() },
   });
   notifyOrderCreated({ workspaceId, outletId: order.outletId, order });
   await logOrderAudit({ workspaceId, outletId: order.outletId, orderId: order.id, userId: user?.id, action: 'order.created', details: { channel: order.channel, paymentStatus: order.paymentStatus, fulfillmentStatus: order.fulfillmentStatus } });
@@ -240,7 +240,6 @@ export async function approveOrder({ workspaceId, orderId, outletId, userId }) {
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
   if (!order) throw new AppError(ORDER_ERRORS.ORDER_NOT_FOUND.code, 'Order not found', ORDER_ERRORS.ORDER_NOT_FOUND.status);
   if (order.outletId !== outletId) throw new AppError(ORDER_ERRORS.ORDER_NOT_FOUND.code, 'Order not found for outlet', 404);
-  if (order.paymentStatus !== PaymentStatus.PAID) throw new AppError(ORDER_ERRORS.ORDER_PAYMENT_NOT_PAID.code, 'Payment not yet paid', ORDER_ERRORS.ORDER_PAYMENT_NOT_PAID.status);
   if (order.fulfillmentStatus !== FulfillmentStatus.AWAITING_ACCEPTANCE) throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, 'Order is not awaiting outlet acceptance', 400);
 
   const updated = await ordersRepository.atomicFulfillmentStatusUpdate({

@@ -205,6 +205,11 @@ export function createPhase5ApiClient({
         body: payload,
       })
     },
+    createPaymentSession(publicOrderToken) {
+      return request(`${PUBLIC_PREFIX}/orders/${encodePath(publicOrderToken, 'publicOrderToken')}/payment-session`, {
+        method: 'POST',
+      })
+    },
     getPaymentStatus(paymentId, publicOrderToken) {
       if (!publicOrderToken)
         throw new Error('publicOrderToken is required for payment status')

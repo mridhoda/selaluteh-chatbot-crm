@@ -30,16 +30,12 @@ export default function CheckoutPage() {
     validatedCart: cart.validatedCart,
     validateCart: cart.validateCart,
     onSuccess: (checkout) => {
-      if (checkout.provider === 'duitku' && checkout.paymentUrl) {
-        window.location.assign(checkout.paymentUrl)
-        return
-      }
       const params = new URLSearchParams({
         publicOrderToken: checkout.checkoutToken,
         storefrontSlug,
         returnTo: `/store/${storefrontSlug}`,
       })
-      navigate(`/store/payment/pending/${checkout.paymentId || checkout.checkoutToken}?${params.toString()}`)
+      navigate(`/order/${checkout.checkoutToken}/confirmation?${params.toString()}`)
     },
   })
 

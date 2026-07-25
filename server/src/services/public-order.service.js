@@ -1,5 +1,5 @@
 import { ordersRepository } from '../db/repositories/index.js';
-import { derivePublicOrderStatus } from '../orders/order-types.js';
+import { derivePublicOrderStatus, FulfillmentStatus, OrderStatus } from '../orders/order-types.js';
 import { AppError } from '../utils/errors.js';
 
 function maskPhone(phone) {
@@ -9,8 +9,24 @@ function maskPhone(phone) {
 }
 
 export async function getPublicOrderByToken(publicOrderToken) {
-  const order = await ordersRepository.findByPublicOrderToken({ token: publicOrderToken });
+  let order = await ordersRepository.findByPublicOrderToken({ token: publicOrderToken });
   if (!order) throw new AppError('PUBLIC_ORDER_NOT_FOUND', 'Order not found', 404);
+
+  const confirmationExpiresAt = order.metadata?.confirmationExpiresAt;
+  if (order.fulfillmentStatus === FulfillmentStatus.AWAITING_ACCEPTANCE && confirmationExpiresAt && new Date(confirmationExpiresAt).getTime() <= Date.now()) {
+    order = await ordersRepository.atomicFulfillmentStatusUpdate({
+      workspaceId: order.workspaceId,
+      orderId: order.id,
+      expectedStatus: FulfillmentStatus.AWAITING_ACCEPTANCE,
+      newStatus: FulfillmentStatus.CANCELLED,
+      updates: {
+        status: OrderStatus.REJECTED,
+        rejected_at: new Date().toISOString(),
+        cancel_reason: 'Outlet tidak mengonfirmasi ketersediaan pesanan dalam 30 detik.',
+        metadata: { ...(order.metadata || {}), confirmationExpired: true },
+      },
+    }) || order;
+  }
 
   return transformOrderToPublic(order);
 }
@@ -93,6 +109,8 @@ export function transformOrderToPublic(order) {
       paid_at: order.paidAt || null,
       paidAt: order.paidAt || null,
     },
+    confirmationExpiresAt: order.metadata?.confirmationExpiresAt || null,
+    confirmationExpired: Boolean(order.metadata?.confirmationExpired),
     timeline,
     created_at: order.createdAt,
     createdAt: order.createdAt,
@@ -112,7 +130,8 @@ function buildPublicTimeline({ order, publicStatus }) {
   const readyAt = order.readyAt || null;
   const completedAt = order.completedAt || null;
   const statuses = [
-    { status: 'payment_pending', label: 'Menunggu Pembayaran', timestamp: createdAt },
+    { status: 'awaiting_confirmation', label: 'Menunggu Konfirmasi Pesanan', timestamp: createdAt },
+    { status: 'payment_pending', label: 'Menunggu Pembayaran', timestamp: order.approvedAt || null },
     { status: 'order_received', label: 'Pesanan Diterima', timestamp: paidAt || order.approvedAt || null },
     { status: 'preparing', label: 'Pesanan Sedang Dibuat', timestamp: preparingAt },
     { status: 'ready', label: 'Pesanan Siap Diambil', timestamp: readyAt },
@@ -122,5 +141,5 @@ function buildPublicTimeline({ order, publicStatus }) {
   return statuses.map((entry, index) => ({
     ...entry,
     completed: Boolean(entry.timestamp) || (orderIndex >= 0 && index <= orderIndex),
-  })).filter((entry) => entry.completed || ['payment_pending', 'order_received', 'preparing', 'ready', 'completed'].includes(entry.status));
+  })).filter((entry) => entry.completed || ['awaiting_confirmation', 'payment_pending', 'order_received', 'preparing', 'ready', 'completed'].includes(entry.status));
 }

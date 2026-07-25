@@ -102,6 +102,7 @@ export const FulfillmentStatus = {
 };
 
 export const PublicOrderStatus = {
+  AWAITING_CONFIRMATION: 'awaiting_confirmation',
   PAYMENT_PENDING: 'payment_pending',
   PAYMENT_FAILED: 'payment_failed',
   PAYMENT_EXPIRED: 'payment_expired',
@@ -208,10 +209,11 @@ export function derivePublicOrderStatus(order = {}) {
   const fulfillmentStatus = normalizeFulfillmentStatus(order.fulfillmentStatus || order.fulfillment_status || order.status);
 
   if (fulfillmentStatus === FulfillmentStatus.CANCELLED) return PublicOrderStatus.CANCELLED;
+  if (fulfillmentStatus === FulfillmentStatus.AWAITING_ACCEPTANCE) return PublicOrderStatus.AWAITING_CONFIRMATION;
   if (paymentStatus === PaymentStatus.FAILED) return PublicOrderStatus.PAYMENT_FAILED;
   if (paymentStatus === PaymentStatus.EXPIRED) return PublicOrderStatus.PAYMENT_EXPIRED;
   if (paymentStatus !== PaymentStatus.PAID) return PublicOrderStatus.PAYMENT_PENDING;
-  if ([FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.NOT_STARTED].includes(fulfillmentStatus)) return PublicOrderStatus.ORDER_RECEIVED;
+  if (fulfillmentStatus === FulfillmentStatus.NOT_STARTED) return PublicOrderStatus.ORDER_RECEIVED;
   if (fulfillmentStatus === FulfillmentStatus.ACCEPTED) return PublicOrderStatus.ACCEPTED;
   if (fulfillmentStatus === FulfillmentStatus.PREPARING) return PublicOrderStatus.PREPARING;
   if (fulfillmentStatus === FulfillmentStatus.READY) return PublicOrderStatus.READY;
@@ -224,7 +226,7 @@ export function getOrderCapabilities(order = {}) {
   const fulfillmentStatus = normalizeFulfillmentStatus(order.fulfillmentStatus || order.fulfillment_status || order.status);
   const paid = paymentStatus === PaymentStatus.PAID;
   return {
-    canAccept: false,
+    canAccept: fulfillmentStatus === FulfillmentStatus.AWAITING_ACCEPTANCE && paymentStatus !== PaymentStatus.PAID,
     canStartPreparing: false,
     canMarkReady: paid && fulfillmentStatus === FulfillmentStatus.PREPARING,
     canComplete: paid && fulfillmentStatus === FulfillmentStatus.READY,

@@ -3,6 +3,7 @@ import { getPublicOrderByToken } from '../services/public-order.service.js';
 import { getQrContext, getQrStoreContext } from '../services/qr-order-session.service.js';
 import {
   createPublicCheckout,
+  createPublicPaymentSession,
   getPublicStoreMenu,
   getPublicPaymentStatus,
   getPublicStorefront,
@@ -145,6 +146,12 @@ router.post('/checkout', publicCheckoutRateLimit, async (req, res, next) => {
   try {
     const data = await createPublicCheckout({ idempotencyKey: req.get('Idempotency-Key') || req.body?.idempotencyKey, body: req.body });
     res.status(data?.idempotency?.status === 'processing' ? 202 : 201).json(data);
+  } catch (err) { next(err); }
+});
+
+router.post('/orders/:publicOrderToken/payment-session', publicCheckoutRateLimit, async (req, res, next) => {
+  try {
+    res.status(201).json(await createPublicPaymentSession({ publicOrderToken: req.params.publicOrderToken }));
   } catch (err) { next(err); }
 });
 

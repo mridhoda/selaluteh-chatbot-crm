@@ -621,33 +621,31 @@ export async function createPublicCheckout({ idempotencyKey, body }) {
     recommendationSessionId: safePayload.recommendationSessionId,
   });
   const order = await createOrderFromCheckout({ workspaceId, checkout, user: null });
-  let payment;
-  try {
-    payment = await createPaymentSessionForOrder({
-      user: null,
-      workspaceId,
-      orderId: order.id,
-      customer: safePayload.customer,
-      idempotencyKey: normalizedIdempotencyKey,
-    });
-  } catch (err) {
-    console.error(`[PublicCheckout] Payment session failed for order ${order.id}: code=${err?.code || 'UNKNOWN'} status=${err?.status || err?.statusCode || 500} message=${err?.message || 'Unknown error'}`);
-    const errorSnapshot = sanitizePaymentCreationError(err);
-    await failIdempotencyRecord({ workspaceId, idempotencyKey: normalizedIdempotencyKey, orderId: order.id, errorSnapshot }).catch(() => null);
-    throw new AppError('PAYMENT_CREATION_FAILED', 'Payment session could not be created. The checkout is recorded for safe recovery; retry with the same Idempotency-Key after recovery.', 503, {
-      idempotency: { status: 'failed', retryable: true },
-    });
-  }
   const response = {
     order: toPublicCheckoutOrder(order),
-    payment: toPublicCheckoutPayment(payment),
     next: {
-      payment_pending_url: `/payment/pending/${payment.paymentId}`,
+      order_confirmation_url: `/order/${order.publicOrderToken}/confirmation`,
       public_order_url: `/order/${order.publicOrderToken}`,
     },
   };
   await completeIdempotencyRecord({ workspaceId, idempotencyKey: normalizedIdempotencyKey, orderId: order.id, responseSnapshot: response });
   return response;
+}
+
+export async function createPublicPaymentSession({ publicOrderToken }) {
+  const order = await ordersRepository.findByPublicOrderToken({ token: publicOrderToken });
+  if (!order) throw new AppError('PUBLIC_ORDER_NOT_FOUND', 'Order not found', 404);
+  if (order.fulfillmentStatus !== 'accepted' || order.paymentStatus !== 'unpaid') {
+    throw new AppError('ORDER_NOT_READY_FOR_PAYMENT', 'Order is not ready for payment', 409);
+  }
+  const payment = await createPaymentSessionForOrder({
+    user: null,
+    workspaceId: order.workspaceId,
+    orderId: order.id,
+    customer: order.customerSnapshot || {},
+    idempotencyKey: `public-payment-${order.id}`,
+  });
+  return { order: toPublicCheckoutOrder(order), payment: toPublicCheckoutPayment(payment) };
 }
 
 export async function getPublicPaymentStatus({ paymentId, publicOrderToken }) {

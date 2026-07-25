@@ -26,6 +26,7 @@ export default function StorefrontPage() {
   const [searchParams] = useSearchParams()
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [cartOpen, setCartOpen] = useState(false)
+  const [showConfirmationExpired, setShowConfirmationExpired] = useState(() => searchParams.get('orderConfirmationExpired') === '1')
   const [selectedOutletId, setSelectedOutletId] = useState('')
   const [secondsLeft, setSecondsLeft] = useState(3)
   const [recommendationSessionId] = useState(() => {
@@ -233,6 +234,15 @@ export default function StorefrontPage() {
         recommendationSessionId={recommendationSessionId}
         onOpenCart={() => setCartOpen(true)}
       />
+      {showConfirmationExpired && (
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-black/50 p-5" role="dialog" aria-modal="true" aria-labelledby="confirmation-expired-title">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl">
+            <h2 id="confirmation-expired-title" className="text-lg font-black text-gray-900">Menu Tidak Tersedia</h2>
+            <p className="mt-2 text-sm leading-6 text-gray-500">Outlet belum dapat mengonfirmasi pesanan dalam 30 detik. Keranjang kamu dikembalikan, tetapi menu yang dipesan perlu dicek kembali karena mungkin tidak tersedia.</p>
+            <button type="button" className="mt-5 w-full rounded-full bg-[var(--brand-500)] py-3 text-sm font-bold text-white" onClick={() => { setShowConfirmationExpired(false); setCartOpen(true) }}>Kembali ke Keranjang</button>
+          </div>
+        </div>
+      )}
       <OutletPickupBadge
         outlets={outlets}
         selectedOutletId={selectedOutlet?.id || ''}

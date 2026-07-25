@@ -5,6 +5,7 @@ import '../features/public-store/public-store.css'
 const CustomerAccountPage = lazy(() => import('../features/public-store/pages/CustomerAccountPage'))
 const CheckoutPage = lazy(() => import('../features/public-store/pages/CheckoutPage'))
 const OrderStatusPage = lazy(() => import('../features/public-store/pages/OrderStatusPage'))
+const OrderConfirmationPage = lazy(() => import('../features/public-store/pages/OrderConfirmationPage'))
 const PaymentPendingPage = lazy(() => import('../features/public-store/pages/PaymentPendingPage'))
 const QrStorePage = lazy(() => import('../features/public-store/pages/QrStorePage'))
 const StorefrontPage = lazy(() => import('../features/public-store/pages/StorefrontPage'))
@@ -19,6 +20,7 @@ export default function PublicStoreApp() {
           <Route path="/store/:storefrontSlug/checkout" element={<CheckoutPage />} />
           <Route path="/store/:storefrontSlug/account" element={<CustomerAccountPage />} />
           <Route path="/store/payment/pending/:paymentId" element={<PaymentPendingPage />} />
+          <Route path="/order/:publicOrderToken/confirmation" element={<OrderConfirmationPage />} />
           <Route path="/order/:publicOrderToken" element={<OrderStatusPage />} />
           <Route path="/store/order/:publicOrderToken" element={<OrderStatusPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -27,6 +27,8 @@ const PUBLIC_ORDER_ALLOWED_KEYS = new Set([
   'invoice',
   'createdAt',
   'updatedAt',
+  'confirmationExpiresAt',
+  'confirmationExpired',
 ])
 
 function arrayFrom(value) {
@@ -290,5 +292,7 @@ export function sanitizePublicOrder(response = {}) {
     invoice: sanitizeInvoice(safe.invoice),
     createdAt: safe.createdAt,
     updatedAt: safe.updatedAt,
+    confirmationExpiresAt: safe.confirmationExpiresAt || null,
+    confirmationExpired: Boolean(safe.confirmationExpired),
   }
 }
