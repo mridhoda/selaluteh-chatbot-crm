@@ -100,7 +100,7 @@ export async function createPayment({ user, workspaceId, outletId, orderId, cust
       providerTransactionId = result.providerTransactionId;
       paymentUrl = result.paymentUrl;
     } catch (err) {
-      console.error(`[Payment] Provider error:`, err.message);
+      console.error(`[Payment] Provider ${activeProvider} error: code=${err?.code || 'UNKNOWN'} status=${err?.status || err?.statusCode || 500} message=${err?.message || 'Unknown error'}`);
       throw new AppError('PAYMENT_PROVIDER_ERROR', 'Payment provider temporarily unavailable', 502);
     }
   } else {
@@ -301,27 +301,33 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
   }
 
   const { adapter, providerConfig } = resolvedProvider;
-  const providerSession = await adapter.createPaymentSession({
-    referenceId,
-    orderId: order.id,
-    orderNumber: order.orderNumber,
-    amount: paymentAmount,
-    currency: order.totals?.currency || order.currency || 'IDR',
-    customer: buildCustomerSnapshot(order, customer),
-    items: order.items || [],
-    successReturnUrl: buildReturnUrl('success', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
-    cancelReturnUrl: buildReturnUrl(activeProvider === 'duitku' ? 'success' : 'cancel', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
-    notificationUrl: activeProvider === 'doku' ? buildDokuWebhookUrl() : undefined,
-    returnUrl: activeProvider === 'duitku' ? buildReturnUrl('success', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }) : undefined,
-    callbackUrl: activeProvider === 'duitku' ? buildDuitkuWebhookUrl() : activeProvider === 'bayargg' ? buildBayarGgWebhookUrl() : undefined,
-    idempotencyKey,
-    metadata: {
-      workspace_id: workspaceId,
-      outlet_id: order.outletId,
-      order_id: order.id,
-      attempt: String(attemptNumber),
-    },
-  }, providerConfig);
+  let providerSession;
+  try {
+    providerSession = await adapter.createPaymentSession({
+      referenceId,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      amount: paymentAmount,
+      currency: order.totals?.currency || order.currency || 'IDR',
+      customer: buildCustomerSnapshot(order, customer),
+      items: order.items || [],
+      successReturnUrl: buildReturnUrl('success', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
+      cancelReturnUrl: buildReturnUrl(activeProvider === 'duitku' ? 'success' : 'cancel', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
+      notificationUrl: activeProvider === 'doku' ? buildDokuWebhookUrl() : undefined,
+      returnUrl: activeProvider === 'duitku' ? buildReturnUrl('success', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }) : undefined,
+      callbackUrl: activeProvider === 'duitku' ? buildDuitkuWebhookUrl() : activeProvider === 'bayargg' ? buildBayarGgWebhookUrl() : undefined,
+      idempotencyKey,
+      metadata: {
+        workspace_id: workspaceId,
+        outlet_id: order.outletId,
+        order_id: order.id,
+        attempt: String(attemptNumber),
+      },
+    }, providerConfig);
+  } catch (error) {
+    console.error(`[Payment] Hosted session creation failed: provider=${activeProvider} code=${error?.code || 'UNKNOWN'} status=${error?.status || error?.statusCode || 500} message=${error?.message || 'Unknown error'}`);
+    throw error;
+  }
 
   const payment = await paymentsRepo.create({
     workspaceId,

@@ -631,6 +631,7 @@ export async function createPublicCheckout({ idempotencyKey, body }) {
       idempotencyKey: normalizedIdempotencyKey,
     });
   } catch (err) {
+    console.error(`[PublicCheckout] Payment session failed for order ${order.id}: code=${err?.code || 'UNKNOWN'} status=${err?.status || err?.statusCode || 500} message=${err?.message || 'Unknown error'}`);
     const errorSnapshot = sanitizePaymentCreationError(err);
     await failIdempotencyRecord({ workspaceId, idempotencyKey: normalizedIdempotencyKey, orderId: order.id, errorSnapshot }).catch(() => null);
     throw new AppError('PAYMENT_CREATION_FAILED', 'Payment session could not be created. The checkout is recorded for safe recovery; retry with the same Idempotency-Key after recovery.', 503, {
