@@ -325,7 +325,7 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
       },
     }, providerConfig);
   } catch (error) {
-    console.error(`[Payment] Hosted session creation failed: provider=${activeProvider} code=${error?.code || 'UNKNOWN'} status=${error?.status || error?.statusCode || 500} message=${error?.message || 'Unknown error'}`);
+    console.error(`[Payment] Hosted session creation failed: provider=${activeProvider} code=${error?.code || 'UNKNOWN'} status=${error?.status || error?.statusCode || 500} message=${error?.message || 'Unknown error'} detail=${error?.details?.detail || error?.details?.message || 'none'}`);
     throw error;
   }
 
