@@ -50,14 +50,16 @@ router.all('/return/:kind', async (req, res, next) => {
       : null;
     const storefrontSlug = query.storefrontSlug || order?.metadata?.publicStorefrontSlug || '';
     const publicOrderToken = query.publicOrderToken || order?.publicOrderToken || '';
-    if (payment?.id && publicOrderToken && storefrontSlug) {
+    if (payment?.id && publicOrderToken) {
       const verifiedPayment = await resolvePaymentReturnState({ payment, isSuccess });
       const webBase = getPublicWebBaseUrl();
       if (webBase) {
         const target = new URL(`${webBase.replace(/\/$/, '')}/store/payment/pending/${encodeURIComponent(payment.id)}`);
         target.searchParams.set('publicOrderToken', publicOrderToken);
-        if (storefrontSlug) target.searchParams.set('storefrontSlug', storefrontSlug);
-        target.searchParams.set('returnTo', `/store/${storefrontSlug || 'store'}`);
+        if (storefrontSlug) {
+          target.searchParams.set('storefrontSlug', storefrontSlug);
+          target.searchParams.set('returnTo', `/store/${storefrontSlug}`);
+        }
         return res.redirect(303, target.toString());
       }
     }

@@ -84,4 +84,16 @@ describe('Payment return route', () => {
     assert.equal(synced, false);
     assert.equal(payment.status, 'pending');
   });
+
+  it('redirects to payment status even when an older order lacks storefront slug', async (t) => {
+    t.mock.method(paymentsRepository, 'findByMerchantReferenceGlobal', async () => ({ id: 'pay-5', workspaceId: 'workspace-1', orderId: 'order-5', provider: 'duitku', status: 'paid' }));
+    t.mock.method(ordersRepository, 'workspaceFindById', async () => ({ publicOrderToken: 'po-5', metadata: {} }));
+    const response = await request(createApp(), '/payments/return/success?merchantOrderId=REF-5');
+
+    assert.equal(response.status, 303);
+    const location = new URL(response.headers.get('location'));
+    assert.equal(location.pathname, '/store/payment/pending/pay-5');
+    assert.equal(location.searchParams.get('publicOrderToken'), 'po-5');
+    assert.equal(location.searchParams.has('storefrontSlug'), false);
+  });
 });
