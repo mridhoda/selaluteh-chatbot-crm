@@ -12,6 +12,7 @@ export default function PaymentPendingPage() {
   const isPaid = String(paymentStatus.status || '').toLowerCase() === 'paid'
 
   const [timeLeft, setTimeLeft] = useState(14 * 60 + 59)
+  const [redirectCountdown, setRedirectCountdown] = useState(3)
 
   useEffect(() => {
     if (isPaid) return undefined
@@ -20,6 +21,23 @@ export default function PaymentPendingPage() {
     }, 1000)
     return () => clearInterval(timer)
   }, [isPaid])
+
+  useEffect(() => {
+    if (!isPaid || !paymentStatus.payment?.publicOrderToken) return undefined
+
+    const timer = setInterval(() => {
+      setRedirectCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          navigate(`/order/${paymentStatus.payment.publicOrderToken}`)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [isPaid, paymentStatus.payment?.publicOrderToken, navigate])
 
   const minutes = Math.floor(timeLeft / 60)
   const seconds = timeLeft % 60
@@ -262,7 +280,7 @@ export default function PaymentPendingPage() {
             }}
           >
              {paymentStatus.payment?.publicOrderToken
-               ? 'Lihat Status Pesanan'
+               ? (isPaid ? `Lihat Status Pesanan (${redirectCountdown}s)` : 'Lihat Status Pesanan')
                : paymentStatus.loading
               ? 'Mengecek...'
               : 'Cek Status Pembayaran'}
