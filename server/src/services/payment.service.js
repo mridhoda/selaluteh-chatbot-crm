@@ -8,6 +8,7 @@ import { resolvePaymentProvider, resolvePaymentAdapter } from './payment-provide
 import { assertPaymentProviderAuthority, assertPaymentSnapshot } from '../ai/security/payment-order-guardrails.js';
 import { FulfillmentStatus, OrderStatus, PaymentStatus } from '../orders/order-types.js';
 import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
+import { attributePaidOrder } from './product-recommendation.service.js';
 
 const TERMINAL_PAID_STATUSES = new Set(['paid', 'refunded', 'partially_refunded']);
 const ACTIVE_SESSION_STATUSES = new Set(['pending', 'created']);
@@ -197,8 +198,8 @@ export async function createXenditPaymentSessionForOrder({ user, workspaceId, or
     amount: paymentAmount,
     currency: order.totals?.currency || order.currency || 'IDR',
     customer: buildCustomerSnapshot(order, customer),
-    successReturnUrl: buildReturnUrl('success'),
-    cancelReturnUrl: buildReturnUrl('cancel'),
+    successReturnUrl: buildReturnUrl('success', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
+    cancelReturnUrl: buildReturnUrl('cancel', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
     expiresAt,
     metadata: {
       workspace_id: workspaceId,
@@ -308,8 +309,8 @@ export async function createPaymentSessionForOrder({ user, workspaceId, orderId,
     currency: order.totals?.currency || order.currency || 'IDR',
     customer: buildCustomerSnapshot(order, customer),
     items: order.items || [],
-    successReturnUrl: buildReturnUrl('success'),
-    cancelReturnUrl: buildReturnUrl('cancel'),
+    successReturnUrl: buildReturnUrl('success', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
+    cancelReturnUrl: buildReturnUrl('cancel', { publicOrderToken: order.publicOrderToken, merchantReference: referenceId, storefrontSlug: order.metadata?.publicStorefrontSlug }),
     notificationUrl: activeProvider === 'doku' ? buildDokuWebhookUrl() : undefined,
     callbackUrl: activeProvider === 'bayargg' ? buildBayarGgWebhookUrl() : undefined,
     idempotencyKey,
@@ -397,6 +398,7 @@ export async function reconcileProviderSession({ payment, providerSession }) {
     const updatedOrder = providerSession.status === 'paid'
       ? await markOrderPaidPreparing({ workspaceId: payment.workspaceId, orderId: payment.orderId })
       : null;
+    if (updatedOrder) await attributePaidOrder({ workspaceId: payment.workspaceId, order: updatedOrder }).catch((error) => console.error('[Payment] Recommendation attribution failed:', error.message));
     notifyPaymentUpdatedRealtime({ workspaceId: payment.workspaceId, outletId: updatedPayment.outletId, payment: updatedPayment, order: updatedOrder });
     if (updatedOrder) notifyPaidOrderRealtime({ workspaceId: payment.workspaceId, outletId: updatedOrder.outletId, order: updatedOrder });
   }
@@ -554,6 +556,7 @@ async function processPaidPayment({ payment, providerEvent }) {
   await paymentsRepository.updatePayment(payment.id, { reconciliation_status: 'matched' });
 
   const updatedOrder = await markOrderPaidPreparing({ workspaceId: payment.workspaceId, orderId: payment.orderId });
+  await attributePaidOrder({ workspaceId: payment.workspaceId, order: updatedOrder }).catch((error) => console.error('[Payment] Recommendation attribution failed:', error.message));
   notifyPaymentUpdatedRealtime({ workspaceId: payment.workspaceId, outletId: updated.outletId, payment: updated, order: updatedOrder });
   if (!isTerminalOrder(updatedOrder)) {
     notifyPaidOrderRealtime({ workspaceId: payment.workspaceId, outletId: updatedOrder?.outletId || updated.outletId, order: updatedOrder });
@@ -601,9 +604,13 @@ function buildPaymentReference({ order, attemptNumber, provider }) {
   return `SLT${orderNumber}PAY${String(attemptNumber).padStart(2, '0')}`.slice(0, 64);
 }
 
-function buildReturnUrl(kind) {
+function buildReturnUrl(kind, { publicOrderToken, merchantReference, storefrontSlug } = {}) {
   const base = env.publicBaseUrl || env.corsOrigin?.split(',')?.[0] || 'http://localhost:5000';
-  return `${base.replace(/\/$/, '')}/payments/return/${kind}`;
+  const url = new URL(`${base.replace(/\/$/, '')}/payments/return/${kind}`);
+  if (publicOrderToken) url.searchParams.set('publicOrderToken', publicOrderToken);
+  if (merchantReference) url.searchParams.set('merchantReference', merchantReference);
+  if (storefrontSlug) url.searchParams.set('storefrontSlug', storefrontSlug);
+  return url.toString();
 }
 
 function buildDokuWebhookUrl() {

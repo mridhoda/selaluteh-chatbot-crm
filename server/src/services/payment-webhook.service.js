@@ -7,6 +7,7 @@ import { FulfillmentStatus, OrderStatus, PaymentStatus } from '../orders/order-t
 import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
 import { resolvePaymentAdapter, resolvePaymentProvider } from './payment-provider-resolver.service.js';
 import { recordSecurityEvent } from './security-event.service.js';
+import { attributePaidOrder } from './product-recommendation.service.js';
 
 function paidOrderUpdates(paidAt = new Date().toISOString()) {
   return {
@@ -31,6 +32,15 @@ async function markOrderPaidPreparing({ workspaceId, orderId, paidAt }) {
     return order;
   }
   return ordersRepository.updateOne({ workspaceId, orderId, updates: paidOrderUpdates(paidAt) });
+}
+
+async function attributeRecommendationPurchase(workspaceId, order) {
+  if (!order) return;
+  try {
+    await attributePaidOrder({ workspaceId, order });
+  } catch (error) {
+    console.error('[PaymentWebhook] Recommendation attribution failed:', error.message);
+  }
 }
 
 async function logPaymentAudit({ workspaceId, outletId, paymentId, orderId, action, details = {}, auditRepository = auditLogsRepository }) {
@@ -109,6 +119,7 @@ export async function processPaymentWebhook({ workspaceId, provider, rawBody, he
   } });
 
   const updatedOrder = await markOrderPaidPreparing({ workspaceId, orderId: payment.orderId });
+  await attributeRecommendationPurchase(workspaceId, updatedOrder);
   notifyPaymentUpdatedRealtime({ workspaceId, outletId: updatedPayment.outletId, payment: updatedPayment, order: updatedOrder });
 
   await paymentsRepository.updatePayment({ workspaceId, paymentId: payment.id, updates: { reconciliation_status: 'matched' } });
@@ -308,6 +319,7 @@ export async function processBayarGgWebhook({ rawBody, headers }, deps = {}) {
     }
   }
   const updatedOrder = await markOrderPaid({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId, paidAt: event.paidAt || new Date().toISOString() });
+  await attributeRecommendationPurchase(targetPayment.workspaceId, updatedOrder);
   await logPaymentAudit({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, paymentId: targetPayment.id, orderId: targetPayment.orderId, action: 'payment.paid', details: { provider: 'bayargg', eventKey }, auditRepository });
   notifyPaymentUpdated({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
   if (!isTerminalOrder(updatedOrder)) {
@@ -428,6 +440,7 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
 
   if (nextStatus === 'paid') {
     const updatedOrder = await markOrderPaidPreparing({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId });
+    await attributeRecommendationPurchase(targetPayment.workspaceId, updatedOrder);
     notifyPaymentUpdatedRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
     // Only add a settlement event if this is a fresh processing (not a retry of a stuck event)
     if (!existingEvent) {

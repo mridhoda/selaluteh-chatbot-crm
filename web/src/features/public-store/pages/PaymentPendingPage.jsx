@@ -244,7 +244,7 @@ export default function PaymentPendingPage() {
 
           <button
             type="button"
-             onClick={paymentStatus.payment?.publicOrderToken ? handleOpenOrder : paymentStatus.refresh}
+             onClick={isPaid ? handleOpenOrder : paymentStatus.payment?.publicOrderToken ? handleOpenOrder : paymentStatus.refresh}
             disabled={paymentStatus.loading}
             style={{
               width: '100%',

@@ -14,10 +14,13 @@ import {
   publicOrderRateLimit,
   publicPaymentStatusRateLimit,
   publicQrRateLimit,
+  publicRecommendationEventRateLimit,
+  publicRecommendationRateLimit,
 } from '../middleware/rate-limit.js';
 import { recordSecurityEvent } from '../services/security-event.service.js';
 import { getPublicCustomerSession, loginPublicCustomer, registerPublicCustomer, requirePublicCustomer, listPublicCustomerOrders } from '../services/public-customer.service.js';
 import { AppError } from '../utils/errors.js';
+import { ingestRecommendationEvent, resolvePublicRecommendations } from '../services/product-recommendation.service.js';
 
 const router = express.Router();
 const storefrontCacheControl = 'public, max-age=60';
@@ -73,6 +76,40 @@ router.get('/storefronts/:storefrontSlug', async (req, res, next) => {
     const data = await getPublicStorefront({ storefrontSlug: req.params.storefrontSlug, outletId: req.query.outlet_id || req.query.outletId, ...getMenuQuery(req.query) });
     res.set('Cache-Control', storefrontCacheControl);
     res.json(data);
+  } catch (err) { next(err); }
+});
+
+router.get('/storefronts/:storefrontSlug/recommendations', publicRecommendationRateLimit, async (req, res, next) => {
+  try {
+    const storefront = await getPublicStorefront({ storefrontSlug: req.params.storefrontSlug, outletId: req.query.outlet_id || req.query.outletId, includeMenu: false });
+    const outletId = req.query.outlet_id || req.query.outletId;
+    if (!outletId || !storefront.outlets.some((outlet) => String(outlet.id) === String(outletId))) {
+      throw new AppError('OUTLET_UNAVAILABLE', 'Outlet is not available for ordering', 409);
+    }
+    const productIds = String(req.query.product_ids || '').split(',').map((id) => id.trim()).filter(Boolean);
+    const data = await resolvePublicRecommendations({ workspaceId: storefront.internal.workspaceId, outletId, cartProductIds: productIds, placement: req.query.placement || 'cart' });
+    res.set('Cache-Control', 'private, no-store');
+    res.json({ data });
+  } catch (err) { next(err); }
+});
+
+router.post('/recommendation-events', publicRecommendationEventRateLimit, async (req, res, next) => {
+  try {
+    const storefront = await getPublicStorefront({ storefrontSlug: req.body?.storefront_slug || req.body?.storefrontSlug, outletId: req.body?.outlet_id || req.body?.outletId, includeMenu: false });
+    const outletId = req.body?.outlet_id || req.body?.outletId;
+    if (!outletId || !storefront.outlets.some((outlet) => String(outlet.id) === String(outletId))) throw new AppError('OUTLET_UNAVAILABLE', 'Outlet is not available for ordering', 409);
+    const result = await ingestRecommendationEvent({ workspaceId: storefront.internal.workspaceId, outletId, event: {
+      eventType: req.body?.event_type || req.body?.eventType,
+      placement: req.body?.placement,
+      targetProductId: req.body?.target_product_id || req.body?.targetProductId,
+      sourceProductId: req.body?.source_product_id || req.body?.sourceProductId,
+      recommendationId: req.body?.recommendation_id || req.body?.recommendationId,
+      cartId: req.body?.cart_id || req.body?.cartId,
+      sessionId: req.body?.session_id || req.body?.sessionId,
+      idempotencyKey: req.get('Idempotency-Key') || req.body?.idempotency_key || req.body?.idempotencyKey,
+      metadata: req.body?.metadata,
+    } });
+    res.status(202).json(result);
   } catch (err) { next(err); }
 });
 

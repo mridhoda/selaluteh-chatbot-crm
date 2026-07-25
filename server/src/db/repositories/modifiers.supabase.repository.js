@@ -15,6 +15,40 @@ function normalizeGroup(row = {}, options = [], links = []) {
 }
 
 export const modifiersRepository = {
+  async createGroup({ workspaceId, group }) {
+    requireWorkspaceId(workspaceId);
+    const result = await getSupabaseServiceClient().from(GROUPS_TABLE).insert({
+      workspace_id: workspaceId,
+      name: group.name,
+      code: group.code,
+      type: group.type || 'optional',
+      selection_type: group.selectionType || 'single',
+      min_selection: group.minSelection ?? 0,
+      max_selection: group.maxSelection ?? 1,
+      outlet_scope: group.outletScope || 'all_outlets',
+      description: group.description || null,
+      tags: group.tags || [],
+      status: group.status || 'active',
+    }).select('*').single();
+    return normalizeGroup(mapRow(extractData(result, 'modifiers.createGroup')), [], []);
+  },
+
+  async replaceOptions({ workspaceId, modifierGroupId, options = [] }) {
+    requireWorkspaceId(workspaceId);
+    const client = getSupabaseServiceClient();
+    const deleted = await client.from(OPTIONS_TABLE).delete().eq('workspace_id', workspaceId).eq('modifier_group_id', modifierGroupId);
+    extractData(deleted, 'modifiers.replaceOptions.delete');
+    if (!options.length) return [];
+    const result = await client.from(OPTIONS_TABLE).insert(options.map((option, index) => ({
+      workspace_id: workspaceId,
+      modifier_group_id: modifierGroupId,
+      name: option.name,
+      price_delta: option.priceDelta,
+      sort_order: index,
+    }))).select('*');
+    return mapRows(extractData(result, 'modifiers.replaceOptions.insert') || []);
+  },
+
   async listGroups({ workspaceId }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();

@@ -6,4 +6,4 @@ Stress Test Classification  :
   Aman tanpa order/payment eksternal; ukur API dan database lokal
 
 - Browse Menu Only
-  Uji storefront, kategori, gambar, dan cache tanpa membuat order
+  Uji storefront, kategori, gambar, dan cache tanpa membuat orderb

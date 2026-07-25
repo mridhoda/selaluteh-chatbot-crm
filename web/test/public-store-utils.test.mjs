@@ -8,6 +8,7 @@ import {
 import { formatCurrency } from '../src/features/public-store/utils/formatCurrency.js'
 import { maskPhone } from '../src/features/public-store/utils/maskPhone.js'
 import { normalizePhone } from '../src/features/public-store/utils/normalizePhone.js'
+import { findNearestOutlet, formatDistance, haversineDistanceMeters } from '../src/features/public-store/utils/outletLocation.js'
 
 const product = {
   basePriceMinor: 14000,
@@ -46,5 +47,17 @@ describe('public store utilities', () => {
 
   it('calculates modifier item preview total from canonical option IDs', () => {
     assert.equal(calculateItemPreviewTotal(product, ['opt-a'], 2), 36000)
+  })
+
+  it('finds and formats the nearest outlet from coordinates', () => {
+    const origin = { latitude: -0.5, longitude: 117.15 }
+    const outlets = [
+      { id: 'far', name: 'Jauh', latitude: -0.55, longitude: 117.15 },
+      { id: 'near', name: 'Dekat', latitude: -0.501, longitude: 117.15 },
+    ]
+    const nearest = findNearestOutlet(origin, outlets)
+    assert.equal(nearest.id, 'near')
+    assert.equal(formatDistance(nearest.distanceMeters), '111 m')
+    assert.equal(Math.round(haversineDistanceMeters(origin, outlets[1])), 111)
   })
 })

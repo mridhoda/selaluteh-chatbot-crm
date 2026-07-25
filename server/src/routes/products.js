@@ -5,14 +5,21 @@ import { attachWorkspaceContext } from '../middleware/workspaceContext.js';
 import { authorizePermission } from '../middleware/authorization.js';
 import { uploadRateLimit } from '../middleware/rate-limit.js';
 import { validateBody } from '../middleware/validate.js';
-import { validateProductCreate, validateProductUpdate, validateProductAvailability } from '../validators/products.schema.js';
+import { validateProductCreate, validateProductUpdate, validateProductAvailability, validateModifierGroupCreate, validateModifierOptionsReplace } from '../validators/products.schema.js';
 import {
   listProducts, getProductDetail, getProductWithAvailability,
-  createProduct, updateProduct, archiveProduct, updateOutletAvailability, listModifierGroups, replaceModifierProductLinks,
+  createProduct, updateProduct, archiveProduct, updateOutletAvailability, listModifierGroups, createModifierGroup, replaceModifierOptions, replaceModifierProductLinks,
 } from '../services/product.service.js';
 import { productsRepository } from '../db/repositories/index.js';
 import { productsToCsv, validateProductImportRows } from '../services/product-import-export.service.js';
 import { uploadFile } from '../services/file.service.js';
+import {
+  archiveRecommendationRule,
+  createRecommendationRule,
+  getRecommendationReport,
+  listRecommendationRules,
+  updateRecommendationRule,
+} from '../services/product-recommendation.service.js';
 
 const router = express.Router();
 const upload = multer({
@@ -58,6 +65,53 @@ router.get('/modifiers', authorizePermission('products', 'read'), async (req, re
   } catch (err) {
     next(err);
   }
+});
+
+router.post('/modifiers', authorizePermission('products', 'write'), validateBody(validateModifierGroupCreate), async (req, res, next) => {
+  try {
+    res.status(201).json({ data: await createModifierGroup({ user: req.me, data: req.body }) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/modifiers/:modifierGroupId/options', authorizePermission('products', 'write'), validateBody(validateModifierOptionsReplace), async (req, res, next) => {
+  try {
+    res.json(await replaceModifierOptions({ user: req.me, modifierGroupId: req.params.modifierGroupId, options: req.body.options }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/recommendations/report', authorizePermission('products', 'read'), async (req, res, next) => {
+  try {
+    res.json(await getRecommendationReport({ user: req.me, filters: {
+      from: req.query.from, to: req.query.to, outletId: req.query.outlet_id || req.query.outletId,
+      recommendationType: req.query.type, status: req.query.status,
+    } }));
+  } catch (err) { next(err); }
+});
+
+router.get('/recommendations', authorizePermission('products', 'read'), async (req, res, next) => {
+  try {
+    res.json(await listRecommendationRules({ user: req.me, filters: {
+      page: req.query.page, limit: req.query.limit, sourceProductId: req.query.source_product_id,
+      targetProductId: req.query.target_product_id, outletId: req.query.outlet_id || req.query.outletId,
+      recommendationType: req.query.type, placement: req.query.placement, status: req.query.status,
+    } }));
+  } catch (err) { next(err); }
+});
+
+router.post('/recommendations', authorizePermission('products', 'write'), async (req, res, next) => {
+  try { res.status(201).json({ data: await createRecommendationRule({ user: req.me, data: req.body }) }); } catch (err) { next(err); }
+});
+
+router.put('/recommendations/:recommendationId', authorizePermission('products', 'write'), async (req, res, next) => {
+  try { res.json({ data: await updateRecommendationRule({ user: req.me, recommendationId: req.params.recommendationId, data: req.body }) }); } catch (err) { next(err); }
+});
+
+router.delete('/recommendations/:recommendationId', authorizePermission('products', 'write'), async (req, res, next) => {
+  try { res.json({ data: await archiveRecommendationRule({ user: req.me, recommendationId: req.params.recommendationId }) }); } catch (err) { next(err); }
 });
 
 router.post('/images/upload', authorizePermission('products', 'write'), uploadRateLimit, upload.single('file'), async (req, res, next) => {

@@ -4,7 +4,8 @@ import { mapBackendError } from '../../../shared/api/apiError.js'
 const PUBLIC_PREFIX = '/api/v1/public'
 const ADMIN_ORDERS_PREFIX = '/api/v1/admin/orders'
 const ADMIN_PAYMENTS_PREFIX = '/payments'
-const WEBHOOK_PATH_PATTERN = /(?:^|\/)(?:webhooks?|provider\/callback|payments?\/callback)(?:\/|$)/i
+const WEBHOOK_PATH_PATTERN =
+  /(?:^|\/)(?:webhooks?|provider\/callback|payments?\/callback)(?:\/|$)/i
 
 export const FORBIDDEN_PHASE5_REQUEST_FIELDS = Object.freeze([
   'payment_status',
@@ -45,19 +46,29 @@ function buildQuery(params = {}) {
 
 function assertNoWebhookPath(path) {
   if (WEBHOOK_PATH_PATTERN.test(String(path))) {
-    throw new Error('Frontend cannot call webhook or provider callback endpoints')
+    throw new Error(
+      'Frontend cannot call webhook or provider callback endpoints'
+    )
   }
 }
 
-function assertNoForbiddenFields(payload, fields = FORBIDDEN_PHASE5_REQUEST_FIELDS, path = '') {
+function assertNoForbiddenFields(
+  payload,
+  fields = FORBIDDEN_PHASE5_REQUEST_FIELDS,
+  path = ''
+) {
   if (!payload || typeof payload !== 'object') return
   if (Array.isArray(payload)) {
-    payload.forEach((item, index) => assertNoForbiddenFields(item, fields, `${path}[${index}]`))
+    payload.forEach((item, index) =>
+      assertNoForbiddenFields(item, fields, `${path}[${index}]`)
+    )
     return
   }
   for (const field of fields) {
     if (Object.prototype.hasOwnProperty.call(payload, field)) {
-      throw new Error(`Frontend cannot send backend-owned field: ${path}${field}`)
+      throw new Error(
+        `Frontend cannot send backend-owned field: ${path}${field}`
+      )
     }
   }
   for (const [key, value] of Object.entries(payload)) {
@@ -66,7 +77,11 @@ function assertNoForbiddenFields(payload, fields = FORBIDDEN_PHASE5_REQUEST_FIEL
 }
 
 function normalizeHeaders(headers = {}) {
-  return Object.fromEntries(Object.entries(headers).filter(([, value]) => value !== undefined && value !== null && value !== ''))
+  return Object.fromEntries(
+    Object.entries(headers).filter(
+      ([, value]) => value !== undefined && value !== null && value !== ''
+    )
+  )
 }
 
 async function parseResponse(response) {
@@ -83,13 +98,24 @@ export function createPhase5ApiClient({
   getWorkspaceId,
   getRequestId,
 } = {}) {
-  if (typeof fetchImpl !== 'function') throw new Error('fetch implementation is required')
+  if (typeof fetchImpl !== 'function')
+    throw new Error('fetch implementation is required')
 
-  async function request(path, { method = 'GET', headers, body, auth = 'public', requestId } = {}) {
+  async function request(
+    path,
+    { method = 'GET', headers, body, auth = 'public', requestId } = {}
+  ) {
     assertNoWebhookPath(path)
-    const token = auth === 'admin' && typeof getAuthToken === 'function' ? getAuthToken() : null
-    const workspaceId = auth === 'admin' && typeof getWorkspaceId === 'function' ? getWorkspaceId() : null
-    const resolvedRequestId = requestId || (typeof getRequestId === 'function' ? getRequestId() : null)
+    const token =
+      auth === 'admin' && typeof getAuthToken === 'function'
+        ? getAuthToken()
+        : null
+    const workspaceId =
+      auth === 'admin' && typeof getWorkspaceId === 'function'
+        ? getWorkspaceId()
+        : null
+    const resolvedRequestId =
+      requestId || (typeof getRequestId === 'function' ? getRequestId() : null)
     const requestHeaders = normalizeHeaders({
       Accept: 'application/json',
       ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
@@ -118,23 +144,60 @@ export function createPhase5ApiClient({
 
   const publicApi = {
     getStorefront(storefrontSlug, params = {}) {
-      return request(`${PUBLIC_PREFIX}/storefronts/${encodePath(storefrontSlug, 'storefrontSlug')}${buildQuery(params)}`)
+      return request(
+        `${PUBLIC_PREFIX}/storefronts/${encodePath(storefrontSlug, 'storefrontSlug')}${buildQuery(params)}`
+      )
     },
     getStorefrontBootstrap(storefrontSlug, params = {}) {
-      return request(`${PUBLIC_PREFIX}/storefronts/${encodePath(storefrontSlug, 'storefrontSlug')}/bootstrap${buildQuery(params)}`)
+      return request(
+        `${PUBLIC_PREFIX}/storefronts/${encodePath(storefrontSlug, 'storefrontSlug')}/bootstrap${buildQuery(params)}`
+      )
     },
     getStoreMenu(storefrontSlug, params = {}) {
-      return request(`${PUBLIC_PREFIX}/storefronts/${encodePath(storefrontSlug, 'storefrontSlug')}/menu${buildQuery(params)}`)
+      return request(
+        `${PUBLIC_PREFIX}/storefronts/${encodePath(storefrontSlug, 'storefrontSlug')}/menu${buildQuery(params)}`
+      )
+    },
+    getRecommendations(
+      storefrontSlug,
+      { outletId, cartProductIds = [], placement = 'cart' } = {}
+    ) {
+      return request(
+        `${PUBLIC_PREFIX}/storefronts/${encodePath(storefrontSlug, 'storefrontSlug')}/recommendations${buildQuery(
+          {
+            outlet_id: outletId,
+            placement,
+            product_ids: Array.isArray(cartProductIds)
+              ? cartProductIds.join(',')
+              : cartProductIds,
+          }
+        )}`
+      )
+    },
+    recordRecommendationEvent(payload, { idempotencyKey } = {}) {
+      return request(`${PUBLIC_PREFIX}/recommendation-events`, {
+        method: 'POST',
+        ...(idempotencyKey
+          ? { headers: { 'Idempotency-Key': idempotencyKey } }
+          : {}),
+        body: payload,
+      })
     },
     resolveQr(qrToken, params = {}) {
-      return request(`${PUBLIC_PREFIX}/qr/${encodePath(qrToken, 'qrToken')}${buildQuery(params)}`)
+      return request(
+        `${PUBLIC_PREFIX}/qr/${encodePath(qrToken, 'qrToken')}${buildQuery(params)}`
+      )
     },
     validateCart(payload) {
       assertNoForbiddenFields(payload)
-      return request(`${PUBLIC_PREFIX}/carts/validate`, { method: 'POST', body: payload })
+      return request(`${PUBLIC_PREFIX}/carts/validate`, {
+        method: 'POST',
+        body: payload,
+      })
     },
     checkout(payload, { idempotencyKey } = {}) {
-      if (!idempotencyKey) throw new Error('Idempotency-Key is required for checkout')
+      if (!idempotencyKey)
+        throw new Error('Idempotency-Key is required for checkout')
       assertNoForbiddenFields(payload)
       return request(`${PUBLIC_PREFIX}/checkout`, {
         method: 'POST',
@@ -143,38 +206,67 @@ export function createPhase5ApiClient({
       })
     },
     getPaymentStatus(paymentId, publicOrderToken) {
-      if (!publicOrderToken) throw new Error('publicOrderToken is required for payment status')
-      return request(`${PUBLIC_PREFIX}/payments/${encodePath(paymentId, 'paymentId')}/status?publicOrderToken=${encodeURIComponent(publicOrderToken)}`)
+      if (!publicOrderToken)
+        throw new Error('publicOrderToken is required for payment status')
+      return request(
+        `${PUBLIC_PREFIX}/payments/${encodePath(paymentId, 'paymentId')}/status?publicOrderToken=${encodeURIComponent(publicOrderToken)}`
+      )
     },
     getPublicOrder(publicOrderToken) {
-      return request(`${PUBLIC_PREFIX}/orders/${encodePath(publicOrderToken, 'publicOrderToken')}`)
+      return request(
+        `${PUBLIC_PREFIX}/orders/${encodePath(publicOrderToken, 'publicOrderToken')}`
+      )
     },
     customerRegister(payload) {
-      return request(`${PUBLIC_PREFIX}/customer/register`, { method: 'POST', body: payload })
+      return request(`${PUBLIC_PREFIX}/customer/register`, {
+        method: 'POST',
+        body: payload,
+      })
     },
     customerLogin(payload) {
-      return request(`${PUBLIC_PREFIX}/customer/login`, { method: 'POST', body: payload })
+      return request(`${PUBLIC_PREFIX}/customer/login`, {
+        method: 'POST',
+        body: payload,
+      })
     },
     getCustomerOrders(token) {
-      return request(`${PUBLIC_PREFIX}/customer/orders`, { headers: { Authorization: `Bearer ${token}` } })
+      return request(`${PUBLIC_PREFIX}/customer/orders`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
     },
   }
 
   function adminOrderAction(orderId, action, body) {
-    assertNoForbiddenFields(body, ['status', 'payment_status', 'paymentStatus', 'fulfillment_status', 'fulfillmentStatus', 'allowed_actions', 'allowedActions'])
-    return request(`${ADMIN_ORDERS_PREFIX}/${encodePath(orderId, 'orderId')}/${action}`, {
-      method: 'POST',
-      auth: 'admin',
-      ...(body !== undefined ? { body } : {}),
-    })
+    assertNoForbiddenFields(body, [
+      'status',
+      'payment_status',
+      'paymentStatus',
+      'fulfillment_status',
+      'fulfillmentStatus',
+      'allowed_actions',
+      'allowedActions',
+    ])
+    return request(
+      `${ADMIN_ORDERS_PREFIX}/${encodePath(orderId, 'orderId')}/${action}`,
+      {
+        method: 'POST',
+        auth: 'admin',
+        ...(body !== undefined ? { body } : {}),
+      }
+    )
   }
 
   const adminApi = {
     listOrders(params = {}) {
-      return request(`${ADMIN_ORDERS_PREFIX}${buildQuery(params)}`, { auth: 'admin' })
+      return request(`${ADMIN_ORDERS_PREFIX}${buildQuery(params)}`, {
+        auth: 'admin',
+      })
     },
     getOrder(orderId) {
-      return request(`${ADMIN_ORDERS_PREFIX}/${encodePath(orderId, 'orderId')}`, { auth: 'admin' })
+      return request(
+        `${ADMIN_ORDERS_PREFIX}/${encodePath(orderId, 'orderId')}`,
+        { auth: 'admin' }
+      )
     },
     acceptOrder(orderId, body) {
       return adminOrderAction(orderId, 'accept', body)
@@ -189,11 +281,14 @@ export function createPhase5ApiClient({
       return adminOrderAction(orderId, 'complete', body)
     },
     cancelOrder(orderId, body = {}) {
-      if (!String(body.reason || '').trim()) throw new Error('Cancel reason is required')
+      if (!String(body.reason || '').trim())
+        throw new Error('Cancel reason is required')
       return adminOrderAction(orderId, 'cancel', body)
     },
     getPaymentGatewayConfig() {
-      return request(`${ADMIN_PAYMENTS_PREFIX}/gateway/config`, { auth: 'admin' })
+      return request(`${ADMIN_PAYMENTS_PREFIX}/gateway/config`, {
+        auth: 'admin',
+      })
     },
   }
 

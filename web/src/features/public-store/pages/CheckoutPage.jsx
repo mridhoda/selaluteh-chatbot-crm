@@ -16,19 +16,28 @@ export default function CheckoutPage() {
   const queryOutletId = searchParams.get('outletId') || ''
   const qrSessionToken = searchParams.get('qrSessionToken') || ''
   const includeOutlet = searchParams.get('includeOutlet') !== 'false'
+  const recommendationSessionId = searchParams.get('recommendationSessionId') || (typeof window !== 'undefined'
+    ? window.sessionStorage.getItem(`public-store-recommendation-session:${storefrontSlug}`)
+    : '')
   const selectedOutletId = queryOutletId || (typeof window !== 'undefined' ? window.localStorage.getItem(`public-store-outlet:${storefrontSlug}`) : '')
   const outlets = store.storefront?.outlets || (store.storefront?.outlet ? [store.storefront.outlet] : [])
   const selectedOutlet = outlets.find((outlet) => outlet.id === selectedOutletId) || outlets[0]
-  const cart = useGuestCart({ storefront: store.storefront, products: store.products, outlet: selectedOutlet, qrSessionToken, includeOutlet })
+  const cart = useGuestCart({ storefront: store.storefront, products: store.products, outlet: selectedOutlet, qrSessionToken, recommendationSessionId, includeOutlet })
   
   const form = useCheckoutForm({
     intentItems: cart.intentItems,
     intentContext: cart.intentContext,
     validatedCart: cart.validatedCart,
     validateCart: cart.validateCart,
-    onSuccess: (checkout) => navigate(`/store/payment/pending/${checkout.paymentId || checkout.checkoutToken}?publicOrderToken=${encodeURIComponent(checkout.checkoutToken)}`),
+    onSuccess: (checkout) => {
+      const params = new URLSearchParams({
+        publicOrderToken: checkout.checkoutToken,
+        storefrontSlug,
+        returnTo: `/store/${storefrontSlug}`,
+      })
+      navigate(`/store/payment/pending/${checkout.paymentId || checkout.checkoutToken}?${params.toString()}`)
+    },
   })
-  const { setField } = form
 
   if (store.loading) {
     return (

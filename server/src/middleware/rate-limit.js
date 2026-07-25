@@ -64,3 +64,5 @@ export const publicOrderRateLimit = createRateLimit({
   message: 'Too many public order requests',
   keyGenerator: (req) => `${getClientIp(req)}:${req.params?.publicOrderToken || 'unknown'}`,
 });
+export const publicRecommendationRateLimit = createRateLimit({ keyPrefix: 'public-recommendations', windowMs: 60 * 1000, max: 60, message: 'Too many recommendation requests' });
+export const publicRecommendationEventRateLimit = createRateLimit({ keyPrefix: 'public-recommendation-events', windowMs: 60 * 1000, max: 120, message: 'Too many recommendation event requests' });

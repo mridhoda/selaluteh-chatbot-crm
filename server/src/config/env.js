@@ -33,6 +33,7 @@ const raw = {
   supabaseDatabaseUrl: process.env.SUPABASE_DATABASE_URL || '',
   corsOrigin: process.env.CORS_ORIGIN || '*',
   publicBaseUrl: process.env.PUBLIC_BASE_URL || '',
+  publicWebBaseUrl: process.env.PUBLIC_WEB_BASE_URL || '',
   jwtSecret: process.env.JWT_SECRET || 'devsecret',
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
   metaVerifyToken: process.env.META_VERIFY_TOKEN || '',
@@ -140,6 +141,11 @@ if (raw.publicBaseUrl && raw.publicBaseUrl === '/') {
   process.exit(1);
 }
 
+if (raw.publicWebBaseUrl === '/') {
+  console.error('PUBLIC_WEB_BASE_URL must not be "/". Set it to the public web origin.');
+  process.exit(1);
+}
+
 export const env = {
   nodeEnv: raw.nodeEnv,
   isProduction: raw.nodeEnv === 'production',
@@ -152,6 +158,7 @@ export const env = {
   corsOrigin: raw.corsOrigin,
   corsOriginList: raw.corsOriginList,
   publicBaseUrl: raw.publicBaseUrl,
+  publicWebBaseUrl: raw.publicWebBaseUrl,
   jwtSecret: raw.jwtSecret,
   telegramBotToken: raw.telegramBotToken,
   metaVerifyToken: raw.metaVerifyToken,

@@ -6,15 +6,61 @@ import { providerSyncRateLimit } from '../middleware/rate-limit.js';
 import { createPayment, createPaymentSessionForOrder, createXenditPaymentSessionForOrder, getPaymentDetailForUser, listPaymentsForUser, refreshPaymentSession, syncPaymentWithProvider } from '../services/payment.service.js';
 import { detectMissingWebhooks, reconcileMissingWebhook, reconcilePayment, batchReconcileByStatus, getNeedsAttentionPayments } from '../services/payment-reconciliation.service.js';
 import { AppError } from '../utils/errors.js';
-import { paymentEventsRepository } from '../db/repositories/index.js';
+import { ordersRepository, paymentEventsRepository, paymentsRepository } from '../db/repositories/index.js';
 import { env } from '../config/env.js';
 import { getPaymentRuntimeConfig } from '../services/settings.service.js';
 
 const router = express.Router();
 
-router.all('/return/:kind', (req, res) => {
+function getPublicWebBaseUrl() {
+  const value = env.publicWebBaseUrl || '';
+  if (!value) return '';
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(url.hostname)) return '';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return '';
+  }
+}
+
+export async function resolvePaymentReturnState({ payment, isSuccess, sync = syncPaymentWithProvider } = {}) {
+  if (!payment || !isSuccess || !['pending', 'processing'].includes(String(payment.status || '').toLowerCase())) return payment;
+  try {
+    return await sync({ workspaceId: payment.workspaceId, paymentId: payment.id });
+  } catch (error) {
+    console.warn(`[PaymentReturn] Provider sync skipped for ${payment.id}:`, error.message);
+    return payment;
+  }
+}
+
+router.all('/return/:kind', async (req, res, next) => {
   const kind = req.params.kind === 'cancel' ? 'cancel' : 'success';
   const isSuccess = kind === 'success';
+  try {
+    const query = req.query || {};
+    const providerInvoice = query.invoice_id || query.invoice || query.payment_id || null;
+    const payment = query.merchantReference
+      ? await paymentsRepository.findByMerchantReferenceGlobal(String(query.merchantReference))
+      : providerInvoice ? await paymentsRepository.findByProviderTransactionId(String(providerInvoice)) : null;
+    const order = payment?.orderId
+      ? await ordersRepository.workspaceFindById({ workspaceId: payment.workspaceId, orderId: payment.orderId })
+      : null;
+    const storefrontSlug = query.storefrontSlug || order?.metadata?.publicStorefrontSlug || '';
+    const publicOrderToken = query.publicOrderToken || order?.publicOrderToken || '';
+    if (payment?.id && publicOrderToken && storefrontSlug) {
+      const verifiedPayment = await resolvePaymentReturnState({ payment, isSuccess });
+      const webBase = getPublicWebBaseUrl();
+      if (webBase) {
+        const target = new URL(`${webBase.replace(/\/$/, '')}/store/${encodeURIComponent(storefrontSlug || 'store')}`);
+        target.searchParams.set('paymentReturn', isSuccess ? (String(verifiedPayment?.status || '').toLowerCase() === 'paid' ? 'success' : 'pending') : 'cancel');
+        target.searchParams.set('orderToken', publicOrderToken);
+        return res.redirect(303, target.toString());
+      }
+    }
+  } catch (error) {
+    return next(error);
+  }
   res
     .status(isSuccess ? 200 : 200)
     .type('html')
@@ -202,3 +248,5 @@ router.post('/reconciliation/:paymentId', authorizePermission('payments', 'recon
 });
 
 export default router;
+
+export const paymentRouteInternals = { getPublicWebBaseUrl, resolvePaymentReturnState };
