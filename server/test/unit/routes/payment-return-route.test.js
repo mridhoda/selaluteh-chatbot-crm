@@ -38,7 +38,7 @@ describe('Payment return route', () => {
     assert.equal(result.status, 'paid');
   });
 
-  it('redirects the browser to the public payment page using a merchant reference', async (t) => {
+  it('redirects the browser to the public payment status page using a merchant reference', async (t) => {
     t.mock.method(paymentsRepository, 'findByMerchantReferenceGlobal', async () => ({ id: 'pay-1', workspaceId: 'workspace-1', orderId: 'order-1', status: 'paid' }));
     t.mock.method(ordersRepository, 'workspaceFindById', async () => ({ publicOrderToken: 'po-1', metadata: { publicStorefrontSlug: 'selalu-teh' } }));
     const response = await request(createApp(), '/payments/return/success?merchantReference=REF-1');
@@ -46,9 +46,10 @@ describe('Payment return route', () => {
     assert.equal(response.status, 303);
     const location = new URL(response.headers.get('location'));
     assert.equal(location.origin, 'https://app-dev.incretlabs.my.id');
-    assert.equal(location.pathname, '/store/selalu-teh');
-    assert.equal(location.searchParams.get('paymentReturn'), 'success');
-    assert.equal(location.searchParams.get('orderToken'), 'po-1');
+    assert.equal(location.pathname, '/store/payment/pending/pay-1');
+    assert.equal(location.searchParams.get('publicOrderToken'), 'po-1');
+    assert.equal(location.searchParams.get('storefrontSlug'), 'selalu-teh');
+    assert.equal(location.searchParams.get('returnTo'), '/store/selalu-teh');
   });
 
   it('uses provider invoice lookup when merchant reference is absent', async (t) => {
@@ -58,9 +59,8 @@ describe('Payment return route', () => {
 
     assert.equal(response.status, 303);
     const location = new URL(response.headers.get('location'));
-    assert.equal(location.pathname, '/store/store-2');
-    assert.equal(location.searchParams.get('paymentReturn'), 'success');
-    assert.equal(location.searchParams.get('orderToken'), 'po-2');
+    assert.equal(location.pathname, '/store/payment/pending/pay-2');
+    assert.equal(location.searchParams.get('publicOrderToken'), 'po-2');
   });
 
   it('uses Duitku merchantOrderId and never syncs its browser return', async (t) => {
@@ -70,8 +70,8 @@ describe('Payment return route', () => {
 
     assert.equal(response.status, 303);
     const location = new URL(response.headers.get('location'));
-    assert.equal(location.pathname, '/store/store-3');
-    assert.equal(location.searchParams.get('paymentReturn'), 'pending');
+    assert.equal(location.pathname, '/store/payment/pending/pay-3');
+    assert.equal(location.searchParams.get('publicOrderToken'), 'po-3');
   });
 
   it('does not sync a pending Duitku payment from its browser return', async () => {

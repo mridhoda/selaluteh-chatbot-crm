@@ -54,9 +54,10 @@ router.all('/return/:kind', async (req, res, next) => {
       const verifiedPayment = await resolvePaymentReturnState({ payment, isSuccess });
       const webBase = getPublicWebBaseUrl();
       if (webBase) {
-        const target = new URL(`${webBase.replace(/\/$/, '')}/store/${encodeURIComponent(storefrontSlug || 'store')}`);
-        target.searchParams.set('paymentReturn', isSuccess ? (String(verifiedPayment?.status || '').toLowerCase() === 'paid' ? 'success' : 'pending') : 'cancel');
-        target.searchParams.set('orderToken', publicOrderToken);
+        const target = new URL(`${webBase.replace(/\/$/, '')}/store/payment/pending/${encodeURIComponent(payment.id)}`);
+        target.searchParams.set('publicOrderToken', publicOrderToken);
+        if (storefrontSlug) target.searchParams.set('storefrontSlug', storefrontSlug);
+        target.searchParams.set('returnTo', `/store/${storefrontSlug || 'store'}`);
         return res.redirect(303, target.toString());
       }
     }
