@@ -13,6 +13,7 @@ const QrStorePage = lazy(() => import('../features/public-store/pages/QrStorePag
 const CheckoutPage = lazy(() => import('../features/public-store/pages/CheckoutPage'))
 const PaymentPendingPage = lazy(() => import('../features/public-store/pages/PaymentPendingPage'))
 const OrderStatusPage = lazy(() => import('../features/public-store/pages/OrderStatusPage'))
+const OrderConfirmationPage = lazy(() => import('../features/public-store/pages/OrderConfirmationPage'))
 const CustomerAccountPage = lazy(() => import('../features/public-store/pages/CustomerAccountPage'))
 
 export default function AppRoutes() {
@@ -29,8 +30,9 @@ export default function AppRoutes() {
       <Route path='/qr/:qrToken' element={<QrStorePage />} />
        <Route path='/store/:storefrontSlug/checkout' element={<CheckoutPage />} />
        <Route path='/store/:storefrontSlug/account' element={<CustomerAccountPage />} />
-      <Route path='/store/payment/pending/:paymentId' element={<PaymentPendingPage />} />
-      <Route path='/order/:publicOrderToken' element={<OrderStatusPage />} />
+       <Route path='/store/payment/pending/:paymentId' element={<PaymentPendingPage />} />
+       <Route path='/order/:publicOrderToken/confirmation' element={<OrderConfirmationPage />} />
+       <Route path='/order/:publicOrderToken' element={<OrderStatusPage />} />
       <Route path='/store/order/:publicOrderToken' element={<OrderStatusPage />} />
       <Route path='/app/*' element={<AuthenticatedDashboard />} />
       <Route path='*' element={<Navigate to='/' />} />
