@@ -1,4 +1,4 @@
-const DEFAULT_API_PORT = '5000'
+const DEFAULT_API_PORT = '5005'
 
 export function getApiBase() {
   const env = import.meta.env || {}
