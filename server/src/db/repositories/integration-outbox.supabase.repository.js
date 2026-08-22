@@ -3,10 +3,11 @@
  *
  * Durable outbox for pushing order lifecycle / fulfillment events to
  * TATA-POS's ingestion endpoint (Fase 4, TATA-POS repo's
- * specs/backlog/modul-online-store-ingestion/requirements.md R10). Nothing
- * calls `enqueue()` yet -- that hook-up (payment/fulfillment transition
- * points) is a separate, later change. This repository only implements the
- * storage/claim/ack primitives.
+ * specs/backlog/modul-online-store-ingestion/requirements.md R10).
+ * `enqueue()` is called from server/src/services/order.service.js's
+ * `markOrderPaidPreparing()` (order.paid) and `notifyOrderUpdatedRealtime()`
+ * (fulfillment lifecycle events) -- see that file for the enqueue policy.
+ * This repository only implements the storage/claim/ack primitives.
  */
 import { getSupabaseServiceClient } from '../supabase.js';
 import { mapRow, mapRows } from '../supabase-mapper.js';

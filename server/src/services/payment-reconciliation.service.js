@@ -1,35 +1,9 @@
 import { paymentsSupabaseRepository as paymentsRepository, ordersSupabaseRepository as ordersRepository } from '../db/repositories/index.js';
 import { getSupabaseServiceClient } from '../db/supabase.js';
-import { notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage } from './order.service.js';
+import { notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage, markOrderPaidPreparing, isTerminalOrder } from './order.service.js';
 import { AppError } from '../utils/errors.js';
-import { FulfillmentStatus, OrderStatus, PaymentStatus } from '../orders/order-types.js';
+import { PaymentStatus } from '../orders/order-types.js';
 import { resolvePaymentProvider } from './payment-provider-resolver.service.js';
-
-function paidOrderUpdates(paidAt = new Date().toISOString()) {
-  return {
-    payment_status: PaymentStatus.PAID,
-    fulfillment_status: FulfillmentStatus.PREPARING,
-    status: OrderStatus.PREPARING,
-    preparing_at: paidAt,
-    paid_at: paidAt,
-  };
-}
-
-function isTerminalOrder(order) {
-  return [OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.EXPIRED, OrderStatus.COMPLETED].includes(order?.status)
-    || [FulfillmentStatus.CANCELLED, FulfillmentStatus.COMPLETED].includes(order?.fulfillmentStatus || order?.fulfillment_status);
-}
-
-async function markOrderPaidPreparing({ workspaceId, orderId, paidAt }, deps = {}) {
-  const ordersRepo = deps.ordersRepository || ordersRepository;
-  const order = await ordersRepo.workspaceFindById({ workspaceId, orderId });
-  if (isTerminalOrder(order)) return order;
-  const fulfillmentStatus = order?.fulfillmentStatus || order?.fulfillment_status;
-  if (order?.paymentStatus === PaymentStatus.PAID && ![FulfillmentStatus.NOT_STARTED, FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.ACCEPTED, 'unfulfilled', null, undefined].includes(fulfillmentStatus)) {
-    return order;
-  }
-  return ordersRepo.updateOne({ workspaceId, orderId, updates: paidOrderUpdates(paidAt) });
-}
 
 export function determineReconciliationStatus({ payment, order, providerStatus }) {
   if (payment.reconciliationStatus === 'matched') return 'matched';
@@ -166,7 +140,7 @@ async function processPaidPaymentFromReconciliation({ payment, providerEvent }, 
 
   const orderBefore = payment.orderId ? await (deps.ordersRepository || ordersRepository).workspaceFindById({ workspaceId: payment.workspaceId, orderId: payment.orderId }) : null;
   const wasAlreadyPaid = orderBefore?.paymentStatus === PaymentStatus.PAID || orderBefore?.payment_status === PaymentStatus.PAID;
-  const updatedOrder = await markOrderPaidPreparing({ workspaceId: payment.workspaceId, orderId: payment.orderId, paidAt: providerEvent.paidAt }, deps);
+  const updatedOrder = await markOrderPaidPreparing({ workspaceId: payment.workspaceId, orderId: payment.orderId, paidAt: providerEvent.paidAt, provider: payment.provider, providerReference: payment.providerTransactionId }, deps);
 
   if (updatedOrder && !isTerminalOrder(updatedOrder)) {
     notifyPaymentUpdated({ workspaceId: payment.workspaceId, outletId: updated?.outletId || updatedOrder.outletId, payment: updated, order: updatedOrder });

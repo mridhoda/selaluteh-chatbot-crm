@@ -6,9 +6,8 @@
  * Mirrors this repo's xendit-client.js style: plain `fetch`, no extra
  * dependency, throws AppError with provider status/body on failure.
  *
- * Not called from anywhere yet -- the outbox worker
- * (server/src/workers/integration-outbox-dispatch.worker.js) is the only
- * intended caller, and it isn't registered/started yet either.
+ * The outbox worker (server/src/workers/integration-outbox-dispatch.worker.js)
+ * is the only caller.
  */
 import crypto from 'node:crypto';
 import { env } from '../../config/env.js';

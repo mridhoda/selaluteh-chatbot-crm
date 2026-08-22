@@ -23,7 +23,12 @@ test('public rate limits do not trust client forwarded headers', async () => {
 });
 
 test('payment settlement preserves terminal order states', async () => {
-  const source = await readFile(new URL('services/payment-webhook.service.js', root), 'utf8');
+  // isTerminalOrder()/markOrderPaidPreparing() were consolidated out of
+  // payment-webhook.service.js (and payment.service.js/
+  // payment-reconciliation.service.js) into order.service.js -- see
+  // markOrderPaidPreparing's docstring there. The invariant this test
+  // guards moved with it.
+  const source = await readFile(new URL('services/order.service.js', root), 'utf8');
   assert.match(source, /function isTerminalOrder\(order\)/);
   assert.match(source, /if \(isTerminalOrder\(order\)\) return order/);
 });

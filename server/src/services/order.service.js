@@ -6,9 +6,186 @@ import { AppError } from '../utils/errors.js';
 import { sendOrderCreatedPush, sendOrderPaidPush } from './web-push.service.js';
 import { broadcastToWorkspace } from './realtime.service.js';
 import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
+import { integrationOutboxRepository } from '../db/repositories/integration-outbox.supabase.repository.js';
 import {
   OrderStatus, PaymentStatus, FulfillmentStatus, isValidOrderTransition, ORDER_ERRORS, ActorType,
 } from '../orders/order-types.js';
+
+// TATA-POS integration outbox (Fase 4). Only the 'online_store' channel
+// syncs -- 'qr_store' (dine-in QR) never enqueues, per the plan's decision
+// to avoid double-booking revenue against whatever already records those
+// transactions. This repo's own outlet/workspace ids ARE the values TATA-POS
+// expects for external_workspace_id/external_outlet_id (TATA-POS's
+// external_outlet_links table maps them back to its own outlet) -- no
+// lookup/mapping table needed on this side.
+const SYNCED_CHANNEL = 'online_store';
+
+export function isTerminalOrder(order) {
+  return [OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.EXPIRED, OrderStatus.COMPLETED].includes(order?.status)
+    || [FulfillmentStatus.CANCELLED, FulfillmentStatus.COMPLETED].includes(order?.fulfillmentStatus || order?.fulfillment_status);
+}
+
+function paidOrderUpdates(paidAt = new Date().toISOString()) {
+  return {
+    payment_status: PaymentStatus.PAID,
+    fulfillment_status: FulfillmentStatus.PREPARING,
+    paid_at: paidAt,
+    preparing_at: paidAt,
+    status: OrderStatus.PREPARING,
+  };
+}
+
+// order.paid item/totals shape per TATA-POS design.md §2. Reuses the item/
+// totals fields ordersRepository's own mapOrder() already produces on every
+// order object (order.items[]/order.totals) rather than re-querying or
+// re-deriving them from scratch.
+function buildOutboxItemsPayload(items = []) {
+  return items.map((item) => ({
+    sku: item.sku || null,
+    product_name_snapshot: item.name || item.productNameSnapshot || 'Item',
+    // This schema's order_items has no variant_name_snapshot column/mapping
+    // (see order create() below / orders.supabase.repository.js's mapOrder),
+    // but TATA-POS's DTO requires a non-empty string here -- fall back to
+    // the product name, which is always present.
+    variant_name_snapshot: item.variantName || item.name || item.productNameSnapshot || 'Standard',
+    qty: item.quantity,
+    unit_price: item.unitPrice,
+    discount_amount: 0,
+    line_total: item.subtotalAmount ?? item.subtotal ?? (item.unitPrice ?? 0) * (item.quantity ?? 0),
+  }));
+}
+
+function buildOutboxTotalsPayload(order) {
+  const totals = order.totals || {};
+  return {
+    subtotal: totals.subtotal ?? order.subtotalAmount ?? 0,
+    discount_total: totals.discount ?? order.discountAmount ?? 0,
+    tax_total: 0,
+    service_charge_total: 0,
+    delivery_fee_total: totals.deliveryFee ?? order.deliveryFee ?? 0,
+    grand_total: totals.total ?? order.totalAmount ?? 0,
+    currency: totals.currency ?? order.currency ?? 'IDR',
+  };
+}
+
+// Builds the wire payload TATA-POS's import-external-order.dto.ts actually
+// requires. NOTE: that DTO requires external_order_number/items/totals/payment on
+// EVERY event_type -- there's no @IsOptional() gating them by event_type --
+// even though the RPC (private.import_external_sales_order) itself only
+// reads them on the order.paid insert path and ignores them on the
+// order.completed/order.voided/order.fulfillment_updated update paths. So
+// every event type built here sends the full shape, not just the fields
+// the RPC happens to use for that event, to actually pass the live DTO's
+// validation as it stands today.
+function buildOutboxOrderPayload({ order, items, eventType, provider, providerReference, fulfillmentStatus }) {
+  const occurredAt = new Date().toISOString();
+  return {
+    event_type: eventType,
+    source: SYNCED_CHANNEL,
+    external_order_id: order.id,
+    external_order_number: order.orderNumber,
+    external_workspace_id: order.workspaceId,
+    external_outlet_id: order.outletId,
+    // This repo's online_store orders are always pickup (fulfillmentType is
+    // hardcoded 'pickup' at creation) -- TATA-POS's order_type enum has no
+    // 'pickup' member, 'takeaway' is the closest fit.
+    order_type: 'takeaway',
+    occurred_at: occurredAt,
+    paid_at: order.paidAt || occurredAt,
+    ...(fulfillmentStatus ? { fulfillment_status: fulfillmentStatus } : {}),
+    customer: {
+      name: order.customerNameSnapshot || '',
+      phone: order.customerPhoneSnapshot || '',
+    },
+    items: buildOutboxItemsPayload(items),
+    totals: buildOutboxTotalsPayload(order),
+    payment: {
+      // Required non-empty by the DTO regardless of event_type. Every
+      // order.paid call site threads a real payment.provider through;
+      // fulfillment-lifecycle events have no payment record in scope (and
+      // the RPC doesn't read this field on their update path anyway), so
+      // 'unknown' is a harmless required filler there.
+      provider: provider || 'unknown',
+      ...(providerReference ? { provider_reference: providerReference } : {}),
+      amount: order.totals?.total ?? order.totalAmount ?? 0,
+      paid_at: order.paidAt || occurredAt,
+    },
+  };
+}
+
+async function enqueueOrderPaidEvent({ order, items, provider, providerReference }) {
+  if (!order) return;
+  await integrationOutboxRepository.enqueue({
+    workspaceId: order.workspaceId,
+    orderId: order.id,
+    eventType: 'order.paid',
+    payload: buildOutboxOrderPayload({ order, items, eventType: 'order.paid', provider, providerReference }),
+  });
+}
+
+const FULFILLMENT_OUTBOX_EVENT_TYPE = {
+  [FulfillmentStatus.CANCELLED]: 'order.voided',
+  [FulfillmentStatus.COMPLETED]: 'order.completed',
+};
+
+// Fulfillment-lifecycle sync: hooked once here (notifyOrderUpdatedRealtime's
+// one shared call site for approveOrder/rejectOrder/transitionOrderFulfillment
+// /transitionOrderStatus) rather than per-caller. paymentStatus !== PAID
+// covers both "never synced yet" and transitionOrderStatus's own
+// allowed-before-payment cancellation path -- no order.paid was ever sent
+// for either, so nothing to update on TATA-POS's side.
+//
+// `order` here comes from atomicStatusUpdate()/atomicFulfillmentStatusUpdate()
+// (approve/reject/prepare/ready/complete/cancel), neither of which joins
+// order_items -- unlike markOrderPaidPreparing's items (reused from its own
+// pre-update workspaceFindById fetch, which does join them), there's no
+// already-fetched items list available here, and the DTO requires a
+// non-empty items array on every event_type (see buildOutboxOrderPayload).
+// One extra read is the cheapest correct option; it only runs for paid
+// online_store orders on a fulfillment transition, not on every order event.
+async function enqueueFulfillmentLifecycleEvent({ order }) {
+  if (!order || order.channel !== SYNCED_CHANNEL || order.paymentStatus !== PaymentStatus.PAID) return;
+  const fulfillmentStatus = order.fulfillmentStatus || order.fulfillment_status;
+  const eventType = FULFILLMENT_OUTBOX_EVENT_TYPE[fulfillmentStatus] || 'order.fulfillment_updated';
+  const withItems = await ordersRepository.workspaceFindById({ workspaceId: order.workspaceId, orderId: order.id }).catch(() => null);
+  await integrationOutboxRepository.enqueue({
+    workspaceId: order.workspaceId,
+    orderId: order.id,
+    eventType,
+    payload: buildOutboxOrderPayload({ order, items: withItems?.items || [], eventType, fulfillmentStatus }),
+  });
+}
+
+/**
+ * Consolidated from 3 verbatim-duplicated copies (payment.service.js,
+ * payment-webhook.service.js, payment-reconciliation.service.js) --
+ * TATA-POS Fase 4 planning surfaced the drift risk of 3 independent copies.
+ * `deps.ordersRepository` preserves payment-reconciliation.service.js's
+ * existing dependency-injection-for-testing capability (its own copy took a
+ * `deps` param the other two didn't); `provider`/`providerReference` are new
+ * optional fields threaded in by callers that have a payment record in
+ * scope, used only to build the outbound order.paid outbox payload below.
+ */
+export async function markOrderPaidPreparing({ workspaceId, orderId, paidAt, provider, providerReference } = {}, deps = {}) {
+  const ordersRepo = deps.ordersRepository || ordersRepository;
+  const order = await ordersRepo.workspaceFindById({ workspaceId, orderId });
+  if (isTerminalOrder(order)) return order;
+  const fulfillmentStatus = order?.fulfillmentStatus || order?.fulfillment_status;
+  const wasAlreadyPaid = order?.paymentStatus === PaymentStatus.PAID;
+  if (wasAlreadyPaid && ![FulfillmentStatus.NOT_STARTED, FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.ACCEPTED, 'unfulfilled', null, undefined].includes(fulfillmentStatus)) {
+    return order;
+  }
+  const updated = await ordersRepo.updateOne({ workspaceId, orderId, updates: paidOrderUpdates(paidAt) });
+  // Only enqueue on the transition that ACTUALLY just made the order paid
+  // (order.paymentStatus read above was not yet PAID) -- an already-paid
+  // order reaching this updateOne again (e.g. the fulfillment-status-only
+  // repair path above) already had its order.paid sent the first time.
+  if (updated && !wasAlreadyPaid && updated.channel === SYNCED_CHANNEL) {
+    await enqueueOrderPaidEvent({ order: updated, items: order?.items, provider, providerReference })
+      .catch((err) => console.error('[IntegrationOutbox] Failed to enqueue order.paid event:', err.message));
+  }
+  return updated;
+}
 
 export function resolveOutletName(formData = {}) {
   if (!formData) return 'Kami';
@@ -203,6 +380,11 @@ export function notifyPaymentUpdatedRealtime({ workspaceId, outletId, payment, o
 }
 
 export function notifyOrderUpdatedRealtime({ workspaceId, outletId, order }) {
+  // Fire-and-forget: never awaited here so this function's sync signature/
+  // return value is unchanged, and any enqueue failure can't break the
+  // realtime broadcast it's attached to (the outbox's own retry/dead-letter
+  // handling deals with delivery failures, not this call site).
+  enqueueFulfillmentLifecycleEvent({ order }).catch((err) => console.error('[IntegrationOutbox] Failed to enqueue fulfillment event:', err.message));
   return broadcastToWorkspace({
     workspaceId,
     event: 'order.updated',

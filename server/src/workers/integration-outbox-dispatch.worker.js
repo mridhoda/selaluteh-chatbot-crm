@@ -6,10 +6,9 @@
  * payment-reconciliation.worker.js's shape (setInterval, `.unref()`,
  * `start(intervalMs)` export).
  *
- * NOT registered in server/src/index.js yet -- nothing enqueues into
- * integration_outbox yet either, so starting this worker now would just
- * poll an empty table. Wiring it into bootstrap happens alongside the
- * enqueue hooks (separate, later change) so both land together for review.
+ * Registered in server/src/index.js's bootstrap() alongside the other
+ * workers; order.service.js's markOrderPaidPreparing()/
+ * notifyOrderUpdatedRealtime() are what enqueue rows for it to drain.
  */
 import { integrationOutboxRepository } from '../db/repositories/integration-outbox.supabase.repository.js';
 import { sendIntegrationEvent } from '../integrations/tata-pos/tata-pos-client.js';

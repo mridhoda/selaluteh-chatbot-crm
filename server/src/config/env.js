@@ -100,8 +100,9 @@ const raw = {
 
   // TATA-POS integration outbox (Fase 4 — server/src/integrations/tata-pos/,
   // server/src/workers/integration-outbox-dispatch.worker.js). Optional:
-  // nothing enqueues into integration_outbox or starts the dispatch worker
-  // yet, so these are unused until that follow-up change wires them in.
+  // when unset, tata-pos-client.js's assertConfigured() throws on send,
+  // which the dispatch worker just records as a per-row failure (retried
+  // with backoff) rather than crashing the process.
   tataPosBaseUrl: process.env.TATA_POS_BASE_URL || '',
   tataPosIntegrationKeyId: process.env.TATA_POS_INTEGRATION_KEY_ID || '',
   tataPosIntegrationSecret: process.env.TATA_POS_INTEGRATION_SECRET || '',

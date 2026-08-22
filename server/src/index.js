@@ -53,6 +53,7 @@ import createLocationInternalRouter from './routes/location-internal.js';
 import { start as startFollowups } from './services/followups.service.js';
 import { start as startCartExpiry } from './workers/cart-expiry.worker.js';
 import { start as startPaymentReconciliation } from './workers/payment-reconciliation.worker.js';
+import { start as startIntegrationOutboxDispatch } from './workers/integration-outbox-dispatch.worker.js';
 import { start as startQrSessionExpiry } from './workers/qr-session-expiry.worker.js';
 import { createTelegramWebhookManager } from './workers/webhook-manager.worker.js';
 import { startEscalationScheduler } from './workers/escalation-scheduler.worker.js';
@@ -218,6 +219,7 @@ async function bootstrap() {
   startCartExpiry();
   startQrSessionExpiry();
   startPaymentReconciliation();
+  startIntegrationOutboxDispatch();
   startEscalationScheduler();
   startTelegramWebhookEvents({ intervalMs: 1000 });
   const webhookManager = createTelegramWebhookManager();

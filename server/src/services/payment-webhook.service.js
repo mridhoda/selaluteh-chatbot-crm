@@ -1,38 +1,16 @@
 import { paymentEventsRepository, paymentsRepository, ordersRepository } from '../db/repositories/index.js';
-import { notifyOrderUpdatedRealtime, notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage } from './order.service.js';
+import {
+  notifyOrderUpdatedRealtime, notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage,
+  markOrderPaidPreparing, isTerminalOrder,
+} from './order.service.js';
 import { AppError } from '../utils/errors.js';
 import { redactSecrets } from '../utils/redaction.js';
 import { getPaymentRuntimeConfig } from './settings.service.js';
-import { FulfillmentStatus, OrderStatus, PaymentStatus } from '../orders/order-types.js';
+import { PaymentStatus } from '../orders/order-types.js';
 import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
 import { resolvePaymentAdapter, resolvePaymentProvider } from './payment-provider-resolver.service.js';
 import { recordSecurityEvent } from './security-event.service.js';
 import { attributePaidOrder } from './product-recommendation.service.js';
-
-function paidOrderUpdates(paidAt = new Date().toISOString()) {
-  return {
-    payment_status: PaymentStatus.PAID,
-    fulfillment_status: FulfillmentStatus.PREPARING,
-    paid_at: paidAt,
-    preparing_at: paidAt,
-    status: OrderStatus.PREPARING,
-  };
-}
-
-function isTerminalOrder(order) {
-  return [OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.EXPIRED, OrderStatus.COMPLETED].includes(order?.status)
-    || [FulfillmentStatus.CANCELLED, FulfillmentStatus.COMPLETED].includes(order?.fulfillmentStatus || order?.fulfillment_status);
-}
-
-async function markOrderPaidPreparing({ workspaceId, orderId, paidAt }) {
-  const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
-  if (isTerminalOrder(order)) return order;
-  const fulfillmentStatus = order?.fulfillmentStatus || order?.fulfillment_status;
-  if (order?.paymentStatus === PaymentStatus.PAID && ![FulfillmentStatus.NOT_STARTED, FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.ACCEPTED, 'unfulfilled', null, undefined].includes(fulfillmentStatus)) {
-    return order;
-  }
-  return ordersRepository.updateOne({ workspaceId, orderId, updates: paidOrderUpdates(paidAt) });
-}
 
 async function attributeRecommendationPurchase(workspaceId, order) {
   if (!order) return;
@@ -118,7 +96,7 @@ export async function processPaymentWebhook({ workspaceId, provider, rawBody, he
     netAmount: event.netAmount || event.amount, paymentMethod: event.paymentMethod, paidAt: new Date(),
   } });
 
-  const updatedOrder = await markOrderPaidPreparing({ workspaceId, orderId: payment.orderId });
+  const updatedOrder = await markOrderPaidPreparing({ workspaceId, orderId: payment.orderId, provider, providerReference: payment.providerTransactionId });
   await attributeRecommendationPurchase(workspaceId, updatedOrder);
   notifyPaymentUpdatedRealtime({ workspaceId, outletId: updatedPayment.outletId, payment: updatedPayment, order: updatedOrder });
 
@@ -195,7 +173,7 @@ export async function processDokuCheckoutWebhook({ rawBody, headers, requestTarg
   });
 
   await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: 'paid' });
-  const updatedOrder = await markOrderPaidPreparing({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId });
+  const updatedOrder = await markOrderPaidPreparing({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId, provider: 'doku', providerReference: targetPayment.providerTransactionId });
   notifyPaymentUpdatedRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
   if (!isTerminalOrder(updatedOrder)) {
     notifyPaidOrderRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedOrder?.outletId, order: updatedOrder });
@@ -292,7 +270,7 @@ export async function processDuitkuWebhook({ rawBody, headers }, deps = {}) {
       currency: event.currency, paymentMethod: event.paymentMethod, paidAt: new Date(), rawPayload: safePaymentSessionPayload(event.raw),
     } }).catch((error) => console.error('[PaymentWebhook] addEvent warning (non-fatal):', error.message));
   }
-  const updatedOrder = await markOrderPaid({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId });
+  const updatedOrder = await markOrderPaid({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId, provider: 'duitku', providerReference: targetPayment.providerTransactionId });
   await attributeRecommendationPurchase(targetPayment.workspaceId, updatedOrder);
   notifyPaymentUpdated({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
   if (!isTerminalOrder(updatedOrder)) {
@@ -416,7 +394,7 @@ export async function processBayarGgWebhook({ rawBody, headers }, deps = {}) {
       console.error('[PaymentWebhook] addEvent warning (non-fatal):', evtErr.message);
     }
   }
-  const updatedOrder = await markOrderPaid({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId, paidAt: event.paidAt || new Date().toISOString() });
+  const updatedOrder = await markOrderPaid({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId, paidAt: event.paidAt || new Date().toISOString(), provider: 'bayargg', providerReference: targetPayment.providerTransactionId });
   await attributeRecommendationPurchase(targetPayment.workspaceId, updatedOrder);
   await logPaymentAudit({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, paymentId: targetPayment.id, orderId: targetPayment.orderId, action: 'payment.paid', details: { provider: 'bayargg', eventKey }, auditRepository });
   notifyPaymentUpdated({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
@@ -537,7 +515,7 @@ export async function processXenditPaymentSessionWebhook({ rawBody, headers }) {
   await paymentEventsRepository.updateProcessingStatus({ workspaceId: targetPayment.workspaceId, eventId: registered.id, status: 'processed', verificationResult: nextStatus });
 
   if (nextStatus === 'paid') {
-    const updatedOrder = await markOrderPaidPreparing({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId });
+    const updatedOrder = await markOrderPaidPreparing({ workspaceId: targetPayment.workspaceId, orderId: targetPayment.orderId, provider: 'xendit', providerReference: targetPayment.providerTransactionId });
     await attributeRecommendationPurchase(targetPayment.workspaceId, updatedOrder);
     notifyPaymentUpdatedRealtime({ workspaceId: targetPayment.workspaceId, outletId: updatedPayment?.outletId || targetPayment.outletId, payment: updatedPayment || targetPayment, order: updatedOrder });
     // Only add a settlement event if this is a fresh processing (not a retry of a stuck event)

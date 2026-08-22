@@ -2,41 +2,18 @@ import { env } from '../config/env.js';
 import { AppError } from '../utils/errors.js';
 import { ordersRepository, paymentsRepository } from '../db/repositories/index.js';
 import { assertOutletAccess, buildOutletScopedQuery } from './access-control.service.js';
-import { notifyOrderUpdatedRealtime, notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage } from './order.service.js';
+import {
+  notifyOrderUpdatedRealtime, notifyPaidOrderRealtime, notifyPaymentUpdatedRealtime, sendOrderStatusMessage,
+  markOrderPaidPreparing, isTerminalOrder,
+} from './order.service.js';
 import { getPaymentRuntimeConfig } from './settings.service.js';
 import { resolvePaymentProvider, resolvePaymentAdapter } from './payment-provider-resolver.service.js';
 import { assertPaymentProviderAuthority, assertPaymentSnapshot } from '../ai/security/payment-order-guardrails.js';
-import { FulfillmentStatus, OrderStatus, PaymentStatus } from '../orders/order-types.js';
 import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
 import { attributePaidOrder } from './product-recommendation.service.js';
 
 const TERMINAL_PAID_STATUSES = new Set(['paid', 'refunded', 'partially_refunded']);
 const ACTIVE_SESSION_STATUSES = new Set(['pending', 'created']);
-
-function paidOrderUpdates(paidAt = new Date().toISOString()) {
-  return {
-    payment_status: PaymentStatus.PAID,
-    fulfillment_status: FulfillmentStatus.PREPARING,
-    paid_at: paidAt,
-    preparing_at: paidAt,
-    status: OrderStatus.PREPARING,
-  };
-}
-
-function isTerminalOrder(order) {
-  return [OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.EXPIRED, OrderStatus.COMPLETED].includes(order?.status)
-    || [FulfillmentStatus.CANCELLED, FulfillmentStatus.COMPLETED].includes(order?.fulfillmentStatus || order?.fulfillment_status);
-}
-
-async function markOrderPaidPreparing({ workspaceId, orderId, paidAt }) {
-  const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
-  if (isTerminalOrder(order)) return order;
-  const fulfillmentStatus = order?.fulfillmentStatus || order?.fulfillment_status;
-  if (order?.paymentStatus === PaymentStatus.PAID && ![FulfillmentStatus.NOT_STARTED, FulfillmentStatus.AWAITING_ACCEPTANCE, FulfillmentStatus.ACCEPTED, 'unfulfilled', null, undefined].includes(fulfillmentStatus)) {
-    return order;
-  }
-  return ordersRepository.updateOne({ workspaceId, orderId, updates: paidOrderUpdates(paidAt) });
-}
 
 function resolveEntityId(value) {
   if (!value || typeof value !== 'object') return value || null;
@@ -403,7 +380,7 @@ export async function reconcileProviderSession({ payment, providerSession }) {
   const updatedPayment = await paymentsRepository.transitionStatus({ paymentId: payment.id, fromStatuses: allowedFrom, newStatus: providerSession.status, updates });
   if (updatedPayment) {
     const updatedOrder = providerSession.status === 'paid'
-      ? await markOrderPaidPreparing({ workspaceId: payment.workspaceId, orderId: payment.orderId })
+      ? await markOrderPaidPreparing({ workspaceId: payment.workspaceId, orderId: payment.orderId, provider: payment.provider, providerReference: payment.providerTransactionId })
       : null;
     if (updatedOrder) await attributePaidOrder({ workspaceId: payment.workspaceId, order: updatedOrder }).catch((error) => console.error('[Payment] Recommendation attribution failed:', error.message));
     notifyPaymentUpdatedRealtime({ workspaceId: payment.workspaceId, outletId: updatedPayment.outletId, payment: updatedPayment, order: updatedOrder });
@@ -563,7 +540,7 @@ async function processPaidPayment({ payment, providerEvent }) {
 
   await paymentsRepository.updatePayment(payment.id, { reconciliation_status: 'matched' });
 
-  const updatedOrder = await markOrderPaidPreparing({ workspaceId: payment.workspaceId, orderId: payment.orderId });
+  const updatedOrder = await markOrderPaidPreparing({ workspaceId: payment.workspaceId, orderId: payment.orderId, provider: payment.provider, providerReference: payment.providerTransactionId });
   await attributePaidOrder({ workspaceId: payment.workspaceId, order: updatedOrder }).catch((error) => console.error('[Payment] Recommendation attribution failed:', error.message));
   notifyPaymentUpdatedRealtime({ workspaceId: payment.workspaceId, outletId: updated.outletId, payment: updated, order: updatedOrder });
   if (!isTerminalOrder(updatedOrder)) {
