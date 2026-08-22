@@ -97,6 +97,14 @@ const raw = {
   // Location Intelligence — Google Maps
   googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',
   locationProvider: process.env.LOCATION_PROVIDER || 'nominatim',
+
+  // TATA-POS integration outbox (Fase 4 — server/src/integrations/tata-pos/,
+  // server/src/workers/integration-outbox-dispatch.worker.js). Optional:
+  // nothing enqueues into integration_outbox or starts the dispatch worker
+  // yet, so these are unused until that follow-up change wires them in.
+  tataPosBaseUrl: process.env.TATA_POS_BASE_URL || '',
+  tataPosIntegrationKeyId: process.env.TATA_POS_INTEGRATION_KEY_ID || '',
+  tataPosIntegrationSecret: process.env.TATA_POS_INTEGRATION_SECRET || '',
 };
 
 const isTest = raw.nodeEnv === 'test';
@@ -219,6 +227,10 @@ export const env = {
   localAiApiKey: raw.localAiApiKey,
   googleMapsApiKey: raw.googleMapsApiKey,
   locationProvider: raw.locationProvider,
+
+  tataPosBaseUrl: raw.tataPosBaseUrl,
+  tataPosIntegrationKeyId: raw.tataPosIntegrationKeyId,
+  tataPosIntegrationSecret: raw.tataPosIntegrationSecret,
 };
 
 export function getAllowedCorsOrigins() {
@@ -284,5 +296,8 @@ export function redactedConfig() {
     webPushVapidPublicKey: env.webPushVapidPublicKey ? 'configured' : '',
     webPushVapidPrivateKey: env.webPushVapidPrivateKey ? 'configured' : '',
     webPushSubject: env.webPushSubject,
+    tataPosBaseUrl: env.tataPosBaseUrl,
+    tataPosIntegrationKeyId: env.tataPosIntegrationKeyId ? 'configured' : '',
+    tataPosIntegrationSecret: env.tataPosIntegrationSecret ? 'configured' : '',
   };
 }
