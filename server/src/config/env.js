@@ -106,6 +106,14 @@ const raw = {
   tataPosBaseUrl: process.env.TATA_POS_BASE_URL || '',
   tataPosIntegrationKeyId: process.env.TATA_POS_INTEGRATION_KEY_ID || '',
   tataPosIntegrationSecret: process.env.TATA_POS_INTEGRATION_SECRET || '',
+
+  // TATA-POS -> Online Store inbound bridge (Fase 4 Stage E --
+  // server/src/middleware/tataPosInboundAuth.js). Single static shared
+  // secret (not the per-outlet integration_keys scheme the outbound
+  // direction uses) -- there is exactly one caller, TATA-POS's own backend.
+  // Optional: when unset, the guard middleware fails closed with 500
+  // (server misconfiguration) rather than silently accepting any request.
+  tataPosInboundHmacSecret: process.env.TATA_POS_INBOUND_HMAC_SECRET || '',
 };
 
 const isTest = raw.nodeEnv === 'test';
@@ -232,6 +240,7 @@ export const env = {
   tataPosBaseUrl: raw.tataPosBaseUrl,
   tataPosIntegrationKeyId: raw.tataPosIntegrationKeyId,
   tataPosIntegrationSecret: raw.tataPosIntegrationSecret,
+  tataPosInboundHmacSecret: raw.tataPosInboundHmacSecret,
 };
 
 export function getAllowedCorsOrigins() {
@@ -300,5 +309,6 @@ export function redactedConfig() {
     tataPosBaseUrl: env.tataPosBaseUrl,
     tataPosIntegrationKeyId: env.tataPosIntegrationKeyId ? 'configured' : '',
     tataPosIntegrationSecret: env.tataPosIntegrationSecret ? 'configured' : '',
+    tataPosInboundHmacSecret: env.tataPosInboundHmacSecret ? 'configured' : '',
   };
 }

@@ -311,6 +311,24 @@ export const ordersSupabaseRepository = {
     return row ? mapOrder(row) : null;
   },
 
+  /**
+   * Workspace-agnostic lookup by id only -- no workspace filter. SAFE ONLY
+   * because the sole caller is the new inbound TATA-POS bridge router
+   * (server/src/routes/integrations-inbound.js), which authenticates the
+   * caller via a shared-secret HMAC signature before this ever runs and has
+   * no session/req.me to scope a workspace query by (TATA-POS's backend
+   * only knows Online Store's own order id, not its workspace). Never call
+   * this from a user-facing or session-based route -- every other route
+   * must keep using workspaceFindById/workspaceFindByIdScoped.
+   */
+  async findByIdAnyWorkspace({ orderId }) {
+    const client = getSupabaseServiceClient();
+    const result = await client.from(TABLE).select('*, contacts(id, name, phone, handle, external_id), outlets(id, name, code, city, status), order_items(*)').eq('id', orderId).maybeSingle();
+    const row = extractSingle(result, 'orders.findByIdAnyWorkspace');
+    if (row) row.order_items = await hydrateOrderItemMedia(client, row.workspace_id, row.order_items || []);
+    return row ? mapOrder(row) : null;
+  },
+
   async workspaceFindByOrderNumber({ workspaceId, orderNumber }) {
     requireWorkspaceId(workspaceId);
     const client = getSupabaseServiceClient();
