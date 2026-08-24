@@ -56,6 +56,12 @@ export function transformOrderToPublic(order) {
     order_number: orderNumber,
     orderNumber,
     orderNumberPublic: orderNumber,
+    // TATA-POS's own generated receipt number, filled in best-effort by the
+    // outbox dispatch worker once order.paid is delivered -- null until then
+    // (or if the order never synced). Not a replacement for orderNumber
+    // above, which stays the customer-facing lookup id.
+    pos_receipt_number: order.posReceiptNumber || null,
+    posReceiptNumber: order.posReceiptNumber || null,
     queueNumber,
     queue_number: queueNumber,
     channel: order.channel || order.source || 'online_store',

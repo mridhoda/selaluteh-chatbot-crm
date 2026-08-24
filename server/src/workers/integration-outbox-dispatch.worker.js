@@ -11,6 +11,7 @@
  * notifyOrderUpdatedRealtime() are what enqueue rows for it to drain.
  */
 import { integrationOutboxRepository } from '../db/repositories/integration-outbox.supabase.repository.js';
+import { ordersRepository } from '../db/repositories/index.js';
 import { sendIntegrationEvent } from '../integrations/tata-pos/tata-pos-client.js';
 import { computeWorkerBackoffMs } from './job-contract.js';
 
@@ -31,9 +32,32 @@ export async function dispatchOnce(limit = BATCH_LIMIT) {
 
   for (const row of rows) {
     try {
-      await sendIntegrationEvent(row.payload);
+      const result = await sendIntegrationEvent(row.payload);
       await integrationOutboxRepository.markDelivered({ id: row.id });
       delivered++;
+
+      // Best-effort: TATA-POS's own generated order_number is cosmetic
+      // (customer lookup still uses this repo's own orderNumber) -- a
+      // failure here must never undo the markDelivered above.
+      //
+      // TATA-POS's HTTP layer wraps every controller response in a global
+      // { data, meta } envelope -- verified live (POST /integrations/orders
+      // actually returns { data: { order_number, ... }, meta: { request_id } },
+      // not the bare RPC shape { order_number, ... }). Falling back to the
+      // bare shape too in case a future TATA-POS endpoint ever returns it
+      // unwrapped.
+      const posReceiptNumber = result?.data?.order_number || result?.order_number;
+      if (posReceiptNumber && row.orderId) {
+        try {
+          await ordersRepository.updateOne({
+            workspaceId: row.workspaceId,
+            orderId: row.orderId,
+            updates: { pos_receipt_number: posReceiptNumber },
+          });
+        } catch (updateErr) {
+          console.error(`[IntegrationOutboxDispatch] Row ${row.id}: failed to persist pos_receipt_number: ${updateErr.message}`);
+        }
+      }
     } catch (err) {
       const backoffMs = computeWorkerBackoffMs((row.attempts ?? 0) + 1);
       try {

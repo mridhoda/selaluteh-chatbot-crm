@@ -465,6 +465,15 @@ export const ordersSupabaseRepository = {
       }
     }
 
+    // fulfillment_status is a real Postgres enum with lowercase-only members
+    // (unlike the legacy `status` column, which tolerates mixed case in
+    // existing data) -- the uppercase expectedCandidates variant above exists
+    // for `status`, not for this column, so trying it against
+    // fulfillment_status always 22P02s rather than just "not matching". A
+    // trailing 22P02 here only ever means "no candidate matched" (an invalid
+    // enum label can never equal an actual stored value), so surface it the
+    // same as a clean no-match instead of a raw Postgres error.
+    if (lastResult?.error?.code === '22P02') lastResult = { ...lastResult, error: null, data: null };
     const row = extractSingle(lastResult, 'orders.atomicFulfillmentStatusUpdate');
     return row ? mapOrder(row) : null;
   },
