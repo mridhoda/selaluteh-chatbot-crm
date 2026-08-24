@@ -295,8 +295,8 @@ export default function Sidebar() {
               <FontAwesomeIcon icon={faLeaf} />
             </div>
             <div className='sidebar-logo-text'>
-              <span className='logo-title'>{workspaceLabel}</span>
-              <span className='logo-subtitle'>CRM Chatbot</span>
+              <span className='logo-title'>TATA-Commerce</span>
+              <span className='logo-subtitle'>TATA-Commerce</span>
             </div>
           </div>
         </div>
