@@ -56,6 +56,16 @@ export function startOrderRealtimeStream() {
 
   orderStream.addEventListener('ready', () => {
     console.log('Order realtime stream connected')
+    // Fires on first connect AND on every browser-native auto-reconnect after
+    // a drop (the server re-sends 'ready' each time a new SSE connection is
+    // established) -- one event covers both "show connected" and "resync now".
+    window.dispatchEvent(new CustomEvent('order:connection', { detail: { connected: true } }))
+  })
+
+  orderStream.addEventListener('order.cancelled', (event) => {
+    const data = JSON.parse(event.data || '{}')
+    window.dispatchEvent(new CustomEvent('order:cancelled', { detail: data }))
+    window.dispatchEvent(new CustomEvent('order:updated', { detail: data }))
   })
 
   orderStream.addEventListener('order.created', (event) => {
@@ -91,6 +101,7 @@ export function startOrderRealtimeStream() {
 
   orderStream.onerror = () => {
     console.warn('Order realtime stream disconnected; browser will retry automatically')
+    window.dispatchEvent(new CustomEvent('order:connection', { detail: { connected: false } }))
   }
 
   return { started: true }

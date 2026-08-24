@@ -48,3 +48,31 @@ export function getRealtimeClientCount() {
   for (const set of clients.values()) count += set.size;
   return count;
 }
+
+// Public per-order channel (customer status page) -- keyed by publicOrderToken
+// instead of workspaceId:userId. The per-token key IS the isolation boundary:
+// a client registered under token X cannot physically receive a broadcast
+// addressed to token Y, no runtime outlet-style filter needed or to get wrong.
+const publicOrderClients = new Map();
+
+export function addPublicOrderClient({ publicOrderToken, res }) {
+  const set = publicOrderClients.get(publicOrderToken) || new Set();
+  set.add(res);
+  publicOrderClients.set(publicOrderToken, set);
+
+  res.on('close', () => {
+    set.delete(res);
+    if (set.size === 0) publicOrderClients.delete(publicOrderToken);
+  });
+}
+
+export function broadcastToPublicOrder({ publicOrderToken, event, data }) {
+  const set = publicOrderClients.get(publicOrderToken);
+  if (!set) return { sent: 0 };
+  let sent = 0;
+  for (const res of set) {
+    sendRealtimeEvent(res, event, data);
+    sent += 1;
+  }
+  return { sent };
+}

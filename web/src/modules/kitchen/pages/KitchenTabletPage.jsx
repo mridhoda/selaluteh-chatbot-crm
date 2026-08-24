@@ -262,6 +262,7 @@ export default function KitchenTabletPage({ onViewModeChange }) {
   const [printingOrderId, setPrintingOrderId] = useState(null)
   const [completedExpanded, setCompletedExpanded] = useState(true)
   const [soundEnabled, setSoundEnabled] = useState(false)
+  const [connected, setConnected] = useState(true)
   const boardRef = useRef(null)
   const alertAudioRef = useRef(null)
   const knownOrderIdsRef = useRef(new Set())
@@ -377,16 +378,31 @@ export default function KitchenTabletPage({ onViewModeChange }) {
 
   useEffect(() => {
     loadInitialData()
-    const pollInterval = setInterval(loadInitialData, 3000)
+    // 25s safety-net poll -- SSE + event-triggered refetch is the fast path,
+    // this just keeps the board correct if the connection is silently dead.
+    const pollInterval = setInterval(loadInitialData, 25000)
     const onEvent = () => loadInitialData()
+    const onVisibility = () => { if (document.visibilityState === 'visible') loadInitialData() }
+    const onConnection = (event) => {
+      setConnected(event.detail?.connected ?? true)
+      // 'ready' fires on first connect AND every reconnect after a drop --
+      // resync immediately instead of waiting for the next poll tick.
+      if (event.detail?.connected) loadInitialData()
+    }
     window.addEventListener('order:created', onEvent)
     window.addEventListener('order:paid', onEvent)
     window.addEventListener('order:updated', onEvent)
+    window.addEventListener('order:cancelled', onEvent)
+    window.addEventListener('order:connection', onConnection)
+    document.addEventListener('visibilitychange', onVisibility)
     return () => {
       clearInterval(pollInterval)
       window.removeEventListener('order:created', onEvent)
       window.removeEventListener('order:paid', onEvent)
       window.removeEventListener('order:updated', onEvent)
+      window.removeEventListener('order:cancelled', onEvent)
+      window.removeEventListener('order:connection', onConnection)
+      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [soundEnabled])
 
@@ -545,6 +561,10 @@ export default function KitchenTabletPage({ onViewModeChange }) {
               <div className="text-slate-400 font-bold uppercase text-[9px] leading-tight">Last Sync</div>
               <div className="text-slate-700 font-bold leading-tight">{lastSync}</div>
             </div>
+            <span
+              className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`}
+              title={connected ? 'Realtime tersambung' : 'Realtime terputus -- fallback ke polling'}
+            />
           </div>
 
           <button

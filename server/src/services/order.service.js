@@ -4,7 +4,8 @@ import { tgSend, waSend, igSend } from './sender.js';
 import { buildOutletScopedQuery, assertOutletAccess, canAccessAllOutlets } from './access-control.service.js';
 import { AppError } from '../utils/errors.js';
 import { sendOrderCreatedPush, sendOrderPaidPush } from './web-push.service.js';
-import { broadcastToWorkspace } from './realtime.service.js';
+import { broadcastToWorkspace, broadcastToPublicOrder } from './realtime.service.js';
+import { buildPublicOrderEvent } from './public-order.service.js';
 import { auditLogsRepository } from '../db/repositories/audit-logs.supabase.repository.js';
 import { integrationOutboxRepository } from '../db/repositories/integration-outbox.supabase.repository.js';
 import {
@@ -379,25 +380,56 @@ export function notifyPaymentUpdatedRealtime({ workspaceId, outletId, payment, o
   });
 }
 
-export function notifyOrderUpdatedRealtime({ workspaceId, outletId, order }) {
+// Lets a device tell "I just did this" (skip its own re-render/toast) from
+// "someone else did this" (must react). userId is only ever null when the
+// call came from the TATA-POS reverse bridge (integrations-inbound.js) --
+// every staff-authenticated route always has a real userId.
+function resolveActor(userId) {
+  return userId ? { type: 'staff', userId } : { type: 'tata_pos_bridge' };
+}
+
+// Case-insensitive on purpose: rejectOrder stores uppercase 'REJECTED', but
+// the admin-cancel path (transitionOrderStatus, called with the raw
+// lowercase 'cancelled') persists that string as-is.
+function isCancelledOutcome(order) {
+  const status = String(order?.status || '').toUpperCase();
+  return order?.fulfillmentStatus === FulfillmentStatus.CANCELLED
+    || ['CANCELLED', 'REJECTED', 'EXPIRED'].includes(status);
+}
+
+export function notifyOrderUpdatedRealtime({ workspaceId, outletId, order, actor = null }) {
   // Fire-and-forget: never awaited here so this function's sync signature/
   // return value is unchanged, and any enqueue failure can't break the
   // realtime broadcast it's attached to (the outbox's own retry/dead-letter
   // handling deals with delivery failures, not this call site).
   enqueueFulfillmentLifecycleEvent({ order }).catch((err) => console.error('[IntegrationOutbox] Failed to enqueue fulfillment event:', err.message));
-  return broadcastToWorkspace({
+  const cancelled = isCancelledOutcome(order);
+  const event = cancelled ? 'order.cancelled' : 'order.updated';
+  // order.updatedAt (real DB column), not broadcast time -- clients compare
+  // this against what they already hold to discard stale/out-of-order events.
+  const updatedAt = order?.updatedAt || new Date().toISOString();
+  const result = broadcastToWorkspace({
     workspaceId,
-    event: 'order.updated',
+    event,
     data: {
-      type: 'order.updated',
+      type: event,
       workspaceId,
       outletId,
       orderId: order?.id,
       orderNumber: order?.orderNumber,
       order,
-      updatedAt: new Date().toISOString(),
+      actor,
+      updatedAt,
     },
   });
+  if (order?.publicOrderToken) {
+    broadcastToPublicOrder({
+      publicOrderToken: order.publicOrderToken,
+      event,
+      data: buildPublicOrderEvent(order),
+    });
+  }
+  return result;
 }
 
 function isOrderPaid(order = {}) {
@@ -422,7 +454,12 @@ export async function approveOrder({ workspaceId, orderId, outletId, userId }) {
   const order = await ordersRepository.workspaceFindById({ workspaceId, orderId });
   if (!order) throw new AppError(ORDER_ERRORS.ORDER_NOT_FOUND.code, 'Order not found', ORDER_ERRORS.ORDER_NOT_FOUND.status);
   if (order.outletId !== outletId) throw new AppError(ORDER_ERRORS.ORDER_NOT_FOUND.code, 'Order not found for outlet', 404);
-  if (order.fulfillmentStatus !== FulfillmentStatus.AWAITING_ACCEPTANCE) throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, 'Order is not awaiting outlet acceptance', 400);
+  // Idempotent retry: a second tablet's "accept" tap on an order another
+  // tablet already accepted is a harmless no-op, not an error.
+  if (order.fulfillmentStatus === FulfillmentStatus.ACCEPTED) return order;
+  if (order.fulfillmentStatus !== FulfillmentStatus.AWAITING_ACCEPTANCE) {
+    throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, 'Order is not awaiting outlet acceptance', 409, { currentState: order });
+  }
 
   const updated = await ordersRepository.atomicFulfillmentStatusUpdate({
     workspaceId,
@@ -431,7 +468,7 @@ export async function approveOrder({ workspaceId, orderId, outletId, userId }) {
     newStatus: FulfillmentStatus.ACCEPTED,
     updates: { status: OrderStatus.APPROVED, approved_at: new Date().toISOString() },
   });
-  if (!updated) throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, 'Cannot approve in current state', 400);
+  if (!updated) throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, 'Cannot approve in current state', 409, { currentState: order });
 
   await ordersRepository.addTimelineEntry({
     orderId, workspaceId,
@@ -443,7 +480,7 @@ export async function approveOrder({ workspaceId, orderId, outletId, userId }) {
 
   await logOrderAudit({ workspaceId, outletId: updated.outletId, orderId, userId, action: 'order.accepted', details: { fromStatus: FulfillmentStatus.AWAITING_ACCEPTANCE, toStatus: FulfillmentStatus.ACCEPTED } });
 
-  notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated });
+  notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated, actor: resolveActor(userId) });
 
   return updated;
 }
@@ -453,7 +490,11 @@ export async function rejectOrder({ workspaceId, orderId, outletId, userId, reas
   if (!order) throw new AppError(ORDER_ERRORS.ORDER_NOT_FOUND.code, 'Order not found', ORDER_ERRORS.ORDER_NOT_FOUND.status);
   if (order.outletId !== outletId) throw new AppError(ORDER_ERRORS.ORDER_NOT_FOUND.code, 'Order not found for outlet', 404);
   if (!reason?.trim()) throw new AppError('VALIDATION', 'Reason is required', 400);
-  if (order.fulfillmentStatus !== FulfillmentStatus.AWAITING_ACCEPTANCE) throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, 'Order is not awaiting outlet acceptance', 400);
+  // Idempotent retry: already rejected/cancelled by another tablet.
+  if (order.fulfillmentStatus === FulfillmentStatus.CANCELLED) return order;
+  if (order.fulfillmentStatus !== FulfillmentStatus.AWAITING_ACCEPTANCE) {
+    throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, 'Order is not awaiting outlet acceptance', 409, { currentState: order });
+  }
 
   const updated = await ordersRepository.atomicFulfillmentStatusUpdate({
     workspaceId,
@@ -462,7 +503,7 @@ export async function rejectOrder({ workspaceId, orderId, outletId, userId, reas
     newStatus: FulfillmentStatus.CANCELLED,
     updates: { status: OrderStatus.REJECTED, rejected_at: new Date().toISOString(), cancel_reason: reason },
   });
-  if (!updated) throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, 'Cannot reject in current state', 400);
+  if (!updated) throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, 'Cannot reject in current state', 409, { currentState: order });
 
   await ordersRepository.addTimelineEntry({
     orderId, workspaceId,
@@ -474,7 +515,7 @@ export async function rejectOrder({ workspaceId, orderId, outletId, userId, reas
 
   await logOrderAudit({ workspaceId, outletId: updated.outletId, orderId, userId, action: 'order.cancelled', details: { reason, fromStatus: FulfillmentStatus.AWAITING_ACCEPTANCE, toStatus: FulfillmentStatus.CANCELLED } });
 
-  notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated });
+  notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated, actor: resolveActor(userId) });
 
   return updated;
 }
@@ -504,7 +545,11 @@ async function transitionOrderFulfillment({ workspaceId, orderId, outletId, user
     newStatus: next,
     updates: { status: legacyStatus, [timestampColumn]: new Date().toISOString() },
   });
-  if (!updated) throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, `Cannot transition to ${next}`, 400);
+  if (!updated) {
+    // Idempotent retry: another tablet already made this exact transition.
+    if (order.fulfillmentStatus === next) return order;
+    throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, `Cannot transition to ${next}`, 409, { currentState: order });
+  }
 
   await ordersRepository.addTimelineEntry({
     orderId, workspaceId, eventType, actorType: ActorType.HUMAN_AGENT, actorUserId: userId,
@@ -516,7 +561,7 @@ async function transitionOrderFulfillment({ workspaceId, orderId, outletId, user
     [FulfillmentStatus.COMPLETED]: 'order.completed',
   };
   await logOrderAudit({ workspaceId, outletId: updated.outletId, orderId, userId, action: auditActionByStatus[next] || eventType.replace(':', '.'), details: { fromStatus: expected, toStatus: next } });
-  notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated });
+  notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated, actor: resolveActor(userId) });
   return updated;
 }
 
@@ -575,8 +620,10 @@ export async function transitionOrderStatus({ workspaceId, orderId, newStatus, a
   if (outletId && order.outletId !== outletId) throw new AppError(ORDER_ERRORS.ORDER_NOT_FOUND.code, 'Order not found for outlet', 404);
   const currentStatus = LEGACY_TO_NEW[order.status] || order.status;
   const targetStatus = LEGACY_TO_NEW[newStatus] || newStatus;
+  // Idempotent retry: already at the requested status.
+  if (currentStatus === targetStatus) return order;
   if (!isValidOrderTransition(currentStatus, targetStatus)) {
-    throw new AppError('INVALID_TRANSITION', `Cannot transition from ${order.status} to ${newStatus}`, 409);
+    throw new AppError(ORDER_ERRORS.ORDER_INVALID_TRANSITION.code, `Cannot transition from ${order.status} to ${newStatus}`, 409, { currentState: order });
   }
   const fulfillmentStatus = LEGACY_TO_FULFILLMENT[newStatus] || LEGACY_TO_FULFILLMENT[targetStatus];
   if (fulfillmentStatus === FulfillmentStatus.CANCELLED && !reason?.trim()) {
@@ -595,7 +642,7 @@ export async function transitionOrderStatus({ workspaceId, orderId, newStatus, a
       ...(['cancelled', OrderStatus.CANCELLED].includes(newStatus) ? { cancel_reason: reason || null, cancelled_at: new Date().toISOString() } : {}),
     },
   });
-  if (!updated) throw new AppError('CONFLICT', 'Order status changed concurrently', 409);
+  if (!updated) throw new AppError(ORDER_ERRORS.VERSION_CONFLICT.code, 'Order status changed concurrently', 409, { currentState: order });
 
   await logOrderAudit({
     workspaceId,
@@ -606,7 +653,7 @@ export async function transitionOrderStatus({ workspaceId, orderId, newStatus, a
     details: { fromStatus: order.status, toStatus: newStatus, reason: reason || null },
   });
 
-  notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated });
+  notifyOrderUpdatedRealtime({ workspaceId, outletId: updated.outletId, order: updated, actor: resolveActor(actor?.id) });
 
   // Send notification after persisted transition
   const message = STATUS_MESSAGES[newStatus];

@@ -14,7 +14,7 @@ export async function getPublicOrderByToken(publicOrderToken) {
 
   const confirmationExpiresAt = order.metadata?.confirmationExpiresAt;
   if (order.fulfillmentStatus === FulfillmentStatus.AWAITING_ACCEPTANCE && confirmationExpiresAt && new Date(confirmationExpiresAt).getTime() <= Date.now()) {
-    order = await ordersRepository.atomicFulfillmentStatusUpdate({
+    const expired = await ordersRepository.atomicFulfillmentStatusUpdate({
       workspaceId: order.workspaceId,
       orderId: order.id,
       expectedStatus: FulfillmentStatus.AWAITING_ACCEPTANCE,
@@ -25,10 +25,28 @@ export async function getPublicOrderByToken(publicOrderToken) {
         cancel_reason: 'Outlet tidak mengonfirmasi ketersediaan pesanan dalam 30 detik.',
         metadata: { ...(order.metadata || {}), confirmationExpired: true },
       },
-    }) || order;
+    });
+    if (expired) {
+      order = expired;
+      // Dynamic import to avoid a static circular dependency: order.service.js
+      // imports buildPublicOrderEvent from this file (for its own realtime
+      // broadcast), so this file can't statically import back from it.
+      const { notifyOrderUpdatedRealtime } = await import('./order.service.js');
+      notifyOrderUpdatedRealtime({ workspaceId: order.workspaceId, outletId: order.outletId, order, actor: { type: 'system', reason: 'confirmation_timeout' } });
+    }
   }
 
   return transformOrderToPublic(order);
+}
+
+// Thin whitelist for the public per-order SSE channel (Stage D) -- deliberately
+// NOT transformOrderToPublic(order) verbatim: that shape also carries raw
+// paymentStatus/payment_status/fulfillmentStatus/fulfillment_status (kept
+// there for existing REST/admin-ish consumers), which must never reach an
+// unauthenticated guest over the wire, only the derived public_order_status.
+export function buildPublicOrderEvent(order) {
+  const { paymentStatus, payment_status, fulfillmentStatus, fulfillment_status, ...safe } = transformOrderToPublic(order);
+  return safe;
 }
 
 export function transformOrderToPublic(order) {

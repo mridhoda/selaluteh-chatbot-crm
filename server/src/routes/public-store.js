@@ -1,5 +1,7 @@
 import express from 'express';
 import { getPublicOrderByToken } from '../services/public-order.service.js';
+import { ordersRepository } from '../db/repositories/index.js';
+import { addPublicOrderClient, sendRealtimeEvent } from '../services/realtime.service.js';
 import { getQrContext, getQrStoreContext } from '../services/qr-order-session.service.js';
 import {
   createPublicCheckout,
@@ -189,6 +191,31 @@ router.get('/orders/:publicOrderToken', publicOrderRateLimit, async (req, res, n
   try {
     const data = await getPublicOrderByToken(req.params.publicOrderToken);
     res.json(isV1(req) ? { order: data } : { data });
+  } catch (err) { next(err); }
+});
+
+// Public per-order SSE stream (Stage D, realtime brief): trust model is
+// possession of the unguessable publicOrderToken, same as the REST endpoint
+// above -- no staff auth, no outlet filter (the per-token registry in
+// realtime.service.js is the isolation boundary by construction).
+router.get('/orders/:publicOrderToken/stream', publicOrderRateLimit, async (req, res, next) => {
+  try {
+    const order = await ordersRepository.findByPublicOrderToken({ token: req.params.publicOrderToken });
+    if (!order) return res.status(404).json({ error: { code: 'PUBLIC_ORDER_NOT_FOUND', message: 'Order not found' } });
+
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    res.flushHeaders?.();
+    addPublicOrderClient({ publicOrderToken: req.params.publicOrderToken, res });
+    sendRealtimeEvent(res, 'ready', { connectedAt: new Date().toISOString() });
+
+    const heartbeat = setInterval(() => res.write(': heartbeat\n\n'), 25_000);
+    heartbeat.unref?.();
+    res.on('close', () => clearInterval(heartbeat));
   } catch (err) { next(err); }
 });
 
